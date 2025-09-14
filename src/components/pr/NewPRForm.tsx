@@ -864,6 +864,12 @@ export const NewPRForm = () => {
         }
       }
 
+      // Set approver field - use first approver as the primary approver
+      if (formState.approvers && formState.approvers.length > 0) {
+        prData.approver = formState.approvers[0];
+        prData.approvers = formState.approvers; // Keep the full list for backward compatibility
+      }
+
       console.log('Submitting PR data:', prData);
 
       // Create the PR

@@ -118,12 +118,39 @@ export class SubmitPRNotificationHandler {
         // Use the input PR number if it's in the correct format
         prNumber = inputPrNumber;
       } else {
-        // Generate a fallback PR number using the same format as generatePRNumber
-        const orgPrefix = (pr.organization || 'UNK').substring(0, 3).toUpperCase();
-        const currentYear = new Date().getFullYear();
-        const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
-        const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
-        prNumber = `${orgPrefix}-${currentYear}${currentMonth}-${randomSuffix}`;
+        // Generate a fallback PR number using the new format: [YYMMDD-####-ORG-CC]
+        const now = new Date();
+        const yy = now.getFullYear().toString().slice(-2);
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const dd = String(now.getDate()).padStart(2, '0');
+        
+        // Get organization code mapping
+        const orgCodeMap: { [key: string]: string } = {
+          '1pwr_lesotho': '1PL',
+          '1pwr_benin': '1PB', 
+          'sotho_minigrid_portfolio': 'SMP',
+          'lesotho': '1PL',
+          'benin': '1PB',
+          'sotho': 'SMP'
+        };
+        
+        // Get country code mapping
+        const countryCodeMap: { [key: string]: string } = {
+          '1pwr_lesotho': 'LS',
+          '1pwr_benin': 'BN',
+          'sotho_minigrid_portfolio': 'LS',
+          'lesotho': 'LS',
+          'benin': 'BN',
+          'sotho': 'LS'
+        };
+        
+        const orgCode = orgCodeMap[(pr.organization || 'UNK').toLowerCase()] || (pr.organization || 'UNK').substring(0, 3).toUpperCase();
+        const countryCode = countryCodeMap[(pr.organization || 'UNK').toLowerCase()] || 'XX';
+        
+        // Generate sequential number (0-9999, reset each year)
+        const sequentialNumber = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+        
+        prNumber = `${yy}${mm}${dd}-${sequentialNumber}-${orgCode}-${countryCode}`;
         
         console.warn('Using fallback PR number format', { 
           prId: pr.id, 

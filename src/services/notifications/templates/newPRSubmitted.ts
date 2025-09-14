@@ -188,17 +188,31 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
   });
 
   const prUrl = `${baseUrl || 'https://1pwr.firebaseapp.com'}/pr/${pr.id}`;
-  const subject = `${isUrgent ? 'URGENT: ' : ''}New PR ${prNumber} Submitted`;
+  const urgentFlag = pr.isUrgent || isUrgent;
+  const subject = `${urgentFlag ? 'URGENT: ' : ''}New PR ${prNumber} Submitted`;
 
   // Get approver information
   let approverName = 'Not specified';
   let approverEmail = 'Not specified';
   
-  // Enhanced approver resolution logic prioritizing PR.approver as the source of truth
+  // Enhanced approver resolution logic - check multiple sources
   if (pr.approver) {
     if (typeof pr.approver === 'string') {
-      approverName = pr.approver;
-      approverEmail = pr.approver;
+      // If it's a string, try to resolve it as a user ID
+      try {
+        const approverUser = await fetchUserDetails(pr.approver);
+        if (approverUser) {
+          approverName = approverUser.name || `${approverUser.firstName || ''} ${approverUser.lastName || ''}`.trim();
+          approverEmail = approverUser.email || 'Not specified';
+        } else {
+          approverName = pr.approver;
+          approverEmail = pr.approver;
+        }
+      } catch (error) {
+        console.warn('Failed to fetch approver details:', error);
+        approverName = pr.approver;
+        approverEmail = pr.approver;
+      }
     } else if (typeof pr.approver === 'object' && pr.approver !== null) {
       const approverObj = pr.approver as UserReference;
       if (approverObj.name) {
@@ -225,6 +239,22 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
     // Basic fallback if only currentApprover string is available
     approverName = pr.approvalWorkflow.currentApprover;
     approverEmail = pr.approvalWorkflow.currentApprover;
+  } else if (pr.approvers && pr.approvers.length > 0) {
+    // Fallback to first approver from the deprecated approvers array
+    try {
+      const approverUser = await fetchUserDetails(pr.approvers[0]);
+      if (approverUser) {
+        approverName = approverUser.name || `${approverUser.firstName || ''} ${approverUser.lastName || ''}`.trim();
+        approverEmail = approverUser.email || 'Not specified';
+      } else {
+        approverName = pr.approvers[0];
+        approverEmail = pr.approvers[0];
+      }
+    } catch (error) {
+      console.warn('Failed to fetch approver details from approvers array:', error);
+      approverName = pr.approvers[0];
+      approverEmail = pr.approvers[0];
+    }
   }
 
   // Get requestor information - Directly use the pre-processed requestor object from context.
@@ -239,8 +269,8 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
   const requestorSite = await resolveReferenceData(pr.site || '', 'site', pr.organization);
   console.debug(`Resolved site '${pr.site}' to '${requestorSite}'`);
   
-  const categoryName = await resolveReferenceData(pr.category || '', 'category', pr.organization);
-  console.debug(`Resolved category '${pr.category}' to '${categoryName}'`);
+  const categoryName = await resolveReferenceData(pr.projectCategory || pr.category || '', 'category', pr.organization);
+  console.debug(`Resolved category '${pr.projectCategory || pr.category}' to '${categoryName}'`);
   
   const expenseTypeName = await resolveReferenceData(pr.expenseType || '', 'expenseType', pr.organization);
   console.debug(`Resolved expenseType '${pr.expenseType}' to '${expenseTypeName}'`);
@@ -254,7 +284,7 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
 
   const html = `
     <div style="${styles.container}">
-      ${isUrgent ? `<div style="${styles.urgentBadge}">URGENT</div>` : ''}
+      ${urgentFlag ? `<div style="${styles.urgentBadge}">URGENT</div>` : ''}
       <h2 style="${styles.header}">New Purchase Request #${prNumber} Submitted</h2>
       
       <div style="${styles.section}">

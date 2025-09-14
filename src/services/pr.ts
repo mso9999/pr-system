@@ -473,11 +473,40 @@ export async function getUserPRs(
  * @returns The next PR number
  */
 export async function generatePRNumber(organization: string = 'UNK'): Promise<string> {
-  const orgPrefix = organization.substring(0, 3).toUpperCase();
-  const currentYear = new Date().getFullYear();
-  const timestamp = Date.now();
-  const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
-  const prNumber = `${orgPrefix}-${currentYear}${String(new Date().getMonth() + 1).padStart(2, '0')}-${randomSuffix}`;
+  // New format: [YYMMDD-####-ORG-CC]
+  const now = new Date();
+  const yy = now.getFullYear().toString().slice(-2);
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  
+  // Get organization code mapping
+  const orgCodeMap: { [key: string]: string } = {
+    '1pwr_lesotho': '1PL',
+    '1pwr_benin': '1PB', 
+    'sotho_minigrid_portfolio': 'SMP',
+    'lesotho': '1PL',
+    'benin': '1PB',
+    'sotho': 'SMP'
+  };
+  
+  // Get country code mapping
+  const countryCodeMap: { [key: string]: string } = {
+    '1pwr_lesotho': 'LS',
+    '1pwr_benin': 'BN',
+    'sotho_minigrid_portfolio': 'LS',
+    'lesotho': 'LS',
+    'benin': 'BN',
+    'sotho': 'LS'
+  };
+  
+  const orgCode = orgCodeMap[organization.toLowerCase()] || organization.substring(0, 3).toUpperCase();
+  const countryCode = countryCodeMap[organization.toLowerCase()] || 'XX';
+  
+  // Generate sequential number (0-9999, reset each year)
+  // For now, use timestamp-based approach, but this should be replaced with a proper counter
+  const sequentialNumber = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  
+  const prNumber = `${yy}${mm}${dd}-${sequentialNumber}-${orgCode}-${countryCode}`;
   console.log(`Generated PR Number: ${prNumber}`);
   return prNumber;
 }
