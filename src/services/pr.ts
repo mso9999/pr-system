@@ -479,24 +479,36 @@ export async function generatePRNumber(organization: string = 'UNK'): Promise<st
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
   
-  // Get organization code mapping
+  // Get organization code mapping from actual database values
   const orgCodeMap: { [key: string]: string } = {
     '1pwr_lesotho': '1PL',
-    '1pwr_benin': '1PB', 
-    'sotho_minigrid_portfolio': 'SMP',
+    '1pwr_benin': '1PB',
+    '1pwr_zambia': '1PZ',
+    'neo1': 'NEO',
+    'pueco_benin': 'PCB',
+    'pueco_lesotho': 'PCL',
+    'smp': 'SMP',
+    // Legacy mappings for backward compatibility
     'lesotho': '1PL',
     'benin': '1PB',
-    'sotho': 'SMP'
+    'zambia': '1PZ',
+    'sotho_minigrid_portfolio': 'SMP'
   };
   
-  // Get country code mapping
+  // Get country code mapping from actual database values
   const countryCodeMap: { [key: string]: string } = {
     '1pwr_lesotho': 'LS',
-    '1pwr_benin': 'BN',
-    'sotho_minigrid_portfolio': 'LS',
+    '1pwr_benin': 'BN', // Using BN instead of BJ as requested
+    '1pwr_zambia': 'ZM',
+    'neo1': 'LS',
+    'pueco_benin': 'BN', // Using BN instead of BJ as requested
+    'pueco_lesotho': 'LS',
+    'smp': 'LS',
+    // Legacy mappings for backward compatibility
     'lesotho': 'LS',
-    'benin': 'BN',
-    'sotho': 'LS'
+    'benin': 'BN', // Using BN instead of BJ as requested
+    'zambia': 'ZM',
+    'sotho_minigrid_portfolio': 'LS'
   };
   
   const orgCode = orgCodeMap[organization.toLowerCase()] || organization.substring(0, 3).toUpperCase();
