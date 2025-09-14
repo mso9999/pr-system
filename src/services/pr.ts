@@ -20,7 +20,7 @@ import {
 } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore'; 
 import { app, auth } from '@/config/firebase'; 
-import { logger } from '@/utils/logger';
+// import { logger } from '@/utils/logger';
 import { PRRequest, PRStatus, UserReference, HistoryItem, LineItem, ApprovalWorkflow, StatusHistoryItem, ApprovalHistoryItem } from '@/types/pr'; 
 import { User } from '@/types/user'; 
 import { mapFirebaseUserToUserReference } from '@/utils/userMapper';
@@ -65,7 +65,7 @@ function safeTimestampToISO(timestamp: Timestamp | string | undefined | null): s
     try {
       return timestamp.toDate().toISOString();
     } catch (e) {
-       logger.error("Failed to convert Firestore Timestamp to Date:", e);
+       console.error("Failed to convert Firestore Timestamp to Date:", e);
        return undefined;
     }
   }
@@ -80,7 +80,7 @@ function safeTimestampToISO(timestamp: Timestamp | string | undefined | null): s
         }
       }
     } catch(e) {
-       logger.error("Failed during string timestamp parsing/validation:", e);
+       console.error("Failed during string timestamp parsing/validation:", e);
        return undefined;
     }
   }
@@ -108,9 +108,9 @@ function createStatusHistoryItem(
  * @returns A promise resolving to the PRRequest object or null if not found.
  */
 export async function getPR(prId: string): Promise<PRRequest | null> {
-  logger.info(`Fetching PR with ID: ${prId}`);
+  console.log(`Fetching PR with ID: ${prId}`);
   if (!prId) {
-    logger.warn('getPR called with no prId.');
+    console.warn('getPR called with no prId.');
     return null;
   }
 
@@ -119,7 +119,7 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
     const docSnap = await getDoc(prDocRef);
 
     if (!docSnap.exists()) {
-      logger.warn(`PR with ID ${prId} not found.`);
+      console.warn(`PR with ID ${prId} not found.`);
       return null;
     }
 
@@ -167,11 +167,11 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
       isUrgent: data.isUrgent || false,
       metrics: data.metrics || undefined, 
     };
-    logger.info(`Successfully fetched PR with ID: ${prId}`);
+    console.log(`Successfully fetched PR with ID: ${prId}`);
     return pr;
 
   } catch (error) {
-    logger.error(`Failed to fetch PR with ID ${prId}:`, error);
+    console.error(`Failed to fetch PR with ID ${prId}:`, error);
     throw new Error(`Failed to fetch purchase request: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -190,10 +190,10 @@ export async function updatePRStatus(
   notes?: string, 
   user?: UserReference 
 ): Promise<void> {
-    logger.info(`Updating status for PR ${prId} to ${status} by user ${user?.id || 'System'}`);
+    console.log(`Updating status for PR ${prId} to ${status} by user ${user?.id || 'System'}`);
     if (!prId || !status || !user) {
         const missing = [!prId && 'prId', !status && 'status', !user && 'user'].filter(Boolean).join(', ');
-        logger.error(`updatePRStatus called with missing arguments: ${missing}`);
+        console.error(`updatePRStatus called with missing arguments: ${missing}`);
         throw new Error(`Missing required arguments for status update: ${missing}`);
     }
 
@@ -227,13 +227,13 @@ export async function updatePRStatus(
         }
 
         await updateDoc(prDocRef, updateData);
-        logger.info(`Successfully updated status for PR ${prId} to ${status}`);
+        console.log(`Successfully updated status for PR ${prId} to ${status}`);
         
         // Add notification creation logic here if needed upon status change
         // Example: await createNotificationForStatusChange(prId, status, user, currentData);
 
     } catch (error) {
-        logger.error(`Failed to update status for PR ${prId}:`, error);
+        console.error(`Failed to update status for PR ${prId}:`, error);
         throw new Error(`Failed to update PR status: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
@@ -245,9 +245,9 @@ export async function updatePRStatus(
  * @returns A promise that resolves when the update is complete.
  */
 export async function updatePR(prId: string, updateData: Partial<PRRequest>): Promise<void> {
-  logger.info(`Updating PR ${prId} with data:`, updateData);
+  console.log(`Updating PR ${prId} with data:`, updateData);
   if (!prId || !updateData || Object.keys(updateData).length === 0) {
-    logger.error('updatePR called with invalid arguments.');
+    console.error('updatePR called with invalid arguments.');
     throw new Error('Missing required arguments for PR update.');
   }
   try {
@@ -257,9 +257,9 @@ export async function updatePR(prId: string, updateData: Partial<PRRequest>): Pr
       delete (updateData as any).status;
     }
     await updateDoc(prDocRef, { ...updateData, updatedAt: serverTimestamp() });
-    logger.info(`Successfully updated PR ${prId}`);
+    console.log(`Successfully updated PR ${prId}`);
   } catch (error) {
-    logger.error(`Failed to update PR ${prId}:`, error);
+    console.error(`Failed to update PR ${prId}:`, error);
     throw new Error(`Failed to update PR: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
@@ -274,9 +274,9 @@ export async function getRuleForOrganization(
     organization: string, 
     amount: number
 ): Promise<ApprovalRule | null> {
-    logger.info(`Fetching approval rule for org: ${organization}, amount: ${amount}`);
+    console.log(`Fetching approval rule for org: ${organization}, amount: ${amount}`);
     if (!organization) {
-        logger.warn('getRuleForOrganization called with missing organization.');
+        console.warn('getRuleForOrganization called with missing organization.');
         return null;
     }
 
@@ -296,7 +296,7 @@ export async function getRuleForOrganization(
         const querySnapshot = await getDocs(q);
 
         if (querySnapshot.empty) {
-            logger.warn(`No applicable approval rule found for org ${organization} and amount ${amount}.`);
+            console.warn(`No applicable approval rule found for org ${organization} and amount ${amount}.`);
             return null;
         }
 
@@ -311,11 +311,11 @@ export async function getRuleForOrganization(
             // Map other fields...
         };
 
-        logger.info(`Found matching approval rule ID: ${rule.id} with level ${rule.approverLevel}`);
+        console.log(`Found matching approval rule ID: ${rule.id} with level ${rule.approverLevel}`);
         return rule;
 
     } catch (error) {
-        logger.error(`Failed to fetch approval rule for org ${organization}:`, error);
+        console.error(`Failed to fetch approval rule for org ${organization}:`, error);
         throw new Error(`Failed to fetch approval rule: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
@@ -329,9 +329,9 @@ export async function getRuleForOrganization(
 export async function createPR(
   prData: PRCreateData
 ): Promise<{ prId: string; prNumber: string }> {
-   logger.info('Attempting to create PR with data:', prData);
+   console.log('Attempting to create PR with data:', prData);
    if (!prData || !prData.requestorId) {
-     logger.error('createPR called with invalid prData or missing requestorId.');
+     console.error('createPR called with invalid prData or missing requestorId.');
      throw new Error('Invalid PR data provided.');
    }
 
@@ -352,11 +352,30 @@ export async function createPR(
 
      // Use addDoc to create a new document with an auto-generated ID
      const docRef = await addDoc(collection(db, PR_COLLECTION), finalPRData);
-     logger.info(`Successfully created PR ${prNumber} with ID ${docRef.id}`);
+     console.log(`Successfully created PR ${prNumber} with ID ${docRef.id}`);
+     
+     // Trigger notification for new PR submission
+     try {
+       const { SubmitPRNotificationHandler } = await import('./notifications/handlers/submitPRNotification');
+       const notificationHandler = new SubmitPRNotificationHandler();
+       
+       // Create the complete PR object with the generated ID
+       const completePRData = {
+         ...finalPRData,
+         id: docRef.id
+       };
+       
+       const notificationResult = await notificationHandler.createNotification(completePRData, prNumber);
+       console.log('PR submission notification result:', notificationResult);
+     } catch (notificationError) {
+       console.error('Failed to send PR submission notification:', notificationError);
+       // Don't throw here - PR creation should succeed even if notification fails
+     }
+     
      return { prId: docRef.id, prNumber: prNumber };
 
    } catch (error) {
-     logger.error('Failed to create PR:', error);
+     console.error('Failed to create PR:', error);
      throw new Error(`Failed to create purchase request: ${error instanceof Error ? error.message : String(error)}`);
    }
 }
@@ -373,9 +392,9 @@ export async function getUserPRs(
     organization?: string, 
     showOnlyMyPRs: boolean = true
 ): Promise<PRRequest[]> {
-    logger.info(`Fetching PRs for user ${userId}, org: ${organization}, onlyMine: ${showOnlyMyPRs}`);
+    console.log(`Fetching PRs for user ${userId}, org: ${organization}, onlyMine: ${showOnlyMyPRs}`);
     if (!userId) {
-        logger.error('getUserPRs called without userId');
+        console.error('getUserPRs called without userId');
         throw new Error('User ID is required to fetch PRs.');
     }
 
@@ -391,7 +410,7 @@ export async function getUserPRs(
             // For now, let's assume it means all PRs in their org if org is provided,
             // or all PRs if no org is provided (requires appropriate Firestore rules).
             // If showing all PRs user can *act on* is needed, more complex logic is required.
-            logger.warn('Fetching non-owned PRs - current logic might need refinement based on visibility rules.');
+            console.warn('Fetching non-owned PRs - current logic might need refinement based on visibility rules.');
             // Example: Fetching all PRs (adjust constraints based on actual requirements)
              if (organization) {
                  constraints.push(where('organization', '==', organization));
@@ -439,11 +458,11 @@ export async function getUserPRs(
             } as PRRequest);
         });
 
-        logger.info(`Fetched ${prs.length} PRs for user ${userId}`);
+        console.log(`Fetched ${prs.length} PRs for user ${userId}`);
         return prs;
 
     } catch (error) {
-        logger.error(`Failed to fetch PRs for user ${userId}:`, error);
+        console.error(`Failed to fetch PRs for user ${userId}:`, error);
         throw new Error(`Failed to retrieve purchase requests: ${error instanceof Error ? error.message : String(error)}`);
     }
 }
@@ -459,7 +478,7 @@ export async function generatePRNumber(organization: string = 'UNK'): Promise<st
   const timestamp = Date.now();
   const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
   const prNumber = `${orgPrefix}-${currentYear}${String(new Date().getMonth() + 1).padStart(2, '0')}-${randomSuffix}`;
-  logger.info(`Generated PR Number: ${prNumber}`);
+  console.log(`Generated PR Number: ${prNumber}`);
   return prNumber;
 }
 
@@ -469,17 +488,17 @@ export async function generatePRNumber(organization: string = 'UNK'): Promise<st
  * @returns A promise that resolves when the deletion is complete.
  */
 export async function deletePR(prId: string): Promise<void> {
-  logger.info(`Attempting to delete PR ${prId}`);
+  console.log(`Attempting to delete PR ${prId}`);
   if (!prId) {
-      logger.error('deletePR called without prId');
+      console.error('deletePR called without prId');
       throw new Error('PR ID is required to delete.');
   }
   try {
       const prDocRef = doc(db, PR_COLLECTION, prId);
       await deleteDoc(prDocRef); 
-      logger.info(`Successfully deleted PR ${prId}`);
+      console.log(`Successfully deleted PR ${prId}`);
   } catch (error) {
-      logger.error(`Failed to delete PR ${prId}:`, error);
+      console.error(`Failed to delete PR ${prId}:`, error);
       throw new Error(`Failed to delete purchase request: ${error instanceof Error ? error.message : String(error)}`);
   }
 }

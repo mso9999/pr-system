@@ -5,7 +5,7 @@ import { generateNewPREmail } from '../templates/newPRSubmitted';
 import { NotificationType, NotificationLog } from '@/types/notification';
 import { NotificationContext } from '@/services/notifications/types';
 import { getEnvironmentConfig } from '@/config/environment';
-import { logger } from '@/utils/logger';
+// import { logger } from '@/utils/logger';
 
 const functions = getFunctions();
 
@@ -39,15 +39,15 @@ export class SubmitPRNotificationHandler {
   private async getApproverDetails(approverId: string): Promise<any | null> {
     try {
       if (!approverId) {
-        logger.warn('Empty approver ID provided to getApproverDetails');
+        console.warn('Empty approver ID provided to getApproverDetails');
         return null;
       }
       
-      logger.debug('Fetching approver details for ID:', approverId);
+      console.debug('Fetching approver details for ID:', approverId);
       
       // Handle the case where approverId is an object
       if (typeof approverId === 'object') {
-        logger.debug('Approver ID is already an object:', approverId);
+        console.debug('Approver ID is already an object:', approverId);
         return approverId;
       }
       
@@ -56,7 +56,7 @@ export class SubmitPRNotificationHandler {
       
       if (userDoc.exists()) {
         const userData = userDoc.data();
-        logger.debug('Found approver data:', { userData });
+        console.debug('Found approver data:', { userData });
         
         return {
           id: approverId,
@@ -69,10 +69,10 @@ export class SubmitPRNotificationHandler {
         };
       }
       
-      logger.warn('Approver not found in users collection:', approverId);
+      console.warn('Approver not found in users collection:', approverId);
       return null;
     } catch (error) {
-      logger.error('Error fetching approver details:', error);
+      console.error('Error fetching approver details:', error);
       return null;
     }
   }
@@ -83,6 +83,31 @@ export class SubmitPRNotificationHandler {
    */
   async createNotification(pr: any, inputPrNumber?: string): Promise<{ success: boolean; notificationId?: string; message?: string }> {
     try {
+      console.log('SubmitPRNotificationHandler.createNotification called with:', { 
+        pr: pr, 
+        inputPrNumber,
+        prId: pr?.id,
+        prNumber: pr?.prNumber,
+        prKeys: pr ? Object.keys(pr) : 'pr is null/undefined',
+        prType: typeof pr,
+        prIdType: typeof pr?.id
+      });
+      
+      // Add more detailed debugging
+      console.log('Detailed PR object analysis:', {
+        hasId: 'id' in pr,
+        idValue: pr?.id,
+        idType: typeof pr?.id,
+        prKeys: pr ? Object.keys(pr) : 'pr is null/undefined',
+        prStringified: JSON.stringify(pr, null, 2)
+      });
+      
+      // Check if pr is null or undefined
+      if (!pr) {
+        console.error('PR object is null or undefined');
+        return { success: false, message: 'PR object is null or undefined' };
+      }
+      
       // Generate a user-friendly PR number if not available
       // Ensure consistent PR number format - prefer the official format from PR document
       let prNumber = '';
@@ -93,17 +118,23 @@ export class SubmitPRNotificationHandler {
         // Use the input PR number if it's in the correct format
         prNumber = inputPrNumber;
       } else {
-        // Generate a fallback PR number if no proper format is available
-        prNumber = `PR-${pr.id.substring(0, 8)}`;
-        logger.warn('Using fallback PR number format', { 
+        // Generate a fallback PR number using the same format as generatePRNumber
+        const orgPrefix = (pr.organization || 'UNK').substring(0, 3).toUpperCase();
+        const currentYear = new Date().getFullYear();
+        const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
+        const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
+        prNumber = `${orgPrefix}-${currentYear}${currentMonth}-${randomSuffix}`;
+        
+        console.warn('Using fallback PR number format', { 
           prId: pr.id, 
           fallbackPrNumber: prNumber,
           originalPrNumber: pr.prNumber,
-          inputPrNumber
+          inputPrNumber,
+          organization: pr.organization
         });
       }
 
-      logger.debug('Creating PR submission notification', { prId: pr.id, prNumber });
+      console.log('Creating PR submission notification', { prId: pr.id, prNumber });
       
       // Check if this PR already has a notification sent in the notifications collection
       const notificationsRef = collection(db, 'notifications');
@@ -115,7 +146,7 @@ export class SubmitPRNotificationHandler {
       
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
-        logger.info('PR submission notification already exists in notifications collection, skipping', { 
+        console.log('PR submission notification already exists in notifications collection, skipping', { 
           prId: pr.id, 
           prNumber,
           existingNotifications: querySnapshot.size
@@ -137,7 +168,7 @@ export class SubmitPRNotificationHandler {
       
       const prNotificationsSnapshot = await getDocs(prNotificationsQuery);
       if (!prNotificationsSnapshot.empty) {
-        logger.info('PR submission notification already exists in purchaseRequestsNotifications, skipping', { 
+        console.log('PR submission notification already exists in purchaseRequestsNotifications, skipping', { 
           prId: pr.id, 
           prNumber,
           existingNotifications: prNotificationsSnapshot.size
@@ -162,7 +193,7 @@ export class SubmitPRNotificationHandler {
       
       const notificationLogsSnapshot = await getDocs(notificationLogsQuery);
       if (!notificationLogsSnapshot.empty) {
-        logger.info('PR submission notification already exists in notificationLogs, skipping', { 
+        console.log('PR submission notification already exists in notificationLogs, skipping', { 
           prId: pr.id, 
           prNumber,
           existingNotifications: notificationLogsSnapshot.size
@@ -180,11 +211,11 @@ export class SubmitPRNotificationHandler {
       // If PR document is not found in Firestore yet (due to eventual consistency),
       // use the in-memory PR data passed to this function
       if (!prDoc) {
-        logger.warn(`Using in-memory PR data for ID: ${pr.id} since Firestore document is not available yet.`);
+        console.warn(`Using in-memory PR data for ID: ${pr.id} since Firestore document is not available yet.`);
         prDoc = { ...pr };
         
         if (!prDoc.id) {
-          logger.error('PR ID is missing from in-memory data');
+          console.error('PR ID is missing from in-memory data');
           throw new Error('PR ID is required for notification');
         }
       }
@@ -199,7 +230,7 @@ export class SubmitPRNotificationHandler {
       const notificationId = await this.logNotification(prDoc.id, [this.PROCUREMENT_EMAIL]);
 
       // Detailed raw data logging to detect approver issues
-      logger.debug('Raw PR approver data:', {
+      console.debug('Raw PR approver data:', {
         approver: prDoc.approver,
         approverType: typeof prDoc.approver,
         approverList: prDoc.approvers,
@@ -216,10 +247,10 @@ export class SubmitPRNotificationHandler {
       if (prDoc.approver) {
         if (typeof prDoc.approver === 'string') {
           approverId = prDoc.approver;
-          logger.debug('Using approver ID from PR.approver (single source of truth):', approverId);
+          console.debug('Using approver ID from PR.approver (single source of truth):', approverId);
         } else if (typeof prDoc.approver === 'object') {
           approverInfo = prDoc.approver;
-          logger.debug('Using approver object from PR.approver (single source of truth):', approverInfo);
+          console.debug('Using approver object from PR.approver (single source of truth):', approverInfo);
         }
       }
       
@@ -227,16 +258,16 @@ export class SubmitPRNotificationHandler {
       if (!approverId && !approverInfo && prDoc.approvalWorkflow?.currentApprover) {
         if (typeof prDoc.approvalWorkflow.currentApprover === 'string') {
           approverId = prDoc.approvalWorkflow.currentApprover;
-          logger.debug('Using approver ID from approvalWorkflow.currentApprover as fallback:', approverId);
+          console.debug('Using approver ID from approvalWorkflow.currentApprover as fallback:', approverId);
         } else if (typeof prDoc.approvalWorkflow.currentApprover === 'object') {
           approverInfo = prDoc.approvalWorkflow.currentApprover;
-          logger.debug('Using approver object from approvalWorkflow.currentApprover as fallback:', approverInfo);
+          console.debug('Using approver object from approvalWorkflow.currentApprover as fallback:', approverInfo);
         }
       }
       
       // Check for discrepancy between approver and approvalWorkflow.currentApprover
       if (prDoc.approvalWorkflow?.currentApprover && prDoc.approver !== prDoc.approvalWorkflow.currentApprover) {
-        logger.warn('Discrepancy detected between PR.approver and approvalWorkflow.currentApprover', {
+        console.warn('Discrepancy detected between PR.approver and approvalWorkflow.currentApprover', {
           prId: prDoc.id,
           prApprover: prDoc.approver,
           workflowApprover: prDoc.approvalWorkflow.currentApprover
@@ -244,7 +275,7 @@ export class SubmitPRNotificationHandler {
         
         // Fix the discrepancy by updating approvalWorkflow.currentApprover to match pr.approver
         if (prDoc.approver) {
-          logger.info('Updating approvalWorkflow.currentApprover to match PR.approver (single source of truth)', {
+          console.log('Updating approvalWorkflow.currentApprover to match PR.approver (single source of truth)', {
             prId: prDoc.id,
             approver: prDoc.approver
           });
@@ -261,12 +292,12 @@ export class SubmitPRNotificationHandler {
               'approvalWorkflow.currentApprover': prDoc.approver
             });
             
-            logger.info('Updated approvalWorkflow.currentApprover directly via Firestore', {
+            console.log('Updated approvalWorkflow.currentApprover directly via Firestore', {
               prId: prDoc.id,
               approver: prDoc.approver
             });
           } catch (error) {
-            logger.error('Failed to update approvalWorkflow.currentApprover', {
+            console.error('Failed to update approvalWorkflow.currentApprover', {
               prId: prDoc.id,
               error
             });
@@ -276,12 +307,12 @@ export class SubmitPRNotificationHandler {
 
       // If we only have an ID, fetch the full details
       if (approverId && !approverInfo) {
-        logger.debug('Fetching detailed approver info for:', approverId);
+        console.debug('Fetching detailed approver info for:', approverId);
         approverInfo = await this.getApproverDetails(approverId);
         
         // If we get back null but have a valid ID, create a minimal info object
         if (!approverInfo && approverId) {
-          logger.warn(`Could not find full approver details for ID: ${approverId}, creating minimal info`);
+          console.warn(`Could not find full approver details for ID: ${approverId}, creating minimal info`);
           approverInfo = {
             id: approverId,
             email: `approver-${approverId}@unknown.com`, // placeholder email
@@ -291,7 +322,7 @@ export class SubmitPRNotificationHandler {
       }
 
       // Log what we found
-      logger.info('Approver resolution result:', { 
+      console.info('Approver resolution result:', { 
         hasApprover: !!approverInfo, 
         approverId, 
         approverInfo: approverInfo ? {
@@ -305,7 +336,7 @@ export class SubmitPRNotificationHandler {
       });
 
       // Log the complete PR document structure for debugging
-      logger.debug('PR document structure for requestor information:', {
+      console.debug('PR document structure for requestor information:', {
         requestorId: prDoc.requestorId,
         requestorEmail: prDoc.requestorEmail,
         requestorObject: prDoc.requestor,
@@ -343,10 +374,10 @@ export class SubmitPRNotificationHandler {
                 userData.name || requestorInfo.name
             };
             
-            logger.debug('Updated requestor info with user data from Firestore', requestorInfo);
+            console.debug('Updated requestor info with user data from Firestore', requestorInfo);
           }
         } catch (error) {
-          logger.error('Error fetching requestor details from users collection', {
+          console.error('Error fetching requestor details from users collection', {
             error: error instanceof Error ? error.message : String(error),
             requestorId: prDoc.requestorId
           });
@@ -359,12 +390,12 @@ export class SubmitPRNotificationHandler {
         // First check for name in the primary requestor field
         if (prDoc.requestor?.name) {
           requestorInfo.name = prDoc.requestor.name;
-          logger.debug('Using requestor name from prDoc.requestor.name', requestorInfo.name);
+          console.debug('Using requestor name from prDoc.requestor.name', requestorInfo.name);
         }
         // Then try combining firstName and lastName if available
         else if (prDoc.requestor?.firstName || prDoc.requestor?.lastName) {
           requestorInfo.name = `${prDoc.requestor.firstName || ''} ${prDoc.requestor.lastName || ''}`.trim();
-          logger.debug('Using combined firstName/lastName', requestorInfo.name);
+          console.debug('Using combined firstName/lastName', requestorInfo.name);
         }
       }
 
@@ -373,16 +404,16 @@ export class SubmitPRNotificationHandler {
         if (requestorInfo.email) {
           // Extract name from email with our improved nameFromEmail function
           requestorInfo.name = this.nameFromEmail(requestorInfo.email);
-          logger.debug('Using nameFromEmail for fallback name', requestorInfo.name);
+          console.debug('Using nameFromEmail for fallback name', requestorInfo.name);
         } else {
           // Last resort default that's more informative than 'Unknown'
           requestorInfo.name = 'PR Requestor';
-          logger.debug('Using default fallback name: PR Requestor');
+          console.debug('Using default fallback name: PR Requestor');
         }
       }
 
       // Log final requestor info for debugging
-      logger.debug('Final requestor information:', requestorInfo);
+      console.debug('Final requestor information:', requestorInfo);
 
       // Create notification context
       const notificationContext: NotificationContext = {
@@ -403,7 +434,7 @@ export class SubmitPRNotificationHandler {
       // Get the requestor name - this will use our generalizable approach
       const requestorName = await this.getRequestorName(prDoc);
       
-      logger.info(`Creating PR submission notification`, { prId: prDoc.id, prNumber, requestorName });
+      console.log(`Creating PR submission notification`, { prId: prDoc.id, prNumber, requestorName });
       
       // Generate email content
       const { html, text, subject } = await generateNewPREmail(notificationContext);
@@ -467,14 +498,14 @@ export class SubmitPRNotificationHandler {
         }
       });
       
-      logger.info(`Notification logged`, { type: 'PR_SUBMITTED', prId: prDoc.id, recipients, status: 'pending' });
+      console.info(`Notification logged`, { type: 'PR_SUBMITTED', prId: prDoc.id, recipients, status: 'pending' });
       
       return {
         success: true,
         notificationId: notificationRef.id
       };
     } catch (error: unknown) {
-      logger.error('Failed to create PR submission notification', { 
+      console.error('Failed to create PR submission notification', { 
         error: error instanceof Error ? error.message : String(error),
         prId: pr.id,
         prNumber: pr.prNumber
@@ -491,7 +522,7 @@ export class SubmitPRNotificationHandler {
    * Gets the requestor name from PR data
    */
   private async getRequestorName(prDoc: any): Promise<string> {
-    logger.debug('Getting requestor name for PR', {
+    console.debug('Getting requestor name for PR', {
       id: prDoc.id,
       requestorId: prDoc.requestorId,
       requestorEmail: prDoc.requestorEmail,
@@ -508,28 +539,28 @@ export class SubmitPRNotificationHandler {
           // Use firstName and lastName if available
           if (userData.firstName && userData.lastName) {
             const fullName = `${userData.firstName} ${userData.lastName}`.trim();
-            logger.debug('Using user firstName/lastName from database lookup', fullName);
+            console.debug('Using user firstName/lastName from database lookup', fullName);
             return fullName;
           }
           
           // Use name field if available
           if (userData.name) {
-            logger.debug('Using user.name from database lookup', userData.name);
+            console.debug('Using user.name from database lookup', userData.name);
             return userData.name;
           }
           
           // Use displayName if available
           if (userData.displayName) {
-            logger.debug('Using user.displayName from database lookup', userData.displayName);
+            console.debug('Using user.displayName from database lookup', userData.displayName);
             return userData.displayName;
           }
           
-          logger.debug('User found but no name fields available', userData);
+          console.debug('User found but no name fields available', userData);
         } else {
-          logger.warn(`User with ID ${prDoc.requestorId} not found in database`);
+          console.warn(`User with ID ${prDoc.requestorId} not found in database`);
         }
       } catch (error) {
-        logger.error('Error fetching user details', {
+        console.error('Error fetching user details', {
           error: error instanceof Error ? error.message : String(error),
           requestorId: prDoc.requestorId
         });
@@ -549,28 +580,28 @@ export class SubmitPRNotificationHandler {
           // Use firstName and lastName if available
           if (userData.firstName && userData.lastName) {
             const fullName = `${userData.firstName} ${userData.lastName}`.trim();
-            logger.debug('Using user firstName/lastName from email lookup', fullName);
+            console.debug('Using user firstName/lastName from email lookup', fullName);
             return fullName;
           }
           
           // Use name field if available
           if (userData.name) {
-            logger.debug('Using user.name from email lookup', userData.name);
+            console.debug('Using user.name from email lookup', userData.name);
             return userData.name;
           }
           
           // Use displayName if available
           if (userData.displayName) {
-            logger.debug('Using user.displayName from email lookup', userData.displayName);
+            console.debug('Using user.displayName from email lookup', userData.displayName);
             return userData.displayName;
           }
           
-          logger.debug('User found by email but no name fields available', userData);
+          console.debug('User found by email but no name fields available', userData);
         } else {
-          logger.warn(`No user found with email ${prDoc.requestorEmail}`);
+          console.warn(`No user found with email ${prDoc.requestorEmail}`);
         }
       } catch (error) {
-        logger.error('Error looking up user by email', {
+        console.error('Error looking up user by email', {
           error: error instanceof Error ? error.message : String(error),
           requestorEmail: prDoc.requestorEmail
         });
@@ -581,7 +612,7 @@ export class SubmitPRNotificationHandler {
     if (prDoc.requestor && typeof prDoc.requestor === 'object') {
       // Use name field if available
       if (prDoc.requestor.name) {
-        logger.debug('Using requestor.name from PR', prDoc.requestor.name);
+        console.debug('Using requestor.name from PR', prDoc.requestor.name);
         return prDoc.requestor.name;
       }
       
@@ -589,7 +620,7 @@ export class SubmitPRNotificationHandler {
       if (prDoc.requestor.firstName || prDoc.requestor.lastName) {
         const combinedName = `${prDoc.requestor.firstName || ''} ${prDoc.requestor.lastName || ''}`.trim();
         if (combinedName) {
-          logger.debug('Using combined firstName/lastName from requestor object', combinedName);
+          console.debug('Using combined firstName/lastName from requestor object', combinedName);
           return combinedName;
         }
       }
@@ -607,28 +638,28 @@ export class SubmitPRNotificationHandler {
             // Use firstName and lastName if available
             if (userData.firstName && userData.lastName) {
               const fullName = `${userData.firstName} ${userData.lastName}`.trim();
-              logger.debug('Using user firstName/lastName from requestor.email lookup', fullName);
+              console.debug('Using user firstName/lastName from requestor.email lookup', fullName);
               return fullName;
             }
             
             // Use name field if available
             if (userData.name) {
-              logger.debug('Using user.name from requestor.email lookup', userData.name);
+              console.debug('Using user.name from requestor.email lookup', userData.name);
               return userData.name;
             }
             
             // Use displayName if available
             if (userData.displayName) {
-              logger.debug('Using user.displayName from requestor.email lookup', userData.displayName);
+              console.debug('Using user.displayName from requestor.email lookup', userData.displayName);
               return userData.displayName;
             }
             
-            logger.debug('User found by requestor.email but no name fields available', userData);
+            console.debug('User found by requestor.email but no name fields available', userData);
           } else {
-            logger.warn(`No user found with email ${prDoc.requestor.email}`);
+            console.warn(`No user found with email ${prDoc.requestor.email}`);
           }
         } catch (error) {
-          logger.error('Error looking up user by requestor.email', {
+          console.error('Error looking up user by requestor.email', {
             error: error instanceof Error ? error.message : String(error),
             requestorEmail: prDoc.requestor.email
           });
@@ -640,7 +671,7 @@ export class SubmitPRNotificationHandler {
     if (typeof prDoc.requestor === 'string') {
       // If it doesn't contain @ symbol, assume it's a name
       if (!prDoc.requestor.includes('@')) {
-        logger.debug('Using requestor string as name', prDoc.requestor);
+        console.debug('Using requestor string as name', prDoc.requestor);
         return prDoc.requestor;
       }
       
@@ -656,28 +687,28 @@ export class SubmitPRNotificationHandler {
           // Use firstName and lastName if available
           if (userData.firstName && userData.lastName) {
             const fullName = `${userData.firstName} ${userData.lastName}`.trim();
-            logger.debug('Using user firstName/lastName from requestor string email lookup', fullName);
+            console.debug('Using user firstName/lastName from requestor string email lookup', fullName);
             return fullName;
           }
           
           // Use name field if available
           if (userData.name) {
-            logger.debug('Using user.name from requestor string email lookup', userData.name);
+            console.debug('Using user.name from requestor string email lookup', userData.name);
             return userData.name;
           }
           
           // Use displayName if available
           if (userData.displayName) {
-            logger.debug('Using user.displayName from requestor string email lookup', userData.displayName);
+            console.debug('Using user.displayName from requestor string email lookup', userData.displayName);
             return userData.displayName;
           }
           
-          logger.debug('User found by requestor string email but no name fields available', userData);
+          console.debug('User found by requestor string email but no name fields available', userData);
         } else {
-          logger.warn(`No user found with email ${prDoc.requestor}`);
+          console.warn(`No user found with email ${prDoc.requestor}`);
         }
       } catch (error) {
-        logger.error('Error looking up user by requestor string email', {
+        console.error('Error looking up user by requestor string email', {
           error: error instanceof Error ? error.message : String(error),
           requestorEmail: prDoc.requestor
         });
@@ -685,7 +716,7 @@ export class SubmitPRNotificationHandler {
     }
     
     // Last resort - return a placeholder indicating we couldn't find the name
-    logger.warn('Could not determine requestor name from any available data');
+    console.warn('Could not determine requestor name from any available data');
     return 'Unknown Requestor';
   }
   
@@ -716,10 +747,10 @@ export class SubmitPRNotificationHandler {
       }
       
       // If not found, log a warning but don't fail - we'll use the in-memory data
-      logger.warn(`PR document not found in Firestore: ${prId}. This may be due to Firestore's eventual consistency.`);
+      console.warn(`PR document not found in Firestore: ${prId}. This may be due to Firestore's eventual consistency.`);
       return null;
     } catch (error) {
-      logger.error('Error fetching PR document', { 
+      console.error('Error fetching PR document', { 
         error: error instanceof Error ? error.message : String(error),
         prId 
       });

@@ -2,7 +2,7 @@ import { StatusTransitionHandler, NotificationContext, Recipients, EmailContent 
 import { generateNewPREmail } from '../templates/newPRSubmitted';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
-import { logger } from '@/utils/logger';
+// import { logger } from '@/utils/logger';
 import { UserReference } from '@/types/pr';
 
 // Define procurement email constant
@@ -13,7 +13,7 @@ export class NewPRSubmittedHandler implements StatusTransitionHandler {
     // Check if a notification has already been sent for this PR
     const hasExistingNotification = await this.checkForExistingNotification(context.prId);
     if (hasExistingNotification) {
-      logger.info('Notification already sent for this PR. Skipping duplicate.');
+      console.info('Notification already sent for this PR. Skipping duplicate.');
       return { to: [], cc: [] }; // Return empty recipients to prevent sending
     }
     
@@ -34,7 +34,7 @@ export class NewPRSubmittedHandler implements StatusTransitionHandler {
       ccList.add(submitterEmail);
     }
     
-    logger.debug('NewPRSubmittedHandler recipients:', { 
+    console.debug('NewPRSubmittedHandler recipients:', { 
       to: [PROCUREMENT_EMAIL], 
       cc: Array.from(ccList) 
     });
@@ -52,7 +52,7 @@ export class NewPRSubmittedHandler implements StatusTransitionHandler {
    */
   private async getUserByEmailOrId(emailOrId: string): Promise<UserReference | null> {
     if (!emailOrId) {
-      logger.warn('Attempted to fetch user with empty email or ID');
+      console.warn('Attempted to fetch user with empty email or ID');
       return null;
     }
     
@@ -94,13 +94,13 @@ export class NewPRSubmittedHandler implements StatusTransitionHandler {
       }
       
       // If we get here, user wasn't found
-      logger.warn(`User not found for identifier: ${identifier}`);
+      console.warn(`User not found for identifier: ${identifier}`);
       return null;
     } catch (error) {
       // Log the specific error, especially if it's an index issue
-      logger.error(`Error fetching user by identifier ${identifier}:`, error);
+      console.error(`Error fetching user by identifier ${identifier}:`, error);
       if (error instanceof Error && error.message.includes('index')) {
-        logger.error('Firestore index likely missing for the users collection query.');
+        console.error('Firestore index likely missing for the users collection query.');
       }
       return null;
     }
@@ -109,7 +109,7 @@ export class NewPRSubmittedHandler implements StatusTransitionHandler {
   async getEmailContent(context: NotificationContext): Promise<EmailContent> {
     // Ensure we have a valid PR object
     if (!context.pr) {
-      logger.error('Missing PR object in notification context');
+      console.error('Missing PR object in notification context');
       throw new Error('Missing PR object in notification context');
     }
 
@@ -117,27 +117,27 @@ export class NewPRSubmittedHandler implements StatusTransitionHandler {
     // Use the requestor object directly from the PR context if available
     // (Assumes createPR now saves the full object)
     let finalRequestor: UserReference | null = null;
-    logger.debug('getEmailContent: Initial context.pr.requestor:', context.pr.requestor);
+    console.debug('getEmailContent: Initial context.pr.requestor:', context.pr.requestor);
 
     if (context.pr.requestor && typeof context.pr.requestor === 'object' && context.pr.requestor.name) {
        finalRequestor = context.pr.requestor as UserReference;
-       logger.debug('getEmailContent: Using requestor object directly from PR context:', finalRequestor);
+       console.debug('getEmailContent: Using requestor object directly from PR context:', finalRequestor);
     } else {
-       logger.warn('getEmailContent: Entering fallback logic.', {
+       console.warn('getEmailContent: Entering fallback logic.', {
          requestorField: context.pr.requestor, 
          type: typeof context.pr.requestor
        }); 
        // Fallback: Try fetching if only ID or email is present (should be less common now)
        const identifier = context.pr.requestorId || context.pr.requestorEmail || (typeof context.pr.requestor === 'object' ? context.pr.requestor.email : null);
        if (identifier) {
-         logger.warn('getEmailContent: Requestor object incomplete/missing in PR context, attempting fallback fetch...', { prId: context.pr.id, identifier });
+         console.warn('getEmailContent: Requestor object incomplete/missing in PR context, attempting fallback fetch...', { prId: context.pr.id, identifier });
          finalRequestor = await this.getUserByEmailOrId(identifier);
-         logger.debug('getEmailContent: Fallback fetch result:', finalRequestor);
+         console.debug('getEmailContent: Fallback fetch result:', finalRequestor);
        }
        
        if (!finalRequestor) {
          // If still not found, create a placeholder
-         logger.warn('Could not resolve requestor, using placeholder.', { prId: context.pr.id });
+         console.warn('Could not resolve requestor, using placeholder.', { prId: context.pr.id });
          finalRequestor = {
            id: context.pr.requestorId || 'unknown',
            email: context.pr.requestorEmail || 'unknown@example.com',
@@ -158,7 +158,7 @@ export class NewPRSubmittedHandler implements StatusTransitionHandler {
     // Pass the context (now with guaranteed requestor object) to the template generator
     // The template `generateNewPREmail` should be updated to *expect* `context.pr.requestor` to be populated.
     // We remove the complex fetching logic from here as it's now redundant or a fallback.
-    logger.debug('Passing context to email template generator:', { 
+    console.debug('Passing context to email template generator:', { 
       prId: context.pr.id, 
       requestor: context.pr.requestor, 
       submitterName 
@@ -179,7 +179,7 @@ export class NewPRSubmittedHandler implements StatusTransitionHandler {
       const querySnapshot = await getDocs(q);
       return !querySnapshot.empty;
     } catch (error) {
-      logger.error('Error checking for existing notification:', error);
+      console.error('Error checking for existing notification:', error);
       return false; // Assume no notification exists if there's an error
     }
   }

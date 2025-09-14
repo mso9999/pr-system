@@ -2,7 +2,7 @@ import { httpsCallable } from 'firebase/functions';
 import { functions } from '@/config/firebase';
 import { NotificationContext, EmailContent, PRRequestor } from '../templates/types';
 import { generateRejectedEmail } from '../templates/rejectedTemplate';
-import { logger } from '@/utils/logger';
+// import { logger } from '@/utils/logger';
 
 // Define a constant for the procurement team email
 const PROCUREMENT_EMAIL = 'procurement@1pwrafrica.com';
@@ -19,7 +19,7 @@ export async function rejectedNotification(context: RejectionContext): Promise<b
   try {
     // Check if we have a valid PR
     if (!context.pr || !context.pr.id) {
-      logger.warn('No valid PR provided for notification', { 
+      console.warn('No valid PR provided for notification', { 
         prNumber: context.prNumber 
       });
       return false;
@@ -28,7 +28,7 @@ export async function rejectedNotification(context: RejectionContext): Promise<b
     // Get the recipients
     const recipients = getRecipients(context);
     if (!recipients.to || recipients.to.length === 0) {
-      logger.warn('No recipients found for PR notification', {
+      console.warn('No recipients found for PR notification', {
         prId: context.pr.id,
         prNumber: context.prNumber
       });
@@ -84,7 +84,7 @@ export async function rejectedNotification(context: RejectionContext): Promise<b
         }
       });
 
-      logger.info('PR rejection notification sent successfully', {
+      console.info('PR rejection notification sent successfully', {
         prId: context.pr.id,
         prNumber: context.prNumber,
         recipients: recipients.to,
@@ -93,11 +93,11 @@ export async function rejectedNotification(context: RejectionContext): Promise<b
 
       return true;
     } catch (error) {
-      logger.error('Error sending PR rejection notification', error);
+      console.error('Error sending PR rejection notification', error);
       return false;
     }
   } catch (error) {
-    logger.error('Error in rejectedNotification', error);
+    console.error('Error in rejectedNotification', error);
     return false;
   }
 }

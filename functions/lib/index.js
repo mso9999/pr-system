@@ -33,9 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.processNotifications = exports.sendRevisionRequiredNotification = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = void 0;
 const admin = __importStar(require("firebase-admin"));
-const nodemailer = __importStar(require("nodemailer"));
 const functions = __importStar(require("firebase-functions"));
 // Initialize Firebase
 admin.initializeApp();
@@ -100,7 +99,7 @@ function getEmailSubject(notification, emailBody) {
 exports.sendRevisionRequiredNotification = functions.https.onCall(
 // Explicitly type context and safely assert data type
 async (data, context) => {
-    var _a, _b, _c, _d;
+    var _a, _b, _c, _d, _e;
     // First cast to unknown, then to the desired type
     const notificationData = data;
     console.log('Starting sendRevisionRequiredNotification with data:', JSON.stringify(notificationData, null, 2));
@@ -131,38 +130,31 @@ async (data, context) => {
     // Update requestor name in the email
     const finalHtml = formattedHtml.replace(/<strong>Name<\/strong><\/td>\s*<td[^>]*>\s*<\/td>/g, `<strong>Name</strong></td><td style="padding: 8px; border: 1px solid #ddd">${requestorName}</td>`);
     try {
-        // Set up email transport
-        const transporter = nodemailer.createTransport({
-            host: 'mail.1pwrafrica.com',
-            port: 465,
-            secure: true,
-            auth: {
-                user: 'noreply@1pwrafrica.com',
-                pass: process.env.EMAIL_PASSWORD
-            }
-        });
+        // Use SendGrid API for email sending
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey((_e = functions.config().sendgrid) === null || _e === void 0 ? void 0 : _e.api_key);
         // Prepare email options
-        const mailOptions = {
-            from: '"1PWR System" <noreply@1pwrafrica.com>',
-            to: recipients.join(','),
+        const msg = {
+            to: recipients,
+            from: 'noreply@1pwrafrica.com',
             subject: getEmailSubject(notification, emailBody),
             text: emailBody.text,
             html: finalHtml
         };
         // Add CC if present
         if (cc.length > 0) {
-            mailOptions.cc = cc.join(',');
+            msg.cc = cc;
         }
         console.log('Sending email with options:', {
-            to: mailOptions.to,
-            cc: mailOptions.cc,
-            subject: mailOptions.subject
+            to: msg.to,
+            cc: msg.cc,
+            subject: msg.subject
         });
         // Send emails
         const failedEmails = [];
         try {
-            const info = await transporter.sendMail(mailOptions);
-            console.log('Email sent successfully:', info.messageId);
+            const response = await sgMail.send(msg);
+            console.log('Email sent successfully via SendGrid:', response[0].statusCode);
         }
         catch (error) {
             console.error('Failed to send email:', error);
@@ -201,7 +193,7 @@ async (data, context) => {
 exports.processNotifications = functions.firestore
     .document('notifications/{notificationId}')
     .onCreate(async (snapshot, context) => {
-    var _a;
+    var _a, _b;
     const notificationData = snapshot.data(); // Assume data matches the interface
     console.log('Processing new notification:', JSON.stringify(notificationData, null, 2));
     // Validate essential parts of the payload
@@ -237,37 +229,30 @@ exports.processNotifications = functions.firestore
         finalHtml = finalHtml.replace(/(<strong>Name<\/strong><\/td>\s*<td[^>]*>)(?:Unknown|PR Requestor|Submitter)?(<\/td>)/gi, `$1${requestorName}$2`);
         finalHtml = finalHtml.replace(/(<strong>Submitted By:<\/strong>\s*)(?:Unknown|PR Requestor|Submitter)?(<\/p>)/gi, `$1${requestorName}$2`);
         // Add more specific replacements if needed
-        // Set up email transport
-        const transporter = nodemailer.createTransport({
-            host: 'mail.1pwrafrica.com',
-            port: 465,
-            secure: true,
-            auth: {
-                user: 'noreply@1pwrafrica.com',
-                pass: process.env.EMAIL_PASSWORD
-            }
-        });
+        // Use SendGrid API for email sending
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey((_b = functions.config().sendgrid) === null || _b === void 0 ? void 0 : _b.api_key);
         // Prepare email options
-        const mailOptions = {
-            from: '"1PWR System" <noreply@1pwrafrica.com>',
-            to: recipients.join(','),
-            subject: subject || `PR #${prNumber} Notification`, // Use subject from emailBody
-            text: text, // Use text from emailBody
-            html: finalHtml // Use modified html from emailBody
+        const msg = {
+            to: recipients,
+            from: 'noreply@1pwrafrica.com',
+            subject: subject || `PR #${prNumber} Notification`,
+            text: text,
+            html: finalHtml
         };
         // Add CC if present
         if (cc.length > 0) {
-            mailOptions.cc = cc.join(',');
+            msg.cc = cc;
         }
         console.log('Sending email with options:', {
-            to: mailOptions.to,
-            cc: mailOptions.cc,
-            subject: mailOptions.subject
+            to: msg.to,
+            cc: msg.cc,
+            subject: msg.subject
         });
         // Send the email
         try {
-            const info = await transporter.sendMail(mailOptions);
-            console.log('Email sent successfully:', info.messageId);
+            const response = await sgMail.send(msg);
+            console.log('Email sent successfully via SendGrid:', response[0].statusCode);
             // Update the notification status in Firestore
             await snapshot.ref.update({
                 status: 'sent',
@@ -289,8 +274,8 @@ exports.processNotifications = functions.firestore
                 recipients,
                 cc: cc,
                 emailBody: {
-                    subject: mailOptions.subject,
-                    text: mailOptions.text,
+                    subject: msg.subject,
+                    text: msg.text,
                     // Log finalHtml to see what was actually sent
                     html: finalHtml
                 },
@@ -322,8 +307,8 @@ exports.processNotifications = functions.firestore
                 recipients,
                 cc: cc,
                 emailBody: {
-                    subject: mailOptions.subject,
-                    text: mailOptions.text,
+                    subject: msg.subject,
+                    text: msg.text,
                     html: finalHtml
                 },
                 metadata: metadata || {}
@@ -342,6 +327,40 @@ exports.processNotifications = functions.firestore
             error: error instanceof Error ? error.message : String(error),
             updatedAt: new Date().toISOString()
         });
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : String(error)
+        };
+    }
+});
+exports.sendTestEmail = functions.https.onCall(async (data, context) => {
+    var _a;
+    console.log('sendTestEmail called with data:', data);
+    try {
+        const { to, subject, message } = data;
+        if (!to || !subject || !message) {
+            throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: to, subject, message');
+        }
+        // Try using SendGrid API instead of SMTP
+        const sgMail = require('@sendgrid/mail');
+        sgMail.setApiKey((_a = functions.config().sendgrid) === null || _a === void 0 ? void 0 : _a.api_key);
+        const msg = {
+            to: to,
+            from: 'noreply@1pwrafrica.com',
+            subject: subject,
+            text: message,
+            html: `<p>${message}</p>`
+        };
+        const response = await sgMail.send(msg);
+        console.log('Test email sent successfully via SendGrid:', response[0].statusCode);
+        return {
+            success: true,
+            messageId: response[0].headers['x-message-id'],
+            message: 'Test email sent successfully via SendGrid'
+        };
+    }
+    catch (error) {
+        console.error('Error sending test email:', error);
         return {
             success: false,
             error: error instanceof Error ? error.message : String(error)

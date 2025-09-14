@@ -3,7 +3,6 @@ import { generateEmailHeaders } from '../types/emailHeaders';
 import { styles } from './styles';
 import { UserReference } from '../../../types/pr';
 import { referenceDataService } from '@/services/referenceData';
-import { logger } from '@/utils/logger';
 import { db } from '@/config/firebase';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
 
@@ -46,7 +45,7 @@ async function resolveReferenceData(id: string, type: string, organization?: str
   if (!id) return 'Not specified';
   
   try {
-    logger.debug(`Resolving ${type} ID: ${id} for organization: ${organization || 'Not specified'}`);
+    console.debug(`Resolving ${type} ID: ${id} for organization: ${organization || 'Not specified'}`);
     
     // If it looks like a code with underscores (like "7_administrative_overhead"), format it for display
     if (id.includes('_')) {
@@ -54,13 +53,13 @@ async function resolveReferenceData(id: string, type: string, organization?: str
         .split('_')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
-      logger.debug(`Formatted ${type} ID with underscores: ${id} to: ${readableName}`);
+      console.debug(`Formatted ${type} ID with underscores: ${id} to: ${readableName}`);
       return readableName;
     }
     
     // If it doesn't look like an ID (no special characters, just plain text), return as is
     if (!/[^a-zA-Z0-9_]/.test(id) && !/^[a-zA-Z0-9]{20}$/.test(id)) {
-      logger.debug(`ID ${id} appears to be a plain text value, returning as is`);
+      console.debug(`ID ${id} appears to be a plain text value, returning as is`);
       return id;
     }
     
@@ -69,24 +68,24 @@ async function resolveReferenceData(id: string, type: string, organization?: str
     
     switch (type) {
       case 'category':
-        logger.debug(`Fetching project categories for organization: ${organization || 'Not specified'}`);
+        console.debug(`Fetching project categories for organization: ${organization || 'Not specified'}`);
         items = await referenceDataService.getProjectCategories(organization || '');
         break;
       case 'expenseType':
-        logger.debug(`Fetching expense types for organization: ${organization || 'Not specified'}`);
+        console.debug(`Fetching expense types for organization: ${organization || 'Not specified'}`);
         items = await referenceDataService.getExpenseTypes(organization || '');
         break;
       case 'vendor':
-        logger.debug(`Fetching vendors for organization: ${organization || 'Not specified'}`);
+        console.debug(`Fetching vendors for organization: ${organization || 'Not specified'}`);
         try {
           // Get vendors through the reference data service
           items = await referenceDataService.getVendors(organization || '');
-          logger.debug(`Got ${items.length} vendors from referenceDataService`);
+          console.debug(`Got ${items.length} vendors from referenceDataService`);
         } catch (e) {
-          logger.error(`Error getting vendors: ${e instanceof Error ? e.message : String(e)}`);
+          console.error(`Error getting vendors: ${e instanceof Error ? e.message : String(e)}`);
           // Try a direct Firestore query as fallback
           try {
-            logger.debug('Attempting direct Firestore query to vendors collection');
+            console.debug('Attempting direct Firestore query to vendors collection');
             const vendorsQuery = query(collection(db, 'vendors'), where('organizationId', '==', organization || ''));
             const vendorDocs = await getDocs(vendorsQuery);
             items = vendorDocs.docs.map(doc => ({
@@ -94,22 +93,22 @@ async function resolveReferenceData(id: string, type: string, organization?: str
               vendorId: doc.data().vendorId || doc.id,
               name: doc.data().name
             }));
-            logger.debug(`Got ${items.length} vendors directly from Firestore`);
+            console.debug(`Got ${items.length} vendors directly from Firestore`);
           } catch (firestoreError) {
-            logger.error(`Firestore fallback also failed: ${firestoreError instanceof Error ? firestoreError.message : String(firestoreError)}`);
+            console.error(`Firestore fallback also failed: ${firestoreError instanceof Error ? firestoreError.message : String(firestoreError)}`);
           }
         }
         break;
       case 'site':
-        logger.debug(`Fetching sites for organization: ${organization || 'Not specified'}`);
+        console.debug(`Fetching sites for organization: ${organization || 'Not specified'}`);
         items = await referenceDataService.getSites(organization || '');
         break;
       default:
-        logger.warn(`Unknown reference data type: ${type}`);
+        console.warn(`Unknown reference data type: ${type}`);
         return id;
     }
     
-    logger.debug(`Got ${items.length} items for ${type}`);
+    console.debug(`Got ${items.length} items for ${type}`);
     
     // Special handling for numeric vendor IDs
     if (type === 'vendor' && /^\d+$/.test(id)) {
@@ -121,11 +120,11 @@ async function resolveReferenceData(id: string, type: string, organization?: str
       );
       
       if (vendor) {
-        logger.debug(`Found vendor with ID ${numericId}: ${vendor.name}`);
+        console.debug(`Found vendor with ID ${numericId}: ${vendor.name}`);
         return vendor.name;
       } else {
         // For numeric vendor IDs, make it clear this is a vendor code
-        logger.debug(`Vendor ID ${numericId} not found in reference data`);
+        console.debug(`Vendor ID ${numericId} not found in reference data`);
         return `Vendor #${numericId}`;
       }
     }
@@ -133,14 +132,14 @@ async function resolveReferenceData(id: string, type: string, organization?: str
     // For other reference data types, look for a match by id
     const item = items.find(item => item.id === id);
     if (item) {
-      logger.debug(`Found ${type} with ID ${id}: ${item.name}`);
+      console.debug(`Found ${type} with ID ${id}: ${item.name}`);
       return item.name;
     }
     
-    logger.debug(`${type} with ID ${id} not found in reference data`);
+    console.debug(`${type} with ID ${id} not found in reference data`);
     return id;
   } catch (error) {
-    logger.error(`Error resolving ${type} reference data for ID ${id}:`, error);
+    console.error(`Error resolving ${type} reference data for ID ${id}:`, error);
     return id;
   }
 }
@@ -148,12 +147,12 @@ async function resolveReferenceData(id: string, type: string, organization?: str
 // Helper function to fetch user details from Firestore
 async function fetchUserDetails(userId: string): Promise<UserReference | null> {
   try {
-    logger.debug(`Fetching user details for ID: ${userId}`);
+    console.debug(`Fetching user details for ID: ${userId}`);
     const userDoc = await getDoc(doc(db, 'users', userId));
     
     if (userDoc.exists()) {
       const userData = userDoc.data();
-      logger.debug(`Found user data:`, userData);
+      console.debug(`Found user data:`, userData);
       return {
         id: userId,
         name: userData.name || `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
@@ -162,11 +161,11 @@ async function fetchUserDetails(userId: string): Promise<UserReference | null> {
         lastName: userData.lastName
       };
     } else {
-      logger.warn(`User with ID ${userId} not found in Firestore`);
+      console.warn(`User with ID ${userId} not found in Firestore`);
       return null;
     }
   } catch (error) {
-    logger.error(`Error fetching user details for ${userId}:`, error);
+    console.error(`Error fetching user details for ${userId}:`, error);
     return null;
   }
 }
@@ -179,7 +178,7 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
   }
 
   // Debug logs to see exactly what data we have
-  logger.debug('Email template data - full context:', {
+  console.debug('Email template data - full context:', {
     prId: pr.id,
     prNumber,
     requestorInfoFromContext: requestorInfo,
@@ -234,23 +233,23 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
   const requestorEmail = context.pr!.requestor?.email || pr.requestorEmail || 'unknown@example.com'; // Fallback to pr.requestorEmail if needed
   const requestorDept = pr.department || 'Not specified';
   
-  logger.debug('Using pre-processed requestor details:', { requestorName, requestorEmail, requestorDept });
+  console.debug('Using pre-processed requestor details:', { requestorName, requestorEmail, requestorDept });
 
   // Resolve reference data IDs to human-readable names with additional logging
   const requestorSite = await resolveReferenceData(pr.site || '', 'site', pr.organization);
-  logger.debug(`Resolved site '${pr.site}' to '${requestorSite}'`);
+  console.debug(`Resolved site '${pr.site}' to '${requestorSite}'`);
   
   const categoryName = await resolveReferenceData(pr.category || '', 'category', pr.organization);
-  logger.debug(`Resolved category '${pr.category}' to '${categoryName}'`);
+  console.debug(`Resolved category '${pr.category}' to '${categoryName}'`);
   
   const expenseTypeName = await resolveReferenceData(pr.expenseType || '', 'expenseType', pr.organization);
-  logger.debug(`Resolved expenseType '${pr.expenseType}' to '${expenseTypeName}'`);
+  console.debug(`Resolved expenseType '${pr.expenseType}' to '${expenseTypeName}'`);
 
   // For vendor name, use enhanced resolution
   let vendorName = 'Not specified';
   if (pr.preferredVendor) {
     vendorName = await resolveReferenceData(pr.preferredVendor, 'vendor', pr.organization);
-    logger.debug(`Resolved vendor '${pr.preferredVendor}' to '${vendorName}'`);
+    console.debug(`Resolved vendor '${pr.preferredVendor}' to '${vendorName}'`);
   }
 
   const html = `
