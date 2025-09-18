@@ -58,6 +58,7 @@ import mammoth from 'mammoth';
 import { ProcurementActions } from './ProcurementActions';
 import { QuoteForm } from './QuoteForm';
 import { QuoteList } from './QuoteList';
+import { UserDebug } from '../debug/UserDebug';
 import { Button as CustomButton } from '@/components/ui/button';
 import { Card as CustomCard, CardContent as CustomCardContent, CardDescription, CardFooter, CardHeader as CustomCardHeader, CardTitle } from "@/components/ui/card";
 import { PlusIcon, EyeIcon, FileIcon } from 'lucide-react';
@@ -1787,6 +1788,9 @@ export function PRView() {
 
   return (
     <Box sx={{ p: 3 }}>
+      {/* Debug Information */}
+      <UserDebug />
+      
       {/* Header with Title and Actions */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
