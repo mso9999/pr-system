@@ -6,6 +6,8 @@ import { RootState } from '@/store';
 export function UserDebug() {
   const currentUser = useSelector((state: RootState) => state.auth.user);
 
+  // console.log('UserDebug: Current user from Redux:', currentUser);
+
   if (!currentUser) {
     return (
       <Paper sx={{ p: 2, mb: 2, bgcolor: 'warning.light' }}>
