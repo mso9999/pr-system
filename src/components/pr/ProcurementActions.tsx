@@ -219,21 +219,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   const isProcurement = currentUser.permissionLevel === 2 || currentUser.permissionLevel === 3;
   const isRequestor = currentUser.email.toLowerCase() === requestorEmail.toLowerCase();
 
-  console.log('ProcurementActions Debug:', {
-    currentUser: {
-      email: currentUser.email,
-      permissionLevel: currentUser.permissionLevel,
-      role: currentUser.role
-    },
-    requestorEmail,
-    currentStatus,
-    isProcurement,
-    isRequestor,
-    shouldShow: isProcurement || isRequestor
-  });
-
   if (!isProcurement && !isRequestor) {
-    console.log('ProcurementActions: Not showing - user is not procurement or requestor');
     return null;
   }
 
