@@ -1304,8 +1304,11 @@ export function PRView() {
                 <Typography color="textSecondary">Current Approver</Typography>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {(() => {
-                    const approverId = pr?.approvalWorkflow?.currentApprover;
+                    // Check pr.approver first as it's the single source of truth
+                    const approverId = pr?.approver || pr?.approvalWorkflow?.currentApprover;
                     console.log('Finding current approver:', { 
+                      prApprover: pr?.approver,
+                      workflowApprover: pr?.approvalWorkflow?.currentApprover,
                       approverId, 
                       approversCount: approvers.length,
                       approvers: approvers.map(a => ({ id: a.id, name: a.name }))
