@@ -462,7 +462,7 @@ export function PRView() {
   const [loadingReference, setLoadingReference] = useState(true);
   const [approvers, setApprovers] = useState<User[]>([]);
   const [selectedApprover, setSelectedApprover] = useState<string | undefined>(
-    pr?.approvalWorkflow?.currentApprover || undefined
+    pr?.approver || pr?.approvalWorkflow?.currentApprover || undefined
   );
   const [loadingApprovers, setLoadingApprovers] = useState(false);
   const [currentApprover, setCurrentApprover] = useState<User | null>(null);
@@ -693,10 +693,15 @@ export function PRView() {
   useEffect(() => {
     const loadCurrentApprover = async () => {
       // Check pr.approver first as it's the single source of truth
-      if (pr?.approver) {
+      const approverId = pr?.approver || pr?.approvalWorkflow?.currentApprover;
+      
+      // Update selectedApprover state for the edit form
+      setSelectedApprover(approverId || undefined);
+      
+      if (approverId) {
         try {
           setIsLoadingApprover(true);
-          const user = await auth.getUserDetails(pr.approver);
+          const user = await auth.getUserDetails(approverId);
           if (user) {
             setAssignedApprover(user);
             // Also set currentApprover for consistency
@@ -704,20 +709,7 @@ export function PRView() {
           }
           setIsLoadingApprover(false);
         } catch (error) {
-          console.error('Error fetching approver from pr.approver field:', error);
-          setIsLoadingApprover(false);
-        }
-      } 
-      // Fallback to approvalWorkflow.currentApprover if pr.approver is not available
-      else if (pr?.approvalWorkflow?.currentApprover) {
-        try {
-          setIsLoadingApprover(true);
-          const approverDoc = await auth.getUserDetails(pr.approvalWorkflow.currentApprover);
-          setCurrentApprover(approverDoc);
-          setAssignedApprover(approverDoc);
-          setIsLoadingApprover(false);
-        } catch (error) {
-          console.error('Error loading current approver from approvalWorkflow:', error);
+          console.error('Error fetching approver details:', error);
           setIsLoadingApprover(false);
         }
       } else {
@@ -1316,8 +1308,8 @@ export function PRView() {
                     
                     if (!approverId) {
                       return (
-                        <Typography variant="body2" color="textSecondary">
-                          No approver assigned
+                        <Typography variant="body2" color="warning.main">
+                          No approver assigned (legacy PR - please edit and save to update)
                         </Typography>
                       );
                     }
