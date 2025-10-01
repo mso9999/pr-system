@@ -384,12 +384,12 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     }
   };
 
-  const handleUserUpdate = async (userId: string, updatedData: Partial<User>) => {
+  const handleUserUpdate = async (userId: string, updatedData: Partial<User>, originalEmail?: string) => {
     try {
       setIsLoading(true);
       
-      // If email is being updated, use special function to sync with Firebase Auth
-      if (updatedData.email) {
+      // If email is being updated AND it's different from the original, use special function to sync with Firebase Auth
+      if (updatedData.email && originalEmail && updatedData.email !== originalEmail) {
         await updateUserEmail(userId, updatedData.email);
       }
 
@@ -459,7 +459,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           additionalOrganizations: formData.additionalOrganizations,
           permissionLevel: formData.permissionLevel,
           isActive: formData.isActive
-        });
+        }, editingUser.email);
       } else {
         // Create new user
         const password = generateRandomPassword();
