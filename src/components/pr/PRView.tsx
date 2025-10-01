@@ -1292,6 +1292,28 @@ export function PRView() {
                   sx={{ mt: 1 }}
                 />
               </Grid>
+              <Grid item xs={6}>
+                <Typography color="textSecondary">Required Date</Typography>
+                <Typography>
+                  {pr?.requiredDate ? new Date(pr.requiredDate).toLocaleDateString() : 'Not specified'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography color="textSecondary">Estimated Amount</Typography>
+                <Typography>
+                  {pr?.currency} {pr?.estimatedAmount?.toLocaleString() || 'Not specified'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography color="textSecondary">Preferred Vendor</Typography>
+                <Typography>
+                  {(() => {
+                    if (!pr?.preferredVendor) return 'Not specified';
+                    const vendor = vendors.find(v => v.id === pr.preferredVendor);
+                    return vendor ? vendor.name : pr.preferredVendor;
+                  })()}
+                </Typography>
+              </Grid>
               <Grid item xs={12}>
                 <Typography color="textSecondary">Current Approver</Typography>
                 <div className="flex flex-wrap gap-2 mt-1">
