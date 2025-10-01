@@ -252,11 +252,22 @@ export async function updatePR(prId: string, updateData: Partial<PRRequest>): Pr
   }
   try {
     const prDocRef = doc(db, PR_COLLECTION, prId);
+    
     // Remove status if present (should use updatePRStatus for status updates)
     if ('status' in updateData) {
       delete (updateData as any).status;
     }
-    await updateDoc(prDocRef, { ...updateData, updatedAt: serverTimestamp() });
+    
+    // Filter out undefined values - Firestore doesn't allow undefined
+    const cleanedData: any = {};
+    Object.keys(updateData).forEach(key => {
+      const value = (updateData as any)[key];
+      if (value !== undefined) {
+        cleanedData[key] = value;
+      }
+    });
+    
+    await updateDoc(prDocRef, { ...cleanedData, updatedAt: serverTimestamp() });
     console.log(`Successfully updated PR ${prId}`);
   } catch (error) {
     console.error(`Failed to update PR ${prId}:`, error);
