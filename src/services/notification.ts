@@ -236,9 +236,14 @@ export class NotificationService {
           const transitionKey = `${oldStatus || 'NEW'}->${newStatus}`;
           const functionMap: Record<string, Function> = {
             'NEW->SUBMITTED': httpsCallable(functions, 'sendNewPRNotification'),
+            'SUBMITTED->IN_QUEUE': httpsCallable(functions, 'sendStatusChangeNotification'),
             'SUBMITTED->REVISION_REQUIRED': httpsCallable(functions, 'sendRevisionRequiredNotification'),
-            'REVISION_REQUIRED->SUBMITTED': httpsCallable(functions, 'sendResubmittedNotification'),
+            'SUBMITTED->CANCELED': httpsCallable(functions, 'sendStatusChangeNotification'),
             'SUBMITTED->PENDING_APPROVAL': httpsCallable(functions, 'sendPendingApprovalNotification'),
+            'IN_QUEUE->PENDING_APPROVAL': httpsCallable(functions, 'sendPendingApprovalNotification'),
+            'IN_QUEUE->REJECTED': httpsCallable(functions, 'sendStatusChangeNotification'),
+            'IN_QUEUE->REVISION_REQUIRED': httpsCallable(functions, 'sendRevisionRequiredNotification'),
+            'REVISION_REQUIRED->SUBMITTED': httpsCallable(functions, 'sendResubmittedNotification'),
             'PENDING_APPROVAL->APPROVED': httpsCallable(functions, 'sendApprovedNotification'),
             'PENDING_APPROVAL->REJECTED': httpsCallable(functions, 'sendRejectedNotification')
           };

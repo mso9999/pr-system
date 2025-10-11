@@ -24,7 +24,8 @@ import { app, auth } from '@/config/firebase';
 import { PRRequest, PRStatus, UserReference, HistoryItem, LineItem, ApprovalWorkflow, StatusHistoryItem, ApprovalHistoryItem } from '@/types/pr'; 
 import { User } from '@/types/user'; 
 import { mapFirebaseUserToUserReference } from '@/utils/userMapper';
-import { Notification } from '@/types/notification'; 
+import { Notification } from '@/types/notification';
+import { SubmitPRNotificationHandler } from './notifications/handlers/submitPRNotification'; 
 
 const PR_COLLECTION = 'purchaseRequests';
 const COUNTER_COLLECTION = 'counters';
@@ -165,7 +166,8 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
           timestamp: safeTimestampToISO(item.timestamp),
       })),
       isUrgent: data.isUrgent || false,
-      metrics: data.metrics || undefined, 
+      metrics: data.metrics || undefined,
+      purchaseOrderNumber: data.purchaseOrderNumber,
     };
     console.log(`Successfully fetched PR with ID: ${prId}`);
     return pr;
@@ -365,23 +367,22 @@ export async function createPR(
      const docRef = await addDoc(collection(db, PR_COLLECTION), finalPRData);
      console.log(`Successfully created PR ${prNumber} with ID ${docRef.id}`);
      
-     // Trigger notification for new PR submission
-     try {
-       const { SubmitPRNotificationHandler } = await import('./notifications/handlers/submitPRNotification');
-       const notificationHandler = new SubmitPRNotificationHandler();
-       
-       // Create the complete PR object with the generated ID
-       const completePRData = {
-         ...finalPRData,
-         id: docRef.id
-       };
-       
-       const notificationResult = await notificationHandler.createNotification(completePRData, prNumber);
-       console.log('PR submission notification result:', notificationResult);
-     } catch (notificationError) {
-       console.error('Failed to send PR submission notification:', notificationError);
-       // Don't throw here - PR creation should succeed even if notification fails
-     }
+    // Trigger notification for new PR submission
+    try {
+      const notificationHandler = new SubmitPRNotificationHandler();
+      
+      // Create the complete PR object with the generated ID
+      const completePRData = {
+        ...finalPRData,
+        id: docRef.id
+      };
+      
+      const notificationResult = await notificationHandler.createNotification(completePRData, prNumber);
+      console.log('PR submission notification result:', notificationResult);
+    } catch (notificationError) {
+      console.error('Failed to send PR submission notification:', notificationError);
+      // Don't throw here - PR creation should succeed even if notification fails
+    }
      
      return { prId: docRef.id, prNumber: prNumber };
 

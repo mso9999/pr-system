@@ -201,6 +201,8 @@ export interface PRRequest {
   confirmedAt?: string;
   /** When PO was placed */
   orderedAt?: string;
+  /** Purchase Order number */
+  purchaseOrderNumber?: string;
   /** When PR was completed */
   completedAt?: string;
   /** When revision was requested */

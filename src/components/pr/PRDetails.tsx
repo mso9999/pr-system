@@ -204,6 +204,16 @@ export const PRDetails = () => {
               </Typography>
             </Grid>
           )}
+          {currentPR.purchaseOrderNumber && (
+            <Grid item xs={12} sm={6} md={4}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Purchase Order Number
+              </Typography>
+              <Typography variant="body1" fontWeight="bold">
+                {currentPR.purchaseOrderNumber}
+              </Typography>
+            </Grid>
+          )}
         </Grid>
       </Paper>
 
@@ -212,7 +222,7 @@ export const PRDetails = () => {
         <Typography variant="h6" gutterBottom>
           Items
         </Typography>
-        {currentPR.items.map((item, index) => (
+        {currentPR.lineItems.map((item, index) => (
           <Box key={item.id} sx={{ mb: 2 }}>
             {index > 0 && <Divider sx={{ my: 2 }} />}
             <Grid container spacing={2}>
@@ -266,9 +276,19 @@ export const PRDetails = () => {
             </Grid>
           </Box>
         ))}
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h6">
-            Total Amount:{' '}
+        <Divider sx={{ my: 3 }} />
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          p: 2,
+          backgroundColor: 'grey.50',
+          borderRadius: 1
+        }}>
+          <Typography variant="h6" color="text.secondary">
+            Total Amount:
+          </Typography>
+          <Typography variant="h5" fontWeight="bold" color="primary.main">
             {new Intl.NumberFormat('en-US', {
               style: 'currency',
               currency: currentPR.currency,
