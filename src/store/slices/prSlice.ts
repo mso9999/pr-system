@@ -8,6 +8,7 @@ interface PRState {
   loading: boolean;
   error: string | null;
   showOnlyMyPRs: boolean;
+  myActionsFilter: boolean; // NEW: Filter for PRs/POs requiring user's action
 }
 
 const initialState: PRState = {
@@ -17,6 +18,7 @@ const initialState: PRState = {
   loading: false,
   error: null,
   showOnlyMyPRs: false,
+  myActionsFilter: false, // NEW: Default off
 };
 
 const prSlice = createSlice({
@@ -38,6 +40,9 @@ const prSlice = createSlice({
     setShowOnlyMyPRs: (state, action: PayloadAction<boolean>) => {
       state.showOnlyMyPRs = action.payload;
     },
+    setMyActionsFilter: (state, action: PayloadAction<boolean>) => {
+      state.myActionsFilter = action.payload;
+    },
     setLoading: (state, action: PayloadAction<boolean>) => {
       state.loading = action.payload;
     },
@@ -52,6 +57,7 @@ const prSlice = createSlice({
       state.loading = false;
       state.error = null;
       state.showOnlyMyPRs = false;
+      state.myActionsFilter = false;
     },
     removePR: (state, action: PayloadAction<string>) => {
       state.userPRs = state.userPRs.filter(pr => pr.id !== action.payload);
@@ -65,6 +71,7 @@ export const {
   setUserPRs,
   setPendingApprovals,
   setShowOnlyMyPRs,
+  setMyActionsFilter,
   setLoading,
   setError,
   clearPRState,

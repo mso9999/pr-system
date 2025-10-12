@@ -17,11 +17,12 @@ import {
   TableHead,
   TableBody,
   TableCell,
+  Badge,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, PriorityHigh as PriorityHighIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, PriorityHigh as PriorityHighIcon, Assignment as AssignmentIcon } from '@mui/icons-material';
 import { RootState } from '../../store';
 import { getUserPRs, deletePR } from '@/services/pr';
-import { setUserPRs, setPendingApprovals, setLoading, removePR } from '../../store/slices/prSlice';
+import { setUserPRs, setPendingApprovals, setLoading, removePR, setMyActionsFilter } from '../../store/slices/prSlice';
 import { PRStatus, PRRequest, StatusHistoryItem } from '../../types/pr';
 import { OrganizationSelector } from '../common/OrganizationSelector';
 import { MetricsPanel } from './MetricsPanel';
@@ -56,7 +57,7 @@ export const Dashboard = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { userPRs, pendingApprovals, loading, showOnlyMyPRs } = useSelector(
+  const { userPRs, pendingApprovals, loading, showOnlyMyPRs, myActionsFilter } = useSelector(
     (state: RootState) => state.pr
   );
   const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string } | null>(null);
@@ -377,7 +378,49 @@ export const Dashboard = () => {
     }
   };
 
-  const statusPRs = getStatusPRs(selectedStatus);
+  // Filter PRs for MY ACTIONS based on user role
+  const getMyActionsPRs = (): PRRequest[] => {
+    if (!user) return [];
+
+    return userPRs.filter(pr => {
+      // Requestors: Own PRs in REVISION_REQUIRED
+      if (user.permissionLevel === 5) {
+        return pr.status === PRStatus.REVISION_REQUIRED && 
+               pr.requestorEmail?.toLowerCase() === user.email?.toLowerCase();
+      }
+
+      // Approvers (Level 2, 4): PRs in PENDING_APPROVAL assigned to them
+      if (user.permissionLevel === 2 || user.permissionLevel === 4) {
+        return pr.status === PRStatus.PENDING_APPROVAL && 
+               (pr.approver === user.id || pr.approver2 === user.id);
+      }
+
+      // Finance/Admin (Level 4): POs in APPROVED status needing documents
+      if (user.permissionLevel === 4) {
+        return pr.status === PRStatus.APPROVED;
+      }
+
+      // Asset Management Department: POs in ORDERED needing delivery docs
+      if (user.department?.toLowerCase().includes('asset')) {
+        return pr.status === PRStatus.ORDERED;
+      }
+
+      return false;
+    });
+  };
+
+  // Calculate MY ACTIONS count
+  const myActionsCount = getMyActionsPRs().length;
+
+  // Toggle MY ACTIONS filter
+  const handleMyActionsToggle = () => {
+    dispatch(setMyActionsFilter(!myActionsFilter));
+  };
+
+  // Check if user should see MY ACTIONS button (not Procurement Level 3)
+  const showMyActionsButton = user?.permissionLevel !== 3;
+
+  const statusPRs = myActionsFilter ? getMyActionsPRs().filter(pr => pr.status === selectedStatus) : getStatusPRs(selectedStatus);
 
   const handleDeleteClick = (event: React.MouseEvent, pr: PRRequest) => {
     event.preventDefault();
@@ -420,6 +463,21 @@ export const Dashboard = () => {
               />
             </Grid>
             <Box sx={{ flexGrow: 1 }} />
+            {showMyActionsButton && (
+              <Button
+                variant={myActionsFilter ? "contained" : "outlined"}
+                color="secondary"
+                startIcon={<AssignmentIcon />}
+                onClick={handleMyActionsToggle}
+                sx={{ mr: 2 }}
+              >
+                <Badge badgeContent={myActionsCount} color="error" max={99}>
+                  <Box sx={{ pr: myActionsCount > 0 ? 2 : 0 }}>
+                    MY ACTIONS
+                  </Box>
+                </Badge>
+              </Button>
+            )}
             <Button
               variant="contained"
               color="primary"
@@ -443,7 +501,11 @@ export const Dashboard = () => {
                   Purchase Requests
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
-                  {showOnlyMyPRs ? "Showing your PRs and approvals" : "Showing all PRs"}
+                  {myActionsFilter 
+                    ? "Showing items requiring your action" 
+                    : showOnlyMyPRs 
+                      ? "Showing your PRs and approvals" 
+                      : "Showing all PRs"}
                 </Typography>
               </Box>
             </Box>
