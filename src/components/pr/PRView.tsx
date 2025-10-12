@@ -74,6 +74,7 @@ import { approverService } from '@/services/approver';
 import * as auth from '@/services/auth';
 import { ApproverActions } from './ApproverActions';
 import { ApprovedStatusActions } from './ApprovedStatusActions';
+import { OrderedStatusActions } from './OrderedStatusActions';
 
 interface EditablePRFields {
   department?: string;
@@ -1876,6 +1877,17 @@ export function PRView() {
       {pr?.status === PRStatus.APPROVED && currentUser && (
         <Box sx={{ mb: 3 }}>
           <ApprovedStatusActions
+            pr={pr}
+            currentUser={currentUser}
+            onStatusChange={refreshPR}
+          />
+        </Box>
+      )}
+
+      {/* ORDERED Status Actions (Delivery Documentation) */}
+      {pr?.status === PRStatus.ORDERED && currentUser && (
+        <Box sx={{ mb: 3 }}>
+          <OrderedStatusActions
             pr={pr}
             currentUser={currentUser}
             onStatusChange={refreshPR}
