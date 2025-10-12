@@ -319,6 +319,22 @@ firebase deploy --only functions
 - [ ] Test document uploads
 - [ ] Verify scheduled functions running (check Firebase Console > Functions > Logs)
 
+## Recent Changes
+
+### October 12, 2025 - Data Retrieval & Performance Fix
+**Critical Bug Fixes:**
+- ✅ **Performance Improvement**: Removed excessive console.log statements causing slowdowns
+- ✅ **Preferred Vendor Field**: Fixed missing field in PR retrieval - now displays correctly
+- ✅ **Vehicle Field**: Fixed missing field in PR retrieval - now displays correctly
+- ✅ **Required Date**: Fixed date string handling - now displays correctly
+- ✅ **UOM Display**: Verified proper labels (e.g., "Pieces" instead of "PCS")
+
+**Impact:** All fields are now being saved AND retrieved correctly. Existing PRs will display properly after browser refresh.
+
+**Documentation:** See [docs/PR_DATA_RETRIEVAL_FIX_2025-10-12.md](docs/PR_DATA_RETRIEVAL_FIX_2025-10-12.md)
+
+---
+
 ## Testing
 See `TESTING_CHECKLIST.md` for comprehensive testing guidelines covering all features.
 
