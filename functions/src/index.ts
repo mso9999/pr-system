@@ -7,6 +7,9 @@ admin.initializeApp();
 const db = admin.firestore();
 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
 
+// Import scheduled functions
+export { dailyVendorExpiryCheck } from './scheduledVendorExpiryCheck';
+
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
     console.log('ensureRequestorName input:', { user, requestorEmail });
