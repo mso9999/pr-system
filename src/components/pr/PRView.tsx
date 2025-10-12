@@ -75,6 +75,7 @@ import * as auth from '@/services/auth';
 import { ApproverActions } from './ApproverActions';
 import { ApprovedStatusActions } from './ApprovedStatusActions';
 import { OrderedStatusActions } from './OrderedStatusActions';
+import { ResurrectionActions } from './ResurrectionActions';
 
 interface EditablePRFields {
   department?: string;
@@ -1888,6 +1889,17 @@ export function PRView() {
       {pr?.status === PRStatus.ORDERED && currentUser && (
         <Box sx={{ mb: 3 }}>
           <OrderedStatusActions
+            pr={pr}
+            currentUser={currentUser}
+            onStatusChange={refreshPR}
+          />
+        </Box>
+      )}
+
+      {/* Resurrection Actions for REJECTED and CANCELED PRs */}
+      {currentUser && (pr?.status === PRStatus.REJECTED || pr?.status === PRStatus.CANCELED) && (
+        <Box sx={{ mb: 3 }}>
+          <ResurrectionActions
             pr={pr}
             currentUser={currentUser}
             onStatusChange={refreshPR}
