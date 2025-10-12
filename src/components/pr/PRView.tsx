@@ -76,6 +76,7 @@ import { ApproverActions } from './ApproverActions';
 import { ApprovedStatusActions } from './ApprovedStatusActions';
 import { OrderedStatusActions } from './OrderedStatusActions';
 import { ResurrectionActions } from './ResurrectionActions';
+import { UrgencyControl } from './UrgencyControl';
 
 interface EditablePRFields {
   department?: string;
@@ -1285,15 +1286,23 @@ export function PRView() {
                 <Typography>{pr?.organization || 'N/A'}</Typography>
               </Grid>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Urgency</Typography>
-                <Chip
-                  label={pr?.isUrgent || pr?.metrics?.isUrgent ? 'Urgent' : 'Normal'}
-                  color={
-                    pr?.isUrgent || pr?.metrics?.isUrgent ? 'error' : 'default'
-                  }
-                  size="small"
-                  sx={{ mt: 1 }}
-                />
+                {currentUser && pr ? (
+                  <UrgencyControl
+                    pr={pr}
+                    currentUser={currentUser}
+                    onUpdate={refreshPR}
+                  />
+                ) : (
+                  <Box>
+                    <Typography color="textSecondary">Urgency</Typography>
+                    <Chip
+                      label={pr?.isUrgent || pr?.metrics?.isUrgent ? 'Urgent' : 'Normal'}
+                      color={pr?.isUrgent || pr?.metrics?.isUrgent ? 'error' : 'default'}
+                      size="small"
+                      sx={{ mt: 1 }}
+                    />
+                  </Box>
+                )}
               </Grid>
               <Grid item xs={6}>
                 <Typography color="textSecondary">Required Date</Typography>
