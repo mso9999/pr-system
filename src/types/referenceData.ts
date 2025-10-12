@@ -19,6 +19,21 @@ export interface ReferenceDataItem {
   url?: string;
   notes?: string;
   isActive?: boolean;
+  
+  // Vendor Approval Status Tracking
+  isApproved?: boolean;
+  approvalDate?: string;
+  approvalExpiryDate?: string;
+  approvalReason?: 'auto_3quote' | 'auto_completed' | 'manual';
+  approvedBy?: string;
+  approvalNote?: string;
+  associatedPONumber?: string;
+  lastCompletedOrderDate?: string;
+  last3QuoteProcessDate?: string;
+  
+  // High-Value Vendor Classification
+  isHighValue?: boolean;
+  cumulativeOrderValue?: number;
 
   // Organization specific fields
   /** Display name for the organization (e.g., '1PWR Lesotho') */
@@ -109,3 +124,41 @@ export const CODE_BASED_ID_TYPES = [
   'uom',
   'organizations'
 ] as const;
+
+/**
+ * Vendor Interface
+ * Enhanced type for vendor-specific data with approval tracking
+ */
+export interface Vendor extends ReferenceDataItem {
+  // Core vendor fields
+  id: string;
+  name: string;
+  code?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  url?: string;
+  address?: string;
+  city?: string;
+  country?: string;
+  productsServices?: string;
+  active: boolean;
+  
+  // Approval Status Tracking
+  isApproved: boolean;
+  approvalDate?: string;
+  approvalExpiryDate?: string;
+  approvalReason?: 'auto_3quote' | 'auto_completed' | 'manual';
+  approvedBy?: string;
+  approvalNote?: string; // Justification or override reason
+  associatedPONumber?: string; // If auto-approved from order
+  lastCompletedOrderDate?: string;
+  last3QuoteProcessDate?: string;
+  
+  // High-Value Classification
+  isHighValue?: boolean;
+  cumulativeOrderValue?: number;
+  
+  // Documents (will be added in later phases)
+  // bankLetter?: Attachment;
+  // corporateDocuments?: Attachment[];
+}

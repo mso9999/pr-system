@@ -109,7 +109,9 @@ export interface PRRequest {
   /** Unique identifier for the PR */
   id: string;
   /** Human-readable PR number (format: ORG-YYYYMM-XXX) */
-  prNumber: string;  
+  prNumber: string;
+  /** Object type: PR before APPROVED, PO from APPROVED onward */
+  objectType?: 'PR' | 'PO';
   /** Organization the PR belongs to */
   organization: string;
   /** Department making the request */
@@ -132,6 +134,8 @@ export interface PRRequest {
   requiredDate: string;
   /** Preferred vendor if any */
   preferredVendor?: string;
+  /** Final selected vendor (set during APPROVED status) */
+  selectedVendor?: string;
   /** ID of user making request */
   requestorId: string;
   /** Email of requestor */
@@ -140,11 +144,56 @@ export interface PRRequest {
   requestor: UserReference;
   /** Current approver for this PR - single source of truth */
   approver?: string;
+  /** Second approver for dual-approval PRs above Rule 2 */
+  approver2?: string;
+  /** Whether this PR requires dual approval */
+  requiresDualApproval?: boolean;
   /**
    * @deprecated Use approver field instead. 
    * Will be removed in a future version. 
    */
   approvers?: string[];
+  
+  // Document Management Fields (APPROVED and ORDERED Status)
+  /** Uploaded proforma invoice file */
+  proformaInvoice?: Attachment;
+  /** Flag indicating proforma override is used */
+  proformaOverride?: boolean;
+  /** Justification note if proforma override is set */
+  proformaOverrideJustification?: string;
+  /** Uploaded proof of payment file */
+  proofOfPayment?: Attachment;
+  /** Flag indicating PoP override is used */
+  popOverride?: boolean;
+  /** Justification note if PoP override is set */
+  popOverrideJustification?: string;
+  /** Uploaded delivery note file (ORDERED status) */
+  deliveryNote?: Attachment;
+  /** Array of uploaded delivery photo files (ORDERED status) */
+  deliveryPhotos?: Attachment[];
+  /** Flag indicating delivery doc override is used */
+  deliveryDocOverride?: boolean;
+  /** Justification note if delivery override is set */
+  deliveryDocOverrideJustification?: string;
+  /** System-generated PO document (created at APPROVED status) */
+  poDocument?: Attachment;
+  /** Expected delivery date (ETD) - required before ORDERED */
+  estimatedDeliveryDate?: string;
+  
+  // Supplier Data Fields (for non-approved vendors)
+  /** Manually entered supplier name (if not using approved vendor) */
+  supplierName?: string;
+  /** Contact information for non-approved vendors */
+  supplierContact?: {
+    phone?: string;
+    email?: string;
+    website?: string;
+  };
+  /** User ID who entered the supplier data */
+  supplierDataEnteredBy?: string;
+  /** When supplier data was entered */
+  supplierDataTimestamp?: string;
+  
   /** Vendor information */
   vendor?: Vendor;
   /** Detailed vendor information */
@@ -245,6 +294,18 @@ export interface Attachment {
 export interface ApprovalWorkflow {
   /** Current approver for the PR */
   currentApprover: string | null;
+  /** Second approver for dual-approval PRs */
+  secondApprover?: string | null;
+  /** Whether this PR requires dual approval (above Rule 2) */
+  requiresDualApproval: boolean;
+  /** Whether the first approver has approved */
+  firstApprovalComplete: boolean;
+  /** Justification from first approver (if 3-quote scenario) */
+  firstApproverJustification?: string;
+  /** Whether the second approver has approved */
+  secondApprovalComplete: boolean;
+  /** Justification from second approver (if 3-quote scenario) */
+  secondApproverJustification?: string;
   /** History of approval steps */
   approvalHistory: ApprovalHistoryItem[];
   /** Timestamp of last update */
