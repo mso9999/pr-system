@@ -117,8 +117,8 @@ flowchart TB
     
     %% Edit Loop
     ProcReview -->|Edit PR| EditPR[Edit PR Fields]
-    EditPR --> EditDetails[Procurement can edit:<br/>• Organization<br/>• Department<br/>• Description<br/>• Site<br/>• Expense Type<br/>• Estimated Amount<br/>• Currency<br/>• Preferred Vendor<br/>• Line Items<br/>• Attachments]
-    EditDetails --> CannotEdit[Cannot edit:<br/>• Created By<br/>• Created Date<br/>• Last Updated<br/>• Urgency Level<br/>• Required Date]
+    EditPR --> EditDetails[Procurement can edit:<br/>• Organization<br/>• Department<br/>• Description<br/>• Site<br/>• Estimated Amount<br/>• Currency<br/>• Preferred Vendor<br/>• Line Items<br/>• Attachments]
+    EditDetails --> CannotEdit[Cannot edit:<br/>• Created By<br/>• Created Date<br/>• Last Updated<br/>• Urgency Level<br/>• Required Date<br/>• Project Category (Fin/Admin only)<br/>• Expense Type (Fin/Admin only)]
     CannotEdit --> SaveChanges[Save Changes]
     SaveChanges --> ProcReview
     

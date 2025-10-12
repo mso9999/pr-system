@@ -216,13 +216,16 @@ flowchart TB
 - Department
 - Description
 - Site
-- Expense type
 - Estimated amount
 - Currency
 - Preferred vendor
 - Line items (add, edit, delete)
 - Attachments
 - Any other non-canonical fields
+
+**Procurement CANNOT edit (Finance/Admin only):**
+- Project Category
+- Expense Type
 
 **Three Possible Outcomes from SUBMITTED:**
 1. **Move to IN_QUEUE** - PR proceeds to quote validation and approver assignment

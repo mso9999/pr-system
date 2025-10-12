@@ -678,6 +678,7 @@ Users assigned to the Asset Management department have special permissions:
   - Can view (but not edit) Admin Dashboard
   - Access to financial aspects of PRs/POs
   - Can review and process financial details
+  - **Exclusive Edit Rights:** Can edit Project Category and Expense Type fields (Procurement cannot edit these)
   - Can approve PRs below Rule 1 threshold
   - Can upload documents (proforma, PoP) in APPROVED status
   - Can set overrides with justification in APPROVED status
@@ -886,13 +887,16 @@ Users assigned to the Asset Management department have special permissions:
 
 3. **Procurement Review and Editing (Level 3 or Level 1 only):**
    - Procurement team reviews PR while status remains SUBMITTED
-   - Can edit most PR fields **EXCEPT** canonical fields:
+   - Can edit most PR fields **EXCEPT** canonical fields and restricted financial fields:
      - Created by (requestor)
      - Created date
      - Last updated timestamp
      - Urgency level
      - Required date
-   - Can edit: Organization, Department, Description, Site, Expense type, Estimated amount, Currency, Preferred vendor, Line items, Attachments
+     - **Project Category** (Finance/Admin only)
+     - **Expense Type** (Finance/Admin only)
+   - Can edit: Organization, Department, Description, Site, Estimated amount, Currency, Preferred vendor, Line items, Attachments
+   - **Note:** Project Category and Expense Type can only be edited by Finance/Admin (Level 4) or Administrator (Level 1)
 
 4. **Four Possible Actions from SUBMITTED:**
    - **Move to IN_QUEUE** (Procurement only): PR proceeds to quote validation and approver assignment
@@ -914,13 +918,16 @@ Users assigned to the Asset Management department have special permissions:
 ### PR Processing in IN_QUEUE Status
 1. **Procurement Edit Capabilities (Level 3 or Level 1 only):**
    - **Same edit permissions as SUBMITTED status**
-   - Can edit most PR fields **EXCEPT** canonical fields:
+   - Can edit most PR fields **EXCEPT** canonical fields and restricted financial fields:
      - Created by (requestor)
      - Created date
      - Last updated timestamp
      - Urgency level
      - Required date
-   - Can edit: Organization, Department, Description, Site, Expense type, Estimated amount, Currency, Preferred vendor, Line items, Attachments
+     - **Project Category** (Finance/Admin only)
+     - **Expense Type** (Finance/Admin only)
+   - Can edit: Organization, Department, Description, Site, Estimated amount, Currency, Preferred vendor, Line items, Attachments
+   - **Note:** Project Category and Expense Type can only be edited by Finance/Admin (Level 4) or Administrator (Level 1)
    - **Purpose:** May need to adjust PR details during quote validation and supplier data collection
 
 2. **Supplier Data Collection (for non-approved vendors):**

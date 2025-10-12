@@ -836,9 +836,18 @@ export function PRView() {
     (pr?.status === PRStatus.REVISION_REQUIRED && pr?.requestor?.id === currentUser?.id) || // Requestor in REVISION_REQUIRED
     (pr?.status !== PRStatus.REVISION_REQUIRED && currentUser?.permissionLevel <= 3); // Others for non-REVISION_REQUIRED
   const canEditInQueue = pr?.status === PRStatus.IN_QUEUE && (currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 3);
+  
+  // Finance/Admin (Level 4) can edit Project Category and Expense Type
+  // Procurement (Level 3) CANNOT edit these fields
+  const canEditFinancialFields = currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 4;
+  
   const isReadOnlyField = (fieldName: string) => {
     if (!canEditInQueue) return true;
-    return ['urgency', 'requestor', 'requiredDate'].includes(fieldName);
+    // Canonical fields that cannot be edited by procurement
+    if (['urgency', 'requestor', 'requiredDate'].includes(fieldName)) return true;
+    // Financial fields that only Finance/Admin can edit
+    if (['projectCategory', 'expenseType'].includes(fieldName) && !canEditFinancialFields) return true;
+    return false;
   };
 
   const handleQuoteSubmit = async (quoteData: Quote) => {
@@ -1047,7 +1056,7 @@ export function PRView() {
                 </FormControl>
               </Grid>
               <Grid item xs={6}>
-                <FormControl fullWidth disabled={!isEditMode}>
+                <FormControl fullWidth disabled={!isEditMode || !canEditFinancialFields}>
                   <InputLabel>Project Category</InputLabel>
                   <Select
                     value={isEditMode ? (editedPR.projectCategory || pr?.projectCategory || '') : (pr?.projectCategory || '')}
@@ -1064,6 +1073,11 @@ export function PRView() {
                       </MenuItem>
                     ))}
                   </Select>
+                  {isEditMode && !canEditFinancialFields && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                      Only Finance/Admin can edit this field
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
               <Grid item xs={6}>
@@ -1087,7 +1101,7 @@ export function PRView() {
                 </FormControl>
               </Grid>
               <Grid item xs={6}>
-                <FormControl fullWidth disabled={!isEditMode}>
+                <FormControl fullWidth disabled={!isEditMode || !canEditFinancialFields}>
                   <InputLabel>Expense Type</InputLabel>
                   <Select
                     value={isEditMode ? (editedPR.expenseType || pr?.expenseType || '') : (pr?.expenseType || '')}
@@ -1104,6 +1118,11 @@ export function PRView() {
                       </MenuItem>
                     ))}
                   </Select>
+                  {isEditMode && !canEditFinancialFields && (
+                    <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
+                      Only Finance/Admin can edit this field
+                    </Typography>
+                  )}
                 </FormControl>
               </Grid>
               {(isEditMode ? editedPR.expenseType || pr?.expenseType : pr?.expenseType) && (
