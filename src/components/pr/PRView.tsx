@@ -73,6 +73,7 @@ import { notificationService } from '@/services/notification';
 import { approverService } from '@/services/approver';
 import * as auth from '@/services/auth';
 import { ApproverActions } from './ApproverActions';
+import { ApprovedStatusActions } from './ApprovedStatusActions';
 
 interface EditablePRFields {
   department?: string;
@@ -1866,6 +1867,17 @@ export function PRView() {
             pr={pr}
             currentUser={currentUser}
             assignedApprover={currentApprover}
+            onStatusChange={refreshPR}
+          />
+        </Box>
+      )}
+
+      {/* APPROVED Status Actions (PO Document Management) */}
+      {pr?.status === PRStatus.APPROVED && currentUser && (
+        <Box sx={{ mb: 3 }}>
+          <ApprovedStatusActions
+            pr={pr}
+            currentUser={currentUser}
             onStatusChange={refreshPR}
           />
         </Box>
