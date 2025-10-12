@@ -279,7 +279,6 @@ export const Dashboard = () => {
       [PRStatus.PENDING_APPROVAL]: 0,
       [PRStatus.APPROVED]: 0,
       [PRStatus.ORDERED]: 0,
-      [PRStatus.PARTIALLY_RECEIVED]: 0,
       [PRStatus.COMPLETED]: 0,
       [PRStatus.REVISION_REQUIRED]: 0,
       [PRStatus.CANCELED]: 0,
@@ -306,8 +305,7 @@ export const Dashboard = () => {
         PRStatus.IN_QUEUE,
         PRStatus.PENDING_APPROVAL,
         PRStatus.APPROVED,
-        PRStatus.ORDERED,
-        PRStatus.PARTIALLY_RECEIVED
+        PRStatus.ORDERED
       ]
     },
     {
@@ -329,7 +327,6 @@ export const Dashboard = () => {
     [PRStatus.PENDING_APPROVAL]: { label: 'Pending Approval', color: '#FF9800' },
     [PRStatus.APPROVED]: { label: 'Approved', color: '#4CAF50' },
     [PRStatus.ORDERED]: { label: 'Ordered', color: '#9C27B0' },
-    [PRStatus.PARTIALLY_RECEIVED]: { label: 'Partially Received', color: '#673AB7' },
     [PRStatus.COMPLETED]: { label: 'Completed', color: '#009688' },
     [PRStatus.REVISION_REQUIRED]: { label: 'Revision Required', color: '#F44336' },
     [PRStatus.CANCELED]: { label: 'Canceled', color: '#9E9E9E' },

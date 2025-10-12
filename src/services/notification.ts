@@ -231,12 +231,9 @@ export class NotificationService {
         const requestorEmail = pr.requestorEmail || pr.requestor?.email;
         if (requestorEmail) {
           recipients = [requestorEmail];
-          // CC procurement to stay informed
+          // CC procurement to stay informed (team email covers all procurement users)
           ccList.push(procurementEmail);
-          // CC the person who initiated the change (if different from requestor)
-          if (user?.email && user.email !== requestorEmail) {
-            ccList.push(user.email);
-          }
+          // Note: We don't CC individual procurement users as they're already on the team email
         } else {
           console.warn('No requestor email found for REVISION_REQUIRED notification, sending to procurement');
           recipients = [procurementEmail];
@@ -246,14 +243,14 @@ export class NotificationService {
         // TODO: Get approver email from pr.approvalWorkflow.currentApprover
         recipients = [procurementEmail]; // Temporary: send to procurement
         const requestorEmail = pr.requestorEmail || pr.requestor?.email;
-        if (requestorEmail) {
+        if (requestorEmail && requestorEmail !== user?.email) {
           ccList.push(requestorEmail);
         }
       } else {
         // Default: send to procurement
         recipients = [procurementEmail];
         const requestorEmail = pr.requestorEmail || pr.requestor?.email;
-        if (requestorEmail) {
+        if (requestorEmail && requestorEmail !== user?.email) {
           ccList.push(requestorEmail);
         }
       }
