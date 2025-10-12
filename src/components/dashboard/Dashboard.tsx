@@ -651,7 +651,11 @@ export const Dashboard = () => {
                     <TableCell>Submitted By</TableCell>
                     <TableCell>Created Date</TableCell>
                     <TableCell>Days Open</TableCell>
-                    {selectedStatus !== PRStatus.SUBMITTED && (
+                    <TableCell>Urgency</TableCell>
+                    {selectedStatus === PRStatus.RESUBMITTED && (
+                      <TableCell>Resubmitted Date</TableCell>
+                    )}
+                    {selectedStatus !== PRStatus.SUBMITTED && selectedStatus !== PRStatus.RESUBMITTED && (
                       <TableCell>Status Change Date</TableCell>
                     )}
                     <TableCell>Actions</TableCell>
@@ -699,7 +703,22 @@ export const Dashboard = () => {
                         <TableCell>
                           {calculateDaysOpen(pr)}
                         </TableCell>
-                        {selectedStatus !== PRStatus.SUBMITTED && (
+                        <TableCell>
+                          <Chip
+                            label={isUrgent ? 'URGENT' : 'NORMAL'}
+                            color={isUrgent ? 'error' : 'default'}
+                            size="small"
+                            icon={isUrgent ? <PriorityHighIcon /> : undefined}
+                          />
+                        </TableCell>
+                        {selectedStatus === PRStatus.RESUBMITTED && (
+                          <TableCell>
+                            {pr.resubmittedAt 
+                              ? new Date(pr.resubmittedAt).toLocaleDateString()
+                              : '-'}
+                          </TableCell>
+                        )}
+                        {selectedStatus !== PRStatus.SUBMITTED && selectedStatus !== PRStatus.RESUBMITTED && (
                           <TableCell>
                             {getStatusChangeDate(pr)}
                           </TableCell>
