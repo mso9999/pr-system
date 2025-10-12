@@ -143,7 +143,7 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
       requestorEmail: data.requestorEmail,
       submittedBy: data.submittedBy,
       approver: data.approver, 
-      requiredDate: safeTimestampToISO(data.requiredDate) || '', 
+      requiredDate: data.requiredDate || '', // Simple date string from HTML input, no conversion needed
       preferredVendor: data.preferredVendor || '',
       vehicle: data.vehicle || '',
       createdAt: safeTimestampToISO(data.createdAt) || new Date().toISOString(),
