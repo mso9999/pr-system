@@ -39,6 +39,8 @@ import { updateUserEmail, createUser, updateUserPassword } from '../../services/
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { referenceDataService } from '../../services/referenceData';
 import { ReferenceData } from '../../types/referenceData';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../store';
 
 // Helper function to generate random password
 function generateRandomPassword(): string {
@@ -123,6 +125,7 @@ function PasswordDialog({ open, onClose, onSubmit, userId }: PasswordDialogProps
 }
 
 export function UserManagement({ isReadOnly }: UserManagementProps) {
+  const currentUser = useSelector((state: RootState) => state.auth.user);
   const [users, setUsers] = useState<User[]>([]);
   const [permissions, setPermissions] = useState<Permission[]>([]);
   const [departments, setDepartments] = useState<ReferenceData[]>([]);
@@ -148,6 +151,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     isActive: true
   });
   const { showSnackbar } = useSnackbar();
+
+  // Procurement restrictions: Can only manage Level 5 (Requester) users
+  const isProcurement = currentUser?.permissionLevel === 3;
+  const canManageAllUsers = currentUser?.permissionLevel === 1; // Only Admin
 
   useEffect(() => {
     loadInitialData();
@@ -341,12 +348,18 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       department: '',
       organization: '',
       additionalOrganizations: [],
-      permissionLevel: undefined,
+      permissionLevel: isProcurement ? 5 : undefined, // Procurement can only create Level 5
       isActive: true
     });
   };
 
   const handleEdit = (user: User) => {
+    // Procurement restriction: Can only edit Level 5 users
+    if (isProcurement && user.permissionLevel !== 5) {
+      showSnackbar('Procurement users can only manage Level 5 (Requester) users', 'error');
+      return;
+    }
+
     console.log('Editing user:', user);
     
     const normalizedOrg = normalizeOrgId(user.organization);
@@ -374,12 +387,23 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   };
 
   const handleDelete = async (userId: string) => {
+    // Find the user to check permission level
+    const userToDelete = users.find(u => u.id === userId);
+    
+    // Procurement restriction: Can only delete Level 5 users
+    if (isProcurement && userToDelete && userToDelete.permissionLevel !== 5) {
+      showSnackbar('Procurement users can only manage Level 5 (Requester) users', 'error');
+      return;
+    }
+
     if (window.confirm('Are you sure you want to delete this user?')) {
       try {
         await deleteDoc(doc(db, 'users', userId));
         await loadUsers();
+        showSnackbar('User deleted successfully', 'success');
       } catch (error) {
         console.error('Error deleting user:', error);
+        showSnackbar('Failed to delete user', 'error');
       }
     }
   };
@@ -749,10 +773,20 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                   value={formData.permissionLevel || ''}
                   onChange={(e) => setFormData({ ...formData, permissionLevel: Number(e.target.value) })}
                   label="Permission Level"
+                  disabled={isProcurement} // Procurement can only create Level 5
                 >
-                  {permissions.map((permission) => (
-                    <MenuItem key={permission.id} value={permission.level}>
-                      {permission.name}
+                  {permissions
+                    .filter(permission => {
+                      // Procurement can only see/select Level 5 (Requester)
+                      if (isProcurement) {
+                        return Number(permission.level) === 5;
+                      }
+                      // Admin sees all levels
+                      return true;
+                    })
+                    .map((permission) => (
+                      <MenuItem key={permission.id} value={permission.level}>
+                        {permission.name}
                     </MenuItem>
                   ))}
                 </Select>
