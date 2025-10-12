@@ -666,8 +666,11 @@ Users assigned to the Asset Management department have special permissions:
 - Level 3: Procurement Officer (PROC)
   - Can manage the procurement process
   - Can view Admin Dashboard
-  - Can edit select Admin Dashboard items
+  - Can edit select Admin Dashboard items (excluding Project Categories and Expense Types)
   - Responsible for vendor management and PR processing
+  - **Reference Data Management:**
+    - Can manage: Departments, Sites, Vehicles, Vendors
+    - **Cannot manage:** Project Categories, Expense Types (Finance/Admin only)
   - **User Management (Limited):** Can create, delete, activate, and deactivate users at Level 5 (Requester) only
     - Cannot create users at other permission levels (1, 2, 3, 4)
     - Cannot promote Level 5 users to other levels
@@ -675,10 +678,11 @@ Users assigned to the Asset Management department have special permissions:
 
 - Level 4: Finance Admin (FIN_AD)
   - Can process procurement requests
-  - Can view (but not edit) Admin Dashboard
+  - Can view (but not edit most) Admin Dashboard items
   - Access to financial aspects of PRs/POs
   - Can review and process financial details
-  - **Exclusive Edit Rights:** Can edit Project Category and Expense Type fields (Procurement cannot edit these)
+  - **Exclusive Edit Rights in PRs/POs:** Can edit Project Category and Expense Type fields (Procurement cannot edit these)
+  - **Exclusive CRUD Rights in Admin:** Can manage Project Categories and Expense Types in Reference Data Management (Procurement cannot manage these)
   - Can approve PRs below Rule 1 threshold
   - Can upload documents (proforma, PoP) in APPROVED status
   - Can set overrides with justification in APPROVED status
