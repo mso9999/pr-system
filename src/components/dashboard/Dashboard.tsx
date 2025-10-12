@@ -27,6 +27,9 @@ import { PRStatus, PRRequest, StatusHistoryItem } from '../../types/pr';
 import { OrganizationSelector } from '../common/OrganizationSelector';
 import { MetricsPanel } from './MetricsPanel';
 import { ConfirmationDialog } from '../common/ConfirmationDialog';
+import { AdvancedFilterPanel, FilterCriteria } from './AdvancedFilterPanel';
+import { SearchResultsAnalytics } from './SearchResultsAnalytics';
+import { exportPRsToCSV } from '@/utils/exportUtils';
 import { Link } from 'react-router-dom';
 import { referenceDataService } from '../../services/referenceData';
 
@@ -67,10 +70,60 @@ export const Dashboard = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [filteredPRs, setFilteredPRs] = useState<PRRequest[]>([]);
+  const [filterCriteria, setFilterCriteria] = useState<FilterCriteria>({});
+  const [hasAdvancedFilters, setHasAdvancedFilters] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
+  const [allReferenceData, setAllReferenceData] = useState<{
+    departments: ReferenceDataItem[];
+    sites: ReferenceDataItem[];
+    vehicles: ReferenceDataItem[];
+    projectCategories: ReferenceDataItem[];
+    expenseTypes: ReferenceDataItem[];
+    vendors: ReferenceDataItem[];
+  }>({
+    departments: [],
+    sites: [],
+    vehicles: [],
+    projectCategories: [],
+    expenseTypes: [],
+    vendors: []
+  });
 
   useEffect(() => {
     setUserId(user?.id || null);
   }, [user]);
+
+  // Load reference data for filters
+  useEffect(() => {
+    const loadReferenceData = async () => {
+      if (!selectedOrg?.name) return;
+
+      try {
+        const [depts, sites, vehs, projCats, expTypes, vends] = await Promise.all([
+          referenceDataService.getDepartments(selectedOrg.name),
+          referenceDataService.getItemsByType('sites', selectedOrg.name),
+          referenceDataService.getItemsByType('vehicles', selectedOrg.name),
+          referenceDataService.getItemsByType('projectCategories', selectedOrg.name),
+          referenceDataService.getItemsByType('expenseTypes', selectedOrg.name),
+          referenceDataService.getItemsByType('vendors'),
+        ]);
+
+        setAllReferenceData({
+          departments: depts,
+          sites,
+          vehicles: vehs,
+          projectCategories: projCats,
+          expenseTypes: expTypes,
+          vendors: vends
+        });
+      } catch (error) {
+        console.error('Error loading reference data:', error);
+      }
+    };
+
+    loadReferenceData();
+  }, [selectedOrg?.name]);
 
   // Load PRs when organization is selected or filter changes
   useEffect(() => {
@@ -420,7 +473,18 @@ export const Dashboard = () => {
   // Check if user should see MY ACTIONS button (not Procurement Level 3)
   const showMyActionsButton = user?.permissionLevel !== 3;
 
-  const statusPRs = myActionsFilter ? getMyActionsPRs().filter(pr => pr.status === selectedStatus) : getStatusPRs(selectedStatus);
+  // Determine which PRs to display based on active filters
+  let statusPRs: PRRequest[];
+  if (hasAdvancedFilters) {
+    // Use advanced filtered results
+    statusPRs = filteredPRs.filter(pr => pr.status === selectedStatus);
+  } else if (myActionsFilter) {
+    // Use MY ACTIONS filter
+    statusPRs = getMyActionsPRs().filter(pr => pr.status === selectedStatus);
+  } else {
+    // Use default status filter
+    statusPRs = getStatusPRs(selectedStatus);
+  }
 
   const handleDeleteClick = (event: React.MouseEvent, pr: PRRequest) => {
     event.preventDefault();
@@ -446,6 +510,24 @@ export const Dashboard = () => {
   const handleDeleteCancel = () => {
     setDeleteDialogOpen(false);
     setPrToDelete(null);
+  };
+
+  // Handle advanced filter change
+  const handleAdvancedFilterChange = (filtered: PRRequest[], criteria: FilterCriteria) => {
+    setFilteredPRs(filtered);
+    setFilterCriteria(criteria);
+    setHasAdvancedFilters(Object.keys(criteria).some(key => {
+      const value = criteria[key as keyof FilterCriteria];
+      return value !== undefined && value !== '' && value !== 'all' && 
+             !(Array.isArray(value) && value.length === 0);
+    }));
+  };
+
+  // Handle export to CSV
+  const handleExport = () => {
+    const dataToExport = hasAdvancedFilters ? filteredPRs : statusPRs;
+    const baseCurrency = selectedOrg?.id ? 'LSL' : 'LSL'; // TODO: Get from org config
+    exportPRsToCSV(dataToExport, filterCriteria, baseCurrency);
   };
 
   return (
@@ -492,6 +574,33 @@ export const Dashboard = () => {
         <Grid item xs={12}>
           <MetricsPanel prs={userPRs} />
         </Grid>
+
+        {/* Advanced Filter Panel */}
+        <Grid item xs={12}>
+          <AdvancedFilterPanel
+            prs={userPRs}
+            onFilterChange={handleAdvancedFilterChange}
+            organizations={[]}
+            users={users}
+            vendors={allReferenceData.vendors}
+            departments={allReferenceData.departments}
+            sites={allReferenceData.sites}
+            vehicles={allReferenceData.vehicles}
+            projectCategories={allReferenceData.projectCategories}
+            expenseTypes={allReferenceData.expenseTypes}
+          />
+        </Grid>
+
+        {/* Search Results Analytics */}
+        {hasAdvancedFilters && filteredPRs.length >= 0 && (
+          <Grid item xs={12}>
+            <SearchResultsAnalytics
+              filteredPRs={filteredPRs}
+              baseCurrency={selectedOrg?.id ? 'LSL' : 'LSL'}
+              onExport={handleExport}
+            />
+          </Grid>
+        )}
 
         <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
