@@ -962,15 +962,18 @@ Users assigned to the Asset Management department have special permissions:
 
 ### PR Processing in REVISION_REQUIRED Status
 1. **Who Can Take Actions in REVISION_REQUIRED Status:**
-   - **Requestor (Level 5):** Can edit their own PR and resubmit or cancel
-   - **Administrators (Level 1):** Full access as superuser
+   - **Requestor (Level 5):** Can edit their own PR and resubmit or cancel - **EXCLUSIVE ACCESS**
+   - **Administrators (Level 1):** Full access as superuser (override capability)
    - **Procurement (Level 3):** CANNOT edit or take actions - must wait for requestor
-   - **Approvers (Level 2, 4):** CANNOT edit or take actions - can only view
+   - **Finance/Admin (Level 4):** CANNOT edit or take actions - must wait for requestor
+   - **Approvers (Level 2):** CANNOT edit or take actions - can only view
 
-2. **Requestor Edit Capabilities:**
-   - Can edit: Organization, Department, Description, Site, Expense Type, Estimated Amount, Currency, **Urgency Level**, **Required Date**, Preferred Vendor, Line Items, Attachments
+2. **Requestor Edit Capabilities in REVISION_REQUIRED:**
+   - Can edit: Organization, Department, Description, Site, **Project Category**, **Expense Type**, Estimated Amount, Currency, **Urgency Level**, **Required Date**, Preferred Vendor, Line Items, Attachments
    - Cannot edit: Created by, Created date, History/Audit trail, PR Number
-   - **Key Difference from Procurement Edit:** Requestor CAN edit Urgency and Required Date
+   - **CRITICAL:** In REVISION_REQUIRED status, the requestor has FULL edit access including Project Category and Expense Type
+   - **Key Difference:** This is the ONLY status where requestor can edit Project Category and Expense Type
+   - **Exclusive Access:** NO other user (except superadmin Level 1) can edit the PR in this status
 
 3. **Two Possible Actions:**
    - **Resubmit:** Returns PR to SUBMITTED status for procurement review
@@ -1010,6 +1013,31 @@ PRs with REJECTED or CANCELED status can be restored to active workflow:
   - Visual confirmation dialog
   - Notes field (required for certain actions)
   - Automatic notification triggers
+
+### Project Category and Expense Type Edit Permissions Summary
+
+**Status-Based Permission Matrix:**
+
+| Status | Who Can Edit Project Category & Expense Type |
+|--------|----------------------------------------------|
+| SUBMITTED | Finance/Admin (Level 4) or Admin (Level 1) ONLY |
+| IN_QUEUE | Finance/Admin (Level 4) or Admin (Level 1) ONLY |
+| **REVISION_REQUIRED** | **Requestor (Level 5) or Admin (Level 1) ONLY** |
+| PENDING_APPROVAL | Finance/Admin (Level 4) or Admin (Level 1) ONLY |
+| APPROVED | Finance/Admin (Level 4) or Admin (Level 1) ONLY |
+| ORDERED | Finance/Admin (Level 4) or Admin (Level 1) ONLY |
+| COMPLETED | Finance/Admin (Level 4) or Admin (Level 1) ONLY |
+
+**Key Rules:**
+1. **Procurement (Level 3) can NEVER edit** Project Category or Expense Type in any status
+2. **Requestor (Level 5) can ONLY edit** these fields when their PR is in REVISION_REQUIRED status
+3. **Finance/Admin (Level 4) can edit** these fields in all statuses EXCEPT REVISION_REQUIRED
+4. **Admin (Level 1) can ALWAYS edit** as superuser override
+
+**Rationale:**
+- In REVISION_REQUIRED, the requestor must have full control to fix issues
+- In all other statuses, these are financial classification fields requiring finance expertise
+- Procurement focuses on vendor management and order fulfillment, not financial categorization
 
 ### PR to PO Transition and APPROVED Status Processing
 

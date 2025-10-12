@@ -51,7 +51,7 @@ flowchart TB
     
     %% Edit Loop
     RequestorReview -->|Edit PR| EditPR[Edit PR Fields]
-    EditPR --> EditDetails[Requestor can edit:<br/>• Organization<br/>• Department<br/>• Description<br/>• Site<br/>• Expense Type<br/>• Estimated Amount<br/>• Currency<br/>• Urgency Level ✓<br/>• Required Date ✓<br/>• Preferred Vendor<br/>• Line Items<br/>• Attachments]
+    EditPR --> EditDetails[Requestor can edit:<br/>• Organization<br/>• Department<br/>• Description<br/>• Site<br/>• Project Category ⭐<br/>• Expense Type ⭐<br/>• Estimated Amount<br/>• Currency<br/>• Urgency Level ✓<br/>• Required Date ✓<br/>• Preferred Vendor<br/>• Line Items<br/>• Attachments<br/>• Vehicle if applicable]
     EditDetails --> CannotEdit[Cannot edit:<br/>• Created By<br/>• Created Date<br/>• History/Audit Trail<br/>• PR Number]
     CannotEdit --> SaveChanges[Save Changes]
     SaveChanges --> RequestorReview
@@ -91,25 +91,31 @@ flowchart TB
 
         <div class="info-box">
             <h3>Requestor Edit Permissions (REVISION_REQUIRED Status)</h3>
+            <p style="background-color: #ffeb3b; padding: 10px; border-radius: 3px; font-weight: bold;">
+                🔒 EXCLUSIVE ACCESS: In REVISION_REQUIRED status, ONLY the requestor (or superadmin) can edit the PR.
+                Finance/Admin and Procurement CANNOT edit.
+            </p>
             <div class="edit-permissions">
                 <div class="perm-col can-edit">
-                    <h4>✅ CAN EDIT</h4>
+                    <h4>✅ CAN EDIT (Full Access)</h4>
                     <ul>
                         <li><strong>Organization</strong></li>
                         <li><strong>Department</strong></li>
                         <li><strong>Description</strong></li>
                         <li><strong>Site</strong></li>
-                        <li><strong>Expense Type</strong></li>
+                        <li><strong>Project Category</strong> ⭐</li>
+                        <li><strong>Expense Type</strong> ⭐</li>
                         <li><strong>Estimated Amount</strong></li>
                         <li><strong>Currency</strong></li>
-                        <li><strong>Urgency Level</strong> ⭐</li>
-                        <li><strong>Required Date</strong> ⭐</li>
+                        <li><strong>Urgency Level</strong> ✓</li>
+                        <li><strong>Required Date</strong> ✓</li>
                         <li><strong>Preferred Vendor</strong></li>
                         <li><strong>Line Items</strong> (add, edit, delete)</li>
                         <li><strong>Attachments</strong></li>
                         <li><strong>Vehicle</strong> (if applicable)</li>
                     </ul>
-                    <p style="font-size: 12px; color: #666;">⭐ = Can edit in R&R but NOT in Procurement Review</p>
+                    <p style="font-size: 12px; color: #666;">⭐ = Requestor ONLY in R&R status (Finance/Admin in other statuses)<br/>
+                    ✓ = Requestor ONLY (Procurement cannot edit these)</p>
                 </div>
                 <div class="perm-col cannot-edit">
                     <h4>❌ CANNOT EDIT (Canonical Fields)</h4>
@@ -126,50 +132,71 @@ flowchart TB
         </div>
 
         <div class="info-box" style="background-color: #e1f5fe; border-left-color: #0277bd;">
-            <h3>Comparison: Procurement Edit vs Requestor Edit</h3>
-            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+            <h3>Comparison: Edit Permissions Across Roles and Statuses</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px;">
                 <tr style="background-color: #b3e5fc;">
-                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Field</th>
-                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Procurement Edit<br/>(SUBMITTED)</th>
-                    <th style="padding: 10px; text-align: center; border: 1px solid #ddd;">Requestor Edit<br/>(REVISION_REQUIRED)</th>
+                    <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Field</th>
+                    <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Procurement<br/>(SUBMITTED/IN_QUEUE)</th>
+                    <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Finance/Admin<br/>(SUBMITTED/IN_QUEUE)</th>
+                    <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Requestor<br/>(REVISION_REQUIRED)</th>
+                    <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Finance/Admin<br/>(PENDING_APPROVAL+)</th>
+                </tr>
+                <tr style="background-color: #fff9c4;">
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Project Category</strong> ⭐</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
+                </tr>
+                <tr style="background-color: #fff9c4;">
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Expense Type</strong> ⭐</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
                 </tr>
                 <tr>
-                    <td style="padding: 10px; border: 1px solid #ddd;">Organization</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓ Yes</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓ Yes</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">Department, Description, Site</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
                 </tr>
                 <tr style="background-color: #f9f9f9;">
-                    <td style="padding: 10px; border: 1px solid #ddd;">Department, Description, Site</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓ Yes</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓ Yes</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">Amount, Currency, Vendor</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
                 </tr>
-                <tr>
-                    <td style="padding: 10px; border: 1px solid #ddd;">Expense Type, Amount, Currency</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓ Yes</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓ Yes</td>
+                <tr style="background-color: #fff9c4;">
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Urgency Level</strong> ✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                </tr>
+                <tr style="background-color: #fff9c4;">
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Required Date</strong> ✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
                 </tr>
                 <tr style="background-color: #f9f9f9;">
-                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Urgency Level</strong></td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;">✗ No</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
-                </tr>
-                <tr>
-                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Required Date</strong></td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;">✗ No</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
-                </tr>
-                <tr style="background-color: #f9f9f9;">
-                    <td style="padding: 10px; border: 1px solid #ddd;">Preferred Vendor, Line Items, Attachments</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓ Yes</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓ Yes</td>
-                </tr>
-                <tr>
-                    <td style="padding: 10px; border: 1px solid #ddd;">Created By, Created Date</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;">✗ No</td>
-                    <td style="padding: 10px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;">✗ No</td>
+                    <td style="padding: 8px; border: 1px solid #ddd;">Line Items, Attachments</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;">✓</td>
                 </tr>
             </table>
-            <p style="margin-top: 10px; font-size: 14px;"><strong>Key Difference:</strong> Requestor can edit Urgency Level and Required Date during revision, but Procurement cannot edit these fields during SUBMITTED review.</p>
+            <p style="margin-top: 10px; font-size: 13px;">
+                <strong>Legend:</strong><br/>
+                ⭐ = Finance/Admin exclusive field (except in REVISION_REQUIRED where requestor has access)<br/>
+                ✓ = Requestor-only editable fields (Urgency & Required Date)<br/>
+                <strong>Note:</strong> Admin (Level 1) can always edit all fields as superuser override.
+            </p>
         </div>
 
         <div class="info-box" style="background-color: #e8f5e9; border-left-color: #388e3c;">
@@ -200,13 +227,20 @@ flowchart TB
 
         <div class="info-box" style="background-color: #fce4ec; border-left-color: #c2185b;">
             <h3>Who Can Take Actions in REVISION_REQUIRED Status?</h3>
-            <p><strong>ONLY the Requestor or Administrator can take actions in this stage:</strong></p>
+            <p style="background-color: #ffebee; padding: 10px; border-radius: 3px; font-weight: bold; color: #c62828;">
+                ⚠️ EXCLUSIVE REQUESTOR ACCESS: This status is designed for the requestor to make corrections.
+                NO other users (except superadmin) can edit or take actions.
+            </p>
             <ul>
-                <li><strong>Requestor (Level 5):</strong> ✓ Can edit their own PR and resubmit or cancel</li>
-                <li><strong>Level 1 (Administrator):</strong> ✓ Can edit, resubmit, or cancel any PR (superuser)</li>
-                <li><strong>Procurement (Level 3):</strong> ✗ CANNOT edit or take actions - must wait for requestor</li>
-                <li><strong>Approvers (Level 2, 4):</strong> ✗ CANNOT edit or take actions - can only view</li>
+                <li><strong>Requestor (Level 5):</strong> ✅ Can edit their own PR and resubmit or cancel (FULL EDIT ACCESS including Project Category & Expense Type)</li>
+                <li><strong>Administrator (Level 1):</strong> ✅ Can edit, resubmit, or cancel any PR (superuser override)</li>
+                <li><strong>Procurement (Level 3):</strong> ❌ CANNOT edit or take actions - must wait for requestor</li>
+                <li><strong>Finance/Admin (Level 4):</strong> ❌ CANNOT edit or take actions - must wait for requestor (even Project Category & Expense Type!)</li>
+                <li><strong>Approvers (Level 2):</strong> ❌ CANNOT edit or take actions - can only view</li>
             </ul>
+            <p style="margin-top: 10px; font-style: italic; color: #666;">
+                Finance/Admin regains edit access to Project Category & Expense Type from PENDING_APPROVAL status onward.
+            </p>
         </div>
 
         <div class="info-box" style="background-color: #fff3e0; border-left-color: #f57c00;">

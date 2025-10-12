@@ -789,15 +789,25 @@ export function PRView() {
     (pr?.status !== PRStatus.REVISION_REQUIRED && currentUser?.permissionLevel <= 3); // Others for non-REVISION_REQUIRED
   const canEditInQueue = pr?.status === PRStatus.IN_QUEUE && (currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 3);
   
-  // Finance/Admin (Level 4) can edit Project Category and Expense Type
-  // Procurement (Level 3) CANNOT edit these fields
-  const canEditFinancialFields = currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 4;
+  // Determine who can edit Project Category and Expense Type based on status
+  const canEditFinancialFields = (() => {
+    // In REVISION_REQUIRED status: ONLY requestor (or superadmin) can edit
+    if (pr?.status === 'REVISION_REQUIRED') {
+      return currentUser?.permissionLevel === 1 || currentUser?.id === pr?.requestorId;
+    }
+    // In PENDING_APPROVAL and later statuses: Only Finance/Admin (Level 4) or Admin (Level 1)
+    if (pr?.status && ['PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status)) {
+      return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 4;
+    }
+    // In SUBMITTED/IN_QUEUE: Only Finance/Admin (Level 4) or Admin (Level 1)
+    return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 4;
+  })();
   
   const isReadOnlyField = (fieldName: string) => {
     if (!canEditInQueue) return true;
     // Canonical fields that cannot be edited by procurement
     if (['urgency', 'requestor', 'requiredDate'].includes(fieldName)) return true;
-    // Financial fields that only Finance/Admin can edit
+    // Financial fields permission depends on status (see canEditFinancialFields logic above)
     if (['projectCategory', 'expenseType'].includes(fieldName) && !canEditFinancialFields) return true;
     return false;
   };
@@ -1006,7 +1016,9 @@ export function PRView() {
                   </Select>
                   {isEditMode && !canEditFinancialFields && (
                     <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      Only Finance/Admin can edit this field
+                      {pr?.status === 'REVISION_REQUIRED' 
+                        ? 'Only requestor can edit in Revision Required status'
+                        : 'Only Finance/Admin can edit this field'}
                     </Typography>
                   )}
                 </FormControl>
@@ -1051,7 +1063,9 @@ export function PRView() {
                   </Select>
                   {isEditMode && !canEditFinancialFields && (
                     <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
-                      Only Finance/Admin can edit this field
+                      {pr?.status === 'REVISION_REQUIRED' 
+                        ? 'Only requestor can edit in Revision Required status'
+                        : 'Only Finance/Admin can edit this field'}
                     </Typography>
                   )}
                 </FormControl>
