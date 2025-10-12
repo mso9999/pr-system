@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1PWR Purchase Request Workflow Flowchart</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 100%;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1976d2;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .legend {
+            background-color: #f9f9f9;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+            border-left: 4px solid #1976d2;
+        }
+        .legend h2 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .legend-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            background-color: white;
+            border-radius: 4px;
+        }
+        .legend-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 4px;
+            margin-right: 10px;
+            border: 2px solid #333;
+        }
+        .legend-text {
+            font-size: 14px;
+        }
+        .mermaid-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .personnel-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .personnel-table th,
+        .personnel-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        .personnel-table th {
+            background-color: #1976d2;
+            color: white;
+        }
+        .personnel-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .info-section {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .info-section h3 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        @media print {
+            body {
+                background-color: white;
+            }
+            .container {
+                box-shadow: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>1PWR Purchase Request Process Flowchart</h1>
+        <p class="subtitle">Complete Workflow with Business Rules, Permissions, and Status Transitions</p>
+        
+        <div class="info-section">
+            <h3>About This Flowchart</h3>
+            <p>This comprehensive flowchart illustrates the complete lifecycle of a Purchase Request (PR) in the 1PWR Procurement System, including all decision points, approval levels, quote requirements, and possible outcomes.</p>
+        </div>
+
+        <div class="legend">
+            <h2>Legend: Status Colors</h2>
+            <div class="legend-grid">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e3f2fd; border-color: #1976d2;"></div>
+                    <div class="legend-text"><strong>SUBMITTED</strong> - Initial state</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #bbdefb; border-color: #1565c0; border-style: dashed;"></div>
+                    <div class="legend-text"><strong>EDIT ACTION</strong> - Procurement can edit PR</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #fff3e0; border-color: #f57c00;"></div>
+                    <div class="legend-text"><strong>IN_QUEUE</strong> - Procurement review</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #fce4ec; border-color: #c2185b;"></div>
+                    <div class="legend-text"><strong>PENDING_APPROVAL</strong> - Awaiting approver</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e8f5e9; border-color: #388e3c;"></div>
+                    <div class="legend-text"><strong>APPROVED/ORDERED</strong> - Processing</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffebee; border-color: #d32f2f;"></div>
+                    <div class="legend-text"><strong>REJECTED/REVISION</strong> - Needs action</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #c8e6c9; border-color: #2e7d32;"></div>
+                    <div class="legend-text"><strong>COMPLETED</strong> - Final state</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #fff9c4; border-color: #f9a825;"></div>
+                    <div class="legend-text"><strong>Decision Points</strong> - Validation checks</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #e1bee7; border-color: #8e24aa;"></div>
+                    <div class="legend-text"><strong>Notifications</strong> - Email alerts</div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ffcdd2; border-color: #c62828;"></div>
+                    <div class="legend-text"><strong>Errors</strong> - Validation failures</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="legend">
+            <h2>Personnel & Permission Levels</h2>
+            <table class="personnel-table">
+                <thead>
+                    <tr>
+                        <th>Level</th>
+                        <th>Role</th>
+                        <th>Capabilities in PR Workflow</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Level 1</strong></td>
+                        <td>Administrator (ADMIN)</td>
+                        <td>Full system access; can manage all PRs; can cancel any PR</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Level 2</strong></td>
+                        <td>Senior Approver</td>
+                        <td>Can approve PRs of any value; required for high-value PRs (above thresholds)</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Level 3</strong></td>
+                        <td>Procurement Officer (PROC)</td>
+                        <td>Manages procurement process; pushes PRs to approvers; can reject or request revision</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Level 4</strong></td>
+                        <td>Finance Admin (FIN_AD)</td>
+                        <td>Can approve PRs below Rule 1 threshold only; has financial oversight</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Level 5</strong></td>
+                        <td>Requester (REQ)</td>
+                        <td>Creates and submits PRs; can view own PRs; can cancel own PRs</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="mermaid-container">
+            <pre class="mermaid">
+flowchart TB
+    Start([User Creates PR])
+    
+    %% Initial Creation & Validation
+    Start --> ValidateBasic{Validate Basic Info}
+    ValidateBasic -->|Invalid| ValidationError[Show Validation Errors]
+    ValidationError --> Start
+    
+    ValidateBasic -->|Valid| ValidateLineItems{At least 1 line item?}
+    ValidateLineItems -->|No| ValidationError
+    ValidateLineItems -->|Yes| CheckVehicle{Expense Type = Vehicle?}
+    
+    CheckVehicle -->|Yes| ValidateVehicle{Vehicle Selected?}
+    ValidateVehicle -->|No| ValidationError
+    ValidateVehicle -->|Yes| CreatePR[Create PR in Database]
+    CheckVehicle -->|No| CreatePR
+    
+    CreatePR --> SetStatusSubmitted[Status: SUBMITTED]
+    SetStatusSubmitted --> NotifyProcurement[Notify Procurement Team]
+    NotifyProcurement --> ProcReview{Procurement Review<br/>Status: SUBMITTED}
+    
+    %% Procurement Edit Capability Loop
+    ProcReview -->|Edit PR| EditPR[Edit PR Fields<br/>Can edit: Organization, Dept,<br/>Description, Site, Amount, etc.<br/>Cannot edit: Created by/date,<br/>Urgency, Required date]
+    EditPR --> ProcReview
+    
+    %% Procurement Options from SUBMITTED
+    ProcReview -->|Option 1: Move to Queue| MoveToQueue[Status: IN_QUEUE]
+    ProcReview -->|Option 2: Request Revision| ValidateRevisionNotes{Notes<br/>Provided?}
+    ProcReview -->|Option 3: Cancel PR| ValidateCancelNotes{Notes<br/>Provided?}
+    
+    ValidateRevisionNotes -->|No| ProcReview
+    ValidateRevisionNotes -->|Yes| ProcRevise[Status: REVISION_REQUIRED]
+    ValidateCancelNotes -->|No| ProcReview
+    ValidateCancelNotes -->|Yes| Cancel[Status: CANCELED]
+    
+    %% Notify requestor for revision or cancellation
+    ProcRevise --> NotifyRevision1[Notify Requestor]
+    Cancel --> NotifyCancel[Notify Requestor]
+    
+    %% IN_QUEUE Processing
+    MoveToQueue --> InQueueReview{Procurement Review<br/>Status: IN_QUEUE}
+    InQueueReview -->|Push to Approver| DetermineThreshold{Determine Quote<br/>Requirements}
+    
+    %% Quote Requirements Logic
+    DetermineThreshold --> CheckRule2{Amount ><br/>Rule 2 Threshold?}
+    
+    CheckRule2 -->|Above| Rule2Above[Require: 3 quotes<br/>with attachments<br/>Level 2 approver only]
+    CheckRule2 -->|Below| CheckRule1{Amount ><br/>Rule 1 Threshold?}
+    
+    CheckRule1 -->|Above| CheckApprovedVendor1{Using Approved<br/>Vendor?}
+    CheckApprovedVendor1 -->|Yes| Rule1AboveApproved[Require: 1 quote<br/>with attachment<br/>Level 2 approver only]
+    CheckApprovedVendor1 -->|No| Rule1AboveNonApproved[Require: 3 quotes<br/>with attachments<br/>Level 2 approver only]
+    
+    CheckRule1 -->|Below| CheckApprovedVendor2{Using Approved<br/>Vendor?}
+    CheckApprovedVendor2 -->|Yes| Rule1BelowApproved[Require: 1 quote<br/>attachment optional<br/>Level 4 or Level 2 approver]
+    CheckApprovedVendor2 -->|No| Rule1BelowNonApproved[Require: 1 quote<br/>with attachment<br/>Level 4 or Level 2 approver]
+    
+    %% All paths converge to validation
+    Rule2Above --> ValidateQuotes{Quotes Valid?}
+    Rule1AboveApproved --> ValidateQuotes
+    Rule1AboveNonApproved --> ValidateQuotes
+    Rule1BelowApproved --> ValidateQuotes
+    Rule1BelowNonApproved --> ValidateQuotes
+    
+    ValidateQuotes -->|Invalid/Incomplete| QuoteError[Notify: Additional<br/>quotes required]
+    QuoteError --> InQueueReview
+    ValidateQuotes -->|Valid| SelectApprover[Select Appropriate<br/>Approver]
+    
+    %% Approver Selection
+    SelectApprover --> CheckApproverLevel{Check Approver<br/>Permission Level}
+    CheckApproverLevel -->|Validate| CheckApproverOrg{Approver matches<br/>PR organization?}
+    CheckApproverOrg -->|No| ApproverError[Error: Invalid<br/>approver selection]
+    ApproverError --> InQueueReview
+    CheckApproverOrg -->|Yes| CheckApproverActive{Approver<br/>is active?}
+    CheckApproverActive -->|No| ApproverError
+    CheckApproverActive -->|Yes| CheckSelfApproval{Approver is<br/>requestor?}
+    CheckSelfApproval -->|Yes| ApproverError
+    CheckSelfApproval -->|No| PushToApprover[Status: PENDING_APPROVAL]
+    
+    PushToApprover --> NotifyApprover[Notify Approver<br/>CC: Requestor]
+    NotifyApprover --> ApproverReview{Approver Review}
+    
+    %% Approver Actions
+    ApproverReview -->|Option 1: Approve| ApproveAction[Status: APPROVED]
+    ApproverReview -->|Option 2: Reject| ApproveReject[Status: REJECTED]
+    ApproverReview -->|Option 3: Request Revision| ApproveRevise[Status: REVISION_REQUIRED]
+    
+    %% Approved Path
+    ApproveAction --> NotifyApproved[Notify Procurement<br/>& Requestor]
+    NotifyApproved --> ProcurementOrder{Procurement<br/>Places Order}
+    ProcurementOrder --> OrderPlaced[Status: ORDERED]
+    
+    %% Order Fulfillment
+    OrderPlaced --> ReceiveItems{Receive Items}
+    ReceiveItems -->|Partial Delivery| PartialReceived[Status: PARTIALLY_RECEIVED]
+    PartialReceived --> CheckAllReceived{All Items<br/>Received?}
+    CheckAllReceived -->|No| PartialReceived
+    CheckAllReceived -->|Yes| Completed[Status: COMPLETED]
+    ReceiveItems -->|Full Delivery| Completed
+    
+    %% Revision Loop (from Approver)
+    ApproveRevise --> NotifyRevision2[Notify Requestor]
+    NotifyRevision2 --> RequestorRevise2{Requestor<br/>Revises PR}
+    
+    %% Revision Loop (from Procurement already handled above)
+    NotifyRevision1 --> RequestorRevise1{Requestor<br/>Revises PR}
+    
+    RequestorRevise1 -->|Resubmit| Resubmitted1[Status: RESUBMITTED]
+    RequestorRevise1 -->|Cancel Instead| CancelFromRevision[Status: CANCELED]
+    RequestorRevise2 -->|Resubmit| Resubmitted2[Status: RESUBMITTED]
+    RequestorRevise2 -->|Cancel Instead| CancelFromRevision
+    
+    Resubmitted1 --> NotifyResubmit1[Notify Procurement]
+    Resubmitted2 --> NotifyResubmit2[Notify Procurement]
+    NotifyResubmit1 --> ProcReview
+    NotifyResubmit2 --> ProcReview
+    
+    CancelFromRevision --> NotifyCancelFromRevision[Notify Procurement]
+    NotifyCancelFromRevision --> CanceledEnd
+    
+    %% Rejection Endpoints (from Approver only)
+    ApproveReject --> NotifyReject[Notify Requestor<br/>& Procurement]
+    NotifyReject --> RejectedEnd([End: REJECTED])
+    
+    %% Cancellation Endpoint (from Procurement during SUBMITTED review)
+    NotifyCancel --> CanceledEnd([End: CANCELED])
+    
+    %% Completion Endpoint
+    Completed --> NotifyComplete[Notify All<br/>Stakeholders]
+    NotifyComplete --> CompletedEnd([End: COMPLETED])
+    
+    %% Styling
+    classDef submitStatus fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef queueStatus fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    classDef approvalStatus fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef approvedStatus fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef rejectedStatus fill:#ffebee,stroke:#d32f2f,stroke-width:2px
+    classDef completedStatus fill:#c8e6c9,stroke:#2e7d32,stroke-width:3px
+    classDef decision fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef notification fill:#e1bee7,stroke:#8e24aa,stroke-width:2px
+    classDef error fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    classDef editAction fill:#bbdefb,stroke:#1565c0,stroke-width:2px,stroke-dasharray: 5 5
+    
+    class SetStatusSubmitted submitStatus
+    class MoveToQueue,InQueueReview queueStatus
+    class PushToApprover,NotifyApprover,ApproverReview approvalStatus
+    class ApproveAction,NotifyApproved,ProcurementOrder,OrderPlaced,PartialReceived approvedStatus
+    class ApproveReject,ProcRevise,ApproveRevise,RejectedEnd,Cancel,CancelFromRevision rejectedStatus
+    class Completed,CompletedEnd completedStatus
+    class ValidateBasic,ValidateLineItems,CheckVehicle,ValidateVehicle,ProcReview,ValidateRevisionNotes,ValidateCancelNotes,InQueueReview,DetermineThreshold,CheckRule2,CheckRule1,CheckApprovedVendor1,CheckApprovedVendor2,ValidateQuotes,CheckApproverLevel,CheckApproverOrg,CheckApproverActive,CheckSelfApproval,ReceiveItems,CheckAllReceived,RequestorRevise1,RequestorRevise2 decision
+    class NotifyProcurement,NotifyApprover,NotifyApproved,NotifyRevision1,NotifyRevision2,NotifyResubmit1,NotifyResubmit2,NotifyReject,NotifyCancel,NotifyCancelFromRevision,NotifyComplete notification
+    class ValidationError,QuoteError,ApproverError error
+    class EditPR editAction
+            </pre>
+        </div>
+
+        <div class="legend" style="margin-top: 30px;">
+            <h2>Key Business Rules</h2>
+            <h3 style="color: #1976d2; margin-top: 20px;">Procurement Review & Editing Permissions</h3>
+            <p><strong>During SUBMITTED Status:</strong></p>
+            <ul>
+                <li>Procurement team reviews PR while status remains SUBMITTED</li>
+                <li>Procurement can edit most fields <strong>EXCEPT</strong>:
+                    <ul>
+                        <li>Created by (requestor)</li>
+                        <li>Created date</li>
+                        <li>Last updated</li>
+                        <li>Urgency level</li>
+                        <li>Required date</li>
+                    </ul>
+                </li>
+                <li>Procurement <strong>can edit</strong>: Organization, Department, Description, Site, Expense type, Estimated amount, Currency, Preferred vendor, Line items, Attachments</li>
+            </ul>
+            <p><strong>Three Possible Outcomes from SUBMITTED:</strong></p>
+            <ol>
+                <li><strong>Move to IN_QUEUE</strong> - PR proceeds to quote validation and approver assignment</li>
+                <li><strong>Request Revision (REVISION_REQUIRED)</strong> - Requires notes; notifies requestor</li>
+                <li><strong>Cancel PR (CANCELED)</strong> - Requires notes; notifies requestor; PR not deleted from database</li>
+            </ol>
+            
+            <h3 style="color: #1976d2; margin-top: 20px;">Quote Requirements</h3>
+            <p><strong>Rule 1 (Lower Threshold):</strong></p>
+            <ul>
+                <li><strong>Below threshold:</strong> 1 quote required
+                    <ul>
+                        <li>Approved vendor: attachment optional</li>
+                        <li>Non-approved vendor: attachment required</li>
+                        <li>Approvers: Level 4 or Level 2</li>
+                    </ul>
+                </li>
+                <li><strong>Above threshold:</strong> 3 quotes with attachments required
+                    <ul>
+                        <li>Exception: Approved vendor requires only 1 quote with attachment</li>
+                        <li>Only Level 2 approvers can approve</li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <p><strong>Rule 2 (Higher Threshold):</strong></p>
+            <ul>
+                <li><strong>Below threshold:</strong> Rule 1 applies</li>
+                <li><strong>Above threshold:</strong> Always 3 quotes with attachments
+                    <ul>
+                        <li>No exceptions for approved vendors</li>
+                        <li>Only Level 2 approvers can approve</li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <h3 style="color: #1976d2; margin-top: 20px;">Validation Requirements</h3>
+            <ul>
+                <li>Email format must be valid</li>
+                <li>Estimated Amount must be greater than 0</li>
+                <li>At least one line item required with description, quantity, and UOM</li>
+                <li>Vehicle field required when Expense Type is "4 -Vehicle"</li>
+                <li>Approvers cannot approve their own PRs</li>
+                <li>Approvers must be active and assigned to matching organization</li>
+                <li>Currency conversion applied for threshold comparisons</li>
+            </ul>
+            
+            <h3 style="color: #1976d2; margin-top: 20px;">Key Loops</h3>
+            <ul>
+                <li><strong>Revision Loop:</strong> SUBMITTED/PENDING_APPROVAL → REVISION_REQUIRED → RESUBMITTED → SUBMITTED → back to workflow</li>
+                <li><strong>Partial Receipt Loop:</strong> PARTIALLY_RECEIVED → continues until all items received → COMPLETED</li>
+                <li><strong>Quote Validation Loop:</strong> Invalid quotes → back to IN_QUEUE for additional quotes</li>
+                <li><strong>Approver Validation Loop:</strong> Invalid approver selection → back to IN_QUEUE for correction</li>
+                <li><strong>Procurement Notes Validation:</strong> Missing notes → back to procurement review for input</li>
+            </ul>
+        </div>
+
+        <div class="info-section" style="margin-top: 30px;">
+            <h3>Document Information</h3>
+            <p><strong>System:</strong> 1PWR Procurement System<br>
+            <strong>Document Version:</strong> 1.0<br>
+            <strong>Last Updated:</strong> 2025-10-11<br>
+            <strong>Based on:</strong> Specifications.md (Updated 2025-01-15)</p>
+        </div>
+    </div>
+</body>
+</html>
+

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 1: Creation & Validation</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1976d2;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .navigation {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .navigation a {
+            color: #1976d2;
+            text-decoration: none;
+            margin: 0 15px;
+            font-weight: bold;
+        }
+        .navigation a:hover {
+            text-decoration: underline;
+        }
+        .mermaid-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .info-box {
+            background-color: #fff3e0;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            border-left: 4px solid #f57c00;
+        }
+        .info-box h3 {
+            margin-top: 0;
+            color: #e65100;
+        }
+        .rules-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .rules-table th,
+        .rules-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .rules-table th {
+            background-color: #1976d2;
+            color: white;
+        }
+        .rules-table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stage 1: PR Creation & Validation</h1>
+        <p class="subtitle">Pre-SUBMITTED Status - User Creates Purchase Request</p>
+        
+        <div class="navigation">
+            <a href="PR_Flow_Master_Overview.html">← Master Overview</a>
+            <a href="PR_Flow_2_Procurement_Review.html">Next: Stage 2 (Procurement Review) →</a>
+        </div>
+
+        <div class="mermaid-container">
+            <pre class="mermaid">
+flowchart TB
+    Start([User Initiates PR Creation])
+    
+    %% Basic Information Entry
+    Start --> EnterBasic[Enter Basic Information:<br/>• Organization<br/>• Requestor Name & Email<br/>• Department<br/>• Project Category<br/>• Description<br/>• Site]
+    
+    EnterBasic --> EnterFinancial[Enter Financial Details:<br/>• Expense Type<br/>• Estimated Amount<br/>• Currency<br/>• Urgency Level<br/>• Required Date<br/>• Preferred Vendor]
+    
+    %% Vehicle Check
+    EnterFinancial --> CheckVehicle{Expense Type =<br/>'4 -Vehicle'?}
+    CheckVehicle -->|Yes| RequireVehicle[Require Vehicle Selection]
+    RequireVehicle --> EnterLineItems
+    CheckVehicle -->|No| EnterLineItems[Enter Line Items:<br/>• Description<br/>• Quantity<br/>• Unit of Measure<br/>• Notes<br/>• Attachments]
+    
+    %% Validation
+    EnterLineItems --> ValidateBasic{Validate Basic Info:<br/>• Email format valid?<br/>• All required fields filled?}
+    ValidateBasic -->|Invalid| ShowErrors1[Show Validation Errors]
+    ShowErrors1 --> EnterBasic
+    
+    ValidateBasic -->|Valid| ValidateFinancial{Validate Financial:<br/>• Amount > 0?<br/>• Currency valid?}
+    ValidateFinancial -->|Invalid| ShowErrors2[Show Validation Errors]
+    ShowErrors2 --> EnterFinancial
+    
+    ValidateFinancial -->|Valid| ValidateLineItems{Validate Line Items:<br/>• At least 1 item?<br/>• All required fields filled?}
+    ValidateLineItems -->|Invalid| ShowErrors3[Show Validation Errors]
+    ShowErrors3 --> EnterLineItems
+    
+    %% Vehicle Validation
+    ValidateLineItems -->|Valid| CheckVehicleSelected{Vehicle field<br/>required?}
+    CheckVehicleSelected -->|Yes, not selected| ShowErrors4[Error: Vehicle<br/>must be selected]
+    ShowErrors4 --> EnterFinancial
+    CheckVehicleSelected -->|No, or Yes and selected| FinalReview[Review Summary<br/>All PR Details]
+    
+    %% Submission
+    FinalReview --> UserConfirm{User Confirms<br/>Submission?}
+    UserConfirm -->|Cancel/Edit| EnterBasic
+    UserConfirm -->|Confirm| CreatePR[Create PR in Database]
+    
+    CreatePR --> SetSubmitted[Set Status: SUBMITTED<br/>Set Created Date<br/>Set Created By<br/>Generate PR Number]
+    SetSubmitted --> NotifyProc[Send Notification<br/>to Procurement Team]
+    NotifyProc --> ToStage2[["→ Continue to<br/>STAGE 2:<br/>Procurement Review"]]
+    
+    %% Styling
+    classDef inputNode fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef validationNode fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef errorNode fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    classDef processNode fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef nextStage fill:#ffe0b2,stroke:#ef6c00,stroke-width:3px
+    
+    class EnterBasic,EnterFinancial,RequireVehicle,EnterLineItems,FinalReview inputNode
+    class CheckVehicle,ValidateBasic,ValidateFinancial,ValidateLineItems,CheckVehicleSelected,UserConfirm validationNode
+    class ShowErrors1,ShowErrors2,ShowErrors3,ShowErrors4 errorNode
+    class CreatePR,SetSubmitted,NotifyProc processNode
+    class ToStage2 nextStage
+            </pre>
+        </div>
+
+        <div class="info-box">
+            <h3>Required Fields & Validation Rules</h3>
+            <table class="rules-table">
+                <thead>
+                    <tr>
+                        <th>Field Category</th>
+                        <th>Required Fields</th>
+                        <th>Validation Rules</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><strong>Basic Information</strong></td>
+                        <td>Organization, Requestor, Email, Department, Project Category, Description, Site</td>
+                        <td>• Email must be valid format<br/>• All fields must be non-empty</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Financial Details</strong></td>
+                        <td>Expense Type, Estimated Amount, Currency, Urgency Level, Required Date</td>
+                        <td>• Amount must be > 0<br/>• Currency must match org's allowed currencies</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Optional Fields</strong></td>
+                        <td>Preferred Vendor</td>
+                        <td>• Optional, but affects quote requirements</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Conditional Fields</strong></td>
+                        <td>Vehicle (if Expense Type = "4 -Vehicle")</td>
+                        <td>• Required only for vehicle expenses<br/>• Must select from dropdown</td>
+                    </tr>
+                    <tr>
+                        <td><strong>Line Items</strong></td>
+                        <td>Description, Quantity, Unit of Measure (UOM)</td>
+                        <td>• At least ONE line item required<br/>• Notes and Attachments optional per line item</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="info-box" style="background-color: #e8f5e9; border-left-color: #388e3c;">
+            <h3>What Happens After Submission</h3>
+            <ol>
+                <li><strong>PR Created in Database:</strong> System creates a new PR document with all entered data</li>
+                <li><strong>Status Set to SUBMITTED:</strong> Initial status assigned</li>
+                <li><strong>Metadata Generated:</strong>
+                    <ul>
+                        <li>PR Number (format: ORG-YYYYMM-XXX)</li>
+                        <li>Created Date (timestamp)</li>
+                        <li>Created By (requestor user ID)</li>
+                        <li>Last Updated (timestamp)</li>
+                    </ul>
+                </li>
+                <li><strong>Notification Sent:</strong> Automatic email to procurement team</li>
+                <li><strong>Viewable by All:</strong> PR is now visible to all authorized users in the system</li>
+                <li><strong>Next Stage:</strong> PR moves to Stage 2 (Procurement Review) where procurement team can edit and process it</li>
+            </ol>
+        </div>
+
+        <div class="info-box" style="background-color: #fce4ec; border-left-color: #c2185b;">
+            <h3>Important Notes</h3>
+            <ul>
+                <li><strong>User Role:</strong> Only users with permission level 5 (Requester) or higher can create PRs</li>
+                <li><strong>Auto-Population:</strong> Requestor name and email are pre-populated from user's profile</li>
+                <li><strong>Organization Assignment:</strong> User can only create PRs for organizations they are assigned to</li>
+                <li><strong>Currency Matching:</strong> Currency must be one of the currencies supported by the selected organization</li>
+                <li><strong>File Attachments:</strong> Supported on line items; must be valid file types</li>
+                <li><strong>Canonical Fields Set at Creation:</strong> Created by, Created date, and Last updated are set by the system and cannot be changed later</li>
+            </ul>
+        </div>
+
+        <div class="navigation" style="margin-top: 30px;">
+            <a href="PR_Flow_Master_Overview.html">← Master Overview</a>
+            <a href="PR_Flow_2_Procurement_Review.html">Next: Stage 2 (Procurement Review) →</a>
+        </div>
+    </div>
+</body>
+</html>
+
+

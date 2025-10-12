@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Backend Documentation</title>
+    <style>
+        body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;}
+        .container {max-width: 1400px; margin: 0; auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
+        h1 {color: #1976d2; text-align: center; margin-bottom: 10px;}
+        .subtitle {text-align: center; color: #666; margin-bottom: 30px; font-style: italic;}
+        .navigation {background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center;}
+        .navigation a {color: #1976d2; text-decoration: none; margin: 0 15px; font-weight: bold;}
+        .navigation a:hover {text-decoration: underline;}
+        .info-box {background-color: #fff3e0; padding: 20px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f57c00;}
+        .info-box h3 {margin-top: 0; color: #e65100;}
+        table {width: 100%; border-collapse: collapse; margin-top: 15px;}
+        th, td {border: 1px solid #ddd; padding: 12px; text-align: left;}
+        th {background-color: #1976d2; color: white;}
+        tr:nth-child(even) {background-color: #f9f9f9;}
+        .permission-grid {display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-top: 15px;}
+        .perm-card {background-color: white; padding: 15px; border-radius: 5px; border-left: 4px solid #388e3c;}
+        .perm-card h4 {margin-top: 0;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Admin Backend Documentation</h1>
+        <p class="subtitle">Administrative Tools and Management Interface</p>
+        
+        <div class="navigation">
+            <a href="PR_System_Dashboard.html">← Dashboard</a>
+            <a href="PR_Flow_Master_Overview.html">Workflow Overview</a>
+            <a href="PR_System_Objects.html">Object Definitions →</a>
+        </div>
+
+        <div class="info-box" style="background-color: #e3f2fd; border-left-color: #1976d2;">
+            <h3>Admin Dashboard Access Control</h3>
+            
+            <table>
+                <tr>
+                    <th>Permission Level</th>
+                    <th>Can Access Admin Dashboard?</th>
+                    <th>Access Level</th>
+                </tr>
+                <tr>
+                    <td><strong>Level 1 (Administrator)</strong></td>
+                    <td>✓ Yes</td>
+                    <td><strong>Full Access:</strong> Can view and edit all admin tools</td>
+                </tr>
+                <tr>
+                    <td><strong>Level 2 (Senior Approver)</strong></td>
+                    <td>✓ Yes</td>
+                    <td><strong>Read-Only:</strong> Can view but not edit admin dashboard items</td>
+                </tr>
+                <tr>
+                    <td><strong>Level 3 (Procurement Officer)</strong></td>
+                    <td>✓ Yes</td>
+                    <td><strong>Selective Edit:</strong> Can view all, edit select items (vendors, reference data)</td>
+                </tr>
+                <tr>
+                    <td><strong>Level 4 (Finance Admin)</strong></td>
+                    <td>✓ Yes</td>
+                    <td><strong>Read-Only:</strong> Can view but not edit admin dashboard items</td>
+                </tr>
+                <tr>
+                    <td><strong>Level 5 (Requester)</strong></td>
+                    <td>✗ No</td>
+                    <td>No access to admin dashboard</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="info-box">
+            <h3>Admin Dashboard Sections</h3>
+            
+            <h4>1. User Management (Split Responsibility)</h4>
+            
+            <p><strong>Level 3 (Procurement) - Limited User Management:</strong></p>
+            <ul>
+                <li><strong>Can Create/Edit/Delete:</strong> Users at Level 5 (Requester) ONLY</li>
+                <li><strong>Functions for Level 5 Users:</strong>
+                    <ul>
+                        <li>Create new requestor users</li>
+                        <li>Edit user details (name, email, department) - CANNOT change permission level</li>
+                        <li>Assign organizations (primary and additional)</li>
+                        <li>Activate/deactivate requestor users (isActive toggle)</li>
+                        <li>Reset passwords for requestors</li>
+                    </ul>
+                </li>
+                <li><strong>Cannot Do:</strong>
+                    <ul>
+                        <li>Create users at other permission levels (1, 2, 3, 4)</li>
+                        <li>Promote Level 5 users to other levels</li>
+                        <li>Edit/delete users at other permission levels</li>
+                    </ul>
+                </li>
+                <li><strong>Purpose:</strong> Handle day-to-day user onboarding/offboarding without requiring admin intervention</li>
+            </ul>
+
+            <p><strong>Level 1 (Administrator) - Full User Management:</strong></p>
+            <ul>
+                <li><strong>Can Create/Edit/Delete:</strong> Users at ALL permission levels (1-5)</li>
+                <li><strong>Functions:</strong>
+                    <ul>
+                        <li>Create new users at any permission level</li>
+                        <li>Edit all user details including permission level</li>
+                        <li><strong>Promote users:</strong> Change Level 5 users (created by Procurement) to Levels 2, 3, or 4</li>
+                        <li>Assign organizations (primary and additional)</li>
+                        <li>Activate/deactivate any user (isActive toggle)</li>
+                        <li>Reset passwords for any user</li>
+                        <li>View complete user activity logs</li>
+                        <li>Delete any user account</li>
+                    </ul>
+                </li>
+                <li><strong>Authority Decisions:</strong> Admin focuses on role assignments and strategic permissions</li>
+            </ul>
+
+            <p><strong>Levels 2 & 4 - View Only:</strong></p>
+            <ul>
+                <li>Can view user list but cannot create, edit, or delete</li>
+            </ul>
+
+            <p><strong>Validation Rules:</strong></p>
+            <ul>
+                <li>Email must be unique across all users</li>
+                <li>Permission level must be 1-5</li>
+                <li>At least one organization assignment required</li>
+                <li>Active approvers cannot be deactivated if assigned to pending PRs</li>
+                <li><strong>Procurement Constraint:</strong> Cannot set permission level other than 5 when creating users</li>
+            </ul>
+
+            <p><strong>User Management Workflow Example:</strong></p>
+            <ol>
+                <li><strong>New Employee Hired:</strong> Procurement creates user account at Level 5 (Requester)</li>
+                <li><strong>User Active:</strong> New employee can log in, create PRs, use system as requestor</li>
+                <li><strong>Promotion Needed:</strong> Employee becomes approver or takes on procurement/finance role</li>
+                <li><strong>Admin Promotes:</strong> Administrator changes permission level from 5 to 2, 3, or 4</li>
+                <li><strong>User Updated:</strong> User now has expanded permissions based on new level</li>
+            </ol>
+
+            <p><strong>Benefits of Split Responsibility:</strong></p>
+            <ul>
+                <li>✅ Faster onboarding - Procurement handles routine user creation immediately</li>
+                <li>✅ Admin focuses on authority decisions - role assignments, permissions, strategic users</li>
+                <li>✅ Scalability - Doesn't bottleneck on admin for every new employee</li>
+                <li>✅ Security maintained - Procurement cannot grant elevated permissions</li>
+                <li>✅ Audit trail - All promotions logged as admin actions</li>
+            </ul>
+
+            <h4>2. Organization Management</h4>
+            <ul>
+                <li><strong>Who Can Edit:</strong> Level 1 (Administrator) only</li>
+                <li><strong>Who Can View:</strong> Levels 1, 2, 3, 4</li>
+                <li><strong>Functions:</strong>
+                    <ul>
+                        <li>Create new organizations</li>
+                        <li>Edit organization details (name, currency, active status)</li>
+                        <li>Set threshold amounts (Rule 1 and Rule 2)</li>
+                        <li><strong>Configure notification emails:</strong>
+                            <ul>
+                                <li>Procurement Team Email</li>
+                                <li>Asset Management Email</li>
+                                <li>Organization Admin Email</li>
+                            </ul>
+                        </li>
+                        <li>Configure business rules and settings</li>
+                        <li>Set time zone and business days</li>
+                        <li>Manage holiday calendar</li>
+                    </ul>
+                </li>
+                <li><strong>Important:</strong> Email addresses should not be hardcoded; configured here per organization</li>
+            </ul>
+
+            <h4>3. Reference Data Management</h4>
+            <ul>
+                <li><strong>Who Can Edit:</strong> Level 1 (Admin) and Level 3 (Procurement for select items)</li>
+                <li><strong>Who Can View:</strong> Levels 1, 2, 3, 4</li>
+                <li><strong>Editable Reference Data:</strong>
+                    <ul>
+                        <li><strong>Departments:</strong> Add, edit, activate/deactivate</li>
+                        <li><strong>Sites:</strong> Add, edit, activate/deactivate</li>
+                        <li><strong>Project Categories:</strong> Add, edit, activate/deactivate</li>
+                        <li><strong>Expense Types:</strong> Add, edit, activate/deactivate</li>
+                        <li><strong>Vehicles:</strong> Add, edit, assign to organization, activate/deactivate</li>
+                        <li><strong>Vendors:</strong> Add, edit, mark as approved/non-approved, activate/deactivate</li>
+                        <li><strong>Units of Measure (UOM):</strong> Add, edit, activate/deactivate</li>
+                        <li><strong>Currencies:</strong> Add, edit, set exchange rates</li>
+                    </ul>
+                </li>
+                <li><strong>Procurement Can Edit:</strong> Vendors (approval status), some reference data</li>
+                <li><strong>All Others:</strong> Read-only access</li>
+            </ul>
+
+            <h4>4. Approver Management</h4>
+            <ul>
+                <li><strong>Who Can Edit:</strong> Level 1 (Administrator) only</li>
+                <li><strong>Who Can View:</strong> Levels 1, 2, 3, 4</li>
+                <li><strong>Functions:</strong>
+                    <ul>
+                        <li>View all approvers by organization</li>
+                        <li>See approver levels (Level 2 vs Level 4)</li>
+                        <li>Assign approvers to organizations</li>
+                        <li>View approver workload (PRs pending their approval)</li>
+                        <li>View approval history per approver</li>
+                    </ul>
+                </li>
+                <li><strong>Note:</strong> Approver permissions set via User Management (permission level field)</li>
+            </ul>
+
+            <h4>5. Threshold Configuration</h4>
+            <ul>
+                <li><strong>Who Can Edit:</strong> Level 1 (Administrator) only</li>
+                <li><strong>Who Can View:</strong> Levels 1, 2, 3, 4</li>
+                <li><strong>Functions:</strong>
+                    <ul>
+                        <li>Set Rule 1 threshold amount per organization</li>
+                        <li>Set Rule 2 threshold amount per organization</li>
+                        <li>Configure quote requirements per threshold</li>
+                        <li>Set currency for threshold comparisons</li>
+                    </ul>
+                </li>
+                <li><strong>Validation:</strong>
+                    <ul>
+                        <li>Rule 2 threshold must be greater than Rule 1 threshold</li>
+                        <li>Both thresholds must be > 0</li>
+                        <li>Currency must match organization's base currency</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h4>6. Vendor Management</h4>
+            
+            <p><strong>Who Can Edit:</strong> Level 1 (Admin), Level 3 (Procurement), and Level 4 (Finance/Admin)</p>
+            <p><strong>Who Can View:</strong> Levels 1, 2, 3, 4</p>
+            <p><strong>Edit Capabilities:</strong> All three levels (1, 3, 4) have full edit rights including approval/de-approval</p>
+            
+            <h5>Vendor Approval Requirements and Automation:</h5>
+            
+            <p><strong>Minimum Information Requirements (All Approval Types):</strong></p>
+            <ul>
+                <li><strong>Name:</strong> Required (cannot be empty or whitespace only)</li>
+                <li><strong>Contact Information:</strong> At least ONE of the following required:
+                    <ul>
+                        <li>Email address (validated email format)</li>
+                        <li>Phone number</li>
+                        <li>Website/Platform URL</li>
+                    </ul>
+                </li>
+                <li><strong>Validation Behavior:</strong>
+                    <ul>
+                        <li>Approval toggle is <strong>disabled</strong> if requirements not met</li>
+                        <li>Warning message displays: "Cannot approve vendor: Missing required information"</li>
+                        <li>Specific missing fields highlighted in red</li>
+                        <li>Vendor can be saved as "Not Approved" even with incomplete data</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <p><strong>Automated Vendor Approval (When Orders Complete):</strong></p>
+            <ul>
+                <li><strong>Trigger:</strong> User moves PO from ORDERED to COMPLETED status</li>
+                <li><strong>Required Question:</strong> "Order closed without issues?"
+                    <ul>
+                        <li>Displayed to: Procurement, Finance/Admin, or Asset Management (whoever closing order)</li>
+                        <li>Options: YES / NO (radio buttons)</li>
+                    </ul>
+                </li>
+                <li><strong>If YES Selected (Satisfactory Completion):</strong>
+                    <ul>
+                        <li><strong>3-Quote Process POs:</strong> Vendor auto-approved for <strong>configurable duration</strong>
+                            <ul>
+                                <li>Duration set in Organization Configuration (default: 12 months)</li>
+                                <li>Uses "3-Quote Process Auto-Approval Duration" setting</li>
+                            </ul>
+                        </li>
+                        <li><strong>Other Completed POs:</strong> Vendor auto-approved for <strong>configurable duration</strong>
+                            <ul>
+                                <li>Duration set in Organization Configuration (default: 6 months)</li>
+                                <li>Uses "Completed Order Auto-Approval Duration" setting</li>
+                            </ul>
+                        </li>
+                        <li>System logs: approval date, approved by, reason ("auto_3quote" or "auto_completed"), PO number</li>
+                        <li>Approval expiry date automatically calculated: approval date + configured duration</li>
+                    </ul>
+                </li>
+                <li><strong>If NO Selected (Issues During Order):</strong>
+                    <ul>
+                        <li><strong>Issue Note Required:</strong> Text field for describing problems</li>
+                        <li><strong>Override Option:</strong> "Approve vendor despite issues?" checkbox
+                            <ul>
+                                <li>If checked: Justification note required</li>
+                                <li>If not checked: Vendor remains non-approved</li>
+                            </ul>
+                        </li>
+                        <li>Issue note logged to vendor record regardless of override</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <p><strong>Manual Vendor Approval (Admin Dashboard Action):</strong></p>
+            <ul>
+                <li><strong>Who Can Manually Approve/De-Approve:</strong>
+                    <ul>
+                        <li>Level 1 (Administrator)</li>
+                        <li>Level 3 (Procurement)</li>
+                        <li>Level 4 (Finance/Admin)</li>
+                    </ul>
+                </li>
+                <li><strong>Approval - Justification Required If:</strong>
+                    <ul>
+                        <li>Vendor has NOT completed 3-quote process within configured timeframe, AND</li>
+                        <li>Vendor has NOT completed any order within configured timeframe</li>
+                        <li>System checks against configured durations (not hardcoded)</li>
+                    </ul>
+                </li>
+                <li><strong>Approval - Justification Not Required If:</strong>
+                    <ul>
+                        <li>Vendor has recent successful order within configured timeframes</li>
+                        <li>System displays eligibility status when approval toggle clicked</li>
+                    </ul>
+                </li>
+                <li><strong>De-Approval - Justification ALWAYS Required:</strong>
+                    <ul>
+                        <li>When removing approved status, justification note is mandatory</li>
+                        <li>Text field appears: "Reason for removing vendor approval"</li>
+                        <li>Examples: Quality issues, compliance problems, better alternatives, vendor inactive</li>
+                        <li>De-approval note permanently logged in vendor audit trail</li>
+                        <li>Cannot de-approve without providing justification</li>
+                    </ul>
+                </li>
+                <li><strong>Manual Approval Duration:</strong> Configurable (default: 12 months) from approval date
+                    <ul>
+                        <li>Duration set in Organization Configuration</li>
+                        <li>Uses "Manual Approval Duration" setting</li>
+                        <li><strong>Exception:</strong> High-value vendors may have shorter duration (see below)</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <p><strong>Approval Expiry and Renewal (Automated Tracking):</strong></p>
+            <ul>
+                <li><strong>Daily Automated Job:</strong> System runs daily check on all vendor approval expiry dates</li>
+                <li><strong>Auto-Deactivation:</strong> Vendors past expiry date automatically set to non-approved (isApproved = false)
+                    <ul>
+                        <li>No manual intervention required</li>
+                        <li>Prevents perpetual approval status</li>
+                        <li>Action logged in vendor audit trail</li>
+                    </ul>
+                </li>
+                <li><strong>Expiry Notification:</strong> Email automatically sent to Procurement team when vendor approval expires
+                    <ul>
+                        <li>Includes: Vendor name, last approval date, expiry date, last order date</li>
+                        <li>Suggests renewal if vendor has recent order history within configured timeframes</li>
+                    </ul>
+                </li>
+                <li><strong>Renewal Conditions Met:</strong> If vendor has qualifying recent orders (within configured durations):
+                    <ul>
+                        <li>Can be manually re-approved without justification</li>
+                        <li>Or automatically re-approved when next order completes successfully</li>
+                    </ul>
+                </li>
+                <li><strong>Renewal Conditions NOT Met:</strong> If vendor expired and has no qualifying recent orders:
+                    <ul>
+                        <li>Remains non-approved</li>
+                        <li>Manual re-approval requires justification</li>
+                        <li>Or completes new order successfully for automatic re-approval</li>
+                    </ul>
+                </li>
+                <li><strong>No Perpetual Approval:</strong> All approvals (manual and automatic) MUST have expiry dates based on configured durations</li>
+            </ul>
+
+            <p><strong>High-Value Vendor Special Rules:</strong></p>
+            <ul>
+                <li><strong>Classification:</strong> Vendor cumulative completed order value ≥ (Rule 2 threshold × configured multiplier)
+                    <ul>
+                        <li>Example: Rule 2 = $10,000, multiplier = 10 → High-value if cumulative ≥ $100,000</li>
+                        <li>System calculates cumulative value automatically from all COMPLETED POs</li>
+                        <li>"High-Value Vendor" badge displayed on vendor profile</li>
+                    </ul>
+                </li>
+                <li><strong>Approval Duration Restrictions:</strong>
+                    <ul>
+                        <li>Maximum Z months (configurable, default: 24) without special conditions</li>
+                        <li>Applies to ALL approval types (auto, manual)</li>
+                        <li><strong>Exceptions (Can Exceed Z Months):</strong>
+                            <ul>
+                                <li>Vendor passed 3-quote process within previous `vendorApproval3QuoteDuration` months (reuses existing setting)</li>
+                                <li>Manual override with justification provided</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><strong>System Enforcement:</strong>
+                    <ul>
+                        <li>On order completion: System checks high-value status</li>
+                        <li>If high-value: Approval duration = MIN(normal duration, Z months)</li>
+                        <li>Daily check: Verifies high-value vendors meet continuation criteria</li>
+                        <li>Auto-deactivates if Z months passed without 3-quote within `vendorApproval3QuoteDuration` months and no override</li>
+                        <li>Notifications sent to Procurement with recommendations</li>
+                    </ul>
+                </li>
+                <li><strong>Configuration:</strong> Parameters (X, Z) set in Organization Configuration; reuses vendorApproval3QuoteDuration</li>
+                <li><strong>Purpose:</strong> Ensures high-spend vendors undergo regular competitive evaluation</li>
+            </ul>
+
+            <h5>Vendor List View:</h5>
+            <ul>
+                <li><strong>Columns:</strong> Name, Contact Info, Approval Status, Organization, Active Status, Actions</li>
+                <li><strong>Search/Filter:</strong> By name, approval status, active status, organization</li>
+                <li><strong>Sort:</strong> By name (A-Z), date added, approval status</li>
+                <li><strong>Actions:</strong> View Details, Edit, Approve/Unapprove, Activate/Deactivate</li>
+                <li><strong>Visual Indicators:</strong>
+                    <ul>
+                        <li>✓ Green check: Approved vendor</li>
+                        <li>⚠️ Orange warning: Not approved (complete data)</li>
+                        <li>❌ Red X: Incomplete data (cannot approve)</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h5>Vendor Details Page:</h5>
+            <ul>
+                <li><strong>Access:</strong> Click vendor name from list or from any PR/PO</li>
+                <li><strong>URL:</strong> /admin/vendors/[vendorId]</li>
+                <li><strong>Sections:</strong>
+                    <ul>
+                        <li><strong>Vendor Information (Editable):</strong>
+                            <ul>
+                                <li>Name (required)</li>
+                                <li>Email (validated format)</li>
+                                <li>Phone</li>
+                                <li>Website/Platform URL</li>
+                                <li>Physical Address</li>
+                                <li>Product/Service Categories (multi-select)</li>
+                                <li>Organization Assignment (optional - global if empty)</li>
+                                <li>Approval Status (toggle - disabled if requirements not met)</li>
+                                <li>Active Status (toggle)</li>
+                                <li>Performance Notes (text area)</li>
+                            </ul>
+                        </li>
+                        <li><strong>Approval Tracking (Read-Only Display):</strong>
+                            <ul>
+                                <li><strong>Approval Status:</strong> Approved / Not Approved</li>
+                                <li><strong>If Approved:</strong>
+                                    <ul>
+                                        <li>Approval Date</li>
+                                        <li>Expiry Date (highlighted in red if < 30 days)</li>
+                                        <li>Approval Reason: "Auto (3-quote process)" / "Auto (completed order)" / "Manual"</li>
+                                        <li>Approved By (user name)</li>
+                                        <li>Associated PO Number (if auto-approved)</li>
+                                        <li>Justification Note (if manual or override)</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Approval History:</strong> List of all approvals/expirations with dates and reasons</li>
+                            </ul>
+                        </li>
+                        <li><strong>Metadata (Read-Only):</strong>
+                            <ul>
+                                <li>Date Added</li>
+                                <li>Added By (user)</li>
+                                <li>Last Updated</li>
+                                <li>Updated By (user)</li>
+                                <li>Last Completed Order Date</li>
+                                <li>Last 3-Quote Process Date</li>
+                            </ul>
+                        </li>
+                        <li><strong>Vendor Documents Section:</strong>
+                            <ul>
+                                <li><strong>Bank Letter:</strong>
+                                    <ul>
+                                        <li>Upload/Replace button (Procurement, Finance/Admin, Admin only)</li>
+                                        <li>View/Download current document</li>
+                                        <li>Shows: Filename, upload date, uploaded by</li>
+                                        <li>Accepted formats: PDF, JPG, PNG</li>
+                                        <li>Max size: 10MB</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Corporate Documents:</strong>
+                                    <ul>
+                                        <li>Add Document button (Procurement, Finance/Admin, Admin only)</li>
+                                        <li>Document table with columns: Type, Filename, Uploaded, Uploaded By, Actions</li>
+                                        <li>Document types: Articles of Incorporation, Business License, Tax Certificate, Other</li>
+                                        <li>Actions: View/Download, Delete (Procurement/Admin only)</li>
+                                        <li>Accepted formats: PDF, JPG, PNG, DOCX</li>
+                                        <li>Max size per file: 10MB</li>
+                                        <li>Multiple documents allowed</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Document Access:</strong> All users can view/download; only Procurement, Finance/Admin, and Admin can upload/delete</li>
+                            </ul>
+                        </li>
+                        <li><strong>Associated PRs/POs Section:</strong>
+                            <ul>
+                                <li><strong>Table Columns:</strong> PR/PO Number, Org, Description, Status, Amount, Created Date, Requestor</li>
+                                <li><strong>Click PR/PO Number:</strong> Opens PR/PO detail view</li>
+                                <li><strong>Search Bar:</strong> Search by PR/PO number or description</li>
+                                <li><strong>Filters:</strong>
+                                    <ul>
+                                        <li>Organization (dropdown)</li>
+                                        <li>Status (multi-select)</li>
+                                        <li>Date Range (from/to date pickers)</li>
+                                        <li>Amount Range (min/max)</li>
+                                    </ul>
+                                </li>
+                                <li><strong>Sort Options:</strong> By date (newest/oldest), amount (high/low), status</li>
+                                <li><strong>Export Button:</strong> Export vendor's PR/PO history to CSV/Excel</li>
+                                <li><strong>Empty State:</strong> "No PRs/POs associated with this vendor yet"</li>
+                            </ul>
+                        </li>
+                        <li><strong>Performance Metrics (Read-Only):</strong>
+                            <ul>
+                                <li>Total PRs/POs: [count]</li>
+                                <li>Total Value: [amount in default currency]</li>
+                                <li>Active PRs/POs: [count]</li>
+                                <li>Completed PRs/POs: [count]</li>
+                                <li>Average PR/PO Amount: [amount]</li>
+                                <li>First Used: [date]</li>
+                                <li>Last Used: [date]</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><strong>Action Buttons:</strong>
+                    <ul>
+                        <li>Save Changes (validates requirements)</li>
+                        <li>Cancel (reverts unsaved changes)</li>
+                        <li>Deactivate Vendor (confirmation required, Admin only)</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h5>Global Vendor Access:</h5>
+            <ul>
+                <li>Vendors are globally available across all organizations by default</li>
+                <li>Optional: Can be scoped to specific organization if needed</li>
+                <li>Vendor approval status affects quote requirements across all PRs/POs</li>
+            </ul>
+
+            <h5>Impact on PR Workflow:</h5>
+            <ul>
+                <li><strong>Approved Vendors:</strong> 1 quote required above Rule 1 threshold</li>
+                <li><strong>Non-Approved Vendors:</strong> 3 quotes required above Rule 1 threshold</li>
+                <li><strong>Below Rule 1:</strong> Vendor approval status is immaterial</li>
+            </ul>
+
+            <h4>7. Reports and Analytics</h4>
+            <ul>
+                <li><strong>Who Can Access:</strong> Levels 1, 2, 3, 4</li>
+                <li><strong>Available Reports:</strong>
+                    <ul>
+                        <li>PR/PO Volume by Status</li>
+                        <li>Average Processing Time by Status</li>
+                        <li>Approval Rates by Approver</li>
+                        <li>Rejection/Cancellation Analysis</li>
+                        <li>Vendor Performance Reports</li>
+                        <li>Department Spending Analysis</li>
+                        <li>Overdue PRs Report</li>
+                        <li>Completion Rate Trends</li>
+                    </ul>
+                </li>
+                <li><strong>Export Options:</strong> CSV, PDF, Excel</li>
+                <li><strong>Date Range Filters:</strong> Custom date ranges, presets (last 7 days, last 30 days, last quarter)</li>
+            </ul>
+
+            <h4>8. Audit Logs</h4>
+            <ul>
+                <li><strong>Who Can Access:</strong> Level 1 (Administrator) only</li>
+                <li><strong>Logged Events:</strong>
+                    <ul>
+                        <li>All status changes with who/when/why</li>
+                        <li>All field edits with before/after values</li>
+                        <li>Document uploads and deletions</li>
+                        <li>User creation, modification, activation/deactivation</li>
+                        <li>Login attempts and access</li>
+                        <li>Admin configuration changes</li>
+                        <li>Resurrection events</li>
+                    </ul>
+                </li>
+                <li><strong>Search/Filter:</strong> By user, date range, event type, PR/PO number</li>
+            </ul>
+
+            <h4>9. Notification Log</h4>
+            <ul>
+                <li><strong>Who Can Access:</strong> Levels 1, 3 (Procurement)</li>
+                <li><strong>Functions:</strong>
+                    <ul>
+                        <li>View all sent notifications</li>
+                        <li>See delivery status (sent, failed, bounced)</li>
+                        <li>View recipients and content</li>
+                        <li>Retry failed notifications</li>
+                        <li>Filter by PR/PO, date, recipient, type</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h4>10. System Configuration</h4>
+            <ul>
+                <li><strong>Who Can Access:</strong> Level 1 (Administrator) only</li>
+                <li><strong>Settings:</strong>
+                    <ul>
+                        <li>Email server configuration (SMTP settings)</li>
+                        <li>Default notification sender (noreply@1pwrafrica.com)</li>
+                        <li>Automated reminder schedule times (8:00 AM, 3:00 PM)</li>
+                        <li>Business day calculation rules</li>
+                        <li>File upload limits and allowed types</li>
+                        <li>Session timeout settings</li>
+                        <li>System-wide announcements</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background-color: #e8f5e9; border-left-color: #388e3c;">
+            <h3>Admin Actions by Permission Level</h3>
+            
+            <div class="permission-grid">
+                <div class="perm-card" style="border-left-color: #d32f2f;">
+                    <h4>Level 1 (Administrator)</h4>
+                    <p><strong>Full Access - Can:</strong></p>
+                    <ul style="font-size: 14px;">
+                        <li>✓ Create/edit/delete users</li>
+                        <li>✓ Manage all organizations</li>
+                        <li>✓ Configure thresholds</li>
+                        <li>✓ Edit all reference data</li>
+                        <li>✓ Manage vendors</li>
+                        <li>✓ Access audit logs</li>
+                        <li>✓ System configuration</li>
+                        <li>✓ Resurrect any PR/PO</li>
+                        <li>✓ Override any action</li>
+                    </ul>
+                </div>
+                
+                <div class="perm-card" style="border-left-color: #f57c00;">
+                    <h4>Level 3 (Procurement)</h4>
+                    <p><strong>Selective Edit - Can:</strong></p>
+                    <ul style="font-size: 14px;">
+                        <li>✓ View admin dashboard</li>
+                        <li>✓ <strong>Manage Level 5 users:</strong> Create, edit, delete, activate/deactivate requestors</li>
+                        <li>✓ Edit vendors (approval status)</li>
+                        <li>✓ Edit some reference data</li>
+                        <li>✓ View notification logs</li>
+                        <li>✓ Retry failed notifications</li>
+                        <li>✗ Cannot create/edit users at levels 1-4</li>
+                        <li>✗ Cannot promote Level 5 to other levels</li>
+                        <li>✗ Cannot edit organizations</li>
+                        <li>✗ Cannot edit thresholds</li>
+                        <li>✗ Cannot access audit logs</li>
+                    </ul>
+                </div>
+                
+                <div class="perm-card" style="border-left-color: #1976d2;">
+                    <h4>Levels 2 & 4</h4>
+                    <p><strong>Read-Only - Can:</strong></p>
+                    <ul style="font-size: 14px;">
+                        <li>✓ View admin dashboard</li>
+                        <li>✓ View users list</li>
+                        <li>✓ View organizations</li>
+                        <li>✓ View reference data</li>
+                        <li>✓ View thresholds</li>
+                        <li>✓ View vendors</li>
+                        <li>✗ Cannot edit anything</li>
+                        <li>✗ Cannot access logs</li>
+                        <li>✗ Cannot configure system</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-box" style="background-color: #fff3e0; border-left-color: #f57c00;">
+            <h3>Organization Configuration Interface</h3>
+            <p><strong>Critical new requirement: Organization email addresses must be configurable (not hardcoded)</strong></p>
+            
+            <h4>Required Email Configuration Fields:</h4>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Database Field</th>
+                    <th>Purpose</th>
+                    <th>Example</th>
+                </tr>
+                <tr>
+                    <td><strong>Procurement Team Email</strong></td>
+                    <td>procurementEmail</td>
+                    <td>CC'd on all PR/PO notifications</td>
+                    <td>procurement@1pwrafrica.com</td>
+                </tr>
+                <tr>
+                    <td><strong>Asset Management Email</strong></td>
+                    <td>assetManagementEmail</td>
+                    <td>CC'd on PO notifications from ORDERED status onward</td>
+                    <td>assets@1pwrafrica.com</td>
+                </tr>
+                <tr>
+                    <td><strong>Organization Admin Email</strong></td>
+                    <td>adminEmail</td>
+                    <td>Receives status change notifications, escalations</td>
+                    <td>admin@1pwrafrica.com</td>
+                </tr>
+            </table>
+
+            <h4>Organization Configuration Form:</h4>
+            <ul>
+                <li><strong>Basic Information Section:</strong>
+                    <ul>
+                        <li>Organization Name (text input)</li>
+                        <li>Organization Code (auto-generated ID, normalized)</li>
+                        <li>Base Currency (dropdown)</li>
+                        <li>Active Status (toggle)</li>
+                    </ul>
+                </li>
+                <li><strong>Notification Emails Section:</strong>
+                    <ul>
+                        <li>Procurement Email (email input with validation)</li>
+                        <li>Asset Management Email (email input with validation)</li>
+                        <li>Admin Email (email input with validation)</li>
+                        <li>Support for multiple emails (comma-separated)</li>
+                    </ul>
+                </li>
+                <li><strong>Business Rules Section:</strong>
+                    <ul>
+                        <li>Rule 1 Threshold Amount (number input)</li>
+                        <li>Rule 2 Threshold Amount (number input, must be > Rule 1)</li>
+                        <li>Allowed Currencies (multi-select)</li>
+                    </ul>
+                </li>
+                <li><strong>Vendor Approval Duration Settings (NEW - Configurable):</strong>
+                    <ul>
+                        <li><strong>3-Quote Process Auto-Approval Duration</strong>
+                            <ul>
+                                <li>Number input (in months)</li>
+                                <li>Default: 12 months</li>
+                                <li>Purpose: How long vendor stays approved after completing 3-quote process order successfully</li>
+                                <li>Range: 1-24 months recommended</li>
+                            </ul>
+                        </li>
+                        <li><strong>Completed Order Auto-Approval Duration</strong>
+                            <ul>
+                                <li>Number input (in months)</li>
+                                <li>Default: 6 months</li>
+                                <li>Purpose: How long vendor stays approved after completing any order successfully</li>
+                                <li>Range: 1-24 months recommended</li>
+                            </ul>
+                        </li>
+                        <li><strong>Manual Approval Duration</strong>
+                            <ul>
+                                <li>Number input (in months)</li>
+                                <li>Default: 12 months</li>
+                                <li>Purpose: How long vendor stays approved when manually approved by Procurement/Finance/Admin</li>
+                                <li>Range: 1-36 months recommended</li>
+                            </ul>
+                        </li>
+                        <li><strong>Important Notes:</strong>
+                            <ul>
+                                <li>🚫 <strong>No Perpetual Approval:</strong> All vendor approvals have expiry dates</li>
+                                <li>⏰ System runs daily automated job to check expiry dates</li>
+                                <li>📧 Procurement notified when vendor approvals expire</li>
+                                <li>♻️ Vendors can be auto-renewed through new successful orders</li>
+                                <li>✏️ Manual renewal available with justification if no recent orders</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><strong>High-Value Vendor Rules (NEW - Configurable):</strong>
+                    <ul>
+                        <li><strong>High-Value Vendor Classification Multiplier (X)</strong>
+                            <ul>
+                                <li>Number input (multiplier of Rule 2 threshold)</li>
+                                <li>Default: 10</li>
+                                <li>Purpose: Defines when a vendor becomes "high-value" based on cumulative order value</li>
+                                <li>Formula: Vendor is high-value if cumulative orders ≥ (Rule 2 × X)</li>
+                                <li>Example: Rule 2 = $10,000, X = 10 → High-value at $100,000+ cumulative</li>
+                                <li>Range: 5-50 recommended</li>
+                            </ul>
+                        </li>
+                        <li><strong>High-Value Vendor Maximum Approval Duration (Z)</strong>
+                            <ul>
+                                <li>Number input (in months)</li>
+                                <li>Default: 24 months</li>
+                                <li>Purpose: Maximum approval duration for high-value vendors without 3-quote or override</li>
+                                <li>Overrides longer durations from normal approval rules</li>
+                                <li>Range: 12-36 months recommended</li>
+                            </ul>
+                        </li>
+                        <li><strong>3-Quote Recency Check:</strong>
+                            <ul>
+                                <li>System reuses "3-Quote Process Auto-Approval Duration" setting above</li>
+                                <li>No separate parameter needed - maintains consistency</li>
+                                <li>If vendor passed 3-quote within that duration, can exceed Z-month limit</li>
+                            </ul>
+                        </li>
+                        <li><strong>High-Value Vendor Purpose:</strong>
+                            <ul>
+                                <li>🎯 Ensures major vendors undergo regular competitive evaluation</li>
+                                <li>💰 Prevents vendor lock-in for high-spend relationships</li>
+                                <li>📊 Promotes market price discovery for significant purchases</li>
+                                <li>⚖️ Maintains procurement best practices and compliance</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><strong>Settings Section:</strong>
+                    <ul>
+                        <li>Time Zone (dropdown)</li>
+                        <li>Business Days (checkboxes: Mon-Sun)</li>
+                        <li>Holiday Calendar (date picker for holidays)</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <p><strong>Validation Rules:</strong></p>
+            <ul>
+                <li>All email addresses must be valid email format</li>
+                <li>At least procurement email must be provided</li>
+                <li>Rule 2 threshold must be greater than Rule 1 threshold</li>
+                <li>Organization name must be unique</li>
+                <li>Changes logged in audit trail</li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background-color: #fce4ec; border-left-color: #c2185b;">
+            <h3>Reference Data Management Interface</h3>
+            
+            <h4>Standard Reference Data Table View:</h4>
+            <ul>
+                <li><strong>Common Columns:</strong>
+                    <ul>
+                        <li>Name/Code</li>
+                        <li>Organization (if applicable)</li>
+                        <li>Active Status (toggle)</li>
+                        <li>Created Date</li>
+                        <li>Last Updated</li>
+                        <li>Actions (Edit, Activate/Deactivate)</li>
+                    </ul>
+                </li>
+                <li><strong>Add New Button:</strong> Top right of each reference data section</li>
+                <li><strong>Bulk Actions:</strong> Activate/Deactivate multiple items</li>
+                <li><strong>Search/Filter:</strong> By name, organization, active status</li>
+            </ul>
+
+            <h4>Vendor Management Specifics:</h4>
+            <ul>
+                <li><strong>Additional Fields:</strong>
+                    <ul>
+                        <li>Contact Name</li>
+                        <li>Phone Number</li>
+                        <li>Email Address</li>
+                        <li>Physical Address</li>
+                        <li>Website</li>
+                        <li><strong>Approved Status (toggle):</strong> Affects quote requirements</li>
+                        <li>Product/Service Categories</li>
+                        <li>Performance Rating</li>
+                    </ul>
+                </li>
+                <li><strong>Global vs Org-Specific:</strong> Vendors are globally available across all organizations</li>
+                <li><strong>Procurement Can Edit:</strong> Approval status, performance notes</li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background-color: #e1f5fe; border-left-color: #0277bd;">
+            <h3>Admin Dashboard Workflow</h3>
+            
+            <h4>Accessing Admin Dashboard:</h4>
+            <ol>
+                <li>User clicks on profile icon (top right)</li>
+                <li>Selects "Admin Dashboard" from dropdown</li>
+                <li>System checks permission level (must be 1, 2, 3, or 4)</li>
+                <li>Admin dashboard loads with appropriate access level</li>
+            </ol>
+
+            <h4>Admin Dashboard Navigation:</h4>
+            <ul>
+                <li><strong>Sidebar Tabs:</strong>
+                    <ul>
+                        <li>User Management</li>
+                        <li>Organization Management</li>
+                        <li>Reference Data (expandable menu with sub-items)</li>
+                        <li>Approvers</li>
+                        <li>Thresholds</li>
+                        <li>Vendors</li>
+                        <li>Reports</li>
+                        <li>Audit Logs (Level 1 only)</li>
+                        <li>Notification Logs</li>
+                        <li>System Settings (Level 1 only)</li>
+                    </ul>
+                </li>
+                <li><strong>Breadcrumb Navigation:</strong> Shows current location within admin dashboard</li>
+                <li><strong>Back to Dashboard Button:</strong> Returns to main dashboard</li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background-color: #fff9c4; border-left-color: #f9a825;">
+            <h3>Important Admin Backend Rules</h3>
+            
+            <ul>
+                <li><strong>Soft Deletion:</strong> Items are never permanently deleted, only deactivated (isActive = false)</li>
+                <li><strong>Historical Integrity:</strong> Cannot delete/deactivate items referenced by active PRs/POs</li>
+                <li><strong>Audit Trail:</strong> All changes logged with user, timestamp, before/after values</li>
+                <li><strong>Validation:</strong> All forms validate before saving; errors shown inline</li>
+                <li><strong>Confirmation Dialogs:</strong> Require confirmation for destructive actions (deactivate, delete)</li>
+                <li><strong>Real-time Updates:</strong> Changes in admin backend immediately reflected in main dashboard</li>
+                <li><strong>Organization Scope:</strong> Most reference data scoped to specific organization except Vendors, Currencies, UOM</li>
+            </ul>
+        </div>
+
+        <div class="navigation" style="margin-top: 30px;">
+            <a href="PR_System_Dashboard.html">← Dashboard</a>
+            <a href="PR_Flow_Master_Overview.html">Workflow Overview</a>
+            <a href="PR_System_Objects.html">Object Definitions →</a>
+        </div>
+    </div>
+</body>
+</html>
+

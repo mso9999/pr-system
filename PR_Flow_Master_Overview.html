@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PR Workflow - Master Overview</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+    </script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1976d2;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-style: italic;
+        }
+        .navigation {
+            background-color: #e3f2fd;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 30px;
+        }
+        .navigation h2 {
+            margin-top: 0;
+            color: #1976d2;
+        }
+        .nav-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        .nav-item {
+            background-color: white;
+            padding: 15px;
+            border-radius: 5px;
+            border-left: 4px solid #1976d2;
+        }
+        .nav-item a {
+            color: #1976d2;
+            text-decoration: none;
+            font-weight: bold;
+        }
+        .nav-item a:hover {
+            text-decoration: underline;
+        }
+        .nav-item p {
+            margin: 5px 0 0 0;
+            color: #666;
+            font-size: 14px;
+        }
+        .mermaid-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        .info-section {
+            background-color: #fff9c4;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #f9a825;
+        }
+        .info-section h3 {
+            margin-top: 0;
+            color: #f57f17;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>1PWR Purchase Request Workflow</h1>
+        <p class="subtitle">Master Overview - High-Level Process Flow</p>
+        
+        <div class="navigation">
+            <h2>Detailed Stage Flowcharts</h2>
+            <div class="nav-grid">
+                <div class="nav-item">
+                    <a href="PR_Flow_1_Creation.html">Stage 1: Creation & Validation</a>
+                    <p>User creates PR with validation checks (Pre-SUBMITTED)</p>
+                </div>
+                <div class="nav-item">
+                    <a href="PR_Flow_2_Procurement_Review.html">Stage 2: Procurement Review</a>
+                    <p>SUBMITTED status - Procurement can edit most fields</p>
+                </div>
+                <div class="nav-item">
+                    <a href="PR_Flow_3_Queue_Processing.html">Stage 3: Queue Processing</a>
+                    <p>IN_QUEUE status - Quote validation and approver selection</p>
+                </div>
+                <div class="nav-item">
+                    <a href="PR_Flow_4_Approval.html">Stage 4: Approval Process</a>
+                    <p>PENDING_APPROVAL status - Approver reviews and decides</p>
+                </div>
+                <div class="nav-item">
+                    <a href="PR_Flow_5_Revision.html">Stage 5: Revision & Resubmission</a>
+                    <p>REVISION_REQUIRED status - Requestor can edit and resubmit</p>
+                </div>
+                <div class="nav-item">
+                    <a href="PR_Flow_6_Fulfillment.html">Stage 6: Fulfillment</a>
+                    <p>APPROVED → ORDERED → COMPLETED</p>
+                </div>
+                <div class="nav-item">
+                    <a href="PR_Flow_7_Terminal.html">Stage 7: REJECTED & CANCELED States</a>
+                    <p>REJECTED and CANCELED endpoints (with resurrection feature)</p>
+                </div>
+                <div class="nav-item">
+                    <a href="PR_Flow_Automated_Notifications.html">Automated Notifications</a>
+                    <p>Daily reminders and automatic alerts (8 AM and 3 PM)</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="navigation" style="background-color: #c8e6c9; border-left: 4px solid #388e3c;">
+            <h2 style="color: #2e7d32; margin-top: 0;">📚 System Documentation</h2>
+            <div class="nav-grid">
+                <div class="nav-item" style="background-color: #e8f5e9;">
+                    <a href="PR_System_Dashboard.html" style="color: #2e7d32;">Dashboard Documentation</a>
+                    <p>How the dashboard works, key metrics, filtering, personalization</p>
+                </div>
+                <div class="nav-item" style="background-color: #e8f5e9;">
+                    <a href="PR_System_Admin_Backend.html" style="color: #2e7d32;">Admin Backend</a>
+                    <p>Admin tools, user management, configuration, who can do what</p>
+                </div>
+                <div class="nav-item" style="background-color: #e8f5e9;">
+                    <a href="PR_System_Objects.html" style="color: #2e7d32;">Object Definitions</a>
+                    <p>Data model reference: Organization, User, PR/PO, Vendor, etc.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h3>📌 How to Use This Documentation</h3>
+            <p>This master overview shows the high-level flow between major process stages. Click on any stage link above to see detailed flowcharts with specific actions, validations, and decision points for that stage.</p>
+            <p>For system architecture and data model information, see the System Documentation section above.</p>
+        </div>
+
+        <div class="mermaid-container">
+            <pre class="mermaid">
+flowchart TB
+    Start([User Initiates PR Creation])
+    
+    %% Stage 1: Creation & Validation
+    Stage1[STAGE 1:<br/>Creation & Validation<br/>Pre-SUBMITTED]
+    Stage1Details[["• User fills required fields<br/>• System validates data<br/>• Creates PR in database<br/>→ See Stage 1 Chart"]]
+    
+    Start --> Stage1
+    Stage1 --> Stage1Details
+    Stage1Details --> Submitted[Status: SUBMITTED]
+    
+    %% Stage 2: Procurement Review
+    Stage2[STAGE 2:<br/>Procurement Review<br/>SUBMITTED Status]
+    Stage2Details[["• Procurement reviews PR<br/>• Can edit most fields<br/>• Cannot edit: Created by/date<br/>→ See Stage 2 Chart"]]
+    
+    Submitted --> Stage2
+    Stage2 --> Stage2Details
+    
+    %% Stage 2 Outcomes
+    Stage2Details --> ToQueue[Move to IN_QUEUE]
+    Stage2Details --> ToRevision1[Request Revision]
+    Stage2Details --> ToProcReject[Reject PR<br/>by Procurement]
+    Stage2Details --> ToCancel1[Cancel PR<br/>by Requestor]
+    
+    %% Stage 3: Queue Processing
+    Stage3[STAGE 3:<br/>Queue Processing<br/>IN_QUEUE Status]
+    Stage3Details[["• Validate quotes<br/>• Check thresholds<br/>• Select approver<br/>→ See Stage 3 Chart"]]
+    
+    ToQueue --> Stage3
+    Stage3 --> Stage3Details
+    Stage3Details --> ToPendingApproval[Push to Approver]
+    Stage3Details --> ToCancel2[Cancel PR<br/>by Requestor]
+    
+    %% Stage 4: Approval Process
+    Stage4[STAGE 4:<br/>Approval Process<br/>PENDING_APPROVAL Status]
+    Stage4Details[["• Approver reviews PR<br/>• Can approve/reject/request revision<br/>→ See Stage 4 Chart"]]
+    
+    ToPendingApproval --> Stage4
+    Stage4 --> Stage4Details
+    
+    %% Stage 4 Outcomes
+    Stage4Details --> ToApproved[Approved]
+    Stage4Details --> ToRejected[Rejected]
+    Stage4Details --> ToRevision2[Request Revision]
+    
+    %% Stage 5: Revision & Resubmission
+    Stage5[STAGE 5:<br/>Revision & Resubmission<br/>REVISION_REQUIRED Status]
+    Stage5Details[["• Requestor can edit PR<br/>• Can edit urgency, amounts, etc.<br/>• Cannot edit: Created by/date, history<br/>→ See Stage 5 Chart"]]
+    
+    ToRevision1 --> Stage5
+    ToRevision2 --> Stage5
+    Stage5 --> Stage5Details
+    Stage5Details --> Resubmit[Resubmit]
+    Stage5Details --> ToCancel3[Cancel PR<br/>by Requestor]
+    
+    Resubmit --> Stage2
+    
+    %% Stage 6: Fulfillment
+    Stage6[STAGE 6:<br/>Fulfillment<br/>APPROVED → ORDERED → COMPLETED]
+    Stage6Details[["• Order placement<br/>• Item receipt tracking<br/>• Final completion<br/>→ See Stage 6 Chart"]]
+    
+    ToApproved --> Stage6
+    Stage6 --> Stage6Details
+    Stage6Details --> CompletedEnd
+    
+    %% Stage 7: Terminal States
+    Stage7[STAGE 7:<br/>Terminal States]
+    Stage7Details[["• REJECTED: Procurement or Approver rejected<br/>• CANCELED: Requestor canceled<br/>→ See Stage 7 Chart"]]
+    
+    ToProcReject --> Stage7
+    ToRejected --> Stage7
+    ToCancel1 --> Stage7
+    ToCancel2 --> Stage7
+    ToCancel3 --> Stage7
+    Stage7 --> Stage7Details
+    Stage7Details --> TerminalEnd
+    
+    %% End points
+    CompletedEnd([END: COMPLETED])
+    TerminalEnd([END: REJECTED/CANCELED])
+    
+    %% Styling
+    classDef stageBox fill:#e3f2fd,stroke:#1976d2,stroke-width:3px
+    classDef detailBox fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef statusNode fill:#c8e6c9,stroke:#388e3c,stroke-width:2px
+    classDef transitionNode fill:#ffe0b2,stroke:#ef6c00,stroke-width:2px
+    classDef endNode fill:#ffcdd2,stroke:#c62828,stroke-width:3px
+    
+    class Stage1,Stage2,Stage3,Stage4,Stage5,Stage6,Stage7 stageBox
+    class Stage1Details,Stage2Details,Stage3Details,Stage4Details,Stage5Details,Stage6Details,Stage7Details detailBox
+    class Submitted statusNode
+    class ToQueue,ToRevision1,ToRevision2,ToProcReject,ToCancel1,ToCancel2,ToCancel3,ToPendingApproval,ToApproved,ToRejected,Resubmit transitionNode
+    class CompletedEnd,TerminalEnd endNode
+            </pre>
+        </div>
+
+        <div class="info-section" style="margin-top: 30px; background-color: #e8f5e9; border-left-color: #388e3c;">
+            <h3>Key Process Stages</h3>
+            <ol>
+                <li><strong>Creation & Validation:</strong> User creates PR with all required information. System validates before saving.</li>
+                <li><strong>Procurement Review (SUBMITTED):</strong> Only Procurement (Level 3) or Admin (Level 1) can take actions. Can edit most fields. Four outcomes: Move to Queue, Request Revision, Reject, or Cancel (requestor only).</li>
+                <li><strong>Queue Processing (IN_QUEUE):</strong> Validates quotes against thresholds, ensures proper approver is selected.</li>
+                <li><strong>Approval Process (PENDING_APPROVAL):</strong> Designated approver reviews and makes decision (Approve, Reject, or Request Revision).</li>
+                <li><strong>Revision & Resubmission (REVISION_REQUIRED):</strong> Only Requestor or Admin (Level 1) can take actions. Requestor edits PR and resubmits, returns to Procurement Review.</li>
+                <li><strong>Fulfillment (APPROVED→ORDERED→COMPLETED):</strong> Order is placed, items are received, PR is completed.</li>
+                <li><strong>REJECTED & CANCELED States:</strong> PR ends as REJECTED (procurement/approver) or CANCELED (requestor). Can be resurrected: REJECTED → restored by Procurement/Admin to highest previous status; CANCELED → restored by Requestor to SUBMITTED only.</li>
+            </ol>
+        </div>
+
+        <div class="info-section" style="margin-top: 20px;">
+            <h3>Document Information</h3>
+            <p><strong>System:</strong> 1PWR Procurement System<br>
+            <strong>Document Version:</strong> 2.0 (Multi-Chart)<br>
+            <strong>Last Updated:</strong> 2025-10-11<br>
+            <strong>Based on:</strong> Specifications.md (Updated 2025-01-15)</p>
+        </div>
+    </div>
+</body>
+</html>
+

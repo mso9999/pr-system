@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 6: Fulfillment</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }});
+    </script>
+    <style>
+        body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;}
+        .container {max-width: 1600px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
+        h1 {color: #1976d2; text-align: center; margin-bottom: 10px;}
+        .subtitle {text-align: center; color: #666; margin-bottom: 30px; font-style: italic;}
+        .navigation {background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center;}
+        .navigation a {color: #1976d2; text-decoration: none; margin: 0 15px; font-weight: bold;}
+        .navigation a:hover {text-decoration: underline;}
+        .mermaid-container {background-color: white; padding: 20px; border-radius: 5px; overflow-x: auto;}
+        .info-box {background-color: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f57c00;}
+        .info-box h3 {margin-top: 0; color: #e65100;}
+        .action-grid {display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px;}
+        .action-col {background-color: white; padding: 15px; border-radius: 5px; border-left: 4px solid #1976d2;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stage 6: Fulfillment</h1>
+        <p class="subtitle">APPROVED → ORDERED → COMPLETED - PO Generation, Document Management & Order Processing</p>
+        
+        <div class="navigation">
+            <a href="PR_Flow_4_Approval.html">← Stage 4 (Approval)</a>
+            <a href="PR_Flow_Master_Overview.html">Master Overview</a>
+        </div>
+
+        <div class="mermaid-container">
+            <pre class="mermaid">
+flowchart TB
+    Entry[["← From STAGE 4:<br/>PR Status: APPROVED"]]
+    
+    Entry --> RenameObject[Rename PR to PO<br/>Keep same number]
+    RenameObject --> GeneratePO[Generate PO Document<br/>Line items with prices<br/>Quote reference<br/>Available for download]
+    
+    GeneratePO --> ApprovedStatus[Status: APPROVED<br/>Procurement and Finance/Admin<br/>can take actions]
+    
+    %% Document Upload Actions
+    ApprovedStatus --> DocActions{Upload Documents<br/>or Set Overrides}
+    DocActions -->|Upload Proforma| UploadProforma[Upload Proforma Invoice<br/>By Proc or Finance]
+    UploadProforma --> DocActions
+    
+    DocActions -->|Upload PoP| UploadPoP[Upload Proof of Payment<br/>By Proc or Finance]
+    UploadPoP --> DocActions
+    
+    DocActions -->|Override Proforma| OverrideProforma{Justification<br/>Provided?}
+    OverrideProforma -->|No| ErrorOverride1[Error: Justification required]
+    ErrorOverride1 --> DocActions
+    OverrideProforma -->|Yes| SetProformaOverride[Set Proforma Override<br/>with justification]
+    SetProformaOverride --> DocActions
+    
+    DocActions -->|Override PoP| OverridePoP{Justification<br/>Provided?}
+    OverridePoP -->|No| ErrorOverride2[Error: Justification required]
+    ErrorOverride2 --> DocActions
+    OverridePoP -->|Yes| SetPoPOverride[Set PoP Override<br/>with justification]
+    SetPoPOverride --> DocActions
+    
+    %% Collaboration Notifications
+    DocActions -->|Proc: Notify Finance| ValidateForPayment{Proforma uploaded<br/>OR override valid?}
+    ValidateForPayment -->|No| ErrorNotifyFin[Error: Need proforma first]
+    ErrorNotifyFin --> DocActions
+    ValidateForPayment -->|Yes| NotifyFinance[Notify Finance Team<br/>Execute payment<br/>Optional note]
+    NotifyFinance --> DocActions
+    
+    DocActions -->|Fin: Notify Procurement| NotifyProc[Notify Procurement<br/>Action file uploads<br/>Optional note]
+    NotifyProc --> DocActions
+    
+    %% Move to ORDERED
+    DocActions -->|Move to ORDERED<br/>By Proc or Finance| CheckETD{Estimated Delivery<br/>Date (ETD) entered?}
+    CheckETD -->|No| ErrorETD[Error: ETD required<br/>before ORDERED]
+    ErrorETD --> DocActions
+    CheckETD -->|Yes| ValidateOrdered{Check Requirements:<br/>1. Proforma if above Rule 1<br/>2. PoP if above Rule 1<br/>uploaded OR overrides valid?}
+    ValidateOrdered -->|No| ErrorOrdered[Error: Missing required<br/>documents or overrides]
+    ErrorOrdered --> DocActions
+    ValidateOrdered -->|Yes| SetOrdered[Set Status: ORDERED<br/>Record ETD<br/>Record who changed status]
+    
+    SetOrdered --> NotifyOrdered[Notify Requestor<br/>Org Admin and Approvers<br/>CC: Procurement and Asset Mgmt]
+    
+    NotifyOrdered --> OrderedStatus[Status: ORDERED<br/>Procurement or Asset Mgmt<br/>can take actions]
+    
+    %% Delivery Documentation Actions
+    OrderedStatus --> DeliveryActions{Upload Delivery Docs<br/>or Set Override}
+    DeliveryActions -->|Upload Delivery Note| UploadDeliveryNote[Upload Delivery Note<br/>By Proc or Asset Mgmt]
+    UploadDeliveryNote --> DeliveryActions
+    
+    DeliveryActions -->|Upload Photos| UploadPhotos[Upload Delivery Photos<br/>By Proc or Asset Mgmt]
+    UploadPhotos --> DeliveryActions
+    
+    DeliveryActions -->|Override Delivery Docs| OverrideDelivery{Justification<br/>Provided?}
+    OverrideDelivery -->|No| ErrorOverrideDelivery[Error: Justification required]
+    ErrorOverrideDelivery --> DeliveryActions
+    OverrideDelivery -->|Yes| SetDeliveryOverride[Set Delivery Doc Override<br/>with justification]
+    SetDeliveryOverride --> DeliveryActions
+    
+    %% Move to COMPLETED
+    DeliveryActions -->|Move to COMPLETED<br/>By Proc or Asset Mgmt or Finance| ValidateCompleted{Delivery note OR photos<br/>uploaded OR<br/>override valid?}
+    ValidateCompleted -->|No| ErrorCompleted[Error: Need delivery docs<br/>or override]
+    ErrorCompleted --> DeliveryActions
+    ValidateCompleted -->|Yes| VendorQuestion{REQUIRED QUESTION:<br/>Order closed<br/>without issues?}
+    
+    VendorQuestion -->|YES| Check3Quote{Was this a<br/>3-quote process PO?}
+    Check3Quote -->|Yes| Approve12[AUTO-APPROVE Vendor<br/>for 12 months<br/>Log: auto_3quote]
+    Check3Quote -->|No| Approve6[AUTO-APPROVE Vendor<br/>for 6 months<br/>Log: auto_completed]
+    Approve12 --> SetCompleted[Set Status: COMPLETED<br/>Record completion date<br/>Close PO<br/>Update vendor record]
+    Approve6 --> SetCompleted
+    
+    VendorQuestion -->|NO| IssueNote{Issue note<br/>required<br/>Describe problems}
+    IssueNote --> LogIssue[Log issue to vendor record]
+    LogIssue --> OverrideQ{Override:<br/>Approve vendor<br/>despite issues?}
+    OverrideQ -->|No| NoApprove[Vendor remains<br/>non-approved<br/>Issue logged]
+    NoApprove --> SetCompleted
+    OverrideQ -->|Yes but no justification| ErrorOverrideVendor[Error: Override justification<br/>required]
+    ErrorOverrideVendor --> VendorQuestion
+    OverrideQ -->|Yes with justification| ManualApprove[MANUALLY APPROVE Vendor<br/>for 12 months<br/>Log: manual override]
+    ManualApprove --> SetCompleted
+    
+    %% Automatic Delay Notification
+    OrderedStatus -.->|Auto: 3 business days<br/>after ETD passed| AutoDelayCheck{Status still<br/>ORDERED?}
+    AutoDelayCheck -.->|Yes| AutoNotifyDelay[Auto Notify Stakeholders<br/>Delivery delayed beyond ETD<br/>To: Requestor Org Admin Approvers<br/>CC: Procurement and Asset Mgmt]
+    AutoDelayCheck -.->|No| OrderedStatus
+    AutoNotifyDelay -.-> OrderedStatus
+    
+    SetCompleted --> NotifyCompleted[Notify Requestor<br/>Approver and Dept Head<br/>CC: Procurement and Asset Mgmt]
+    NotifyCompleted --> EndCompleted([END: COMPLETED<br/>PO Successfully Fulfilled<br/>Vendor approval updated if applicable])
+    
+    %% Styling
+    classDef entryNode fill:#ffe0b2,stroke:#ef6c00,stroke-width:3px
+    classDef decisionNode fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef processNode fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef statusNode fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px
+    classDef errorNode fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    classDef endNode fill:#a5d6a7,stroke:#1b5e20,stroke-width:3px
+    
+    classDef autoNotify fill:#e1bee7,stroke:#8e24aa,stroke-width:1px,stroke-dasharray: 3 3
+    
+    class Entry entryNode
+    class DocActions,ValidateForPayment,CheckETD,ValidateOrdered,OverrideProforma,OverridePoP,DeliveryActions,ValidateCompleted,OverrideDelivery,AutoDelayCheck,VendorQuestion,Check3Quote,IssueNote,OverrideQ decisionNode
+    class RenameObject,GeneratePO,ApprovedStatus,UploadProforma,UploadPoP,SetProformaOverride,SetPoPOverride,NotifyFinance,NotifyProc,SetOrdered,NotifyOrdered,OrderedStatus,UploadDeliveryNote,UploadPhotos,SetDeliveryOverride,Approve12,Approve6,LogIssue,NoApprove,ManualApprove processNode
+    class SetCompleted statusNode
+    class ErrorNotifyFin,ErrorETD,ErrorOrdered,ErrorOverride1,ErrorOverride2,ErrorOverrideDelivery,ErrorCompleted,ErrorOverrideVendor errorNode
+    class AutoNotifyDelay autoNotify
+    class EndCompleted endNode
+            </pre>
+        </div>
+
+        <div class="info-box" style="background-color: #e1f5fe; border-left-color: #0277bd;">
+            <h3>PR → PO Transition at APPROVED Stage</h3>
+            <ul>
+                <li><strong>Object Rename:</strong> Purchase Request (PR) becomes Purchase Order (PO)</li>
+                <li><strong>Number Retained:</strong> PO keeps the same number as the PR (e.g., ORG-YYYYMM-XXX)</li>
+                <li><strong>PO Document Generated:</strong> System automatically creates downloadable PO document containing:
+                    <ul>
+                        <li>All line items with quantities and prices</li>
+                        <li>Reference to the selected quotation</li>
+                        <li>Vendor details</li>
+                        <li>Delivery information</li>
+                        <li>Approval details (approver names, dates, justifications if applicable)</li>
+                    </ul>
+                </li>
+                <li><strong>Status:</strong> Remains APPROVED until moved to ORDERED</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Who Can Take Actions in APPROVED Status?</h3>
+            <p><strong>Both Procurement and Finance/Admin can perform most actions:</strong></p>
+            <div class="action-grid">
+                <div class="action-col" style="border-left-color: #388e3c;">
+                    <h4>✅ Both Procurement (Level 3) & Finance (Level 4) Can:</h4>
+                    <ul>
+                        <li>Upload Proforma Invoice</li>
+                        <li>Upload Proof of Payment (PoP)</li>
+                        <li>Set Override for Proforma (with justification)</li>
+                        <li>Set Override for PoP (with justification)</li>
+                        <li>Move to ORDERED status (with validation)</li>
+                    </ul>
+                </div>
+                <div class="action-col" style="border-left-color: #1976d2;">
+                    <h4>🔔 Notification Actions:</h4>
+                    <ul>
+                        <li><strong>Procurement Only:</strong> Notify Finance Team for payment (requires proforma/override)</li>
+                        <li><strong>Finance Only:</strong> Notify Procurement Team for file uploads</li>
+                        <li>Both can add optional notes with notifications</li>
+                    </ul>
+                    <h4 style="margin-top: 15px;">📄 Procurement-Specific:</h4>
+                    <ul>
+                        <li>Download PO document</li>
+                    </ul>
+                </div>
+            </div>
+            <p><strong>Administrator (Level 1):</strong> Can perform all actions as superuser</p>
+        </div>
+
+        <div class="info-box" style="background-color: #fff3e0; border-left-color: #f57c00;">
+            <h3>Proforma Invoice Requirements</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr style="background-color: #ffe0b2;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Scenario</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Proforma Required?</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Override Available?</th>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Below Rule 1 Threshold</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Optional</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">N/A - Not required</td>
+                </tr>
+                <tr style="background-color: #f9f9f9;">
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Above Rule 1 Threshold</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Required</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Yes - With justification if not available</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Above Rule 2 Threshold</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Required</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Yes - With justification if not available</td>
+                </tr>
+            </table>
+            <p><strong>Override Justification Examples:</strong> Vendor doesn't provide proforma, urgent order placed directly, standing purchase agreement, emergency purchase</p>
+        </div>
+
+        <div class="info-box" style="background-color: #e1f5fe; border-left-color: #0277bd;">
+            <h3>Proof of Payment (PoP) Requirements</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr style="background-color: #b3e5fc;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Scenario</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">PoP Required?</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Override Available?</th>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Below Rule 1 Threshold</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Optional</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">N/A - Not required</td>
+                </tr>
+                <tr style="background-color: #f9f9f9;">
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Above Rule 1 Threshold</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Required</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Yes - With justification if not available</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Above Rule 2 Threshold</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Required</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Yes - With justification if not available</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="info-box" style="background-color: #e8f5e9; border-left-color: #388e3c;">
+            <h3>Validation Checks Before Moving to ORDERED</h3>
+            <p><strong>Three validation checks required:</strong></p>
+            <ol>
+                <li><strong>Estimated Delivery Date (ETD):</strong>
+                    <ul>
+                        <li><strong>REQUIRED for ALL POs</strong> (below and above Rule 1)</li>
+                        <li>Must be entered by Procurement before moving to ORDERED</li>
+                        <li>Used for delivery tracking and automatic delay notifications</li>
+                    </ul>
+                </li>
+                <li><strong>Proforma Invoice:</strong>
+                    <ul>
+                        <li>IF above Rule 1 threshold: Proforma uploaded OR Override with justification</li>
+                        <li>IF below Rule 1 threshold: Optional (no validation)</li>
+                    </ul>
+                </li>
+                <li><strong>Proof of Payment (PoP):</strong>
+                    <ul>
+                        <li>IF above Rule 1 threshold: PoP uploaded OR Override with justification</li>
+                        <li>IF below Rule 1 threshold: Optional (no validation)</li>
+                    </ul>
+                </li>
+            </ol>
+            <p><strong>Summary:</strong></p>
+            <ul>
+                <li><strong>Below Rule 1:</strong> Only ETD required - can move to ORDERED once ETD is entered</li>
+                <li><strong>Above Rule 1:</strong> ETD, Proforma, AND PoP all required (or overrides with justification)</li>
+            </ul>
+            <p><strong>Validation Error:</strong> If requirements not met, system blocks status change and shows error message</p>
+        </div>
+
+        <div class="info-box" style="background-color: #fff3e0; border-left-color: #f57c00;">
+            <h3>ORDERED Status - Delivery Documentation</h3>
+            <p><strong>Who Can Take Actions in ORDERED Status:</strong></p>
+            <ul>
+                <li><strong>Procurement Officers (Level 3):</strong> ✓ Can upload docs, set override, move to COMPLETED</li>
+                <li><strong>Asset Management Department Users:</strong> ✓ Can upload docs, set override, move to COMPLETED</li>
+                <li><strong>Administrators (Level 1):</strong> ✓ Full access (superuser)</li>
+            </ul>
+            
+            <p><strong>Delivery Documentation Options:</strong></p>
+            <ol>
+                <li><strong>Upload Delivery Note:</strong> Formal delivery documentation from vendor</li>
+                <li><strong>Upload Photos:</strong> Photos of delivered items as proof of receipt</li>
+                <li><strong>Override with Justification:</strong> If documentation not available, provide reason
+                    <ul>
+                        <li>Example justifications: Vendor didn't provide delivery note, emergency delivery, hand-delivered items</li>
+                    </ul>
+                </li>
+            </ol>
+            
+            <p><strong>Validation Before COMPLETED:</strong></p>
+            <ul>
+                <li>System checks: Delivery note uploaded OR Photos uploaded OR Override valid with justification</li>
+                <li>Cannot move to COMPLETED without meeting requirements</li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background-color: #e8f5e9; border-left-color: #2e7d32;">
+            <h3>🔄 NEW: Automated Vendor Approval System (ORDERED → COMPLETED)</h3>
+            <p><strong>Required Question When Closing Order:</strong> "Order closed without issues?"</p>
+            
+            <h4>If YES (Satisfactory Completion):</h4>
+            <ul>
+                <li><strong>3-Quote Process POs:</strong> Vendor automatically approved for <strong>configurable duration</strong>
+                    <ul>
+                        <li>Applies when PO was from a 3-quote scenario (above Rule 1, non-approved vendor)</li>
+                        <li>Duration set in Organization Configuration (default: 12 months)</li>
+                        <li>Expiry date = approval date + configured "3-Quote Process Auto-Approval Duration"</li>
+                        <li>System logs: approval date, approved by (user closing order), reason ("auto_3quote"), PO number, expiry date</li>
+                    </ul>
+                </li>
+                <li><strong>Other Completed POs:</strong> Vendor automatically approved for <strong>configurable duration</strong>
+                    <ul>
+                        <li>Applies to all other completed orders regardless of quote count</li>
+                        <li>Duration set in Organization Configuration (default: 6 months)</li>
+                        <li>Expiry date = approval date + configured "Completed Order Auto-Approval Duration"</li>
+                        <li>System logs: approval date, approved by, reason ("auto_completed"), PO number, expiry date</li>
+                    </ul>
+                </li>
+                <li><strong>Vendor Record Updated:</strong> Approval expiry date set, last completed order date updated</li>
+                <li><strong>No Perpetual Approval:</strong> All approvals have expiry dates; system tracks and auto-deactivates when expired</li>
+            </ul>
+            
+            <h4>If NO (Issues During Order):</h4>
+            <ul>
+                <li><strong>Issue Note Required:</strong> User must describe what went wrong (delivery delays, quality issues, etc.)</li>
+                <li><strong>Issue Logged:</strong> Note saved to vendor record for performance tracking</li>
+                <li><strong>Override Option:</strong> "Approve vendor despite issues?" checkbox
+                    <ul>
+                        <li><strong>If checked:</strong> Justification note required → Vendor manually approved for 12 months</li>
+                        <li><strong>If not checked:</strong> Vendor remains non-approved (issues logged)</li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <h4>Who Can Answer Question:</h4>
+            <ul>
+                <li>Procurement Officers (Level 3)</li>
+                <li>Finance/Admin (Level 4) - for POs below Rule 1</li>
+                <li>Asset Management Department Users</li>
+                <li>Administrators (Level 1)</li>
+            </ul>
+            
+            <h4>Audit Trail & Paper Trail:</h4>
+            <ul>
+                <li>All responses logged with timestamp, user, PO number</li>
+                <li>Vendor approval history shows all automatic and manual approvals</li>
+                <li>Issue notes permanently recorded on vendor profile</li>
+                <li>Approval expiry dates tracked; system auto-expires after configured duration</li>
+            </ul>
+
+            <h4>Approval Duration Configuration:</h4>
+            <ul>
+                <li><strong>Location:</strong> Admin Dashboard → Organization Management → Vendor Approval Duration Settings</li>
+                <li><strong>Configurable Values:</strong>
+                    <ul>
+                        <li>3-Quote Process Auto-Approval Duration (default: 12 months)</li>
+                        <li>Completed Order Auto-Approval Duration (default: 6 months)</li>
+                        <li>Manual Approval Duration (default: 12 months)</li>
+                    </ul>
+                </li>
+                <li><strong>Automated Tracking:</strong>
+                    <ul>
+                        <li>Daily automated job runs to check vendor approval expiry dates</li>
+                        <li>Expired vendors automatically set to non-approved</li>
+                        <li>Procurement team notified via email when vendors expire</li>
+                        <li>Prevents perpetual approval status</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background-color: #fce4ec; border-left-color: #c2185b;">
+            <h3>Automatic Delay Notification (ORDERED Status)</h3>
+            <p><strong>Trigger:</strong> If PO remains in ORDERED status for 3 business days AFTER the Estimated Delivery Date (ETD)</p>
+            <ul>
+                <li><strong>System automatically sends notification highlighting delivery delay</strong></li>
+                <li><strong>Recipients:</strong>
+                    <ul>
+                        <li>Requestor</li>
+                        <li>Organization Admin Email</li>
+                        <li>All Approvers</li>
+                    </ul>
+                </li>
+                <li><strong>CC:</strong> Procurement team and Asset Management (always)</li>
+                <li><strong>Content:</strong> PO number, ETD, current date, days overdue, vendor details</li>
+                <li><strong>Purpose:</strong> Alert stakeholders to delivery delays for follow-up with vendor</li>
+                <li><strong>Continues:</strong> Notification sent once when threshold is reached</li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background-color: #fce4ec; border-left-color: #c2185b;">
+            <h3>Notification Actions in APPROVED Status</h3>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <tr style="background-color: #f8bbd0;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Action</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Who Can Trigger</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Recipients</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Purpose</th>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Notify Finance for Payment</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Procurement</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Finance Team, CC: Procurement</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Request payment execution, optional note</td>
+                </tr>
+                <tr style="background-color: #f9f9f9;">
+                    <td style="padding: 10px; border: 1px solid #ddd;">Notify Procurement for Uploads</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Finance/Admin</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Procurement Team, CC: Finance</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Request file uploads (proforma/PoP), optional note</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="info-box" style="background-color: #e3f2fd; border-left-color: #1976d2;">
+            <h3>Status Change: APPROVED → ORDERED</h3>
+            <p><strong>When either Procurement or Finance/Admin moves PO to ORDERED:</strong></p>
+            <ul>
+                <li><strong>Notification Sent To:</strong>
+                    <ul>
+                        <li>Requestor (primary recipient)</li>
+                        <li>Organization Admin Email</li>
+                        <li>All Approvers (single or both if dual-approval)</li>
+                    </ul>
+                </li>
+                <li><strong>CC:</strong> Procurement team (always)</li>
+                <li><strong>Content Includes:</strong>
+                    <ul>
+                        <li>PO number</li>
+                        <li>Status change (APPROVED → ORDERED)</li>
+                        <li>Vendor details</li>
+                        <li>Order date</li>
+                        <li>Expected delivery information</li>
+                        <li>Proforma and PoP status (uploaded or overridden)</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="info-box" style="background-color: #fff9c4; border-left-color: #f9a825;">
+            <h3>Order Fulfillment: ORDERED → COMPLETED</h3>
+            <ol>
+                <li><strong>ORDERED Status:</strong> Order has been placed, awaiting delivery</li>
+                <li><strong>Item Receipt Tracking:</strong> Procurement/Finance records items as they arrive</li>
+                <li><strong>PARTIALLY_RECEIVED:</strong> Some items delivered, notification sent to requestor</li>
+                <li><strong>Receipt Loop:</strong> Process repeats until all items are received</li>
+                <li><strong>COMPLETED:</strong> All items received, PO closed, final notification sent to all stakeholders</li>
+            </ol>
+        </div>
+
+        <div class="info-box" style="background-color: #ffebee; border-left-color: #c62828;">
+            <h3>Important Notes</h3>
+            <ul>
+                <li><strong>Below Rule 1:</strong> NO document requirements (Proforma and PoP both optional)</li>
+                <li><strong>Above Rule 1:</strong> Proforma AND PoP both required (or overrides with justification)</li>
+                <li><strong>Override Justifications:</strong> Must explain why document is not available</li>
+                <li><strong>Collaboration:</strong> Procurement and Finance can work concurrently, notify each other</li>
+                <li><strong>PO Document:</strong> Generated automatically, downloadable by procurement</li>
+                <li><strong>Audit Trail:</strong> All uploads, overrides, and justifications recorded</li>
+            </ul>
+        </div>
+
+        <div class="navigation" style="margin-top: 30px;">
+            <a href="PR_Flow_4_Approval.html">← Stage 4 (Approval)</a>
+            <a href="PR_Flow_Master_Overview.html">Master Overview</a>
+        </div>
+    </div>
+</body>
+</html>

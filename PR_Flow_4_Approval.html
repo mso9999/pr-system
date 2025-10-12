@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stage 4: Approval Process</title>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default', flowchart: { useMaxWidth: true, htmlLabels: true, curve: 'basis' }});
+    </script>
+    <style>
+        body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;}
+        .container {max-width: 1400px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
+        h1 {color: #1976d2; text-align: center; margin-bottom: 10px;}
+        .subtitle {text-align: center; color: #666; margin-bottom: 30px; font-style: italic;}
+        .navigation {background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center;}
+        .navigation a {color: #1976d2; text-decoration: none; margin: 0 15px; font-weight: bold;}
+        .navigation a:hover {text-decoration: underline;}
+        .mermaid-container {background-color: white; padding: 20px; border-radius: 5px; overflow-x: auto;}
+        .info-box {background-color: #fff3e0; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #f57c00;}
+        .info-box h3 {margin-top: 0; color: #e65100;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Stage 4: Approval Process</h1>
+        <p class="subtitle">PENDING_APPROVAL Status - Approver Reviews and Decides</p>
+        
+        <div class="navigation">
+            <a href="PR_Flow_3_Queue_Processing.html">← Stage 3 (Queue Processing)</a>
+            <a href="PR_Flow_Master_Overview.html">Master Overview</a>
+            <a href="PR_Flow_5_Revision.html">Stage 5 (Revision) →</a> | 
+            <a href="PR_Flow_6_Fulfillment.html">Stage 6 (Fulfillment) →</a>
+        </div>
+
+        <div class="mermaid-container">
+            <pre class="mermaid">
+flowchart TB
+    Entry[["← From STAGE 3:<br/>PR Status: PENDING_APPROVAL<br/>Approver(s) assigned & notified"]]
+    
+    Entry --> CheckTwoApprovers{PR Above<br/>Rule 2 Threshold?<br/>Two approvers needed?}
+    
+    %% Path A: Single Approver (Below Rule 2)
+    CheckTwoApprovers -->|No - One Approver| ApproverReview{Approver Reviews PR:<br/>• PR details<br/>• Quotes<br/>• Justification<br/>• Supporting docs}
+    
+    %% Path B: Two Approvers (Above Rule 2) - CONCURRENT
+    CheckTwoApprovers -->|Yes - Two Approvers| BothNotified[Both Approvers Notified<br/>Can review concurrently<br/>Status: PENDING_APPROVAL]
+    
+    BothNotified --> EitherApproverActs{Either Approver<br/>Takes Action}
+    
+    %% Any Approver Rejects - Immediate Termination
+    EitherApproverActs -->|Any Approver<br/>Rejects| NotesRejectDual{Notes<br/>Provided?}
+    NotesRejectDual -->|No| ErrorNotesRejectDual[Error: Notes Required]
+    ErrorNotesRejectDual --> EitherApproverActs
+    NotesRejectDual -->|Yes| SetRejectedDual[Set Status: REJECTED<br/>Approver rejected]
+    SetRejectedDual --> NotifyRejectedDual[Notify Requestor<br/>& Other Approver<br/>CC: Procurement]
+    NotifyRejectedDual --> ToStage7Dual[["→ Stage 7"]]
+    
+    %% Any Approver Requests Revision - Immediate Termination
+    EitherApproverActs -->|Any Approver<br/>Requests Revision| NotesRevisionDual{Notes<br/>Provided?}
+    NotesRevisionDual -->|No| ErrorNotesRevisionDual[Error: Notes Required]
+    ErrorNotesRevisionDual --> EitherApproverActs
+    NotesRevisionDual -->|Yes| SetRevisionDual[Set Status:<br/>REVISION_REQUIRED]
+    SetRevisionDual --> NotifyRevisionDual[Notify Requestor<br/>& Other Approver<br/>CC: Procurement]
+    NotifyRevisionDual --> ToStage5Dual[["→ Stage 5"]]
+    
+    %% First Approval (Either Approver)
+    EitherApproverActs -->|One Approver<br/>Approves| CheckLowestQuoteFirst{Lowest Quote<br/>Selected?}
+    CheckLowestQuoteFirst -->|Yes| UseDefaultFirst[Use Default:<br/>'Value for Money'<br/>OR write custom note]
+    CheckLowestQuoteFirst -->|No| RequireJustificationFirst{Justification<br/>Provided?}
+    RequireJustificationFirst -->|No| ErrorJustificationFirst[Error: Must justify<br/>non-lowest quote selection]
+    ErrorJustificationFirst --> EitherApproverActs
+    RequireJustificationFirst -->|Yes| RecordFirstApproval[Record First Approval<br/>Timestamp, Approver<br/>& Justification<br/>Status: PENDING_APPROVAL]
+    UseDefaultFirst --> RecordFirstApproval
+    RecordFirstApproval --> NotifyFirstDone[Notify Other Approver<br/>& Requestor<br/>CC: Procurement<br/>1 of 2 approvals done]
+    NotifyFirstDone --> AwaitSecond{Await Second<br/>Approver}
+    
+    %% Second Approver can still reject or request revision
+    AwaitSecond -->|Second Approver<br/>Rejects| NotesRejectSecond{Notes<br/>Provided?}
+    NotesRejectSecond -->|No| ErrorRejectSecond[Error: Notes Required]
+    ErrorRejectSecond --> AwaitSecond
+    NotesRejectSecond -->|Yes| SetRejectedAfterFirst[Set Status: REJECTED<br/>Despite first approval]
+    SetRejectedAfterFirst --> NotifyRejectedAfterFirst[Notify Requestor<br/>& First Approver<br/>CC: Procurement]
+    NotifyRejectedAfterFirst --> ToStage7AfterFirst[["→ Stage 7"]]
+    
+    AwaitSecond -->|Second Approver<br/>Requests Revision| NotesRevisionSecond{Notes<br/>Provided?}
+    NotesRevisionSecond -->|No| ErrorRevisionSecond[Error: Notes Required]
+    ErrorRevisionSecond --> AwaitSecond
+    NotesRevisionSecond -->|Yes| SetRevisionAfterFirst[Set Status:<br/>REVISION_REQUIRED]
+    SetRevisionAfterFirst --> NotifyRevisionAfterFirst[Notify Requestor<br/>& First Approver<br/>CC: Procurement]
+    NotifyRevisionAfterFirst --> ToStage5AfterFirst[["→ Stage 5"]]
+    
+    %% Both Approve
+    AwaitSecond -->|Second Approver<br/>Also Approves| CheckLowestQuoteSecond{Lowest Quote<br/>Selected?}
+    CheckLowestQuoteSecond -->|Yes| UseDefaultSecond[Use Default:<br/>'Value for Money'<br/>OR write custom note]
+    CheckLowestQuoteSecond -->|No| RequireJustificationSecond{Justification<br/>Provided?}
+    RequireJustificationSecond -->|No| ErrorJustificationSecond[Error: Must justify<br/>non-lowest quote selection]
+    ErrorJustificationSecond --> AwaitSecond
+    RequireJustificationSecond -->|Yes| RecordSecondApproval[Record Second Approval<br/>Timestamp, Approver<br/>& Justification]
+    UseDefaultSecond --> RecordSecondApproval
+    RecordSecondApproval --> SetApprovedBoth[Set Status: APPROVED<br/>Both approvers approved]
+    SetApprovedBoth --> NotifyApprovedBoth[Notify Requestor<br/>& Both Approvers<br/>CC: Procurement<br/>Both approvals complete]
+    NotifyApprovedBoth --> ToStage6Dual[["→ Stage 6"]]
+    
+    %% Single Approver Path (Below Rule 2)
+    %% Option 1: Approve
+    ApproverReview -->|Option 1:<br/>Approve| CheckThreeQuotesSingle{PR requires<br/>3 quotes?}
+    
+    %% If 3 quotes required, need justification
+    CheckThreeQuotesSingle -->|Yes - 3 quotes| CheckLowestQuoteSingle{Lowest Quote<br/>Selected?}
+    CheckLowestQuoteSingle -->|Yes| UseDefaultJustification[Use Default:<br/>'Value for Money'<br/>OR write custom note]
+    CheckLowestQuoteSingle -->|No| RequireJustificationSingle{Justification<br/>Provided?}
+    RequireJustificationSingle -->|No| ErrorJustificationSingle[Error: Must justify<br/>non-lowest quote selection]
+    ErrorJustificationSingle --> ApproverReview
+    RequireJustificationSingle -->|Yes| SetApprovedWithJustification[Set Status: APPROVED<br/>Record approval, justification]
+    UseDefaultJustification --> SetApprovedWithJustification
+    
+    %% If 1 quote, no justification needed
+    CheckThreeQuotesSingle -->|No - 1 quote| SetApprovedNoJustification[Set Status: APPROVED<br/>Record approval<br/>Optional notes]
+    
+    SetApprovedWithJustification --> NotifyApproved[Notify Requestor<br/>CC: Procurement]
+    SetApprovedNoJustification --> NotifyApproved
+    NotifyApproved --> ToStage6[["→ Continue to<br/>STAGE 6:<br/>Fulfillment"]]
+    
+    %% Single Approver - Option 2: Reject
+    ApproverReview -->|Option 2:<br/>Reject| NotesReject{Notes<br/>Provided?}
+    NotesReject -->|No| ErrorNotesReject[Error: Notes Required<br/>for Rejection]
+    ErrorNotesReject --> ApproverReview
+    NotesReject -->|Yes| SetRejected[Set Status: REJECTED<br/>Record rejection reason]
+    SetRejected --> NotifyRejected[Notify Requestor<br/>CC: Procurement]
+    NotifyRejected --> ToStage7Reject[["→ Stage 7"]]
+    
+    %% Single Approver - Option 3: Request Revision
+    ApproverReview -->|Option 3:<br/>Request Revision| NotesRevision{Notes<br/>Provided?}
+    NotesRevision -->|No| ErrorNotesRevision[Error: Notes Required<br/>for Revision Request]
+    ErrorNotesRevision --> ApproverReview
+    NotesRevision -->|Yes| SetRevision[Set Status:<br/>REVISION_REQUIRED<br/>Record revision notes]
+    SetRevision --> NotifyRevision[Notify Requestor<br/>CC: Procurement]
+    NotifyRevision --> ToStage5[["→ Stage 7"]]
+    
+    %% Styling
+    classDef entryNode fill:#ffe0b2,stroke:#ef6c00,stroke-width:3px
+    classDef reviewNode fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    classDef decisionNode fill:#fff9c4,stroke:#f9a825,stroke-width:2px
+    classDef processNode fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef errorNode fill:#ffcdd2,stroke:#c62828,stroke-width:2px
+    classDef nextStage fill:#ffe0b2,stroke:#ef6c00,stroke-width:3px
+    
+    class Entry entryNode
+    class CheckTwoApprovers,EitherApproverActs,AwaitSecond decisionNode
+    class ApproverReview reviewNode
+    class NotesReject,NotesRevision,NotesRejectDual,NotesRevisionDual,NotesRejectSecond,NotesRevisionSecond,CheckThreeQuotesSingle,CheckLowestQuoteSingle,CheckLowestQuoteFirst,CheckLowestQuoteSecond,RequireJustificationSingle,RequireJustificationFirst,RequireJustificationSecond decisionNode
+    class BothNotified,SetApprovedWithJustification,SetApprovedNoJustification,SetRejected,SetRevision,RecordFirstApproval,RecordSecondApproval,SetApprovedBoth,SetRejectedDual,SetRevisionDual,SetRejectedAfterFirst,SetRevisionAfterFirst,NotifyApproved,NotifyRejected,NotifyRevision,NotifyFirstDone,NotifyApprovedBoth,NotifyRejectedDual,NotifyRevisionDual,NotifyRejectedAfterFirst,NotifyRevisionAfterFirst,UseDefaultJustification,UseDefaultFirst,UseDefaultSecond processNode
+    class ErrorNotesReject,ErrorNotesRevision,ErrorNotesRejectDual,ErrorNotesRevisionDual,ErrorRejectSecond,ErrorRevisionSecond,ErrorJustificationSingle,ErrorJustificationFirst,ErrorJustificationSecond errorNode
+    class ToStage6,ToStage6Dual,ToStage7Reject,ToStage7Dual,ToStage7AfterFirst,ToStage5,ToStage5Dual,ToStage5AfterFirst nextStage
+            </pre>
+        </div>
+
+        <div class="info-box" style="background-color: #e1f5fe; border-left-color: #0277bd;">
+            <h3>Two Approval Paths: Single vs. Dual Approver</h3>
+            
+            <h4 style="color: #0277bd;">Path A: Single Approver (Below Rule 2 Threshold)</h4>
+            <ul>
+                <li><strong>Number of Approvers:</strong> ONE</li>
+                <li><strong>Approver Level:</strong> Level 2 (if above Rule 1) OR Level 4 or Level 2 (if below Rule 1)</li>
+                <li><strong>Process:</strong> Single approver makes decision → PR proceeds based on decision</li>
+                <li><strong>If Approved:</strong> Status changes to APPROVED → Moves to Stage 6 (Fulfillment)</li>
+            </ul>
+            
+            <h4 style="color: #0277bd;">Path B: Dual Approver (Above Rule 2 Threshold)</h4>
+            <ul>
+                <li><strong>Number of Approvers:</strong> TWO (concurrent/parallel)</li>
+                <li><strong>Approver Level:</strong> BOTH must be Level 2 (Senior Approvers)</li>
+                <li><strong>Process:</strong>
+                    <ol>
+                        <li><strong>Both approvers notified simultaneously</strong></li>
+                        <li>Approvers can review and act in any order (parallel)</li>
+                        <li>If one approver approves first → Other approver notified (1 of 2 done)</li>
+                        <li>Status remains PENDING_APPROVAL until both approve</li>
+                        <li>If second approver also approves → Status changes to APPROVED</li>
+                    </ol>
+                </li>
+                <li><strong>Early Termination:</strong> If ANY approver rejects or requests revision at ANY time, process stops immediately (other approver notified)</li>
+                <li><strong>If Both Approve:</strong> Status changes to APPROVED → Moves to Stage 6 (Fulfillment)</li>
+                <li><strong>Notification:</strong> After first approval, second approver is reminded they need to act</li>
+            </ul>
+        </div>
+
+        <div class="info-box">
+            <h3>Approver Actions & Requirements</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <tr style="background-color: #bbdefb;">
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Action</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Notes Required?</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Effect on Dual-Approval</th>
+                    <th style="padding: 10px; text-align: left; border: 1px solid #ddd;">Next Stage</th>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Approve (Single Path)</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>IF 3 quotes:</strong> Justification required<br/><strong>IF 1 quote:</strong> Optional notes</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">N/A - Only one approver</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Stage 6: Fulfillment</td>
+                </tr>
+                <tr style="background-color: #f9f9f9;">
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Approve (First in Dual Path)</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Justification REQUIRED</strong><br/>(Always 3 quotes above Rule 2)</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Notifies other approver to act</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Stays PENDING_APPROVAL</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Approve (Second in Dual Path)</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Justification REQUIRED</strong><br/>(Always 3 quotes above Rule 2)</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Both approved - complete</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Stage 6: Fulfillment</td>
+                </tr>
+                <tr style="background-color: #fff3e0;">
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Note: Concurrent Review</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;" colspan="3">Both approvers can review simultaneously. Either can act first. If one approves, the other is notified to complete their review. Order of approval doesn't matter.</td>
+                </tr>
+                <tr style="background-color: #f9f9f9;">
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Reject</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>REQUIRED</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Stops process (no 2nd approval)</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Stage 7: REJECTED</td>
+                </tr>
+                <tr>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>Request Revision</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;"><strong>REQUIRED</strong></td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Stops process (no 2nd approval)</td>
+                    <td style="padding: 10px; border: 1px solid #ddd;">Stage 5: Revision</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="info-box" style="background-color: #fff3e0; border-left-color: #f57c00;">
+            <h3>Approval Justification Requirements</h3>
+            <p><strong>Justification ONLY required for PRs that require 3 quotes:</strong></p>
+            
+            <h4>When Justification is REQUIRED (3-Quote Scenarios):</h4>
+            <ul>
+                <li><strong>Applies to:</strong>
+                    <ul>
+                        <li>Above Rule 1 threshold with non-approved vendor (requires 3 quotes)</li>
+                        <li>Above Rule 2 threshold (always requires 3 quotes)</li>
+                    </ul>
+                </li>
+                <li><strong>If Lowest Quote is Selected:</strong>
+                    <ul>
+                        <li>Default justification available: "Value for Money" (radio button)</li>
+                        <li>OR approver can write custom justification</li>
+                    </ul>
+                </li>
+                <li><strong>If Lowest Quote is NOT Selected:</strong>
+                    <ul>
+                        <li>Custom justification REQUIRED (cannot use default)</li>
+                        <li>Must explain why higher quote was chosen</li>
+                        <li>System validates justification is provided</li>
+                        <li>Common reasons: Better quality, faster delivery, better warranty, vendor reliability</li>
+                    </ul>
+                </li>
+            </ul>
+            
+            <h4>When Justification is NOT Required (1-Quote Scenarios):</h4>
+            <ul>
+                <li><strong>Applies to:</strong>
+                    <ul>
+                        <li>Below Rule 1 threshold (requires 1 quote)</li>
+                        <li>Above Rule 1 threshold with approved vendor (requires 1 quote)</li>
+                    </ul>
+                </li>
+                <li><strong>Approval process:</strong> Simple approval, optional notes</li>
+                <li><strong>No validation:</strong> Approver can approve without justification</li>
+            </ul>
+            
+            <h4>For Dual-Approval PRs (Above Rule 2 - Always 3 Quotes):</h4>
+            <ul>
+                <li><strong>BOTH approvers must provide justification</strong></li>
+                <li>Both can use default "Value for Money" if lowest quote selected</li>
+                <li>Both must provide custom justification if non-lowest quote selected</li>
+                <li>Each approver's justification recorded independently</li>
+                <li>Both justifications preserved in approval history</li>
+            </ul>
+            
+            <p><strong>Summary:</strong> 3 quotes = Justification required. 1 quote = No justification required (optional notes only).</p>
+        </div>
+
+        <div class="info-box" style="background-color: #e8f5e9; border-left-color: #388e3c;">
+            <h3>Who Can Approve?</h3>
+            <ul>
+                <li><strong>Level 2 (Senior Approver):</strong> Can approve PRs of any value</li>
+                <li><strong>Level 4 (Finance Admin):</strong> Can approve PRs below Rule 1 threshold only</li>
+                <li><strong>Restrictions:</strong>
+                    <ul>
+                        <li>Approver must be active (isActive = true)</li>
+                        <li>Approver must be assigned to same organization as PR</li>
+                        <li>Approver cannot be the requestor (no self-approval)</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="navigation" style="margin-top: 30px;">
+            <a href="PR_Flow_3_Queue_Processing.html">← Stage 3 (Queue Processing)</a>
+            <a href="PR_Flow_Master_Overview.html">Master Overview</a>
+            <a href="PR_Flow_5_Revision.html">Stage 5 (Revision) →</a> | 
+            <a href="PR_Flow_6_Fulfillment.html">Stage 6 (Fulfillment) →</a>
+        </div>
+    </div>
+</body>
+</html>
+

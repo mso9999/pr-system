@@ -1,0 +1,1448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Object Definitions</title>
+    <style>
+        body {font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5;}
+        .container {max-width: 1400px; margin: 0 auto; background-color: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);}
+        h1 {color: #1976d2; text-align: center; margin-bottom: 10px;}
+        .subtitle {text-align: center; color: #666; margin-bottom: 30px; font-style: italic;}
+        .navigation {background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin-bottom: 20px; text-align: center;}
+        .navigation a {color: #1976d2; text-decoration: none; margin: 0 15px; font-weight: bold;}
+        .navigation a:hover {text-decoration: underline;}
+        .object-section {background-color: #fff; padding: 20px; margin: 20px 0; border-radius: 5px; border-left: 4px solid #1976d2; box-shadow: 0 1px 3px rgba(0,0,0,0.1);}
+        .object-section h2 {margin-top: 0; color: #1976d2;}
+        table {width: 100%; border-collapse: collapse; margin-top: 15px;}
+        th, td {border: 1px solid #ddd; padding: 12px; text-align: left;}
+        th {background-color: #1976d2; color: white;}
+        tr:nth-child(even) {background-color: #f9f9f9;}
+        .field-type {color: #666; font-family: monospace; font-size: 12px;}
+        .required {color: #d32f2f; font-weight: bold;}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>System Object Definitions</h1>
+        <p class="subtitle">Data Model and Object Structure Reference</p>
+        
+        <div class="navigation">
+            <a href="PR_System_Dashboard.html">← Dashboard</a>
+            <a href="PR_System_Admin_Backend.html">← Admin Backend</a>
+            <a href="PR_Flow_Master_Overview.html">Workflow Overview</a>
+        </div>
+
+        <div class="object-section">
+            <h2>1. Organization</h2>
+            <p><strong>What it is:</strong> Represents a business entity or organizational unit within the 1PWR system (e.g., "1PWR LESOTHO", "1PWR SOUTH AFRICA").</p>
+            
+            <p><strong>Purpose:</strong> Groups users, PRs/POs, and reference data; defines business rules and thresholds; controls access and permissions.</p>
+            
+            <h3>Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>id</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Normalized organization ID (lowercase, underscores). Example: "1pwr_lesotho"</td>
+                </tr>
+                <tr>
+                    <td><strong>name</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Display name. Example: "1PWR LESOTHO"</td>
+                </tr>
+                <tr>
+                    <td><strong>code</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Short code for PR/PO numbering. Example: "1PL"</td>
+                </tr>
+                <tr>
+                    <td><strong>currency</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Base currency code. Example: "LSL", "USD", "ZAR"</td>
+                </tr>
+                <tr>
+                    <td><strong>procurementEmail</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Email for procurement team (used in notifications)</td>
+                </tr>
+                <tr>
+                    <td><strong>assetManagementEmail</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>Email for asset management team (CC'd from ORDERED onward)</td>
+                </tr>
+                <tr>
+                    <td><strong>adminEmail</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Primary admin contact email</td>
+                </tr>
+                <tr>
+                    <td><strong>rule1Threshold</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Lower threshold amount in base currency</td>
+                </tr>
+                <tr>
+                    <td><strong>rule2Threshold</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Higher threshold amount (must be > Rule 1)</td>
+                </tr>
+                <tr>
+                    <td><strong>allowedCurrencies</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>List of currencies this org can use. Example: ["LSL", "USD", "ZAR"]</td>
+                </tr>
+                <tr>
+                    <td><strong>isActive</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Whether organization is active in the system</td>
+                </tr>
+                <tr>
+                    <td><strong>timeZone</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>Organization time zone. Example: "Africa/Maseru"</td>
+                </tr>
+                <tr>
+                    <td><strong>businessDays</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>Optional</td>
+                    <td>Working days of week. Default: [1,2,3,4,5] (Mon-Fri)</td>
+                </tr>
+                <tr>
+                    <td><strong>holidays</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>Optional</td>
+                    <td>List of holiday dates for business day calculations</td>
+                </tr>
+                <tr>
+                    <td><strong>vendorApproval3QuoteDuration</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Optional</td>
+                    <td>Duration in months for auto-approval from 3-quote process. Default: 12</td>
+                </tr>
+                <tr>
+                    <td><strong>vendorApprovalCompletedDuration</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Optional</td>
+                    <td>Duration in months for auto-approval from any completed order. Default: 6</td>
+                </tr>
+                <tr>
+                    <td><strong>vendorApprovalManualDuration</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Optional</td>
+                    <td>Duration in months for manual vendor approval. Default: 12</td>
+                </tr>
+                <tr>
+                    <td><strong>highValueVendorMultiplier</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Optional</td>
+                    <td>Multiplier (X) for high-value vendor classification. Default: 10. Formula: cumulative ≥ (Rule 2 × X)</td>
+                </tr>
+                <tr>
+                    <td><strong>highValueVendorMaxDuration</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Optional</td>
+                    <td>Maximum approval duration (Z) in months for high-value vendors. Default: 24. Reuses vendorApproval3QuoteDuration for 3-quote recency check.</td>
+                </tr>
+            </table>
+
+            <p><strong>Vendor Approval Duration Settings:</strong></p>
+            <ul>
+                <li><strong>Purpose:</strong> Configurable timeframes prevent perpetual vendor approval status</li>
+                <li><strong>System Behavior:</strong>
+                    <ul>
+                        <li>Expiry dates calculated dynamically: approval date + configured duration in months</li>
+                        <li>Daily automated job checks all vendor approval expiry dates</li>
+                        <li>Vendors past expiry automatically set to non-approved (isApproved = false)</li>
+                        <li>Procurement team notified when approvals expire</li>
+                        <li>Justification validation uses these durations to determine renewal eligibility</li>
+                    </ul>
+                </li>
+                <li><strong>Recommended Ranges:</strong>
+                    <ul>
+                        <li>3-Quote Process: 6-24 months</li>
+                        <li>Completed Order: 3-12 months</li>
+                        <li>Manual Approval: 6-36 months</li>
+                    </ul>
+                </li>
+                <li><strong>Configuration Location:</strong> Admin Dashboard → Organization Management</li>
+            </ul>
+
+            <p><strong>High-Value Vendor Configuration:</strong></p>
+            <ul>
+                <li><strong>Purpose:</strong> Ensures high-spend vendors undergo regular competitive evaluation</li>
+                <li><strong>Configuration Parameters:</strong>
+                    <ul>
+                        <li><strong>X (Multiplier):</strong> Defines high-value threshold as Rule 2 × X
+                            <ul>
+                                <li>Example: Rule 2 = $10,000, X = 10 → High-value at $100,000+ cumulative</li>
+                                <li>Recommended range: 5-50</li>
+                            </ul>
+                        </li>
+                        <li><strong>Y (3-Quote Window):</strong> How recently vendor must have passed 3-quote process
+                            <ul>
+                                <li>Example: Y = 12 means vendor must have passed 3-quote in last 12 months</li>
+                                <li>Recommended range: 6-24 months</li>
+                            </ul>
+                        </li>
+                        <li><strong>Z (Max Duration):</strong> Maximum approval duration for high-value vendors
+                            <ul>
+                                <li>Example: Z = 6 means high-value vendors can only stay approved 6 months max</li>
+                                <li>Exceptions: Recent 3-quote (within Y months) OR manual override</li>
+                                <li>Recommended range: 3-12 months</li>
+                            </ul>
+                        </li>
+                    </ul>
+                </li>
+                <li><strong>System Enforcement:</strong>
+                    <ul>
+                        <li>Daily check calculates cumulative order value per vendor</li>
+                        <li>Classifies vendors as high-value if threshold met</li>
+                        <li>Applies Z-month cap to approval duration</li>
+                        <li>Verifies 3-quote recency or override for continued approval</li>
+                        <li>Notifies Procurement when high-value vendor needs attention</li>
+                    </ul>
+                </li>
+                <li><strong>Benefits:</strong>
+                    <ul>
+                        <li>Prevents vendor lock-in for major purchases</li>
+                        <li>Promotes competitive market pricing</li>
+                        <li>Maintains procurement compliance and best practices</li>
+                        <li>Configurable per organization's risk tolerance</li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="object-section">
+            <h2>2. User</h2>
+            <p><strong>What it is:</strong> Represents a person who uses the procurement system.</p>
+            
+            <p><strong>Purpose:</strong> Authentication, authorization, assignment to organizations, tracking who creates/approves/processes PRs/POs.</p>
+            
+            <h3>Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>uid</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Unique user ID (Firebase Auth UID)</td>
+                </tr>
+                <tr>
+                    <td><strong>email</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>User email address (used for login and notifications)</td>
+                </tr>
+                <tr>
+                    <td><strong>name</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Full name of user</td>
+                </tr>
+                <tr>
+                    <td><strong>permissionLevel</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>1 (Admin), 2 (Senior Approver), 3 (Procurement), 4 (Finance), 5 (Requester)</td>
+                </tr>
+                <tr>
+                    <td><strong>department</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Department assignment. Special: "Asset Management" for delivery access</td>
+                </tr>
+                <tr>
+                    <td><strong>organization</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Primary organization ID (normalized)</td>
+                </tr>
+                <tr>
+                    <td><strong>additionalOrganizations</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>Optional</td>
+                    <td>Additional organization IDs user has access to</td>
+                </tr>
+                <tr>
+                    <td><strong>isActive</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Whether user can log in and be selected as approver</td>
+                </tr>
+                <tr>
+                    <td><strong>createdDate</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>When user account was created</td>
+                </tr>
+                <tr>
+                    <td><strong>lastLogin</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Optional</td>
+                    <td>Last successful login timestamp</td>
+                </tr>
+            </table>
+
+            <h3>Permission Level Capabilities:</h3>
+            <ul>
+                <li><strong>Level 1 (Administrator):</strong> Full system access, can do anything</li>
+                <li><strong>Level 2 (Senior Approver):</strong> Approve any value PR, view admin dashboard (read-only)</li>
+                <li><strong>Level 3 (Procurement Officer):</strong> Process PRs, edit vendors, manage workflow</li>
+                <li><strong>Level 4 (Finance Admin):</strong> Approve low-value PRs, manage documents in APPROVED/ORDERED</li>
+                <li><strong>Level 5 (Requester):</strong> Create PRs, view own PRs, cancel own PRs</li>
+            </ul>
+        </div>
+
+        <div class="object-section">
+            <h2>3. Purchase Request (PR) / Purchase Order (PO)</h2>
+            <p><strong>What it is:</strong> The central object representing a request to purchase goods/services. Called "PR" until APPROVED, then renamed to "PO".</p>
+            
+            <p><strong>Lifecycle:</strong> SUBMITTED → IN_QUEUE → PENDING_APPROVAL → APPROVED (becomes PO) → ORDERED → COMPLETED</p>
+            
+            <h3>Core Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>id</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Unique identifier (Firestore document ID)</td>
+                </tr>
+                <tr>
+                    <td><strong>prNumber / poNumber</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Human-readable number (ORG-YYYYMM-XXX). Same number throughout lifecycle</td>
+                </tr>
+                <tr>
+                    <td><strong>objectType</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>"PR" (pre-APPROVED) or "PO" (APPROVED onward)</td>
+                </tr>
+                <tr>
+                    <td><strong>status</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Current status (SUBMITTED, IN_QUEUE, PENDING_APPROVAL, etc.)</td>
+                </tr>
+                <tr>
+                    <td><strong>organization</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Organization ID this PR/PO belongs to</td>
+                </tr>
+                <tr>
+                    <td><strong>department</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Requesting department</td>
+                </tr>
+                <tr>
+                    <td><strong>requestorId</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>User ID of person who created the PR</td>
+                </tr>
+                <tr>
+                    <td><strong>requestorEmail</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Email of requestor (for notifications)</td>
+                </tr>
+                <tr>
+                    <td><strong>description</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Detailed description of what is being requested</td>
+                </tr>
+                <tr>
+                    <td><strong>projectCategory</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Project or budget category</td>
+                </tr>
+                <tr>
+                    <td><strong>site</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Site/location where items are needed</td>
+                </tr>
+                <tr>
+                    <td><strong>expenseType</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Type of expense (CAPEX/OPEX categories)</td>
+                </tr>
+                <tr>
+                    <td><strong>estimatedAmount</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Estimated total cost (must be > 0)</td>
+                </tr>
+                <tr>
+                    <td><strong>currency</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Currency code (LSL, USD, ZAR, etc.)</td>
+                </tr>
+                <tr>
+                    <td><strong>urgencyLevel</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>"Normal" or "Urgent"</td>
+                </tr>
+                <tr>
+                    <td><strong>requiredDate</strong></td>
+                    <td><span class="field-type">date</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Date by which items are needed</td>
+                </tr>
+                <tr>
+                    <td><strong>estimatedDeliveryDate (ETD)</strong></td>
+                    <td><span class="field-type">date</span></td>
+                    <td>Yes (before ORDERED)</td>
+                    <td>Expected delivery date (set by procurement before ORDERED)</td>
+                </tr>
+                <tr>
+                    <td><strong>preferredVendor</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>Preferred vendor ID (from PR creation)</td>
+                </tr>
+                <tr>
+                    <td><strong>selectedVendor</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Yes (in APPROVED)</td>
+                    <td>Final selected vendor ID (chosen during APPROVED status)</td>
+                </tr>
+                <tr>
+                    <td><strong>vehicle</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Conditional</td>
+                    <td>Required if expenseType = "4 -Vehicle"</td>
+                </tr>
+                <tr>
+                    <td><strong>approver</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Yes (in PENDING_APPROVAL)</td>
+                    <td>Primary approver user ID - SINGLE SOURCE OF TRUTH</td>
+                </tr>
+                <tr>
+                    <td><strong>approver2</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Yes (if above Rule 2)</td>
+                    <td>Second approver user ID for dual-approval</td>
+                </tr>
+                <tr>
+                    <td><strong>requiresDualApproval</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>True if amount is above Rule 2 threshold</td>
+                </tr>
+                <tr>
+                    <td><strong>lineItems</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Array of line item objects (at least one required)</td>
+                </tr>
+                <tr>
+                    <td><strong>createdBy</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>User ID who created PR (canonical, cannot be changed)</td>
+                </tr>
+                <tr>
+                    <td><strong>createdDate</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>When PR was created (canonical, cannot be changed)</td>
+                </tr>
+                <tr>
+                    <td><strong>lastUpdated</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Last modification timestamp (auto-updated)</td>
+                </tr>
+            </table>
+
+            <h3>Document Management Fields (APPROVED/ORDERED):</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>When Required</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>proformaInvoice</strong></td>
+                    <td><span class="field-type">file</span></td>
+                    <td>If above Rule 1</td>
+                    <td>Uploaded proforma invoice document</td>
+                </tr>
+                <tr>
+                    <td><strong>proformaOverride</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td>-</td>
+                    <td>True if proforma not available (override used)</td>
+                </tr>
+                <tr>
+                    <td><strong>proformaOverrideJustification</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>If proformaOverride = true</td>
+                    <td>Reason why proforma not available</td>
+                </tr>
+                <tr>
+                    <td><strong>proofOfPayment (PoP)</strong></td>
+                    <td><span class="field-type">file</span></td>
+                    <td>If above Rule 1</td>
+                    <td>Uploaded proof of payment document</td>
+                </tr>
+                <tr>
+                    <td><strong>popOverride</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td>-</td>
+                    <td>True if PoP not available (override used)</td>
+                </tr>
+                <tr>
+                    <td><strong>popOverrideJustification</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>If popOverride = true</td>
+                    <td>Reason why PoP not available</td>
+                </tr>
+                <tr>
+                    <td><strong>deliveryNote</strong></td>
+                    <td><span class="field-type">file</span></td>
+                    <td>ORDERED status</td>
+                    <td>Uploaded delivery note from vendor</td>
+                </tr>
+                <tr>
+                    <td><strong>deliveryPhotos</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>ORDERED status</td>
+                    <td>Array of photo files showing delivered items</td>
+                </tr>
+                <tr>
+                    <td><strong>deliveryDocOverride</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td>-</td>
+                    <td>True if delivery docs not available (override used)</td>
+                </tr>
+                <tr>
+                    <td><strong>deliveryDocOverrideJustification</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>If deliveryDocOverride = true</td>
+                    <td>Reason why delivery docs not available</td>
+                </tr>
+                <tr>
+                    <td><strong>poDocument</strong></td>
+                    <td><span class="field-type">file</span></td>
+                    <td>Auto-generated at APPROVED</td>
+                    <td>System-generated PO document with line items and prices</td>
+                </tr>
+            </table>
+
+            <h3>📎 File Upload Fields Summary:</h3>
+            <table style="background-color: #f9f9f9;">
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Upload Stage</th>
+                    <th>Conditional Requirements</th>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                    <td><strong>Quote Attachments</strong></td>
+                    <td><span class="field-type">file (via Quote object)</span></td>
+                    <td><span class="required">Required</span></td>
+                    <td>IN_QUEUE</td>
+                    <td>
+                        <strong>Above Rule 1:</strong> Required (3 quotes for non-approved vendor, 1 for approved)<br/>
+                        <strong>Below Rule 1:</strong> Optional
+                    </td>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                    <td><strong>proformaInvoice</strong></td>
+                    <td><span class="field-type">file (PDF/image)</span></td>
+                    <td><span class="required">Required</span></td>
+                    <td>APPROVED</td>
+                    <td>
+                        <strong>Above Rule 1:</strong> Required (or override with justification)<br/>
+                        <strong>Below Rule 1:</strong> Optional
+                    </td>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                    <td><strong>proofOfPayment</strong></td>
+                    <td><span class="field-type">file (PDF/image)</span></td>
+                    <td><span class="required">Required</span></td>
+                    <td>APPROVED</td>
+                    <td>
+                        <strong>Above Rule 1:</strong> Required (or override with justification)<br/>
+                        <strong>Below Rule 1:</strong> NOT Required
+                    </td>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                    <td><strong>deliveryNote</strong></td>
+                    <td><span class="field-type">file (PDF/image)</span></td>
+                    <td><span class="required">Required</span></td>
+                    <td>ORDERED</td>
+                    <td>
+                        <strong>All POs:</strong> Required (OR deliveryPhotos OR override with justification)<br/>
+                        At least ONE delivery documentation method required
+                    </td>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                    <td><strong>deliveryPhotos</strong></td>
+                    <td><span class="field-type">array of files (images)</span></td>
+                    <td><span class="required">Required</span></td>
+                    <td>ORDERED</td>
+                    <td>
+                        <strong>All POs:</strong> Required (OR deliveryNote OR override with justification)<br/>
+                        At least ONE delivery documentation method required
+                    </td>
+                </tr>
+                <tr style="background-color: #fff9c4;">
+                    <td><strong>poDocument</strong></td>
+                    <td><span class="field-type">file (PDF, system-generated)</span></td>
+                    <td>Auto-generated</td>
+                    <td>APPROVED</td>
+                    <td>
+                        <strong>All POs:</strong> Automatically created by system at APPROVED status<br/>
+                        Contains line items, prices, vendor info, approvals
+                    </td>
+                </tr>
+            </table>
+
+            <p><strong>File Upload Notes:</strong></p>
+            <ul>
+                <li><strong>Override Mechanism:</strong> For required uploads, if file not available, system allows override with mandatory justification note</li>
+                <li><strong>Who Can Upload:</strong>
+                    <ul>
+                        <li>Quotes: Procurement (IN_QUEUE stage)</li>
+                        <li>Proforma/PoP: Procurement or Finance/Admin (APPROVED stage)</li>
+                        <li>Delivery Docs: Procurement or Asset Management (ORDERED stage)</li>
+                    </ul>
+                </li>
+                <li><strong>Validation:</strong> System prevents status progression if required documents missing AND no valid override</li>
+                <li><strong>File Types:</strong> PDF, JPG, PNG, DOCX supported; max 10MB per file</li>
+            </ul>
+
+            <h3>Supplier Data Fields (for non-approved vendors):</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>When Required</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>supplierName</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>If non-approved vendor</td>
+                    <td>Manually entered supplier name (IN_QUEUE status)</td>
+                </tr>
+                <tr>
+                    <td><strong>supplierContact.phone</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>At least one contact</td>
+                    <td>Supplier phone number</td>
+                </tr>
+                <tr>
+                    <td><strong>supplierContact.email</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>At least one contact</td>
+                    <td>Supplier email address</td>
+                </tr>
+                <tr>
+                    <td><strong>supplierContact.website</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>At least one contact</td>
+                    <td>Supplier website or platform URL</td>
+                </tr>
+                <tr>
+                    <td><strong>supplierDataEnteredBy</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>-</td>
+                    <td>User ID who entered supplier data</td>
+                </tr>
+                <tr>
+                    <td><strong>supplierDataTimestamp</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>-</td>
+                    <td>When supplier data was entered</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="object-section">
+            <h2>4. Department</h2>
+            <p><strong>What it is:</strong> An organizational division or functional unit within an organization.</p>
+            
+            <p><strong>Purpose:</strong> Categorizes PRs/POs by requesting department, assigns users to departments, tracks spending by department.</p>
+            
+            <h3>Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>id</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Unique identifier</td>
+                </tr>
+                <tr>
+                    <td><strong>name</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Department name (e.g., "Finance", "Operations", "Asset Management")</td>
+                </tr>
+                <tr>
+                    <td><strong>organizationId</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Organization this department belongs to</td>
+                </tr>
+                <tr>
+                    <td><strong>isActive</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Whether department is active for selection</td>
+                </tr>
+                <tr>
+                    <td><strong>departmentHead</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>User ID of department head (for notifications)</td>
+                </tr>
+            </table>
+
+            <p><strong>Special Department: "Asset Management"</strong></p>
+            <ul>
+                <li>Users in this department get special permissions in ORDERED status</li>
+                <li>Can upload delivery documentation and move POs to COMPLETED</li>
+                <li>Organization's assetManagementEmail used for group notifications</li>
+            </ul>
+        </div>
+
+        <div class="object-section">
+            <h2>5. Vendor</h2>
+            <p><strong>What it is:</strong> A supplier or service provider that can fulfill purchase requests.</p>
+            
+            <p><strong>Purpose:</strong> Track vendor information, determine quote requirements based on approval status, vendor selection for POs.</p>
+            
+            <p><strong>Scope:</strong> Vendors are globally available across all organizations (not org-specific).</p>
+            
+            <h3>Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>id</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Unique vendor identifier</td>
+                </tr>
+                <tr>
+                    <td><strong>name</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes (for approval)</span></td>
+                    <td>Vendor company name - REQUIRED for approval</td>
+                </tr>
+                <tr>
+                    <td><strong>contactName</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>Primary contact person</td>
+                </tr>
+                <tr>
+                    <td><strong>phone</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Conditional*</td>
+                    <td>Contact phone number - Required if email & website empty</td>
+                </tr>
+                <tr>
+                    <td><strong>email</strong></td>
+                    <td><span class="field-type">string (validated)</span></td>
+                    <td>Conditional*</td>
+                    <td>Contact email address - Required if phone & website empty</td>
+                </tr>
+                <tr>
+                    <td><strong>address</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>Physical address</td>
+                </tr>
+                <tr>
+                    <td><strong>website</strong></td>
+                    <td><span class="field-type">string (URL)</span></td>
+                    <td>Conditional*</td>
+                    <td>Website/Platform URL - Required if phone & email empty</td>
+                </tr>
+                <tr>
+                    <td><strong>isApproved</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Whether vendor is approved (affects quote requirements)</td>
+                </tr>
+                <tr>
+                    <td><strong>isActive</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Whether vendor is active for selection</td>
+                </tr>
+                <tr>
+                    <td><strong>categories</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>Optional</td>
+                    <td>Product/service categories vendor provides</td>
+                </tr>
+                <tr>
+                    <td><strong>performanceRating</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Optional</td>
+                    <td>Vendor performance score (1-5)</td>
+                </tr>
+                <tr>
+                    <td><strong>performanceNotes</strong></td>
+                    <td><span class="field-type">text</span></td>
+                    <td>Optional</td>
+                    <td>Notes on vendor performance, reliability</td>
+                </tr>
+                <tr>
+                    <td><strong>organizationId</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>If set, vendor scoped to specific org; if empty, globally available</td>
+                </tr>
+                <tr>
+                    <td><strong>createdAt</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>When vendor was added to system</td>
+                </tr>
+                <tr>
+                    <td><strong>createdBy</strong></td>
+                    <td><span class="field-type">string (userId)</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>User who added vendor</td>
+                </tr>
+                <tr>
+                    <td><strong>updatedAt</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Optional</td>
+                    <td>Last update timestamp</td>
+                </tr>
+                <tr>
+                    <td><strong>updatedBy</strong></td>
+                    <td><span class="field-type">string (userId)</span></td>
+                    <td>Optional</td>
+                    <td>User who last updated vendor</td>
+                </tr>
+                <tr>
+                    <td><strong>approvalDate</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Optional</td>
+                    <td>When vendor was approved</td>
+                </tr>
+                <tr>
+                    <td><strong>approvalExpiryDate</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Optional</td>
+                    <td>When approval expires (6 or 12 months from approval)</td>
+                </tr>
+                <tr>
+                    <td><strong>approvalReason</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>Reason for approval: "auto_3quote", "auto_completed", "manual"</td>
+                </tr>
+                <tr>
+                    <td><strong>approvedBy</strong></td>
+                    <td><span class="field-type">string (userId)</span></td>
+                    <td>Optional</td>
+                    <td>User who approved vendor (manual) or closed satisfactory order (auto)</td>
+                </tr>
+                <tr>
+                    <td><strong>approvalNote</strong></td>
+                    <td><span class="field-type">text</span></td>
+                    <td>Optional</td>
+                    <td>Justification for manual approval or override reason</td>
+                </tr>
+                <tr>
+                    <td><strong>associatedPONumber</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>PO number that triggered auto-approval (if applicable)</td>
+                </tr>
+                <tr>
+                    <td><strong>lastCompletedOrderDate</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Optional</td>
+                    <td>Date of most recent completed order</td>
+                </tr>
+                <tr>
+                    <td><strong>last3QuoteProcessDate</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Optional</td>
+                    <td>Date of most recent 3-quote process completion</td>
+                </tr>
+                <tr>
+                    <td><strong>bankLetterUrl</strong></td>
+                    <td><span class="field-type">string (URL)</span></td>
+                    <td>Optional</td>
+                    <td>Storage URL for uploaded bank letter document</td>
+                </tr>
+                <tr>
+                    <td><strong>bankLetterUploadedAt</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Optional</td>
+                    <td>When bank letter was uploaded</td>
+                </tr>
+                <tr>
+                    <td><strong>bankLetterUploadedBy</strong></td>
+                    <td><span class="field-type">string (userId)</span></td>
+                    <td>Optional</td>
+                    <td>User who uploaded bank letter</td>
+                </tr>
+                <tr>
+                    <td><strong>corporateDocuments</strong></td>
+                    <td><span class="field-type">array of objects</span></td>
+                    <td>Optional</td>
+                    <td>Array of corporate documents (each with: url, filename, uploadedAt, uploadedBy, documentType)</td>
+                </tr>
+                <tr>
+                    <td><strong>cumulativeOrderValue</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Optional (auto-calculated)</td>
+                    <td>Total value of all COMPLETED POs for this vendor (in organization base currency)</td>
+                </tr>
+                <tr>
+                    <td><strong>isHighValueVendor</strong></td>
+                    <td><span class="field-type">boolean (computed)</span></td>
+                    <td>Optional (auto-calculated)</td>
+                    <td>True if cumulative value ≥ (Rule 2 threshold × configured multiplier X)</td>
+                </tr>
+                <tr>
+                    <td><strong>deApprovalNote</strong></td>
+                    <td><span class="field-type">text</span></td>
+                    <td>Optional</td>
+                    <td>Justification provided when vendor was manually de-approved (required for de-approval)</td>
+                </tr>
+                <tr>
+                    <td><strong>deApprovedAt</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Optional</td>
+                    <td>When vendor was de-approved</td>
+                </tr>
+                <tr>
+                    <td><strong>deApprovedBy</strong></td>
+                    <td><span class="field-type">string (userId)</span></td>
+                    <td>Optional</td>
+                    <td>User who de-approved vendor</td>
+                </tr>
+            </table>
+
+            <p><strong>* Conditional Requirement for Approval:</strong></p>
+            <ul>
+                <li><strong>Name:</strong> MUST be non-empty</li>
+                <li><strong>Contact Info:</strong> At least ONE of (phone, email, website) MUST be populated</li>
+                <li><strong>Validation:</strong> System prevents setting isApproved=true if requirements not met</li>
+                <li><strong>Can Save Without:</strong> Vendor can be saved as non-approved with incomplete data</li>
+            </ul>
+
+            <p><strong>Automated Approval System:</strong></p>
+            <ul>
+                <li><strong>Trigger:</strong> When PO moves to COMPLETED status</li>
+                <li><strong>Question Required:</strong> "Order closed without issues?"</li>
+                <li><strong>If YES:</strong>
+                    <ul>
+                        <li>3-quote process POs → Vendor approved for 12 months</li>
+                        <li>All other completed POs → Vendor approved for 6 months</li>
+                        <li>System auto-updates vendor approval fields</li>
+                    </ul>
+                </li>
+                <li><strong>If NO:</strong>
+                    <ul>
+                        <li>Issues logged to vendor record</li>
+                        <li>Vendor remains non-approved unless override with justification</li>
+                    </ul>
+                </li>
+                <li><strong>Manual Approval:</strong>
+                    <ul>
+                        <li>Who: Admin, Procurement, Finance/Admin</li>
+                        <li>Requires justification if no recent successful orders (6-12 months)</li>
+                        <li>Duration: 12 months</li>
+                    </ul>
+                </li>
+                <li><strong>Expiry:</strong> System auto-expires approvals after duration; notification sent to Procurement</li>
+            </ul>
+
+            <p><strong>Impact on Workflow:</strong></p>
+            <ul>
+                <li><strong>Approved Vendor:</strong> Above Rule 1 threshold requires only 1 quote (vs 3 for non-approved)</li>
+                <li><strong>Non-Approved Vendor:</strong> Above Rule 1 threshold requires 3 quotes; below Rule 1 requires manual supplier data entry</li>
+                <li><strong>Below Rule 1:</strong> Vendor approval status is immaterial (supplier data manually entered if vendor not approved)</li>
+            </ul>
+
+            <p><strong>High-Value Vendor Rules:</strong></p>
+            <ul>
+                <li><strong>Classification:</strong> Vendor with cumulativeOrderValue ≥ (Rule 2 threshold × X multiplier)
+                    <ul>
+                        <li>X configured in organization settings (default: 10)</li>
+                        <li>Example: Rule 2 = $10,000, X = 10 → High-value if cumulative ≥ $100,000</li>
+                        <li>isHighValueVendor field automatically set to true when threshold met</li>
+                    </ul>
+                </li>
+                <li><strong>Approval Duration Limits:</strong>
+                    <ul>
+                        <li>Maximum Z months (configurable, default: 6) without special conditions</li>
+                        <li>Exceptions: Recent 3-quote process (within Y months) OR manual override with justification</li>
+                    </ul>
+                </li>
+                <li><strong>System Enforcement:</strong>
+                    <ul>
+                        <li>Daily automated check verifies high-value vendor approval status</li>
+                        <li>Auto-deactivates if Z months without 3-quote process in Y months and no override</li>
+                        <li>Procurement notified with recommendations for competitive re-evaluation</li>
+                    </ul>
+                </li>
+                <li><strong>Purpose:</strong> Ensures major spend vendors undergo regular competitive evaluation</li>
+            </ul>
+
+            <p><strong>Manual De-Approval:</strong></p>
+            <ul>
+                <li><strong>Who Can De-Approve:</strong> Level 1 (Admin), Level 3 (Procurement), Level 4 (Finance/Admin)</li>
+                <li><strong>Justification Always Required:</strong> Must provide note when removing approved status</li>
+                <li><strong>De-Approval Recorded:</strong> deApprovalNote, deApprovedAt, deApprovedBy fields populated</li>
+                <li><strong>Can Re-Approve:</strong> Vendor can be re-approved later with new justification or through order completion</li>
+            </ul>
+
+            <h3>📎 Vendor File Upload Fields Summary:</h3>
+            <table style="background-color: #f9f9f9;">
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Status</th>
+                    <th>Who Can Upload</th>
+                    <th>Purpose</th>
+                </tr>
+                <tr style="background-color: #fff3e0;">
+                    <td><strong>bankLetterUrl</strong></td>
+                    <td><span class="field-type">file (PDF/image)</span></td>
+                    <td>Optional</td>
+                    <td>Level 1 (Admin), Level 3 (Procurement), Level 4 (Finance/Admin)</td>
+                    <td>Bank reference letter for vendor financial verification</td>
+                </tr>
+                <tr style="background-color: #fff3e0;">
+                    <td><strong>corporateDocuments</strong></td>
+                    <td><span class="field-type">array of files (PDF/image/DOCX)</span></td>
+                    <td>Optional</td>
+                    <td>Level 1 (Admin), Level 3 (Procurement), Level 4 (Finance/Admin)</td>
+                    <td>
+                        Corporate documentation (multiple files allowed):<br/>
+                        - Articles of Incorporation<br/>
+                        - Business License<br/>
+                        - Tax Certificate<br/>
+                        - Other compliance documents
+                    </td>
+                </tr>
+            </table>
+
+            <p><strong>Vendor File Upload Notes:</strong></p>
+            <ul>
+                <li><strong>Status:</strong> All vendor documents are optional (not required for vendor approval)</li>
+                <li><strong>Multiple Documents:</strong> Corporate documents array can hold multiple files with different types</li>
+                <li><strong>Viewing:</strong> All users can view/download vendor documents</li>
+                <li><strong>Managing:</strong> Only Procurement, Finance/Admin, and Admin can upload or delete</li>
+                <li><strong>File Types:</strong> PDF, JPG, PNG, DOCX supported; max 10MB per file</li>
+                <li><strong>Audit Trail:</strong> System tracks who uploaded each document and when</li>
+            </ul>
+
+            <p><strong>Vendor Details Page:</strong></p>
+            <ul>
+                <li>Lists all PRs/POs associated with this vendor</li>
+                <li>Shows cumulative order value and high-value vendor status</li>
+                <li>Displays approval history including approvals and de-approvals</li>
+                <li>Searchable and filterable by org, status, date range, amount</li>
+                <li>Exportable to CSV/Excel</li>
+                <li>Shows performance metrics (total PRs/POs, total value, completion rate)</li>
+                <li>Accessible from Admin Dashboard or by clicking vendor name in any PR/PO</li>
+            </ul>
+        </div>
+
+        <div class="object-section">
+            <h2>6. Line Item</h2>
+            <p><strong>What it is:</strong> Individual items being requested within a PR/PO.</p>
+            
+            <p><strong>Purpose:</strong> Detail specific goods/services needed, quantities, pricing.</p>
+            
+            <h3>Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>id</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Unique line item identifier</td>
+                </tr>
+                <tr>
+                    <td><strong>description</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Description of the item</td>
+                </tr>
+                <tr>
+                    <td><strong>quantity</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Number of units requested</td>
+                </tr>
+                <tr>
+                    <td><strong>uom</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Unit of measure (e.g., "Each", "Box", "Liter")</td>
+                </tr>
+                <tr>
+                    <td><strong>unitPrice</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Yes (from APPROVED)</td>
+                    <td>Price per unit from selected quote</td>
+                </tr>
+                <tr>
+                    <td><strong>totalPrice</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td>Yes (from APPROVED)</td>
+                    <td>Total for line item (quantity × unitPrice)</td>
+                </tr>
+                <tr>
+                    <td><strong>notes</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Optional</td>
+                    <td>Additional notes about the item</td>
+                </tr>
+                <tr>
+                    <td><strong>attachments</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>Optional</td>
+                    <td>File attachments (specs, images, etc.)</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="object-section">
+            <h2>7. Other Reference Data Objects</h2>
+            
+            <h3>Site:</h3>
+            <ul>
+                <li><strong>What it is:</strong> Physical location or facility</li>
+                <li><strong>Fields:</strong> id, name, organizationId, address, isActive</li>
+                <li><strong>Purpose:</strong> Track where requested items will be delivered/used</li>
+            </ul>
+
+            <h3>Project Category:</h3>
+            <ul>
+                <li><strong>What it is:</strong> Budget category or project classification</li>
+                <li><strong>Fields:</strong> id, name, organizationId, code, isActive</li>
+                <li><strong>Purpose:</strong> Budget tracking, spend categorization, reporting</li>
+            </ul>
+
+            <h3>Expense Type:</h3>
+            <ul>
+                <li><strong>What it is:</strong> Type of expenditure (CAPEX vs OPEX categories)</li>
+                <li><strong>Fields:</strong> id, name, organizationId, category, isActive</li>
+                <li><strong>Purpose:</strong> Financial categorization, conditional requirements (e.g., Vehicle field)</li>
+                <li><strong>Special:</strong> "4 -Vehicle" requires vehicle selection</li>
+            </ul>
+
+            <h3>Vehicle:</h3>
+            <ul>
+                <li><strong>What it is:</strong> Company vehicle or asset</li>
+                <li><strong>Fields:</strong> id, make, model, licensePlate, organizationId, isActive</li>
+                <li><strong>Purpose:</strong> Track vehicle-related expenses</li>
+                <li><strong>When Required:</strong> If expenseType = "4 -Vehicle"</li>
+            </ul>
+
+            <h3>Unit of Measure (UOM):</h3>
+            <ul>
+                <li><strong>What it is:</strong> Standard unit for measuring quantities</li>
+                <li><strong>Fields:</strong> id, name, code, isActive</li>
+                <li><strong>Examples:</strong> Each, Box, Liter, Kilogram, Hour, Day</li>
+                <li><strong>Scope:</strong> Global (not org-specific)</li>
+            </ul>
+
+            <h3>Currency:</h3>
+            <ul>
+                <li><strong>What it is:</strong> Monetary currency for transactions</li>
+                <li><strong>Fields:</strong> id, code, name, symbol, exchangeRate, isActive</li>
+                <li><strong>Examples:</strong> LSL (Lesotho Loti), USD (US Dollar), ZAR (South African Rand)</li>
+                <li><strong>Purpose:</strong> Multi-currency support, threshold comparisons</li>
+                <li><strong>Scope:</strong> Global (not org-specific)</li>
+            </ul>
+        </div>
+
+        <div class="object-section">
+            <h2>8. Approval Workflow Object</h2>
+            <p><strong>What it is:</strong> Tracks the approval history and current state of a PR's approval process.</p>
+            
+            <p><strong>Purpose:</strong> Maintains single source of truth for approvers, tracks approval history, supports dual-approval process.</p>
+            
+            <h3>Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>currentApprover</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Mirror of PR.approver field - MUST stay in sync</td>
+                </tr>
+                <tr>
+                    <td><strong>secondApprover</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Mirror of PR.approver2 field (if dual-approval)</td>
+                </tr>
+                <tr>
+                    <td><strong>requiresDualApproval</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td>True if PR is above Rule 2 threshold</td>
+                </tr>
+                <tr>
+                    <td><strong>firstApprovalComplete</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td>True when first approver has approved (dual-approval only)</td>
+                </tr>
+                <tr>
+                    <td><strong>firstApproverJustification</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Justification from first approver (if 3-quote scenario)</td>
+                </tr>
+                <tr>
+                    <td><strong>secondApprovalComplete</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td>True when second approver has approved (dual-approval only)</td>
+                </tr>
+                <tr>
+                    <td><strong>secondApproverJustification</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Justification from second approver (if 3-quote scenario)</td>
+                </tr>
+                <tr>
+                    <td><strong>lowestQuoteSelected</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td>True if approver(s) selected the lowest quote</td>
+                </tr>
+                <tr>
+                    <td><strong>approvalHistory</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>Array of all approval events with timestamps, approver IDs, decisions</td>
+                </tr>
+                <tr>
+                    <td><strong>lastUpdated</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>Last time approval workflow was updated</td>
+                </tr>
+            </table>
+
+            <p><strong>Important Rule:</strong> The PR.approver and PR.approver2 fields are the SINGLE SOURCE OF TRUTH. The approvalWorkflow object mirrors these fields but should never override them automatically.</p>
+        </div>
+
+        <div class="object-section">
+            <h2>9. Quote Object</h2>
+            <p><strong>What it is:</strong> A vendor's price quotation for the requested items.</p>
+            
+            <p><strong>Purpose:</strong> Compare vendor pricing, determine lowest quote, validate quote requirements, support approval decisions.</p>
+            
+            <h3>Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Required?</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>id</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Unique quote identifier</td>
+                </tr>
+                <tr>
+                    <td><strong>prId</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>PR this quote is for</td>
+                </tr>
+                <tr>
+                    <td><strong>vendorId</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Vendor providing this quote</td>
+                </tr>
+                <tr>
+                    <td><strong>amount</strong></td>
+                    <td><span class="field-type">number</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Total quoted amount</td>
+                </tr>
+                <tr>
+                    <td><strong>currency</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Currency of quote</td>
+                </tr>
+                <tr style="background-color: #e8f5e9;">
+                    <td><strong>attachment</strong></td>
+                    <td><span class="field-type">file (PDF/image)</span></td>
+                    <td><span class="required">Conditional - See below</span></td>
+                    <td>
+                        <strong>Quote File Upload Requirements:</strong><br/>
+                        <strong>Above Rule 1:</strong> Required<br/>
+                        <strong>Below Rule 1:</strong> Optional<br/>
+                        File types: PDF, JPG, PNG; Max 10MB per file
+                    </td>
+                </tr>
+                <tr>
+                    <td><strong>isValid</strong></td>
+                    <td><span class="field-type">boolean</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>Whether quote meets all requirements</td>
+                </tr>
+                <tr>
+                    <td><strong>submittedBy</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>User ID who added the quote</td>
+                </tr>
+                <tr>
+                    <td><strong>submittedDate</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td><span class="required">Yes</span></td>
+                    <td>When quote was added</td>
+                </tr>
+            </table>
+
+            <p><strong>Quote Validation Rules:</strong></p>
+            <ul>
+                <li>Amount must be > 0</li>
+                <li>Currency must be valid</li>
+                <li>Attachment required above Rule 1 (with exceptions for approved vendors)</li>
+                <li>Lowest valid quote used for threshold comparison</li>
+                <li>Currency converted to org's base currency for comparison</li>
+            </ul>
+        </div>
+
+        <div class="object-section">
+            <h2>10. Notification Log Entry</h2>
+            <p><strong>What it is:</strong> Record of a sent notification/email.</p>
+            
+            <p><strong>Purpose:</strong> Audit trail of all system notifications, troubleshooting delivery issues, retry failed notifications.</p>
+            
+            <h3>Fields:</h3>
+            <table>
+                <tr>
+                    <th>Field Name</th>
+                    <th>Type</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>id</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Unique notification log ID</td>
+                </tr>
+                <tr>
+                    <td><strong>type</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Notification type (STATUS_CHANGE, REMINDER, DELAY_ALERT, etc.)</td>
+                </tr>
+                <tr>
+                    <td><strong>prId / poId</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>PR/PO this notification relates to</td>
+                </tr>
+                <tr>
+                    <td><strong>recipients</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>List of primary recipient email addresses</td>
+                </tr>
+                <tr>
+                    <td><strong>cc</strong></td>
+                    <td><span class="field-type">array</span></td>
+                    <td>List of CC email addresses</td>
+                </tr>
+                <tr>
+                    <td><strong>subject</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Email subject line</td>
+                </tr>
+                <tr>
+                    <td><strong>status</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>"sent", "failed", "bounced"</td>
+                </tr>
+                <tr>
+                    <td><strong>sentTimestamp</strong></td>
+                    <td><span class="field-type">timestamp</span></td>
+                    <td>When notification was sent</td>
+                </tr>
+                <tr>
+                    <td><strong>errorMessage</strong></td>
+                    <td><span class="field-type">string</span></td>
+                    <td>Error details if status = "failed"</td>
+                </tr>
+            </table>
+        </div>
+
+        <div class="navigation" style="margin-top: 30px;">
+            <a href="PR_System_Dashboard.html">← Dashboard</a>
+            <a href="PR_System_Admin_Backend.html">← Admin Backend</a>
+            <a href="PR_Flow_Master_Overview.html">Workflow Overview</a>
+        </div>
+    </div>
+</body>
+</html>
+
