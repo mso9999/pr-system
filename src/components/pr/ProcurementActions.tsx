@@ -18,6 +18,8 @@ import { prService } from '@/services/pr';
 import { notificationService } from '@/services/notification';
 import { User } from '@/types/user';
 import { validatePRForApproval } from '@/utils/prValidation';
+import { referenceDataService } from '@/services/referenceData';
+import { Rule } from '@/types/referenceData';
 
 interface ProcurementActionsProps {
   prId: string;
@@ -67,11 +69,14 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
       let newStatus: PRStatus;
       switch (selectedAction) {
         case 'approve':
-          // Get the rules for this organization
-          const rules = await prService.getRuleForOrganization(pr.organization, pr.estimatedAmount);
+          // Get the rules for this organization from referenceData
+          const rulesData = await referenceDataService.getItemsByType('rules', pr.organization);
+          const rules = rulesData as unknown as Rule[];
+          
           console.log('Retrieved rules:', {
             organization: pr.organization,
             estimatedAmount: pr.estimatedAmount,
+            rulesCount: rules?.length || 0,
             rules
           });
 
@@ -112,6 +117,16 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             return;
           }
 
+          // Determine if dual approval is required (above Rule 2 threshold)
+          const rule2 = rules?.find((r: Rule) => r.type === 'RULE_2');
+          const requiresDualApproval = rule2 && pr.estimatedAmount >= rule2.threshold;
+
+          // Validate we have both approvers if dual approval is required
+          if (requiresDualApproval && !pr.approver2) {
+            setError('Dual approval required: Please assign a second approver (Level 2) for PRs above Rule 2 threshold');
+            return;
+          }
+
           // Change designation from PR to PO
           const poNumber = pr.prNumber.replace('PR', 'PO');
           newStatus = PRStatus.PENDING_APPROVAL;
@@ -119,31 +134,48 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           console.log('Updating PR with:', {
             poNumber,
             newStatus,
+            requiresDualApproval,
             currentUser,
             prId: pr.id
           });
 
-          // Update PR with PO number and approver information
+          // Update PR with PO number, dual approval settings, and approver information
           await prService.updatePR(prId, {
             prNumber: poNumber,
             status: newStatus,
-            lastModifiedBy: currentUser.email,
-            lastModifiedAt: new Date().toISOString(),
+            requiresDualApproval: requiresDualApproval || false,
+            updatedAt: new Date().toISOString(),
             approvalWorkflow: {
-              currentApprover: pr.approver,
+              currentApprover: pr.approver || null,
+              secondApprover: pr.approver2 || null,
+              requiresDualApproval: requiresDualApproval || false,
+              firstApprovalComplete: false,
+              secondApprovalComplete: false,
               approvalHistory: [],
               lastUpdated: new Date().toISOString()
             }
           });
 
-          // Send notification to first approver
-          await notificationService.handleStatusChange(
-            pr.id || prId,
-            pr.status,
-            newStatus,
-            currentUser,
-            `PR ${pr.prNumber} has been converted to PO ${poNumber} and is pending your approval.`
-          );
+          // Send notification to approver(s)
+          if (requiresDualApproval) {
+            // Notify both approvers simultaneously
+            await notificationService.handleStatusChange(
+              pr.id || prId,
+              pr.status,
+              newStatus,
+              currentUser,
+              `PR ${pr.prNumber} has been converted to PO ${poNumber} and requires dual approval. Both approvers will be notified.`
+            );
+          } else {
+            // Notify single approver
+            await notificationService.handleStatusChange(
+              pr.id || prId,
+              pr.status,
+              newStatus,
+              currentUser,
+              `PR ${pr.prNumber} has been converted to PO ${poNumber} and is pending your approval.`
+            );
+          }
           break;
 
         case 'reject':

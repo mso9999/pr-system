@@ -11,13 +11,14 @@ import {
   Typography,
   Alert,
   Stack,
+  Chip,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { PRStatus } from '@/types/pr';
+import { PRStatus, PRRequest } from '@/types/pr';
 import { prService } from '@/services/pr';
 import { notificationService } from '@/services/notification';
 import { User } from '@/types/user';
-import { navigate } from '@/utils/navigation';
+import { validatePRForApproval } from '@/utils/prValidation';
 
 interface ApproverActionsProps {
   pr: PRRequest;
@@ -35,28 +36,45 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
 
+  // Dual approval detection
+  const isDualApproval = pr.requiresDualApproval || pr.approvalWorkflow?.requiresDualApproval;
+  const isFirstApprover = currentUser.id === pr.approver;
+  const isSecondApprover = currentUser.id === pr.approver2;
+  const hasFirstApproved = pr.approvalWorkflow?.firstApprovalComplete || false;
+  const hasSecondApproved = pr.approvalWorkflow?.secondApprovalComplete || false;
+
   // Check if user has permission to take actions
   const canTakeAction = useMemo(() => {
     const isProcurement = currentUser.permissionLevel === 2 || currentUser.permissionLevel === 3;
-    const isApprover = currentUser.id === assignedApprover?.id || currentUser.id === pr.approver;
+    const isApprover = currentUser.id === pr.approver || currentUser.id === pr.approver2;
 
     console.log('Permission check:', {
       userId: currentUser.id,
       assignedApproverId: assignedApprover?.id,
       prApprover: pr.approver,
+      prApprover2: pr.approver2,
+      isDualApproval,
+      isFirstApprover,
+      isSecondApprover,
+      hasFirstApproved,
+      hasSecondApproved,
       isProcurement,
       isApprover,
-      status: pr.status,
-      type: pr.type
+      status: pr.status
     });
 
-    // If PO is in PENDING_APPROVAL, only approvers can take action
-    if (pr.status === PRStatus.PENDING_APPROVAL && pr.type === 'PO') {
+    // In PENDING_APPROVAL, only assigned approvers can act
+    if (pr.status === PRStatus.PENDING_APPROVAL) {
+      // For dual approval, check if this approver hasn't already acted
+      if (isDualApproval) {
+        if (isFirstApprover && hasFirstApproved) return false; // Already approved
+        if (isSecondApprover && hasSecondApproved) return false; // Already approved
+      }
       return isApprover;
     }
 
     return isProcurement || isApprover;
-  }, [currentUser, assignedApprover, pr.approver, pr.status, pr.type]);
+  }, [currentUser, pr.approver, pr.approver2, pr.status, isDualApproval, isFirstApprover, isSecondApprover, hasFirstApproved, hasSecondApproved]);
 
   if (!canTakeAction) {
     return null;
@@ -153,45 +171,124 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             return;
           }
 
-          // Validate PR against rules
-          const validation = await validatePRForApproval(
-            prData,
-            rules,
-            currentUser,
-            pr.status === PRStatus.PENDING_APPROVAL ? PRStatus.APPROVED : PRStatus.PENDING_APPROVAL
-          );
-          if (!validation.isValid) {
-            setError(validation.errors.join('\n\n')); // Add double newline for better separation
-            return;
-          }
-
-          // Change designation from PR to PO
-          const poNumber = prData.prNumber.replace('PR', 'PO');
-          newStatus = PRStatus.PENDING_APPROVAL;
+          // Determine if this is dual approval
+          const requiresDual = prData.requiresDualApproval || prData.approvalWorkflow?.requiresDualApproval;
+          const isFirstAppr = currentUser.id === prData.approver;
+          const isSecondAppr = currentUser.id === prData.approver2;
           
-          // Update PR with PO number and approver information
-          await prService.updatePR(pr.id, {
-            prNumber: poNumber,
-            status: newStatus,
-            lastModifiedBy: currentUser.email,
-            lastModifiedAt: new Date().toISOString(),
-            approvalWorkflow: {
-              // Respect pr.approver as the single source of truth
-              currentApprover: prData.approver || prData.approvers[0], 
-              approvalChain: prData.approvers,
-              approvalHistory: [],
-              submittedForApprovalAt: new Date().toISOString()
-            }
+          console.log('Approval action:', {
+            requiresDual,
+            isFirstAppr,
+            isSecondAppr,
+            currentUserId: currentUser.id,
+            approver: prData.approver,
+            approver2: prData.approver2
           });
 
-          // Send notification to first approver
-          await notificationService.handleStatusChange(
-            pr.id,
-            String(pr.status),
-            String(newStatus),
-            currentUser,
-            `PR ${prData.prNumber} has been converted to PO ${poNumber} and is pending your approval.`
-          );
+          // For dual approval, update the appropriate approval flag
+          if (requiresDual) {
+            const firstComplete = isFirstAppr ? true : (prData.approvalWorkflow?.firstApprovalComplete || false);
+            const secondComplete = isSecondAppr ? true : (prData.approvalWorkflow?.secondApprovalComplete || false);
+
+            // Update approval workflow
+            const updatedWorkflow = {
+              ...prData.approvalWorkflow,
+              currentApprover: prData.approver,
+              secondApprover: prData.approver2,
+              requiresDualApproval: true,
+              firstApprovalComplete: firstComplete,
+              secondApprovalComplete: secondComplete,
+              approvalHistory: [
+                ...(prData.approvalWorkflow?.approvalHistory || []),
+                {
+                  approverId: currentUser.id,
+                  timestamp: new Date().toISOString(),
+                  approved: true,
+                  notes: notes || 'Approved'
+                }
+              ],
+              lastUpdated: new Date().toISOString()
+            };
+
+            // If both have approved, move to APPROVED
+            if (firstComplete && secondComplete) {
+              newStatus = PRStatus.APPROVED;
+              
+              // Update to APPROVED and set object type to PO
+              await prService.updatePR(pr.id, {
+                status: newStatus,
+                objectType: 'PO',
+                approvalWorkflow: updatedWorkflow,
+                updatedAt: new Date().toISOString()
+              });
+
+              // Notify stakeholders
+              await notificationService.handleStatusChange(
+                pr.id,
+                pr.status,
+                newStatus,
+                currentUser,
+                `Both approvers have approved. PR ${prData.prNumber} is now approved.`
+              );
+            } else {
+              // One approver has approved, waiting for the other
+              newStatus = PRStatus.PENDING_APPROVAL; // Status stays the same
+              
+              await prService.updatePR(pr.id, {
+                approvalWorkflow: updatedWorkflow,
+                updatedAt: new Date().toISOString()
+              });
+
+              // Notify the other approver that 1 of 2 has approved
+              const otherApproverId = isFirstAppr ? prData.approver2 : prData.approver;
+              if (otherApproverId) {
+                await notificationService.handleStatusChange(
+                  pr.id,
+                  pr.status,
+                  newStatus,
+                  currentUser,
+                  `1 of 2 approvals complete. Waiting for second approver.`
+                );
+              }
+            }
+          } else {
+            // Single approval - move directly to APPROVED
+            newStatus = PRStatus.APPROVED;
+            
+            // Update to APPROVED and set object type to PO
+            await prService.updatePR(pr.id, {
+              status: newStatus,
+              objectType: 'PO',
+              approvalWorkflow: {
+                ...prData.approvalWorkflow,
+                currentApprover: prData.approver || null,
+                secondApprover: null,
+                requiresDualApproval: false,
+                firstApprovalComplete: true,
+                secondApprovalComplete: false,
+                approvalHistory: [
+                  ...(prData.approvalWorkflow?.approvalHistory || []),
+                  {
+                    approverId: currentUser.id,
+                    timestamp: new Date().toISOString(),
+                    approved: true,
+                    notes: notes || 'Approved'
+                  }
+                ],
+                lastUpdated: new Date().toISOString()
+              },
+              updatedAt: new Date().toISOString()
+            });
+
+            // Send notification
+            await notificationService.handleStatusChange(
+              pr.id,
+              pr.status,
+              newStatus,
+              currentUser,
+              `PR ${prData.prNumber} has been approved.`
+            );
+          }
           break;
 
         case 'reject':
@@ -242,6 +339,37 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
   return (
     <Box>
+      {/* Dual Approval Status Display */}
+      {isDualApproval && pr.status === PRStatus.PENDING_APPROVAL && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            This PR requires dual approval (above Rule 2 threshold)
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            <Chip
+              label={`Approver 1: ${hasFirstApproved ? 'Approved ✓' : 'Pending'}`}
+              color={hasFirstApproved ? 'success' : 'default'}
+              size="small"
+            />
+            <Chip
+              label={`Approver 2: ${hasSecondApproved ? 'Approved ✓' : 'Pending'}`}
+              color={hasSecondApproved ? 'success' : 'default'}
+              size="small"
+            />
+          </Box>
+          {hasFirstApproved && !hasSecondApproved && (
+            <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+              Waiting for second approver to approve
+            </Typography>
+          )}
+          {!hasFirstApproved && hasSecondApproved && (
+            <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
+              Waiting for first approver to approve
+            </Typography>
+          )}
+        </Alert>
+      )}
+
       {/* Action buttons */}
       <Stack direction="row" spacing={2} mb={2}>
         {actions.includes('approve') && (
