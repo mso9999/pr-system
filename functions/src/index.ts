@@ -9,6 +9,7 @@ const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
 
 // Import scheduled functions
 export { dailyVendorExpiryCheck } from './scheduledVendorExpiryCheck';
+export { dailyReminders, urgentReminders, deliveryDelayCheck } from './scheduledReminders';
 
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
