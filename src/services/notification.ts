@@ -207,24 +207,55 @@ export class NotificationService {
       const notificationsRef = collection(db, 'notifications');
       const notificationDoc = await addDoc(notificationsRef, cleanNotificationData);
 
-      // Ensure we have recipients - always include procurement email and requestor email
-      const recipients = [this.PROCUREMENT_EMAIL];
+      // Determine recipients based on status transition
+      let recipients: string[] = [];
+      const ccList: string[] = [];
       
-      // Set up CC list for proper email formatting
-      const ccList = [];
-      
-      // Add requestor email to CC list if available
-      if (pr.requestorEmail) {
-        ccList.push(pr.requestorEmail);
-      } else if (pr.requestor?.email) {
-        ccList.push(pr.requestor.email);
+      // Get procurement email from organization config (fallback to default)
+      let procurementEmail = this.PROCUREMENT_EMAIL;
+      try {
+        const orgId = pr.organization?.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        if (orgId) {
+          const orgDoc = await getDoc(doc(db, 'referenceData_organizations', orgId));
+          if (orgDoc.exists() && orgDoc.data().procurementEmail) {
+            procurementEmail = orgDoc.data().procurementEmail;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not fetch org-specific procurement email, using default:', error);
       }
       
-      // Add submitter email to CC if available and different from requestor
-      if (user?.email && 
-          user.email !== pr.requestorEmail && 
-          user.email !== pr.requestor?.email) {
-        ccList.push(user.email);
+      // Route notifications based on status transition
+      if (newStatus === PRStatus.REVISION_REQUIRED || newStatus === PRStatus.REJECTED) {
+        // Send to requestor when revisions are needed or PR is rejected
+        const requestorEmail = pr.requestorEmail || pr.requestor?.email;
+        if (requestorEmail) {
+          recipients = [requestorEmail];
+          // CC procurement to stay informed
+          ccList.push(procurementEmail);
+          // CC the person who initiated the change (if different from requestor)
+          if (user?.email && user.email !== requestorEmail) {
+            ccList.push(user.email);
+          }
+        } else {
+          console.warn('No requestor email found for REVISION_REQUIRED notification, sending to procurement');
+          recipients = [procurementEmail];
+        }
+      } else if (newStatus === PRStatus.PENDING_APPROVAL) {
+        // Send to approver when approval is needed
+        // TODO: Get approver email from pr.approvalWorkflow.currentApprover
+        recipients = [procurementEmail]; // Temporary: send to procurement
+        const requestorEmail = pr.requestorEmail || pr.requestor?.email;
+        if (requestorEmail) {
+          ccList.push(requestorEmail);
+        }
+      } else {
+        // Default: send to procurement
+        recipients = [procurementEmail];
+        const requestorEmail = pr.requestorEmail || pr.requestor?.email;
+        if (requestorEmail) {
+          ccList.push(requestorEmail);
+        }
       }
       
       console.log('Notification recipients:', recipients);
