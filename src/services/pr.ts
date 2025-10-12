@@ -493,6 +493,9 @@ export async function generatePRNumber(organization: string = 'UNK'): Promise<st
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
   
+  // Normalize organization name (handle spaces, special chars, case)
+  const normalizedOrg = organization.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  
   // Get organization code mapping from actual database values
   const orgCodeMap: { [key: string]: string } = {
     '1pwr_lesotho': '1PL',
@@ -525,8 +528,8 @@ export async function generatePRNumber(organization: string = 'UNK'): Promise<st
     'sotho_minigrid_portfolio': 'LS'
   };
   
-  const orgCode = orgCodeMap[organization.toLowerCase()] || organization.substring(0, 3).toUpperCase();
-  const countryCode = countryCodeMap[organization.toLowerCase()] || 'XX';
+  const orgCode = orgCodeMap[normalizedOrg] || organization.substring(0, 3).toUpperCase();
+  const countryCode = countryCodeMap[normalizedOrg] || 'XX';
   
   // Generate sequential number (0-9999, reset each year)
   // For now, use timestamp-based approach, but this should be replaced with a proper counter

@@ -67,6 +67,10 @@ async function resolveReferenceData(id: string, type: string, organization?: str
     let items: any[] = [];
     
     switch (type) {
+      case 'department':
+        console.debug(`Fetching departments for organization: ${organization || 'Not specified'}`);
+        items = await referenceDataService.getDepartments(organization || '');
+        break;
       case 'category':
         console.debug(`Fetching project categories for organization: ${organization || 'Not specified'}`);
         items = await referenceDataService.getProjectCategories(organization || '');
@@ -261,11 +265,13 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
   // getEmailContent now ensures context.pr.requestor is populated.
   const requestorName = context.pr!.requestor?.name || 'Unknown Requestor'; 
   const requestorEmail = context.pr!.requestor?.email || pr.requestorEmail || 'unknown@example.com'; // Fallback to pr.requestorEmail if needed
-  const requestorDept = pr.department || 'Not specified';
   
-  console.debug('Using pre-processed requestor details:', { requestorName, requestorEmail, requestorDept });
+  console.debug('Using pre-processed requestor details:', { requestorName, requestorEmail, requestorDept: pr.department });
 
-  // Resolve reference data IDs to human-readable names with additional logging
+  // Resolve ALL reference data IDs to human-readable names with additional logging
+  const requestorDept = await resolveReferenceData(pr.department || '', 'department', pr.organization);
+  console.debug(`Resolved department '${pr.department}' to '${requestorDept}'`);
+  
   const requestorSite = await resolveReferenceData(pr.site || '', 'site', pr.organization);
   console.debug(`Resolved site '${pr.site}' to '${requestorSite}'`);
   
@@ -313,11 +319,11 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
           </tr>
           <tr>
             <td style="${styles.tableCell}"><strong>Department</strong></td>
-            <td style="${styles.tableCell}">${formatReferenceData(requestorDept)}</td>
+            <td style="${styles.tableCell}">${requestorDept}</td>
           </tr>
           <tr>
             <td style="${styles.tableCell}"><strong>Site</strong></td>
-            <td style="${styles.tableCell}">${pr.site || 'Not specified'}</td>
+            <td style="${styles.tableCell}">${requestorSite}</td>
           </tr>
         </table>
       </div>
@@ -398,8 +404,8 @@ Submitted By: ${requestorName}
 Requestor Information:
 Name: ${requestorName}
 Email: ${requestorEmail}
-Department: ${formatReferenceData(requestorDept)}
-Site: ${pr.site || 'Not specified'}
+Department: ${requestorDept}
+Site: ${requestorSite}
 
 PR Details:
 PR Number: ${prNumber}
