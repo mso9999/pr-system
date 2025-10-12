@@ -2,6 +2,7 @@ import { useState, useEffect } from "react"
 import { Box, Tab, Tabs, Typography, Chip } from "@mui/material"
 import { UserManagement } from "./UserManagement"
 import { ReferenceDataManagement } from "./ReferenceDataManagement"
+import { OrganizationConfig } from "./OrganizationConfig"
 import { useOutletContext } from "react-router-dom"
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
@@ -82,6 +83,7 @@ export function AdminDashboard() {
         <Tabs value={value} onChange={handleChange} aria-label="admin tabs">
           <Tab label="User Management" {...a11yProps(0)} />
           <Tab label="Reference Data" {...a11yProps(1)} />
+          <Tab label="Organization Settings" {...a11yProps(2)} />
         </Tabs>
       </Box>
 
@@ -91,6 +93,10 @@ export function AdminDashboard() {
 
       <TabPanel value={value} index={1}>
         <ReferenceDataManagement isReadOnly={isReadOnly} />
+      </TabPanel>
+
+      <TabPanel value={value} index={2}>
+        <OrganizationConfig />
       </TabPanel>
     </Box>
   )
