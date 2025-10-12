@@ -33,6 +33,8 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [justification, setJustification] = useState('');
+  const [useDefaultJustification, setUseDefaultJustification] = useState(false);
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
 
@@ -42,6 +44,31 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   const isSecondApprover = currentUser.id === pr.approver2;
   const hasFirstApproved = pr.approvalWorkflow?.firstApprovalComplete || false;
   const hasSecondApproved = pr.approvalWorkflow?.secondApprovalComplete || false;
+
+  // 3-Quote scenario detection
+  const requires3Quotes = useMemo(() => {
+    // Above Rule 2 threshold: always requires 3 quotes
+    if (isDualApproval) return true;
+    
+    // Above Rule 1 with non-approved vendor: requires 3 quotes
+    // This would require checking vendor approval status
+    // For now, check if there are 3 or more quotes
+    return (pr.quotes?.length || 0) >= 3;
+  }, [pr.quotes, isDualApproval]);
+
+  // Find lowest quote
+  const lowestQuote = useMemo(() => {
+    if (!pr.quotes || pr.quotes.length === 0) return null;
+    return pr.quotes.reduce((lowest, quote) => {
+      if (!lowest || quote.amount < lowest.amount) {
+        return quote;
+      }
+      return lowest;
+    });
+  }, [pr.quotes]);
+
+  // Determine if justification is required
+  const justificationRequired = requires3Quotes;
 
   // Check if user has permission to take actions
   const canTakeAction = useMemo(() => {
@@ -154,6 +181,17 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
         return;
       }
 
+      // Validate justification for approval in 3-quote scenarios
+      if (selectedAction === 'approve' && justificationRequired) {
+        if (!useDefaultJustification && !justification.trim()) {
+          setError('Justification is required for 3-quote scenarios. Please select "Value for Money" or provide custom justification.');
+          return;
+        }
+        
+        // If non-lowest quote and trying to use default justification, require custom
+        // TODO: Implement quote selection detection
+      }
+
       // Get the PR data
       const prData = await prService.getPR(pr.id);
       if (!prData) {
@@ -190,6 +228,11 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             const firstComplete = isFirstAppr ? true : (prData.approvalWorkflow?.firstApprovalComplete || false);
             const secondComplete = isSecondAppr ? true : (prData.approvalWorkflow?.secondApprovalComplete || false);
 
+            // Prepare justification (default or custom)
+            const approverJustification = justificationRequired 
+              ? (useDefaultJustification ? 'Value for Money' : justification)
+              : notes || 'Approved';
+
             // Update approval workflow
             const updatedWorkflow = {
               ...prData.approvalWorkflow,
@@ -197,14 +240,16 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
               secondApprover: prData.approver2,
               requiresDualApproval: true,
               firstApprovalComplete: firstComplete,
+              firstApproverJustification: isFirstAppr ? approverJustification : prData.approvalWorkflow?.firstApproverJustification,
               secondApprovalComplete: secondComplete,
+              secondApproverJustification: isSecondAppr ? approverJustification : prData.approvalWorkflow?.secondApproverJustification,
               approvalHistory: [
                 ...(prData.approvalWorkflow?.approvalHistory || []),
                 {
                   approverId: currentUser.id,
                   timestamp: new Date().toISOString(),
                   approved: true,
-                  notes: notes || 'Approved'
+                  notes: approverJustification
                 }
               ],
               lastUpdated: new Date().toISOString()
@@ -255,6 +300,11 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             // Single approval - move directly to APPROVED
             newStatus = PRStatus.APPROVED;
             
+            // Prepare justification (default or custom)
+            const approverJustification = justificationRequired 
+              ? (useDefaultJustification ? 'Value for Money' : justification)
+              : notes || 'Approved';
+            
             // Update to APPROVED and set object type to PO
             await prService.updatePR(pr.id, {
               status: newStatus,
@@ -265,6 +315,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                 secondApprover: null,
                 requiresDualApproval: false,
                 firstApprovalComplete: true,
+                firstApproverJustification: approverJustification,
                 secondApprovalComplete: false,
                 approvalHistory: [
                   ...(prData.approvalWorkflow?.approvalHistory || []),
@@ -272,7 +323,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                     approverId: currentUser.id,
                     timestamp: new Date().toISOString(),
                     approved: true,
-                    notes: notes || 'Approved'
+                    notes: approverJustification
                   }
                 ],
                 lastUpdated: new Date().toISOString()
@@ -411,7 +462,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       </Stack>
 
       {/* Action dialog */}
-      <Dialog open={isDialogOpen} onClose={handleClose}>
+      <Dialog open={isDialogOpen} onClose={handleClose} maxWidth="md" fullWidth>
         <DialogTitle>{getDialogTitle()}</DialogTitle>
         <DialogContent>
           {error && (
@@ -419,10 +470,67 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
               {error}
             </Alert>
           )}
+
+          {/* Justification UI for 3-quote scenarios (approval only) */}
+          {selectedAction === 'approve' && justificationRequired && (
+            <Box sx={{ mb: 3 }}>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom>
+                  Justification Required (3-Quote Scenario)
+                </Typography>
+                <Typography variant="body2">
+                  This PR requires 3 quotes. Please provide justification for your approval decision.
+                </Typography>
+                {lowestQuote && (
+                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                    Lowest quote: {lowestQuote.vendorName} - {lowestQuote.amount} {lowestQuote.currency}
+                  </Typography>
+                )}
+              </Alert>
+
+              <Stack spacing={2}>
+                <Box>
+                  <Button
+                    variant={useDefaultJustification ? 'contained' : 'outlined'}
+                    onClick={() => {
+                      setUseDefaultJustification(true);
+                      setJustification('');
+                    }}
+                    fullWidth
+                  >
+                    Use Default: "Value for Money"
+                  </Button>
+                  <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Select this if you're approving the lowest quote
+                  </Typography>
+                </Box>
+
+                <Typography variant="body2" align="center">OR</Typography>
+
+                <Box>
+                  <TextField
+                    fullWidth
+                    label="Custom Justification"
+                    multiline
+                    rows={3}
+                    value={justification}
+                    onChange={(e) => {
+                      setJustification(e.target.value);
+                      setUseDefaultJustification(false);
+                    }}
+                    placeholder="Required if not selecting lowest quote. Explain why higher quote was chosen..."
+                    helperText="Provide custom justification (e.g., better quality, faster delivery, warranty)"
+                  />
+                </Box>
+              </Stack>
+            </Box>
+          )}
+
+          {/* Notes field (for all actions) */}
           <TextField
-            autoFocus
+            autoFocus={!justificationRequired}
             margin="dense"
-            label="Notes"
+            label={selectedAction === 'approve' && !justificationRequired ? 'Notes (Optional)' : 'Notes'}
             fullWidth
             multiline
             rows={4}
@@ -433,7 +541,9 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             helperText={
               !notes.trim() && (selectedAction === 'reject' || selectedAction === 'revise')
                 ? 'Notes are required'
-                : ''
+                : selectedAction === 'approve' && !justificationRequired
+                  ? 'Optional notes for approval'
+                  : ''
             }
           />
         </DialogContent>
