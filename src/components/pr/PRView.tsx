@@ -483,14 +483,6 @@ export function PRView() {
     try {
       setLoading(true);
       const prData = await prService.getPR(id);
-      console.log('PR data received:', {
-        id: prData?.id,
-        department: prData?.department,
-        organization: prData?.organization,
-        requestor: prData?.requestor,
-        approvalWorkflow: prData?.approvalWorkflow,
-        status: prData?.status
-      });
 
       if (!prData) {
         setError('PR not found');
@@ -499,7 +491,6 @@ export function PRView() {
 
       // Initialize approval workflow if missing
       if (!prData.approvalWorkflow) {
-        console.log('Initializing missing approval workflow');
         prData.approvalWorkflow = {
           currentApprover: prData.approver || prData.approvers?.[0] || undefined,
           approvalHistory: [],
@@ -513,7 +504,6 @@ export function PRView() {
       if (prData.requestorId && (!prData.requestor || !prData.requestor.organization)) {
         try {
           const requestorData = await auth.getUserDetails(prData.requestorId);
-          console.log('Requestor data loaded:', requestorData);
           
           // Update PR with requestor data
           setPr(prev => ({
@@ -529,12 +519,6 @@ export function PRView() {
       try {
         // Get organization from PR or requestor
         const organization = prData.organization || prData.requestor?.organization;
-        console.log('Using organization for reference data:', {
-          organization,
-          fromPR: !!prData.organization,
-          fromRequestor: !!prData.requestor?.organization,
-          approvalWorkflow: prData.approvalWorkflow
-        });
 
         if (!organization) {
           console.error('No organization found in PR data or requestor data');
@@ -542,28 +526,12 @@ export function PRView() {
         }
 
         // Load approvers first
-        console.log('Loading approvers for organization:', organization);
         const approverList = await approverService.getApprovers(organization);
-        console.log('Loaded approvers:', {
-          count: approverList.length,
-          approvers: approverList.map(a => ({
-            id: a.id,
-            name: a.name,
-            department: a.department,
-            permissionLevel: a.permissionLevel,
-            organization: a.organization
-          }))
-        });
         setApprovers(approverList);
 
         // Set initial selected approver if present
         if (prData.approvalWorkflow?.currentApprover) {
           const currentApprover = approverList.find(a => a.id === prData.approvalWorkflow?.currentApprover);
-          console.log('Setting current approver:', {
-            workflowApproverId: prData.approvalWorkflow.currentApprover,
-            foundApprover: currentApprover,
-            workflow: prData.approvalWorkflow
-          });
           if (currentApprover) {
             setSelectedApprover(currentApprover.id);
           }
@@ -640,7 +608,6 @@ export function PRView() {
 
   useEffect(() => {
     if (!pr?.organization) {
-      console.log('No organization available to load approvers');
       return;
     }
 
@@ -648,31 +615,15 @@ export function PRView() {
     const loadApprovers = async () => {
       try {
         setLoadingApprovers(true);
-        console.log('Loading approvers for organization:', pr.organization);
         const approverList = await approverService.getApprovers(pr.organization);
         
         if (!mounted) return;
-
-        console.log('Loaded approvers:', {
-          count: approverList.length,
-          approvers: approverList.map(a => ({
-            id: a.id,
-            name: a.name,
-            department: a.department,
-            permissionLevel: a.permissionLevel
-          }))
-        });
 
         setApprovers(approverList);
 
         // Set initial selected approver if present
         if (pr.approvalWorkflow?.currentApprover) {
           const currentApprover = approverList.find(a => a.id === pr.approvalWorkflow?.currentApprover);
-          console.log('Setting current approver:', {
-            workflowApproverId: pr.approvalWorkflow.currentApprover,
-            foundApprover: currentApprover,
-            workflow: pr.approvalWorkflow
-          });
           if (currentApprover) {
             setSelectedApprover(currentApprover.id);
           }
@@ -894,19 +845,10 @@ export function PRView() {
   };
 
   const handleFieldChange = (field: keyof EditablePRFields, value: string | number) => {
-    console.log('Handling field change:', { field, value, currentEdits: editedPR });
-
     // Special handling for expense type changes
     if (field === 'expenseType') {
       const selectedType = expenseTypes.find(type => type.id === value);
       const isVehicleExpense = selectedType?.name.toLowerCase() === 'vehicle';
-      
-      console.log('Expense type change:', {
-        selectedType,
-        isVehicleExpense,
-        value,
-        currentVehicle: editedPR.vehicle
-      });
 
       setEditedPR(prev => {
         if (!isVehicleExpense) {
@@ -933,7 +875,6 @@ export function PRView() {
   };
 
   const handleApproverChange = (approverId: string) => {
-    console.log('Changing approver to:', approverId);
     setSelectedApprover(approverId || undefined);
     handleFieldChange('approver', approverId);
   };
@@ -1247,16 +1188,10 @@ export function PRView() {
               <Grid item xs={6}>
                 <Typography color="textSecondary">Created By</Typography>
                 <Typography>
-                  {pr?.requestor?.firstName && pr?.requestor?.lastName ? (
-                    `${pr.requestor.firstName} ${pr.requestor.lastName}`
-                  ) : (
-                    console.error('PR requestor not found:', {
-                      prId: pr?.id,
-                      requestorId: pr?.requestorId,
-                      requestorEmail: pr?.requestorEmail
-                    }),
-                    <span style={{ color: 'red' }}>Error loading user details</span>
-                  )}
+                  {pr?.requestor?.firstName && pr?.requestor?.lastName 
+                    ? `${pr.requestor.firstName} ${pr.requestor.lastName}`
+                    : <span style={{ color: 'red' }}>Error loading user details</span>
+                  }
                 </Typography>
               </Grid>
               <Grid item xs={6}>
@@ -1643,33 +1578,16 @@ export function PRView() {
   // Load approvers
   const loadApprovers = async () => {
     try {
-      console.log('Loading approvers for organization:', pr?.organization);
-      
       if (!pr?.organization) {
-        console.log('No organization specified');
         return;
       }
 
       const approverList = await approverService.getApprovers(pr.organization);
-      console.log('Loaded approvers:', {
-        count: approverList.length,
-        approvers: approverList.map(a => ({
-          id: a.id,
-          name: a.name,
-          department: a.department,
-          permissionLevel: a.permissionLevel
-        }))
-      });
       setApprovers(approverList);
 
       // Set initial selected approver if present
       if (pr?.approvalWorkflow?.currentApprover) {
         const currentApprover = approverList.find(a => a.id === pr.approvalWorkflow?.currentApprover);
-        console.log('Setting current approver:', {
-          workflowApproverId: pr.approvalWorkflow.currentApprover,
-          foundApprover: currentApprover,
-          workflow: pr.approvalWorkflow
-        });
         if (currentApprover) {
           setSelectedApprover(currentApprover.id);
         }
@@ -1684,11 +1602,6 @@ export function PRView() {
   useEffect(() => {
     if (!pr?.organization) return;
 
-    console.log('Loading reference data with organization:', {
-      organization: pr.organization,
-      normalizedOrg: referenceDataService.normalizeOrganizationId(pr.organization)
-    });
-
     Promise.all([
       referenceDataService.getDepartments(pr.organization),
       referenceDataService.getItemsByType('projectCategories', pr.organization),
@@ -1698,15 +1611,6 @@ export function PRView() {
       referenceDataService.getItemsByType('vendors'),  // This is org-independent
       referenceDataService.getItemsByType('currencies'),  // This is org-independent
     ]).then(([depts, projCats, sites, expTypes, vehs, vends, currList]) => {
-      console.log('Reference data loaded:', {
-        departments: depts.map(d => ({ id: d.id, name: d.name })),
-        vendors: vends.length,
-        expenseTypes: expTypes.length,
-        projectCategories: projCats.length,
-        vehicles: vehs.length,
-        sites: sites.length
-      });
-
       setDepartments(depts.filter(d => d.active));
       setProjectCategories(projCats.filter(c => c.active));
       setSites(sites.filter(s => s.active));

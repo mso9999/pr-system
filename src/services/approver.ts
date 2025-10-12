@@ -22,7 +22,6 @@ class ApproverService {
 
   async getActiveApprovers(): Promise<Approver[]> {
     try {
-      console.log('ApproverService: Getting active approvers');
       const usersRef = collection(this.db, 'users');
       const q = query(usersRef, where('isActive', '==', true));
       const querySnapshot = await getDocs(q);
@@ -40,8 +39,6 @@ class ApproverService {
         } as Approver;
       });
 
-      console.log(`ApproverService: Found ${approvers.length} active approvers`);
-      console.log('ApproverService: Approvers:', approvers);
       return approvers;
     } catch (error) {
       console.error('ApproverService: Error getting active approvers:', error);
@@ -51,7 +48,6 @@ class ApproverService {
 
   async getApprovers(organizationId: string): Promise<Approver[]> {
     try {
-      console.log('ApproverService: Getting approvers for organization:', organizationId);
       const usersRef = collection(this.db, 'users');
       
       // Query users with permission level 1, 2, or 6 and isActive=true
@@ -62,27 +58,6 @@ class ApproverService {
       );
       
       const querySnapshot = await getDocs(q);
-      
-      // Log all users found with their raw data
-      console.log('ApproverService: Raw users:', querySnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          firstName: data.firstName,
-          lastName: data.lastName,
-          permissionLevel: data.permissionLevel,
-          organization: data.organization,
-          organizationId: data.organizationId,
-          // Log all fields that might contain the organization
-          allFields: Object.keys(data).filter(key => 
-            typeof key === 'string' && 
-            key.toLowerCase().includes('org')
-          ).reduce((obj, key) => ({
-            ...obj,
-            [key]: data[key]
-          }), {})
-        };
-      }));
       
       // Filter and map users to approvers
       const approvers = querySnapshot.docs
@@ -106,12 +81,6 @@ class ApproverService {
           if (approver.permissionLevel === 2) {
             const normalizedOrgId = this.normalizeOrganizationId(organizationId);
             const approverOrgId = this.normalizeOrganizationId(approver.organization || '');
-            console.log('ApproverService: Comparing organizations:', {
-              approver: approver.name,
-              normalizedOrgId,
-              approverOrgId,
-              match: normalizedOrgId === approverOrgId
-            });
             return normalizedOrgId === approverOrgId;
           }
           
@@ -121,7 +90,6 @@ class ApproverService {
           return false;
         });
 
-      console.log('ApproverService: Filtered approvers:', approvers);
       return approvers;
     } catch (error) {
       console.error('ApproverService: Error getting approvers:', error);
@@ -132,7 +100,6 @@ class ApproverService {
   async getDepartmentApprovers(organization: string | { id: string; name: string }, department: string): Promise<Approver[]> {
     try {
       const normalizedOrgId = this.normalizeOrganizationId(organization);
-      console.log('ApproverService: Getting approvers for department:', department);
       const usersRef = collection(this.db, 'users');
       const q = query(usersRef);
       const querySnapshot = await getDocs(q);
@@ -153,8 +120,6 @@ class ApproverService {
         a.organization === normalizedOrgId
       );
 
-      console.log(`ApproverService: Found ${approvers.length} approvers for department ${department}`);
-      console.log('ApproverService: Approvers:', approvers);
       return approvers;
     } catch (error) {
       console.error('ApproverService: Error getting department approvers:', error);
