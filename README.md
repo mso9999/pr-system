@@ -321,6 +321,23 @@ firebase deploy --only functions
 
 ## Recent Changes
 
+### October 12, 2025 - Email Notifications & PR Number Country Codes
+**Critical Bug Fixes:**
+- ✅ **Email Notifications**: Now show human-readable names instead of database IDs
+  - Department: "C Level" instead of "TMEl8lYYpw370XGQLW7J"
+  - Site: "1PWR Headquarters" instead of "1pwr_headquarters"
+  - Vendor: Actual vendor name instead of numeric ID like "1010"
+- ✅ **PR Number Format**: Now includes proper country codes
+  - Lesotho: `-LS` (e.g., 251012-5338-1PL-LS)
+  - Benin: `-BN` (e.g., 251012-5338-1PB-BN) - using BN instead of BJ
+  - Zambia: `-ZM` (e.g., 251012-5338-1PZ-ZM)
+
+**Impact:** Email notifications are now professional and readable. PR numbers clearly identify country/location.
+
+**Documentation:** See [docs/EMAIL_NOTIFICATION_FIX_2025-10-12.md](docs/EMAIL_NOTIFICATION_FIX_2025-10-12.md)
+
+---
+
 ### October 12, 2025 - Data Retrieval & Performance Fix
 **Critical Bug Fixes:**
 - ✅ **Performance Improvement**: Removed excessive console.log statements causing slowdowns
