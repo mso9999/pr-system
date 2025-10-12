@@ -82,22 +82,27 @@ async function resolveReferenceData(id: string, type: string, organization?: str
       case 'vendor':
         console.debug(`Fetching vendors for organization: ${organization || 'Not specified'}`);
         try {
-          // Get vendors through the reference data service
-          items = await referenceDataService.getVendors(organization || '');
+          // Get ALL vendors (vendors are org-independent)
+          items = await referenceDataService.getVendors();
           console.debug(`Got ${items.length} vendors from referenceDataService`);
         } catch (e) {
           console.error(`Error getting vendors: ${e instanceof Error ? e.message : String(e)}`);
-          // Try a direct Firestore query as fallback
+          // Try a direct Firestore query as fallback to get ALL vendors
           try {
-            console.debug('Attempting direct Firestore query to vendors collection');
-            const vendorsQuery = query(collection(db, 'vendors'), where('organizationId', '==', organization || ''));
-            const vendorDocs = await getDocs(vendorsQuery);
-            items = vendorDocs.docs.map(doc => ({
-              id: doc.id,
-              vendorId: doc.data().vendorId || doc.id,
-              name: doc.data().name
-            }));
-            console.debug(`Got ${items.length} vendors directly from Firestore`);
+            console.debug('Attempting direct Firestore query to referenceData_vendors collection');
+            const vendorsCollection = collection(db, 'referenceData_vendors');
+            const vendorDocs = await getDocs(vendorsCollection);
+            items = vendorDocs.docs.map(doc => {
+              const data = doc.data();
+              return {
+                id: doc.id,
+                vendorId: data.vendorId || data.code || doc.id,
+                code: data.code,
+                name: data.name,
+                active: data.active
+              };
+            }).filter(v => v.active);
+            console.debug(`Got ${items.length} active vendors directly from Firestore`);
           } catch (firestoreError) {
             console.error(`Firestore fallback also failed: ${firestoreError instanceof Error ? firestoreError.message : String(firestoreError)}`);
           }
@@ -114,22 +119,33 @@ async function resolveReferenceData(id: string, type: string, organization?: str
     
     console.debug(`Got ${items.length} items for ${type}`);
     
-    // Special handling for numeric vendor IDs
-    if (type === 'vendor' && /^\d+$/.test(id)) {
-      const numericId = id;
+    // Special handling for vendors - try multiple matching strategies
+    if (type === 'vendor') {
       const vendor = items.find(item => 
-        item.vendorId === numericId || 
-        item.id === numericId || 
-        (item.vendorId && item.vendorId.toString() === numericId)
+        // Try exact match on id
+        item.id === id ||
+        // Try match on vendorId field (could be string or number)
+        (item.vendorId && item.vendorId.toString() === id) ||
+        // Try match on code field
+        (item.code && item.code.toString() === id) ||
+        // For numeric IDs, try numeric comparison
+        (/^\d+$/.test(id) && (
+          item.vendorId === id || 
+          item.id === id || 
+          item.code === id ||
+          (item.vendorId && item.vendorId.toString() === id) ||
+          (item.code && item.code.toString() === id)
+        ))
       );
       
       if (vendor) {
-        console.debug(`Found vendor with ID ${numericId}: ${vendor.name}`);
+        console.debug(`Found vendor with ID ${id}: ${vendor.name}`);
         return vendor.name;
       } else {
+        console.warn(`Vendor with ID '${id}' not found in ${items.length} vendors`);
+        console.debug('Available vendors:', items.map(v => ({ id: v.id, vendorId: v.vendorId, code: v.code, name: v.name })));
         // For numeric vendor IDs, make it clear this is a vendor code
-        console.debug(`Vendor ID ${numericId} not found in reference data`);
-        return `Vendor #${numericId}`;
+        return /^\d+$/.test(id) ? `Vendor #${id}` : id;
       }
     }
     
@@ -284,8 +300,14 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
   // For vendor name, use enhanced resolution
   let vendorName = 'Not specified';
   if (pr.preferredVendor) {
+    console.log(`Resolving vendor: '${pr.preferredVendor}' for organization: '${pr.organization}'`);
     vendorName = await resolveReferenceData(pr.preferredVendor, 'vendor', pr.organization);
-    console.debug(`Resolved vendor '${pr.preferredVendor}' to '${vendorName}'`);
+    console.log(`Resolved vendor '${pr.preferredVendor}' to '${vendorName}'`);
+    
+    // If still showing ID/code, it means resolution failed
+    if (vendorName === pr.preferredVendor || vendorName.startsWith('Vendor #')) {
+      console.warn(`Vendor resolution failed or vendor not found: ${pr.preferredVendor}`);
+    }
   }
 
   const html = `

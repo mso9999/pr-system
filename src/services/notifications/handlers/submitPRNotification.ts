@@ -156,8 +156,10 @@ export class SubmitPRNotificationHandler {
           'sotho_minigrid_portfolio': 'LS'
         };
         
-        const orgCode = orgCodeMap[(pr.organization || 'UNK').toLowerCase()] || (pr.organization || 'UNK').substring(0, 3).toUpperCase();
-        const countryCode = countryCodeMap[(pr.organization || 'UNK').toLowerCase()] || 'XX';
+        // Normalize organization name (handle spaces, special chars, case)
+        const normalizedOrg = (pr.organization || 'UNK').toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const orgCode = orgCodeMap[normalizedOrg] || (pr.organization || 'UNK').substring(0, 3).toUpperCase();
+        const countryCode = countryCodeMap[normalizedOrg] || 'XX';
         
         // Generate sequential number (0-9999, reset each year)
         const sequentialNumber = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
