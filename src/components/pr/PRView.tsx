@@ -409,6 +409,7 @@ const FilePreviewDialog: React.FC<{
 
 const UOM_MAPPING = {
   'EA': 'Each',
+  'PCS': 'Pieces',
   'KG': 'Kilogram',
   'BOX': 'Box',
   'PK': 'Pack',
@@ -911,17 +912,14 @@ export function PRView() {
         if (!isVehicleExpense) {
           // Remove vehicle field for non-vehicle expense types
           const { vehicle, ...rest } = prev;
-          console.log('Removing vehicle field:', { before: prev, after: { ...rest, [field]: value } });
           return { ...rest, [field]: value };
         } else {
           // Keep vehicle field for vehicle expense type
-          const newState = {
+          return {
             ...prev,
             [field]: value,
             vehicle: prev.vehicle || pr?.vehicle
           };
-          console.log('Updating with vehicle:', { before: prev, after: newState });
-          return newState;
         }
       });
     } else {
@@ -1035,14 +1033,6 @@ export function PRView() {
                     onChange={(e) => handleFieldChange('department', e.target.value)}
                     label="Department"
                     renderValue={(value) => {
-                      console.log('Rendering department value:', {
-                        value,
-                        departments: departments,
-                        departmentsLength: departments.length,
-                        allDepartmentIds: departments.map(d => d.id),
-                        matchingDept: departments.find(d => d.id === value),
-                        exactMatch: departments.find(d => d.id === value)?.id === value
-                      });
                       const dept = departments.find(d => d.id === value);
                       return dept ? dept.name : value;
                     }}
@@ -1142,20 +1132,11 @@ export function PRView() {
                           onChange={(e) => handleFieldChange('vehicle', e.target.value)}
                           label="Vehicle"
                           renderValue={(value) => {
-                            console.log('Rendering vehicle value:', {
-                              value,
-                              vehicles,
-                              vehiclesLength: vehicles.length,
-                              allVehicleIds: vehicles.map(v => v.id),
-                              matchingVehicle: vehicles.find(v => v.id === value),
-                              exactMatch: vehicles.find(v => v.id === value)?.id === value
-                            });
                             const vehicle = vehicles.find(v => v.id === value);
                             return vehicle ? (vehicle.registrationNumber || vehicle.name || vehicle.code) : value;
                           }}
                         >
                           {vehicles.map((vehicle) => {
-                            console.log('Rendering vehicle option:', vehicle);
                             const displayName = vehicle.registrationNumber || vehicle.name || vehicle.code;
                             return (
                               <MenuItem key={vehicle.id} value={vehicle.id}>
@@ -1177,18 +1158,8 @@ export function PRView() {
                     onChange={(e) => handleFieldChange('preferredVendor', e.target.value)}
                     label="Preferred Vendor"
                     renderValue={(value) => {
-                      console.log('Rendering vendor value:', {
-                        value,
-                        vendors,
-                        matchingVendor: vendors.find(v => v.id === value)
-                      });
                       const vendor = vendors.find(v => v.id === value);
-                      // If the value is not a valid vendor ID and not empty, show a warning
-                      if (value && !vendor) {
-                        console.warn(`Vendor with ID "${value}" not found in reference data`);
-                        return `${value} (Vendor not found)`;
-                      }
-                      return vendor ? vendor.name : '';
+                      return vendor ? vendor.name : value || '';
                     }}
                   >
                     {vendors
@@ -1351,13 +1322,6 @@ export function PRView() {
                   {(() => {
                     // Check pr.approver first as it's the single source of truth
                     const approverId = pr?.approver || pr?.approvalWorkflow?.currentApprover;
-                    console.log('Finding current approver:', { 
-                      prApprover: pr?.approver,
-                      workflowApprover: pr?.approvalWorkflow?.currentApprover,
-                      approverId, 
-                      approversCount: approvers.length,
-                      approvers: approvers.map(a => ({ id: a.id, name: a.name }))
-                    });
                     
                     if (!approverId) {
                       return (
@@ -1376,7 +1340,6 @@ export function PRView() {
                     }
 
                     const approver = approvers.find(a => a.id === approverId);
-                    console.log('Found current approver:', approver);
 
                     if (!approver) {
                       return (
@@ -1499,6 +1462,10 @@ export function PRView() {
                           value={item.uom}
                           onChange={(e) => handleUpdateLineItem(index, { ...item, uom: e.target.value })}
                           disabled={!isEditMode}
+                          renderValue={(value) => {
+                            const uomOption = UOM_OPTIONS.find(opt => opt.code === value);
+                            return uomOption ? uomOption.label : value || '';
+                          }}
                           sx={{ 
                             '& .MuiSelect-select.Mui-disabled': {
                               WebkitTextFillColor: 'rgba(0, 0, 0, 0.6)',
