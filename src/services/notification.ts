@@ -282,48 +282,39 @@ export class NotificationService {
 
           // Generate email content once and reuse it
           const result = await cloudFunction({ 
-            prId: pr.id,
-            prNumber: notification.prNumber,
-            user: user ? {
-              id: user.id,
-              email: user.email,
-              firstName: user.firstName || '',
-              lastName: user.lastName || '',
-              name: user.name || `${user.firstName || ''} ${user.lastName || ''}`,
-              role: user.role,
-              organization: user.organization,
-              isActive: user.isActive,
-              permissionLevel: user.permissionLevel,
-              permissions: user.permissions,
-              department: user.department
-            } : null,
-            notes,
+            notification: {
+              type: 'STATUS_CHANGE',
+              prId: pr.id,
+              prNumber: prNumber,
+              oldStatus: oldStatus,
+              newStatus: newStatus,
+              user: user ? {
+                id: user.id,
+                email: user.email,
+                firstName: user.firstName || '',
+                lastName: user.lastName || '',
+                name: user.name || `${user.firstName || ''} ${user.lastName || ''}`,
+                role: user.role,
+                organization: user.organization,
+                isActive: user.isActive,
+                permissionLevel: user.permissionLevel,
+                permissions: user.permissions,
+                department: user.department
+              } : null,
+              metadata: {
+                requestorEmail: pr.requestor?.email,
+                isUrgent: pr.isUrgent,
+                ...(pr.approvalWorkflow?.currentApprover ? { approverInfo: pr.approvalWorkflow.currentApprover } : {})
+              }
+            },
             recipients: recipients, // Use our explicitly defined recipients
             cc: ccList, // Pass the CC list
-            emailContent,  // Pass the complete email content
+            emailBody: emailContent,  // Pass the complete email content
             metadata: {
               prUrl,
               baseUrl: window.location.origin,
               requestorEmail: pr.requestor?.email,
-              isUrgent: pr.isUrgent,
-              ...(pr.approvalWorkflow?.currentApprover ? { approverInfo: pr.approvalWorkflow.currentApprover } : {})
-            },
-            pr: {
-              id: pr.id,
-              prNumber: notification.prNumber,
-              requestor: pr.requestor,
-              site: pr.site,
-              category: pr.projectCategory,
-              expenseType: pr.expenseType,
-              amount: pr.estimatedAmount,
-              currency: pr.currency,
-              vendor: pr.vendor,
-              vendorDetails: pr.vendorDetails,
-              preferredVendor: pr.preferredVendor,
-              requiredDate: pr.requiredDate,
-              isUrgent: pr.isUrgent,
-              department: pr.department,
-              approvalWorkflow: pr.approvalWorkflow
+              notes: notes
             }
           });
 
