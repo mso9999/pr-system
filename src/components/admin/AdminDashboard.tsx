@@ -3,6 +3,7 @@ import { Box, Tab, Tabs, Typography, Chip } from "@mui/material"
 import { UserManagement } from "./UserManagement"
 import { ReferenceDataManagement } from "./ReferenceDataManagement"
 import { OrganizationConfig } from "./OrganizationConfig"
+import { DatabaseCleanup } from "./DatabaseCleanup"
 import { useOutletContext } from "react-router-dom"
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
@@ -84,6 +85,7 @@ export function AdminDashboard() {
           <Tab label="User Management" {...a11yProps(0)} />
           <Tab label="Reference Data" {...a11yProps(1)} />
           <Tab label="Organization Settings" {...a11yProps(2)} />
+          <Tab label="Database Cleanup" {...a11yProps(3)} />
         </Tabs>
       </Box>
 
@@ -97,6 +99,10 @@ export function AdminDashboard() {
 
       <TabPanel value={value} index={2}>
         <OrganizationConfig />
+      </TabPanel>
+
+      <TabPanel value={value} index={3}>
+        <DatabaseCleanup />
       </TabPanel>
     </Box>
   )
