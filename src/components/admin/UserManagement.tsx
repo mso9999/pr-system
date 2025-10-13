@@ -646,11 +646,14 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                     </TableCell>
                     {!isReadOnly && (
                       <TableCell>
-                        <IconButton onClick={() => handleEdit(user)}>
+                        <IconButton onClick={() => handleEdit(user)} title="Edit User">
                           <EditIcon />
                         </IconButton>
-                        <IconButton onClick={() => handlePasswordDialogOpen(user)}>
+                        <IconButton onClick={() => handlePasswordDialogOpen(user)} title="Reset Password">
                           <KeyIcon />
+                        </IconButton>
+                        <IconButton onClick={() => handleDelete(user.id)} title="Delete User" color="error">
+                          <DeleteIcon />
                         </IconButton>
                       </TableCell>
                     )}
