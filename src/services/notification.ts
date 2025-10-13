@@ -183,31 +183,7 @@ export class NotificationService {
         vendorDetails: pr.vendorDetails
       });
 
-      // Save notification to Firestore without email headers and content
-      const { headers, ...emailContentToSave } = emailContent;
-      
-      // Create a clean notification object with no undefined values
-      const notificationData = {
-        ...notification,
-        emailContent: emailContentToSave,
-        status: 'pending',
-        createdAt: serverTimestamp()
-      };
-      
-      // Filter out any undefined values to prevent Firestore errors
-      const cleanNotificationData = Object.fromEntries(
-        Object.entries(notificationData).filter(([_, v]) => v !== undefined)
-      );
-      
-      // Ensure prNumber is always defined
-      if (!cleanNotificationData.prNumber && pr.id) {
-        cleanNotificationData.prNumber = `ID-${pr.id.substring(0, 8)}`;
-      }
-      
-      const notificationsRef = collection(db, 'notifications');
-      const notificationDoc = await addDoc(notificationsRef, cleanNotificationData);
-
-      // Determine recipients based on status transition
+      // Determine recipients based on status transition FIRST (before creating notification doc)
       let recipients: string[] = [];
       const ccList: string[] = [];
       
@@ -258,18 +234,45 @@ export class NotificationService {
       console.log('Notification recipients:', recipients);
       console.log('CC list:', ccList);
 
-      // Notification is already logged to Firestore with status 'pending'
+      // Create notification document with proper nested structure for Cloud Function
+      // Remove headers from emailContent as Cloud Function doesn't need it
+      const { headers, ...emailBody } = emailContent;
+      
+      const notificationPayload = {
+        notification: {
+          type: 'STATUS_CHANGE',
+          prId,
+          prNumber,
+          oldStatus: oldStatus || null,
+          newStatus,
+          user: user || null,
+          metadata: {
+            requestorEmail: pr.requestorEmail || pr.requestor?.email,
+            requestorName: pr.requestor?.name || `${pr.requestor?.firstName || ''} ${pr.requestor?.lastName || ''}`.trim(),
+            isUrgent: pr.isUrgent || false
+          }
+        },
+        recipients,
+        cc: ccList,
+        emailBody,
+        status: 'pending',
+        createdAt: serverTimestamp()
+      };
+      
+      // Filter out any undefined values to prevent Firestore errors
+      const cleanPayload = Object.fromEntries(
+        Object.entries(notificationPayload).filter(([_, v]) => v !== undefined)
+      );
+      
+      const notificationsRef = collection(db, 'notifications');
+      const notificationDoc = await addDoc(notificationsRef, cleanPayload);
+
+      // Notification logged to Firestore with proper structure
       // The processNotifications Firestore trigger will automatically send the email
       console.log('Notification logged to Firestore - processNotifications trigger will send email automatically');
-      
-      // Update the notification document with recipients so the trigger can use them
-      await updateDoc(notificationDoc, {
-        recipients: recipients,
-        cc: ccList
-      });
-      
+
       // No errors - notification will be processed by Firestore trigger
-      return;
+          return;
     } catch (error) {
       console.error('Error in handleStatusChange:', error);
       throw error;

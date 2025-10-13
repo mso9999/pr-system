@@ -544,7 +544,7 @@ async function sendReminderEmail(
 async function getOrganization(orgId: string): Promise<Organization | null> {
   try {
     const orgDoc = await db.collection('referenceData_organizations').doc(orgId).get();
-    if (orgDoc.exists()) {
+    if (orgDoc.exists) {
       return { id: orgDoc.id, ...orgDoc.data() } as Organization;
     }
     return null;
@@ -560,7 +560,7 @@ async function getOrganization(orgId: string): Promise<Organization | null> {
 async function getUser(userId: string): Promise<User | null> {
   try {
     const userDoc = await db.collection('users').doc(userId).get();
-    if (userDoc.exists()) {
+    if (userDoc.exists) {
       return { id: userDoc.id, ...userDoc.data() } as User;
     }
     return null;

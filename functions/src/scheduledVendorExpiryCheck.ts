@@ -23,6 +23,7 @@ interface Vendor {
   approvalReason?: 'auto_3quote' | 'auto_completed' | 'manual';
   approvedBy?: string;
   lastCompletedOrderDate?: string;
+  last3QuoteProcessDate?: string;
   isHighValue?: boolean;
   cumulativeOrderValue?: number;
   organizationId?: string;

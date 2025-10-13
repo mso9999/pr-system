@@ -33,13 +33,20 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 // Initialize Firebase
 admin.initializeApp();
 const db = admin.firestore();
 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
+// Import scheduled functions
+var scheduledVendorExpiryCheck_1 = require("./scheduledVendorExpiryCheck");
+Object.defineProperty(exports, "dailyVendorExpiryCheck", { enumerable: true, get: function () { return scheduledVendorExpiryCheck_1.dailyVendorExpiryCheck; } });
+var scheduledReminders_1 = require("./scheduledReminders");
+Object.defineProperty(exports, "dailyReminders", { enumerable: true, get: function () { return scheduledReminders_1.dailyReminders; } });
+Object.defineProperty(exports, "urgentReminders", { enumerable: true, get: function () { return scheduledReminders_1.urgentReminders; } });
+Object.defineProperty(exports, "deliveryDelayCheck", { enumerable: true, get: function () { return scheduledReminders_1.deliveryDelayCheck; } });
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user, requestorEmail) {
     var _a, _b;

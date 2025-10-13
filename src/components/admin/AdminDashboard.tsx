@@ -51,6 +51,7 @@ export function AdminDashboard() {
   const { user } = useSelector((state: RootState) => state.auth);
   const isReadOnly = context?.isReadOnly ?? (user?.permissionLevel === 2);
   const permissionName = user?.permissionLevel ? PERMISSION_NAMES[user.permissionLevel] : '';
+  const isSuperadmin = user?.permissionLevel === 1;
   
   // Initialize from localStorage or default to 0
   const [value, setValue] = useState(() => {
@@ -84,8 +85,8 @@ export function AdminDashboard() {
         <Tabs value={value} onChange={handleChange} aria-label="admin tabs">
           <Tab label="User Management" {...a11yProps(0)} />
           <Tab label="Reference Data" {...a11yProps(1)} />
-          <Tab label="Organization Settings" {...a11yProps(2)} />
-          <Tab label="Database Cleanup" {...a11yProps(3)} />
+          {isSuperadmin && <Tab label="Organization Settings" {...a11yProps(2)} />}
+          {isSuperadmin && <Tab label="Database Cleanup" {...a11yProps(3)} />}
         </Tabs>
       </Box>
 
@@ -97,13 +98,17 @@ export function AdminDashboard() {
         <ReferenceDataManagement isReadOnly={isReadOnly} />
       </TabPanel>
 
-      <TabPanel value={value} index={2}>
-        <OrganizationConfig />
-      </TabPanel>
+      {isSuperadmin && (
+        <TabPanel value={value} index={2}>
+          <OrganizationConfig />
+        </TabPanel>
+      )}
 
-      <TabPanel value={value} index={3}>
-        <DatabaseCleanup />
-      </TabPanel>
+      {isSuperadmin && (
+        <TabPanel value={value} index={3}>
+          <DatabaseCleanup />
+        </TabPanel>
+      )}
     </Box>
   )
 }

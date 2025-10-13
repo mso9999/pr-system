@@ -92,13 +92,43 @@ export async function validatePRForApproval(
   }
 
   // 2. Get rules first since we need them for validation
-  const rule1 = rules.find(r => r.type === 'RULE_1');
-  const rule2 = rules.find(r => r.type === 'RULE_2');
+  // Try multiple approaches to find the rules (type, name, or id field)
+  const rule1 = rules.find(r => 
+    r.type === 'RULE_1' || 
+    r.name?.includes('RULE 1') || 
+    r.id === 'rule_1' ||
+    (r as any).number === '1'
+  );
+  const rule2 = rules.find(r => 
+    r.type === 'RULE_2' || 
+    r.name?.includes('RULE 2') || 
+    r.id === 'rule_2' ||
+    (r as any).number === '2'
+  );
+
+  console.log('Rules matching:', {
+    rule1Found: !!rule1,
+    rule2Found: !!rule2,
+    rule1Data: rule1 ? { id: rule1.id, type: rule1.type, name: (rule1 as any).name, threshold: rule1.threshold } : null,
+    rule2Data: rule2 ? { id: rule2.id, type: rule2.type, name: (rule2 as any).name, threshold: rule2.threshold } : null,
+    allRules: rules.map(r => ({ 
+      id: r.id, 
+      type: r.type, 
+      name: (r as any).name, 
+      number: (r as any).number,
+      threshold: r.threshold 
+    }))
+  });
 
   // If no rules found for organization, bypass rule checks
   if (!rule1 && !rule2) {
-    console.log('No rules found for organization, bypassing rule checks');
-    return { isValid: true, errors: [] };
+    console.warn('No rules found for organization - this should not happen in production!', {
+      rulesProvided: rules.length,
+      rulesData: rules
+    });
+    // Don't bypass - fail validation if rules are expected
+    errors.push('Business rules are not configured for this organization. Please contact system administrator.');
+    return { isValid: false, errors };
   }
 
   // 3. Early validation of quotes

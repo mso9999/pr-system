@@ -18,6 +18,8 @@ import {
   SelectChangeEvent
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
+import { useSelector } from 'react-redux';
+import { RootState } from '@/store';
 import { organizationService } from '@/services/organizationService';
 import { Organization } from '@/types/organization';
 
@@ -25,6 +27,23 @@ const CURRENCY_OPTIONS = ['LSL', 'USD', 'ZAR', 'EUR', 'GBP'];
 
 export const OrganizationConfig: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
+  const currentUser = useSelector((state: RootState) => state.auth.user);
+  
+  // Only Superadmin (Level 1) can access Organization Settings
+  const isSuperadmin = currentUser?.permissionLevel === 1;
+  
+  if (!isSuperadmin) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Alert severity="error">
+          <Typography variant="h6">Access Denied</Typography>
+          <Typography>
+            Only Superadmin users can access Organization Settings. Your current permission level does not allow you to view or modify these settings.
+          </Typography>
+        </Alert>
+      </Box>
+    );
+  }
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<string>('');
   const [selectedOrg, setSelectedOrg] = useState<Organization | null>(null);
