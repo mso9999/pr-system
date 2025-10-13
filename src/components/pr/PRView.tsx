@@ -1722,7 +1722,18 @@ export function PRView() {
     }
   };
 
-  const canEditRequiredDate = !(currentUser?.role === 'procurement' && pr?.status === PRStatus.IN_QUEUE);
+  // Procurement (Level 3) cannot edit Required Date in any status
+  // Requestor can edit in REVISION_REQUIRED, others with appropriate permissions can edit in other statuses
+  const canEditRequiredDate = (() => {
+    // Admin can always edit
+    if (currentUser?.permissionLevel === 1) return true;
+    // Requestor can edit in REVISION_REQUIRED
+    if (pr?.status === 'REVISION_REQUIRED' && currentUser?.id === pr?.requestorId) return true;
+    // Procurement (Level 3) CANNOT edit Required Date
+    if (currentUser?.permissionLevel === 3) return false;
+    // Finance/Admin and Approvers can edit (Levels 2, 4, 6)
+    return currentUser?.permissionLevel && [2, 4, 6].includes(currentUser.permissionLevel);
+  })();
 
   return (
     <Box sx={{ p: 3 }}>
