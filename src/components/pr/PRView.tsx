@@ -795,11 +795,11 @@ export function PRView() {
     if (pr?.status === 'REVISION_REQUIRED') {
       return currentUser?.permissionLevel === 1 || currentUser?.id === pr?.requestorId;
     }
-    // In PENDING_APPROVAL and later statuses: Only Finance/Admin (Level 4) or Admin (Level 1)
-    if (pr?.status && ['PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status)) {
+    // In COMPLETED status: Only Finance/Admin (Level 4) or Admin (Level 1) - finalization phase
+    if (pr?.status === 'COMPLETED') {
       return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 4;
     }
-    // In SUBMITTED/IN_QUEUE: Procurement (Level 3), Finance/Admin (Level 4), or Admin (Level 1)
+    // In all other statuses (SUBMITTED through ORDERED): Procurement (L3), Finance/Admin (L4), or Admin (L1)
     return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 3 || currentUser?.permissionLevel === 4;
   })();
   
@@ -1018,7 +1018,9 @@ export function PRView() {
                     <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
                       {pr?.status === 'REVISION_REQUIRED' 
                         ? 'Only requestor can edit in Revision Required status'
-                        : 'Only Finance/Admin can edit this field'}
+                        : pr?.status === 'COMPLETED'
+                        ? 'Only Finance/Admin can edit in Completed status'
+                        : 'You do not have permission to edit this field'}
                     </Typography>
                   )}
                 </FormControl>
@@ -1065,7 +1067,9 @@ export function PRView() {
                     <Typography variant="caption" color="error" sx={{ mt: 0.5 }}>
                       {pr?.status === 'REVISION_REQUIRED' 
                         ? 'Only requestor can edit in Revision Required status'
-                        : 'Only Finance/Admin can edit this field'}
+                        : pr?.status === 'COMPLETED'
+                        ? 'Only Finance/Admin can edit in Completed status'
+                        : 'You do not have permission to edit this field'}
                     </Typography>
                   )}
                 </FormControl>

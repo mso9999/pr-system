@@ -1023,23 +1023,23 @@ PRs with REJECTED or CANCELED status can be restored to active workflow:
 | SUBMITTED | Procurement (L3), Finance/Admin (L4), or Admin (L1) |
 | IN_QUEUE | Procurement (L3), Finance/Admin (L4), or Admin (L1) |
 | **REVISION_REQUIRED** | **Requestor (L5) or Admin (L1) ONLY** |
-| PENDING_APPROVAL | Finance/Admin (L4) or Admin (L1) ONLY |
-| APPROVED | Finance/Admin (L4) or Admin (L1) ONLY |
-| ORDERED | Finance/Admin (L4) or Admin (L1) ONLY |
+| PENDING_APPROVAL | Procurement (L3), Finance/Admin (L4), or Admin (L1) |
+| APPROVED | Procurement (L3), Finance/Admin (L4), or Admin (L1) |
+| ORDERED | Procurement (L3), Finance/Admin (L4), or Admin (L1) |
 | COMPLETED | Finance/Admin (L4) or Admin (L1) ONLY |
 
 **Key Rules:**
-1. **Procurement (Level 3) CAN edit** Project Category & Expense Type in SUBMITTED and IN_QUEUE statuses
-2. **Procurement (Level 3) CANNOT edit** these fields in PENDING_APPROVAL and later statuses (Finance/Admin takes over)
+1. **Procurement (Level 3) CAN edit** Project Category & Expense Type from SUBMITTED through ORDERED statuses
+2. **Procurement (Level 3) CANNOT edit** these fields in COMPLETED status (Finance/Admin finalizes)
 3. **Requestor (Level 5) can ONLY edit** these fields when their PR is in REVISION_REQUIRED status
 4. **Finance/Admin (Level 4) can edit** these fields in all statuses EXCEPT REVISION_REQUIRED
 5. **Admin (Level 1) can ALWAYS edit** as superuser override
 
 **Rationale:**
-- In SUBMITTED/IN_QUEUE: Procurement is actively processing and needs to correctly categorize the PR
+- In SUBMITTED through ORDERED: Procurement actively processes and manages the PR lifecycle
 - In REVISION_REQUIRED: Requestor must have full control to fix issues
-- In PENDING_APPROVAL onward: Finance/Admin oversees financial classification
-- This allows appropriate categorization at each stage of the workflow
+- In COMPLETED: Only Finance/Admin can make final adjustments for audit/accounting purposes
+- This allows Procurement to maintain proper categorization throughout their active workflow
 
 ### PR to PO Transition and APPROVED Status Processing
 
