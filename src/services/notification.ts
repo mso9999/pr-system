@@ -258,127 +258,18 @@ export class NotificationService {
       console.log('Notification recipients:', recipients);
       console.log('CC list:', ccList);
 
-      for (let attempts = 1; attempts <= maxAttempts; attempts++) {
-        try {
-          // Get the appropriate cloud function based on the status transition
-          const transitionKey = `${oldStatus || 'NEW'}->${newStatus}`;
-          const functionMap: Record<string, Function> = {
-            'NEW->SUBMITTED': httpsCallable(functions, 'sendNewPRNotification'),
-            'SUBMITTED->IN_QUEUE': httpsCallable(functions, 'sendStatusChangeNotification'),
-            'SUBMITTED->REVISION_REQUIRED': httpsCallable(functions, 'sendRevisionRequiredNotification'),
-            'SUBMITTED->CANCELED': httpsCallable(functions, 'sendStatusChangeNotification'),
-            'SUBMITTED->PENDING_APPROVAL': httpsCallable(functions, 'sendPendingApprovalNotification'),
-            'IN_QUEUE->PENDING_APPROVAL': httpsCallable(functions, 'sendPendingApprovalNotification'),
-            'IN_QUEUE->REJECTED': httpsCallable(functions, 'sendStatusChangeNotification'),
-            'IN_QUEUE->REVISION_REQUIRED': httpsCallable(functions, 'sendRevisionRequiredNotification'),
-            'REVISION_REQUIRED->SUBMITTED': httpsCallable(functions, 'sendResubmittedNotification'),
-            'PENDING_APPROVAL->APPROVED': httpsCallable(functions, 'sendApprovedNotification'),
-            'PENDING_APPROVAL->REJECTED': httpsCallable(functions, 'sendRejectedNotification')
-          };
-
-          // Check if we should use the specialized notification service
-          // This prevents duplicate emails by ensuring only one service sends the notification
-          if (transitionKey === 'NEW->SUBMITTED') {
-            try {
-              // Import the specialized handler dynamically to avoid circular dependencies
-              const { getTransitionHandler } = await import('./notifications/transitions');
-              const handler = await getTransitionHandler(null, PRStatus.SUBMITTED);
-              
-              if (handler) {
-                console.log('Using specialized notification handler for new PR submission - skipping default handler');
-                
-                // Just update the notification status to sent without actually sending an email
-                // The specialized handler will take care of sending the email
-                await updateDoc(notificationDoc, {
-                  status: 'sent',
-                  sentAt: serverTimestamp(),
-                  notes: 'Delegated to specialized notification handler'
-                });
-                
-                return;
-              }
-            } catch (error) {
-              console.error('Error checking for specialized handler:', error);
-              // Continue with the default handler if there's an error
-            }
-          }
-
-          const cloudFunction = functionMap[transitionKey];
-          if (!cloudFunction) {
-            throw new Error(`No notification handler found for transition: ${transitionKey}`);
-          }
-
-          // Generate email content once and reuse it
-          const result = await cloudFunction({ 
-            notification: {
-              type: 'STATUS_CHANGE',
-              prId: pr.id,
-              prNumber: prNumber,
-              oldStatus: oldStatus,
-              newStatus: newStatus,
-              user: user ? {
-                id: user.id,
-                email: user.email,
-                firstName: user.firstName || '',
-                lastName: user.lastName || '',
-                name: user.name || `${user.firstName || ''} ${user.lastName || ''}`,
-                role: user.role,
-                organization: user.organization,
-                isActive: user.isActive,
-                permissionLevel: user.permissionLevel,
-                permissions: user.permissions,
-                department: user.department
-              } : null,
-              metadata: {
-                requestorEmail: pr.requestor?.email,
-                isUrgent: pr.isUrgent,
-                ...(pr.approvalWorkflow?.currentApprover ? { approverInfo: pr.approvalWorkflow.currentApprover } : {})
-              }
-            },
-            recipients: recipients, // Use our explicitly defined recipients
-            cc: ccList, // Pass the CC list
-            emailBody: emailContent,  // Pass the complete email content
-            metadata: {
-              prUrl,
-              baseUrl: window.location.origin,
-              requestorEmail: pr.requestor?.email,
-              notes: notes
-            }
-          });
-
-          console.log('Cloud function response:', result);
-
-          // Update notification status to sent
-          await updateDoc(notificationDoc, {
-            status: 'sent',
-            sentAt: serverTimestamp()
-          });
-
-          return;
-
-        } catch (error: any) {
-          lastError = error as Error;
-          console.error(`Error sending status change notification (attempt ${attempts}/${maxAttempts}):`, error);
-          
-          // Only retry if it's a network error, not a data validation error
-          if (error.message && (error.message.includes('addDoc') || error.message.includes('validation'))) {
-            throw error;
-          }
-          
-          if (attempts < maxAttempts) {
-            console.log(`Retrying in ${retryDelay}ms...`);
-            await new Promise(resolve => setTimeout(resolve, retryDelay));
-          }
-        }
-      }
-
-      // If we get here, all attempts failed - update notification status to failed
+      // Notification is already logged to Firestore with status 'pending'
+      // The processNotifications Firestore trigger will automatically send the email
+      console.log('Notification logged to Firestore - processNotifications trigger will send email automatically');
+      
+      // Update the notification document with recipients so the trigger can use them
       await updateDoc(notificationDoc, {
-        status: 'failed',
-        error: lastError?.message
+        recipients: recipients,
+        cc: ccList
       });
-
-      throw lastError || new Error('Failed to send notification after multiple attempts');
+      
+      // No errors - notification will be processed by Firestore trigger
+      return;
     } catch (error) {
       console.error('Error in handleStatusChange:', error);
       throw error;

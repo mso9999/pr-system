@@ -15,8 +15,9 @@
  *   └── Metrics: Performance and status metrics
  * 
  * Status Flow:
- * SUBMITTED -> PENDING_APPROVAL -> [APPROVED | REJECTED] ->
- * [IN_QUEUE | REVISION_REQUIRED] -> ORDERED -> [PARTIALLY_RECEIVED | RECEIVED] -> COMPLETED
+ * SUBMITTED -> IN_QUEUE -> PENDING_APPROVAL -> [APPROVED | REJECTED]
+ * APPROVED -> ORDERED -> COMPLETED
+ * Alternate: SUBMITTED/PENDING_APPROVAL -> REVISION_REQUIRED -> RESUBMITTED -> SUBMITTED
  * 
  * Related Modules:
  * - src/services/pr.ts: Main service using these types
@@ -89,8 +90,6 @@ export enum PRStatus {
   APPROVED = 'APPROVED',
   /** Purchase order has been placed */
   ORDERED = 'ORDERED',
-  /** Some items have been received */
-  PARTIALLY_RECEIVED = 'PARTIALLY_RECEIVED',
   /** PR has been fully processed and closed */
   COMPLETED = 'COMPLETED',
   /** Changes requested by approver */
