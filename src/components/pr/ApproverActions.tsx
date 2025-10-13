@@ -121,9 +121,9 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       if (isApprover || isAdmin) {
         return ['approve', 'reject', 'revise'];
       }
-      // Procurement (non-approver) can ONLY reject or request revision (oversight role)
+      // Procurement (non-approver) can reject, request revision, or return to queue (oversight role)
       if (isProcurement) {
-        return ['reject', 'revise'];
+        return ['reject', 'revise', 'queue'];
       }
       return [];
     }
