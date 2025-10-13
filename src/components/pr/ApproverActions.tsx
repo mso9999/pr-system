@@ -113,18 +113,23 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   const getAvailableActions = () => {
     const isProcurement = currentUser.permissionLevel === 2 || currentUser.permissionLevel === 3;
     const isApprover = currentUser.id === assignedApprover?.id || currentUser.id === pr.approver;
+    const isAdmin = currentUser.permissionLevel === 1;
     
-    // If PO is in PENDING_APPROVAL
-    if (pr.status === PRStatus.PENDING_APPROVAL && pr.type === 'PO') {
-      // Only approvers can see actions, and they can't push to queue
-      if (isApprover) {
+    // In PENDING_APPROVAL status
+    if (pr.status === PRStatus.PENDING_APPROVAL) {
+      // Approvers can approve, reject, or request revision
+      if (isApprover || isAdmin) {
         return ['approve', 'reject', 'revise'];
+      }
+      // Procurement (non-approver) can ONLY reject or request revision (oversight role)
+      if (isProcurement) {
+        return ['reject', 'revise'];
       }
       return [];
     }
 
     // For other statuses, show all actions if user has permission
-    if (isProcurement || isApprover) {
+    if (isProcurement || isApprover || isAdmin) {
       return ['approve', 'reject', 'revise', 'queue'];
     }
 
