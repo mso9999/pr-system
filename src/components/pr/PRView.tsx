@@ -812,6 +812,16 @@ export function PRView() {
     return false;
   };
 
+  // Fields that are locked once PR reaches APPROVED status (PO phase)
+  const isLockedInApprovedStatus = (fieldName: string) => {
+    // Only lock these fields in APPROVED and later statuses (not in PENDING_APPROVAL)
+    if (!pr?.status || !['APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status)) {
+      return false;
+    }
+    // Vendor, amount, and approver cannot be changed in APPROVED/ORDERED/COMPLETED
+    return ['preferredVendor', 'estimatedAmount', 'currency', 'approver'].includes(fieldName);
+  };
+
   const handleQuoteSubmit = async (quoteData: Quote) => {
     try {
       const updatedQuotes = selectedQuote
@@ -1110,7 +1120,7 @@ export function PRView() {
                 </Grid>
               )}
               <Grid item xs={6}>
-                <FormControl fullWidth disabled={!isEditMode}>
+                <FormControl fullWidth disabled={!isEditMode || isLockedInApprovedStatus('preferredVendor')}>
                   <InputLabel>Preferred Vendor</InputLabel>
                   <Select
                     value={isEditMode ? (editedPR.preferredVendor || pr?.preferredVendor || '') : (pr?.preferredVendor || '')}
@@ -1129,6 +1139,9 @@ export function PRView() {
                         </MenuItem>
                       ))}
                   </Select>
+                  {isEditMode && isLockedInApprovedStatus('preferredVendor') && (
+                    <FormHelperText>Vendor cannot be changed after approval</FormHelperText>
+                  )}
                 </FormControl>
               </Grid>
               <Grid item xs={6}>
@@ -1138,7 +1151,7 @@ export function PRView() {
                   type="number"
                   value={isEditMode ? editedPR.estimatedAmount || pr?.estimatedAmount || '' : pr?.estimatedAmount || ''}
                   onChange={(e) => handleFieldChange('estimatedAmount', parseFloat(e.target.value))}
-                  disabled={!isEditMode}
+                  disabled={!isEditMode || isLockedInApprovedStatus('estimatedAmount')}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -1146,6 +1159,7 @@ export function PRView() {
                       </InputAdornment>
                     ),
                   }}
+                  helperText={isEditMode && isLockedInApprovedStatus('estimatedAmount') ? 'Amount cannot be changed after approval' : ''}
                 />
               </Grid>
               <Grid item xs={6}>
@@ -1173,7 +1187,7 @@ export function PRView() {
                 />
               </Grid>
               <Grid item xs={6}>
-                <FormControl fullWidth disabled={!isEditMode || (!isProcurement && !isRequestor)}>
+                <FormControl fullWidth disabled={!isEditMode || (!isProcurement && !isRequestor) || isLockedInApprovedStatus('approver')}>
                   <InputLabel>Approver</InputLabel>
                   <Select
                     value={selectedApprover || ''}
@@ -1189,6 +1203,9 @@ export function PRView() {
                       </MenuItem>
                     ))}
                   </Select>
+                  {isEditMode && isLockedInApprovedStatus('approver') && (
+                    <FormHelperText>Approver cannot be changed after approval</FormHelperText>
+                  )}
                 </FormControl>
               </Grid>
             </Grid>

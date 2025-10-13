@@ -74,6 +74,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   const canTakeAction = useMemo(() => {
     const isProcurement = currentUser.permissionLevel === 2 || currentUser.permissionLevel === 3;
     const isApprover = currentUser.id === pr.approver || currentUser.id === pr.approver2;
+    const isAdmin = currentUser.permissionLevel === 1;
 
     console.log('Permission check:', {
       userId: currentUser.id,
@@ -87,20 +88,22 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       hasSecondApproved,
       isProcurement,
       isApprover,
+      isAdmin,
       status: pr.status
     });
 
-    // In PENDING_APPROVAL, only assigned approvers can act
+    // In PENDING_APPROVAL, assigned approvers can act, AND procurement can also reject/R&R
     if (pr.status === PRStatus.PENDING_APPROVAL) {
       // For dual approval, check if this approver hasn't already acted
       if (isDualApproval) {
         if (isFirstApprover && hasFirstApproved) return false; // Already approved
         if (isSecondApprover && hasSecondApproved) return false; // Already approved
       }
-      return isApprover;
+      // Assigned approvers OR Procurement OR Admin can act
+      return isApprover || isProcurement || isAdmin;
     }
 
-    return isProcurement || isApprover;
+    return isProcurement || isApprover || isAdmin;
   }, [currentUser, pr.approver, pr.approver2, pr.status, isDualApproval, isFirstApprover, isSecondApprover, hasFirstApproved, hasSecondApproved]);
 
   if (!canTakeAction) {
