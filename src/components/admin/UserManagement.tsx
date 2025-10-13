@@ -41,6 +41,7 @@ import { referenceDataService } from '../../services/referenceData';
 import { ReferenceData } from '../../types/referenceData';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
+import { PERMISSION_LEVELS, PERMISSION_NAMES } from '../../config/permissions';
 
 // Helper function to generate random password
 function generateRandomPassword(): string {
@@ -52,19 +53,6 @@ function generateRandomPassword(): string {
     password += charset[randomIndex];
   }
   return password;
-}
-
-interface Permission {
-  id: string;
-  code: string;
-  name: string;
-  description: string;
-  level: string | number;
-  actions: string[];
-  scope: string[];
-  active: boolean;
-  createdAt: string;
-  updatedAt?: string;
 }
 
 interface PasswordDialogProps {
@@ -127,7 +115,6 @@ function PasswordDialog({ open, onClose, onSubmit, userId }: PasswordDialogProps
 export function UserManagement({ isReadOnly }: UserManagementProps) {
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [users, setUsers] = useState<User[]>([]);
-  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [departments, setDepartments] = useState<ReferenceData[]>([]);
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -165,52 +152,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     try {
       await Promise.all([
         loadUsers(), 
-        loadPermissions(),
         loadOrganizations()
       ]);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const loadPermissions = async () => {
-    try {
-      console.log('Loading permissions...');
-      const permissionsRef = collection(db, 'referenceData_permissions');
-      const permissionsQuery = query(permissionsRef);
-      const querySnapshot = await getDocs(permissionsQuery);
-      const loadedPermissions: Permission[] = [];
-      
-      console.log('Found permissions:', querySnapshot.size);
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data();
-        console.log('Permission data:', { id: doc.id, ...data });
-        
-        // Ensure all required fields are present with default values
-        const permission: Permission = {
-          id: doc.id,
-          code: data.code || doc.id.toUpperCase(),
-          name: data.name || `Level ${data.level}`,
-          description: data.description || `Permission level ${data.level}`,
-          level: Number(data.level),
-          actions: Array.isArray(data.actions) ? data.actions : ['read'],
-          scope: Array.isArray(data.scope) ? data.scope : ['organization'],
-          active: data.active !== false,
-          createdAt: data.createdAt || new Date().toISOString(),
-          updatedAt: data.updatedAt || new Date().toISOString()
-        };
-        
-        loadedPermissions.push(permission);
-      });
-      
-      // Sort permissions by level for consistent display
-      loadedPermissions.sort((a, b) => a.level - b.level);
-      console.log('Loaded permissions:', loadedPermissions);
-      
-      setPermissions(loadedPermissions);
-    } catch (error) {
-      console.error('Error loading permissions:', error);
     }
   };
 
@@ -322,8 +267,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
 
   const handleAdd = () => {
     setEditingUser(null);
-    // Find the highest permission level (usually requester)
-    const defaultPermission = permissions.find(p => p.code === 'REQ') || permissions[permissions.length - 1];
+    // Default to Requester (Level 5) when creating new users
+    // Procurement users can only create Level 5, others default to Level 5
     setFormData({
       firstName: '',
       lastName: '',
@@ -331,7 +276,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       department: '',
       organization: '',
       additionalOrganizations: [],
-      permissionLevel: defaultPermission ? Number(defaultPermission.level) : undefined,
+      permissionLevel: isProcurement ? 5 : 5, // Default to Requester level
       isActive: true
     });
     setIsDialogOpen(true);
@@ -571,19 +516,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   };
 
   const getPermissionName = (level: number): string => {
-    // Convert level to number to ensure consistent comparison
-    const numericLevel = Number(level);
-    const permission = permissions.find(p => Number(p.level) === numericLevel);
-    
-    // Log for debugging
-    console.log('Getting permission name:', { 
-      inputLevel: level,
-      numericLevel,
-      foundPermission: permission,
-      allPermissions: permissions.map(p => ({ level: p.level, name: p.name }))
-    });
-    
-    return permission?.name || `Unknown Permission`;
+    // Use centralized permission names from config
+    return PERMISSION_NAMES[level as keyof typeof PERMISSION_NAMES] || `Unknown Permission`;
   };
 
   return (
@@ -778,20 +712,20 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                   label="Permission Level"
                   disabled={isProcurement} // Procurement can only create Level 5
                 >
-                  {permissions
-                    .filter(permission => {
+                  {Object.entries(PERMISSION_LEVELS)
+                    .filter(([_, level]) => {
                       // Procurement can only see/select Level 5 (Requester)
                       if (isProcurement) {
-                        return Number(permission.level) === 5;
+                        return level === 5;
                       }
                       // Admin sees all levels
                       return true;
                     })
-                    .map((permission) => (
-                      <MenuItem key={permission.id} value={permission.level}>
-                        {permission.name}
-                    </MenuItem>
-                  ))}
+                    .map(([key, level]) => (
+                      <MenuItem key={key} value={level}>
+                        {PERMISSION_NAMES[level]}
+                      </MenuItem>
+                    ))}
                 </Select>
               </FormControl>
               <FormControl fullWidth margin="dense">
