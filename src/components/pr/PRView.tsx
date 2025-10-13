@@ -799,8 +799,8 @@ export function PRView() {
     if (pr?.status && ['PENDING_APPROVAL', 'APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status)) {
       return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 4;
     }
-    // In SUBMITTED/IN_QUEUE: Only Finance/Admin (Level 4) or Admin (Level 1)
-    return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 4;
+    // In SUBMITTED/IN_QUEUE: Procurement (Level 3), Finance/Admin (Level 4), or Admin (Level 1)
+    return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 3 || currentUser?.permissionLevel === 4;
   })();
   
   const isReadOnlyField = (fieldName: string) => {

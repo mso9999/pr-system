@@ -51,7 +51,7 @@ flowchart TB
     
     %% Edit Loop
     RequestorReview -->|Edit PR| EditPR[Edit PR Fields]
-    EditPR --> EditDetails[Requestor can edit:<br/>• Organization<br/>• Department<br/>• Description<br/>• Site<br/>• Project Category ⭐<br/>• Expense Type ⭐<br/>• Estimated Amount<br/>• Currency<br/>• Urgency Level ✓<br/>• Required Date ✓<br/>• Preferred Vendor<br/>• Line Items<br/>• Attachments<br/>• Vehicle if applicable]
+    EditPR --> EditDetails[Requestor can edit:<br/>• Organization<br/>• Department<br/>• Description<br/>• Site<br/>• Project Category<br/>• Expense Type<br/>• Estimated Amount<br/>• Currency<br/>• Urgency Level ✓<br/>• Required Date ✓<br/>• Preferred Vendor<br/>• Line Items<br/>• Attachments<br/>• Vehicle if applicable]
     EditDetails --> CannotEdit[Cannot edit:<br/>• Created By<br/>• Created Date<br/>• History/Audit Trail<br/>• PR Number]
     CannotEdit --> SaveChanges[Save Changes]
     SaveChanges --> RequestorReview
@@ -103,8 +103,8 @@ flowchart TB
                         <li><strong>Department</strong></li>
                         <li><strong>Description</strong></li>
                         <li><strong>Site</strong></li>
-                        <li><strong>Project Category</strong> ⭐</li>
-                        <li><strong>Expense Type</strong> ⭐</li>
+                        <li><strong>Project Category</strong></li>
+                        <li><strong>Expense Type</strong></li>
                         <li><strong>Estimated Amount</strong></li>
                         <li><strong>Currency</strong></li>
                         <li><strong>Urgency Level</strong> ✓</li>
@@ -114,8 +114,8 @@ flowchart TB
                         <li><strong>Attachments</strong></li>
                         <li><strong>Vehicle</strong> (if applicable)</li>
                     </ul>
-                    <p style="font-size: 12px; color: #666;">⭐ = Requestor ONLY in R&R status (Finance/Admin in other statuses)<br/>
-                    ✓ = Requestor ONLY (Procurement cannot edit these)</p>
+                    <p style="font-size: 12px; color: #666;">
+                    ✓ = Requestor-only fields (Urgency & Required Date - Procurement/Finance/Admin cannot edit these)</p>
                 </div>
                 <div class="perm-col cannot-edit">
                     <h4>❌ CANNOT EDIT (Canonical Fields)</h4>
@@ -142,15 +142,15 @@ flowchart TB
                     <th style="padding: 8px; text-align: center; border: 1px solid #ddd;">Finance/Admin<br/>(PENDING_APPROVAL+)</th>
                 </tr>
                 <tr style="background-color: #fff9c4;">
-                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Project Category</strong> ⭐</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Project Category</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
                 </tr>
                 <tr style="background-color: #fff9c4;">
-                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Expense Type</strong> ⭐</td>
-                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #ffcdd2;"><strong>✗ No</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd;"><strong>Expense Type</strong></td>
+                    <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
                     <td style="padding: 8px; border: 1px solid #ddd; text-align: center; background-color: #c8e6c9;"><strong>✓ Yes</strong></td>
@@ -193,9 +193,12 @@ flowchart TB
             </table>
             <p style="margin-top: 10px; font-size: 13px;">
                 <strong>Legend:</strong><br/>
-                ⭐ = Finance/Admin exclusive field (except in REVISION_REQUIRED where requestor has access)<br/>
-                ✓ = Requestor-only editable fields (Urgency & Required Date)<br/>
-                <strong>Note:</strong> Admin (Level 1) can always edit all fields as superuser override.
+                ✓ = Requestor-only editable fields in REVISION_REQUIRED (Urgency & Required Date)<br/>
+                <strong>Key Insights:</strong><br/>
+                • Procurement CAN edit Project Category & Expense Type in SUBMITTED/IN_QUEUE (their processing phase)<br/>
+                • Finance/Admin takes over these fields from PENDING_APPROVAL onward (financial oversight phase)<br/>
+                • Requestor gets full access in REVISION_REQUIRED (needs to fix issues)<br/>
+                • Admin (Level 1) can always edit all fields as superuser override
             </p>
         </div>
 
