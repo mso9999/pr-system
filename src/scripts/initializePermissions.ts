@@ -72,16 +72,6 @@ const permissions = [
     active: true,
     createdAt: new Date().toISOString(),
   },
-  {
-    code: 'APPROVER_2',
-    name: PERMISSION_NAMES[PERMISSION_LEVELS.APPROVER_2],
-    description: 'Can approve requests within assigned organizations',
-    level: PERMISSION_LEVELS.APPROVER_2,
-    actions: ['read', 'write', 'approve'],
-    scope: ['organization'],
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
 ];
 
 async function initializePermissions() {

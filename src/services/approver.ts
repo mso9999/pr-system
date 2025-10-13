@@ -50,10 +50,11 @@ class ApproverService {
     try {
       const usersRef = collection(this.db, 'users');
       
-      // Query users with permission level 1, 2, or 6 and isActive=true
+      // Query users with permission level 1 or 2 and isActive=true
+      // Level 1: Admin, Level 2: Senior Approver
       const q = query(
         usersRef,
-        where('permissionLevel', 'in', [1, 2, 6]),
+        where('permissionLevel', 'in', [1, 2]),
         where('isActive', '==', true)
       );
       
@@ -77,15 +78,12 @@ class ApproverService {
           // Level 1 approvers (global) are always included
           if (approver.permissionLevel === 1) return true;
           
-          // Level 2 approvers must match the organization
+          // Level 2 (Senior Approvers) must match the organization
           if (approver.permissionLevel === 2) {
             const normalizedOrgId = this.normalizeOrganizationId(organizationId);
             const approverOrgId = this.normalizeOrganizationId(approver.organization || '');
             return normalizedOrgId === approverOrgId;
           }
-          
-          // Level 6 approvers are procurement team, also included
-          if (approver.permissionLevel === 6) return true;
           
           return false;
         });

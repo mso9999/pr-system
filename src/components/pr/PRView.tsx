@@ -1748,8 +1748,8 @@ export function PRView() {
     if (pr?.status === 'REVISION_REQUIRED' && currentUser?.id === pr?.requestorId) return true;
     // Procurement (Level 3) CANNOT edit Required Date
     if (currentUser?.permissionLevel === 3) return false;
-    // Finance/Admin and Approvers can edit (Levels 2, 4, 6)
-    return currentUser?.permissionLevel && [2, 4, 6].includes(currentUser.permissionLevel);
+    // Finance/Admin and Senior Approvers can edit (Levels 2, 4)
+    return currentUser?.permissionLevel && [2, 4].includes(currentUser.permissionLevel);
   })();
 
   return (

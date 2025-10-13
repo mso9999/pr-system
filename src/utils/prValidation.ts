@@ -13,11 +13,8 @@ interface ValidationResult {
   errors: string[];
 }
 
-enum PERMISSION_LEVELS {
-  APPROVER,
-  APPROVER_2,
-  SYSTEM_ADMIN
-}
+// Use centralized permission levels from config
+import { PERMISSION_LEVELS } from '../config/permissions';
 
 async function isVendorApproved(vendorId: string): Promise<boolean> {
   const db = getFirestore();
@@ -245,10 +242,7 @@ export async function validatePRForApproval(
       return false;
     }
     
-    // Level 6 cannot approve above Rule 1 threshold
-    if (approver.permissionLevel === 6 && rule1 && lowestQuoteAmount >= rule1.threshold) {
-      return true;
-    }
+    // Senior Approvers (Level 2) can approve PRs of any value (per specifications)
     
     return false;
   });
