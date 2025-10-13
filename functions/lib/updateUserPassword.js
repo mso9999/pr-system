@@ -54,17 +54,25 @@ function isValidEmail(email) {
  * Cloud Function to update a user's password in Firebase Auth
  */
 exports.updateUserPassword = functions.https.onCall(async (data, context) => {
-    var _a, _b, _c;
-    // Check if the caller is authenticated and has admin privileges
-    if (!((_a = context.auth) === null || _a === void 0 ? void 0 : _a.token.admin)) {
-        throw new functions.https.HttpsError('permission-denied', 'Only admins can update user passwords');
+    var _a, _b;
+    // Check if the caller is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to update passwords');
+    }
+    // Get the calling user's data from Firestore to check permission level
+    const db = admin.firestore();
+    const callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
+    const callingUserData = callingUserDoc.data();
+    // Only Level 1 (Superadmin) can reset passwords
+    if (!callingUserData || callingUserData.permissionLevel !== 1) {
+        throw new functions.https.HttpsError('permission-denied', 'Only Superadmin (Level 1) can update user passwords');
     }
     try {
         // Log incoming data for debugging
         console.log('Received update password request:', {
             userId: data.userId,
             email: data.email,
-            passwordLength: (_b = data.newPassword) === null || _b === void 0 ? void 0 : _b.length
+            passwordLength: (_a = data.newPassword) === null || _a === void 0 ? void 0 : _a.length
         });
         // Validate input
         if (!data.userId || !data.email || !data.newPassword) {
@@ -91,7 +99,7 @@ exports.updateUserPassword = functions.https.onCall(async (data, context) => {
             const userRecord = await admin.auth().getUser(data.userId);
             console.log('Found user:', userRecord.uid);
             // Verify email matches
-            if (((_c = userRecord.email) === null || _c === void 0 ? void 0 : _c.toLowerCase()) !== cleanEmail) {
+            if (((_b = userRecord.email) === null || _b === void 0 ? void 0 : _b.toLowerCase()) !== cleanEmail) {
                 throw new functions.https.HttpsError('invalid-argument', `Email does not match user record. Expected: ${userRecord.email}, Got: ${cleanEmail}`);
             }
             // Update the user's password

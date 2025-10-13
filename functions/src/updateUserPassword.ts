@@ -27,11 +27,24 @@ function isValidEmail(email: string): boolean {
  * Cloud Function to update a user's password in Firebase Auth
  */
 export const updateUserPassword = functions.https.onCall(async (data: UpdatePasswordData, context) => {
-  // Check if the caller is authenticated and has admin privileges
-  if (!context.auth?.token.admin) {
+  // Check if the caller is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to update passwords'
+    );
+  }
+
+  // Get the calling user's data from Firestore to check permission level
+  const db = admin.firestore();
+  const callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
+  const callingUserData = callingUserDoc.data();
+  
+  // Only Level 1 (Superadmin) can reset passwords
+  if (!callingUserData || callingUserData.permissionLevel !== 1) {
     throw new functions.https.HttpsError(
       'permission-denied',
-      'Only admins can update user passwords'
+      'Only Superadmin (Level 1) can update user passwords'
     );
   }
 
