@@ -34,8 +34,8 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateUserPassword = void 0;
-const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const https_1 = require("firebase-functions/v2/https");
 /**
  * Validates an email address
  * @param email The email to validate
@@ -52,20 +52,33 @@ function isValidEmail(email) {
 }
 /**
  * Cloud Function to update a user's password in Firebase Auth
+ * Using v2 onCall with automatic CORS support
  */
-exports.updateUserPassword = functions.https.onCall(async (data, context) => {
+exports.updateUserPassword = (0, https_1.onCall)({
+    cors: true, // Enable CORS for all origins (development + production)
+}, async (request) => {
     var _a, _b;
-    // Check if the caller is authenticated
-    if (!context.auth) {
-        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to update passwords');
+    const data = request.data;
+    const context = request.auth;
+    try {
+        // Check if the caller is authenticated
+        if (!context) {
+            throw new https_1.HttpsError('unauthenticated', 'User must be authenticated to update passwords');
+        }
+        // Get the calling user's data from Firestore to check permission level
+        const db = admin.firestore();
+        const callingUserDoc = await db.collection('users').doc(context.uid).get();
+        const callingUserData = callingUserDoc.data();
+        // Only Level 1 (Superadmin) can reset passwords
+        if (!callingUserData || callingUserData.permissionLevel !== 1) {
+            throw new https_1.HttpsError('permission-denied', 'Only Superadmin (Level 1) can update user passwords');
+        }
     }
-    // Get the calling user's data from Firestore to check permission level
-    const db = admin.firestore();
-    const callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
-    const callingUserData = callingUserDoc.data();
-    // Only Level 1 (Superadmin) can reset passwords
-    if (!callingUserData || callingUserData.permissionLevel !== 1) {
-        throw new functions.https.HttpsError('permission-denied', 'Only Superadmin (Level 1) can update user passwords');
+    catch (error) {
+        if (error instanceof https_1.HttpsError) {
+            throw error;
+        }
+        throw new https_1.HttpsError('internal', 'Error checking permissions', error instanceof Error ? error.message : undefined);
     }
     try {
         // Log incoming data for debugging
@@ -83,16 +96,16 @@ exports.updateUserPassword = functions.https.onCall(async (data, context) => {
                 missingFields.push('email');
             if (!data.newPassword)
                 missingFields.push('newPassword');
-            throw new functions.https.HttpsError('invalid-argument', `Missing required fields: ${missingFields.join(', ')}`);
+            throw new https_1.HttpsError('invalid-argument', `Missing required fields: ${missingFields.join(', ')}`);
         }
         // Clean and validate email
         const cleanEmail = data.email.trim().toLowerCase();
         if (!isValidEmail(cleanEmail)) {
-            throw new functions.https.HttpsError('invalid-argument', `Invalid email format: ${cleanEmail}`);
+            throw new https_1.HttpsError('invalid-argument', `Invalid email format: ${cleanEmail}`);
         }
         // Validate password length
         if (data.newPassword.length < 6) {
-            throw new functions.https.HttpsError('invalid-argument', 'Password must be at least 6 characters long');
+            throw new https_1.HttpsError('invalid-argument', 'Password must be at least 6 characters long');
         }
         try {
             // First verify the user exists
@@ -100,7 +113,7 @@ exports.updateUserPassword = functions.https.onCall(async (data, context) => {
             console.log('Found user:', userRecord.uid);
             // Verify email matches
             if (((_b = userRecord.email) === null || _b === void 0 ? void 0 : _b.toLowerCase()) !== cleanEmail) {
-                throw new functions.https.HttpsError('invalid-argument', `Email does not match user record. Expected: ${userRecord.email}, Got: ${cleanEmail}`);
+                throw new https_1.HttpsError('invalid-argument', `Email does not match user record. Expected: ${userRecord.email}, Got: ${cleanEmail}`);
             }
             // Update the user's password
             await admin.auth().updateUser(data.userId, {
@@ -114,27 +127,27 @@ exports.updateUserPassword = functions.https.onCall(async (data, context) => {
         }
         catch (error) {
             console.error('Error in Firebase Auth operations:', error);
-            if (error instanceof functions.https.HttpsError) {
+            if (error instanceof https_1.HttpsError) {
                 throw error;
             }
             if (error instanceof Error && 'code' in error) {
                 const authError = error;
                 if (authError.code === 'auth/user-not-found') {
-                    throw new functions.https.HttpsError('not-found', 'User not found');
+                    throw new https_1.HttpsError('not-found', 'User not found');
                 }
                 if (authError.code === 'auth/invalid-password') {
-                    throw new functions.https.HttpsError('invalid-argument', 'Invalid password format');
+                    throw new https_1.HttpsError('invalid-argument', 'Invalid password format');
                 }
             }
-            throw new functions.https.HttpsError('internal', 'Error updating user password', error instanceof Error ? error.message : undefined);
+            throw new https_1.HttpsError('internal', 'Error updating user password', error instanceof Error ? error.message : undefined);
         }
     }
     catch (error) {
         console.error('Error in updateUserPassword:', error);
-        if (error instanceof functions.https.HttpsError) {
+        if (error instanceof https_1.HttpsError) {
             throw error;
         }
-        throw new functions.https.HttpsError('internal', 'Error updating user password', error instanceof Error ? error.message : undefined);
+        throw new https_1.HttpsError('internal', 'Error updating user password', error instanceof Error ? error.message : undefined);
     }
 });
 //# sourceMappingURL=updateUserPassword.js.map
