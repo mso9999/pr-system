@@ -1052,8 +1052,8 @@ export function PRView() {
       
       enqueueSnackbar('PR saved successfully', { variant: 'success' });
       
-      // Navigate back to view mode after successful save
-      navigate(`/pr/${pr.id}`);
+      // Navigate back to dashboard after successful save
+      navigate('/dashboard');
     } catch (error) {
       console.error('Error saving PR:', error);
       enqueueSnackbar('Failed to save PR', { variant: 'error' });
@@ -2091,11 +2091,26 @@ export function PRView() {
             Back
           </Button>
           {activeStep === steps.length - 1 ? (
-            <Button onClick={handleSave} disabled={loading}>
-              {loading ? <CircularProgress size={24} /> : 'Save'}
-            </Button>
+            <Tooltip 
+              title={approverAmountError || ''} 
+              arrow
+              placement="top"
+            >
+              <span>
+                <Button 
+                  onClick={handleSave} 
+                  disabled={loading || !!approverAmountError}
+                  variant="contained"
+                  color="primary"
+                >
+                  {loading ? <CircularProgress size={24} /> : 'Save'}
+                </Button>
+              </span>
+            </Tooltip>
           ) : (
-            <Button onClick={handleNext}>Next</Button>
+            <Button onClick={handleNext} variant="contained" color="primary">
+              Next
+            </Button>
           )}
         </Box>
       )}
