@@ -937,6 +937,16 @@ export function PRView() {
       approversCount: approvers.length
     });
 
+    // Debug: Log all rules to see their structure
+    console.log('All rules in array:', rules.map(r => ({ 
+      id: r.id, 
+      name: r.name, 
+      number: r.number, 
+      threshold: r.threshold,
+      currency: r.currency,
+      description: r.description
+    })));
+    
     const rule1 = rules.find((rule: any) => rule.number === 1 || rule.name === 'Rule 1');
     const rule2 = rules.find((rule: any) => rule.number === 2 || rule.name === 'Rule 2');
 
@@ -944,6 +954,15 @@ export function PRView() {
       rule1: rule1 ? { name: rule1.name, threshold: rule1.threshold, currency: rule1.currency } : null,
       rule2: rule2 ? { name: rule2.name, threshold: rule2.threshold, currency: rule2.currency } : null
     });
+
+    // CRITICAL: If Rule 1 is not found, we CANNOT validate - must fail
+    if (!rule1) {
+      console.error('VALIDATION ERROR: Rule 1 not found in rules list. Cannot validate approver-amount combination.', {
+        rulesCount: rules.length,
+        rulesInList: rules.map(r => r.name || r.id)
+      });
+      return 'Cannot validate approver permissions. Approval rules not properly configured. Please contact system administrator.';
+    }
 
     const isAboveRule1Threshold = rule1 && amount > rule1.threshold;
     const isAboveRule2Threshold = rule2 && amount > rule2.threshold;

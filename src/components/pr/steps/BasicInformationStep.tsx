@@ -156,6 +156,16 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     // Find rules based on actual rule structure
     // Rule 1: Finance admin approvers can approve low value PRs (threshold for Finance Approvers)
     // Rule 3: High value threshold (requires dual approval above this amount)
+    // Debug: Log all rules to see their structure
+    console.log('All rules in array:', rules.map(r => ({ 
+      id: r.id, 
+      name: r.name, 
+      number: r.number, 
+      threshold: r.threshold,
+      currency: r.currency,
+      description: r.description
+    })));
+    
     const rule1 = rules.find((rule: any) => 
       rule.number === 1 || rule.number === '1' || 
       rule.description?.toLowerCase().includes('finance admin approvers can approve low value')
@@ -168,10 +178,13 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     
     console.log('Rules found:', { rule1, rule3, allRules: rules });
     
-    // If no rules are found, skip validation
-    if (!rule1 && !rule3) {
-      console.log('No rules found - skipping validation');
-      return null;
+    // CRITICAL: If Rule 1 is not found, we CANNOT validate - must fail
+    if (!rule1) {
+      console.error('VALIDATION ERROR: Rule 1 not found in rules list. Cannot validate approver-amount combination.', {
+        rulesCount: rules.length,
+        rulesInList: rules.map(r => r.name || r.id)
+      });
+      return 'Cannot validate approver permissions. Approval rules not properly configured. Please contact system administrator.';
     }
     
     const effectiveRule1 = rule1;
