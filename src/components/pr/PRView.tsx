@@ -942,13 +942,34 @@ export function PRView() {
       id: r.id, 
       name: r.name, 
       number: r.number, 
+      ruleNumber: r.ruleNumber,
       threshold: r.threshold,
       currency: r.currency,
-      description: r.description
+      description: r.description,
+      allFields: Object.keys(r)
     })));
     
-    const rule1 = rules.find((rule: any) => rule.number === 1 || rule.name === 'Rule 1');
-    const rule2 = rules.find((rule: any) => rule.number === 2 || rule.name === 'Rule 2');
+    // Try multiple ways to find Rule 1 (flexible lookup)
+    const rule1 = rules.find((rule: any) => 
+      rule.number === 1 || 
+      rule.number === '1' ||
+      rule.ruleNumber === 1 ||
+      rule.ruleNumber === '1' ||
+      rule.name === 'Rule 1' ||
+      rule.id === 'rule_1' ||
+      rule.description?.toLowerCase().includes('first approval threshold')
+    );
+    
+    // Try multiple ways to find Rule 2 (flexible lookup)
+    const rule2 = rules.find((rule: any) => 
+      rule.number === 2 || 
+      rule.number === '2' ||
+      rule.ruleNumber === 2 ||
+      rule.ruleNumber === '2' ||
+      rule.name === 'Rule 2' ||
+      rule.id === 'rule_2' ||
+      rule.description?.toLowerCase().includes('second approval threshold')
+    );
 
     console.log('Rules found:', { 
       rule1: rule1 ? { name: rule1.name, threshold: rule1.threshold, currency: rule1.currency } : null,
