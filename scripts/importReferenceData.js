@@ -278,7 +278,7 @@ async function importAllReferenceData() {
     await importFromCsv('expenseTypes', path.join(__dirname, '..', 'Expense Type.csv'));
     await importFromCsv('projectCategories', path.join(__dirname, '..', 'Project Categories.csv'));
     await importFromCsv('vehicles', path.join(__dirname, '..', 'Vehicle.csv'));
-    await importFromCsv('vendors', path.join(__dirname, '..', 'Vendor.csv'));
+    await importFromCsv('vendors', path.join(__dirname, '..', 'Vendors.csv'));
 
     console.log('\nAll reference data imported successfully!');
   } catch (error) {

@@ -248,7 +248,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   };
 
   // Show different actions based on user role and PR status
-  const isProcurement = currentUser.permissionLevel === 2 || currentUser.permissionLevel === 3;
+  const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
   const isRequestor = currentUser.email.toLowerCase() === requestorEmail.toLowerCase();
 
   if (!isProcurement && !isRequestor) {

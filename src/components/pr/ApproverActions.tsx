@@ -17,7 +17,9 @@ import { useSnackbar } from 'notistack';
 import { PRStatus, PRRequest } from '@/types/pr';
 import { prService } from '@/services/pr';
 import { notificationService } from '@/services/notification';
+import { referenceDataService } from '@/services/referenceData';
 import { User } from '@/types/user';
+import { Rule } from '@/types/referenceData';
 import { validatePRForApproval } from '@/utils/prValidation';
 
 interface ApproverActionsProps {
@@ -72,9 +74,10 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
   // Check if user has permission to take actions
   const canTakeAction = useMemo(() => {
-    const isProcurement = currentUser.permissionLevel === 2 || currentUser.permissionLevel === 3;
+    const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
     const isApprover = currentUser.id === pr.approver || currentUser.id === pr.approver2;
     const isAdmin = currentUser.permissionLevel === 1;
+    const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
 
     console.log('Permission check:', {
       userId: currentUser.id,
@@ -92,18 +95,19 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       status: pr.status
     });
 
-    // In PENDING_APPROVAL, assigned approvers can act, AND procurement can also reject/R&R
+    // In PENDING_APPROVAL, assigned approvers can approve, procurement can reject/R&R, finance approvers can approve
     if (pr.status === PRStatus.PENDING_APPROVAL) {
       // For dual approval, check if this approver hasn't already acted
       if (isDualApproval) {
         if (isFirstApprover && hasFirstApproved) return false; // Already approved
         if (isSecondApprover && hasSecondApproved) return false; // Already approved
       }
-      // Assigned approvers OR Procurement OR Admin can act
-      return isApprover || isProcurement || isAdmin;
+      // Assigned approvers, Finance Approvers, or Admin can approve
+      // Procurement can reject/request revision but NOT approve
+      return isApprover || isFinanceApprover || isAdmin || isProcurement;
     }
 
-    return isProcurement || isApprover || isAdmin;
+    return isProcurement || isApprover || isFinanceApprover || isAdmin;
   }, [currentUser, pr.approver, pr.approver2, pr.status, isDualApproval, isFirstApprover, isSecondApprover, hasFirstApproved, hasSecondApproved]);
 
   if (!canTakeAction) {
@@ -111,17 +115,18 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   }
 
   const getAvailableActions = () => {
-    const isProcurement = currentUser.permissionLevel === 2 || currentUser.permissionLevel === 3;
-    const isApprover = currentUser.id === assignedApprover?.id || currentUser.id === pr.approver;
+    const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
+    const isApprover = currentUser.id === assignedApprover?.id || currentUser.id === pr.approver || currentUser.id === pr.approver2;
     const isAdmin = currentUser.permissionLevel === 1;
+    const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
     
     // In PENDING_APPROVAL status
     if (pr.status === PRStatus.PENDING_APPROVAL) {
-      // Approvers can approve, reject, or request revision
-      if (isApprover || isAdmin) {
+      // Assigned approvers, Finance Approvers, and Admin can approve, reject, or request revision
+      if (isApprover || isFinanceApprover || isAdmin) {
         return ['approve', 'reject', 'revise'];
       }
-      // Procurement (non-approver) can reject, request revision, or return to queue (oversight role)
+      // Procurement can reject, request revision, or return to queue (oversight role) but NOT approve
       if (isProcurement) {
         return ['reject', 'revise', 'queue'];
       }
@@ -129,7 +134,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     }
 
     // For other statuses, show all actions if user has permission
-    if (isProcurement || isApprover || isAdmin) {
+    if (isProcurement || isApprover || isFinanceApprover || isAdmin) {
       return ['approve', 'reject', 'revise', 'queue'];
     }
 
@@ -210,10 +215,41 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       let newStatus: PRStatus;
       switch (selectedAction) {
         case 'approve':
-          // Get the rules for this organization
-          const rules = await prService.getRuleForOrganization(prData.organization, prData.estimatedAmount);
+          // Get the rules for this organization from referenceData
+          const rulesData = await referenceDataService.getItemsByType('rules', prData.organization);
+          const rules = rulesData as unknown as Rule[];
+          
+          console.log('Retrieved rules for approval:', {
+            organization: prData.organization,
+            estimatedAmount: prData.estimatedAmount,
+            rulesCount: rules?.length || 0,
+            rules
+          });
+
           if (!rules || rules.length === 0) {
             setError('No approval rules found for this organization');
+            return;
+          }
+
+          // Validate the PR for approval
+          console.log('Starting validation for approval:', {
+            pr: prData,
+            rules,
+            currentUser,
+            targetStatus: PRStatus.APPROVED
+          });
+
+          const validation = await validatePRForApproval(
+            prData,
+            rules,
+            currentUser,
+            PRStatus.APPROVED
+          );
+
+          console.log('Validation result for approval:', validation);
+
+          if (!validation.isValid) {
+            setError(validation.errors.join('\n\n'));
             return;
           }
 

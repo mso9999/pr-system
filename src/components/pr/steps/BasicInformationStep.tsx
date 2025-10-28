@@ -230,6 +230,18 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     return null;
   };
 
+  // Auto-validate whenever approver or amount changes
+  React.useEffect(() => {
+    // Only validate when rules are loaded and we have approvers or amount
+    if (rules.length > 0 && (formState.approvers.length > 0 || formState.estimatedAmount)) {
+      const error = validateApproverAmount();
+      setApproverAmountError(error);
+      
+      if (error) {
+        console.log('Approver-amount validation error detected:', error);
+      }
+    }
+  }, [formState.approvers, formState.estimatedAmount, rules.length]);
 
   // Show vehicle field only for vehicle expense type
   const showVehicleField = expenseTypes.find(type => type.id === formState.expenseType)?.code === '4';

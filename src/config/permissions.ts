@@ -6,6 +6,7 @@ export const PERMISSION_LEVELS = {
   PROC: 3,
   FIN_AD: 4,
   REQ: 5,
+  FIN_APPROVER: 6,
 } as const;
 
 export const REFERENCE_DATA_TYPES = {
@@ -28,6 +29,7 @@ export const PERMISSION_NAMES = {
   [PERMISSION_LEVELS.PROC]: 'Procurement Officer',
   [PERMISSION_LEVELS.FIN_AD]: 'Finance Admin',
   [PERMISSION_LEVELS.REQ]: 'Requester',
+  [PERMISSION_LEVELS.FIN_APPROVER]: 'Finance Approver',
 } as const;
 
 export interface ReferenceDataAccess {
@@ -50,7 +52,7 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
   },
   [REFERENCE_DATA_TYPES.expenseTypes]: {
     canEdit: false,
-    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD]],
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER]],
   },
   [REFERENCE_DATA_TYPES.sites]: {
     canEdit: false,
@@ -62,7 +64,7 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
   },
   [REFERENCE_DATA_TYPES.projectCategories]: {
     canEdit: false,
-    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD]],
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER]],
   },
   [REFERENCE_DATA_TYPES.uom]: {
     canEdit: false,
@@ -78,7 +80,7 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
   },
   [REFERENCE_DATA_TYPES.rules]: {
     canEdit: false,
-    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD]],
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER]],
   },
 } as const;
 

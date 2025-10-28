@@ -71,7 +71,7 @@
 - **Advanced Filter Panel:**
   - **Organization:** Multi-select dropdown (users with multiple orgs can filter across them)
   - **Requestor:** Dropdown or type-ahead search of all users
-  - **Approver:** Dropdown or type-ahead search of approvers (Level 2, 4)
+  - **Approver:** Dropdown or type-ahead search of approvers (Level 1, 2, 4, 6)
   - **Vendor:** Dropdown or type-ahead search of all vendors (approved and non-approved)
   - **Department:** Dropdown or type-ahead search of all departments
   - **Site:** Dropdown or type-ahead search of all sites
@@ -627,15 +627,28 @@ Users assigned to the Asset Management department have special permissions:
   - Vendor information
 
 ### Approver Levels
-- Level 2 Approvers:
+- Level 1 Approvers (Administrators):
+  - Can approve PRs of any value
+  - Global approval authority across all organizations
+  
+- Level 2 Approvers (Senior Approvers):
   - Can approve PRs of any value
   - Required for PRs above Rule 1 threshold
   - Required for all PRs above Rule 2 threshold
+  - Organization-specific approval authority
   
-- Level 4 Approvers:
+- Level 4 Approvers (Finance Admin):
   - Can only approve PRs below Rule 1 threshold
   - Cannot approve PRs above Rule 1 threshold
   - Must follow standard quote requirements
+  - Organization-specific approval authority
+  
+- Level 6 Approvers (Finance Approver):
+  - Can only approve PRs within rule thresholds (0 to Rule 1 threshold)
+  - Cannot approve PRs above Rule 1 threshold (requires Level 1 or 2 approvers)
+  - Appears as potential approver in PR request forms for their organization
+  - Organization-specific approval authority
+  - **Key Feature:** Has approval limits based on rule thresholds, unlike Finance Admin
 
 ## User Management
 
@@ -696,10 +709,15 @@ Users assigned to the Asset Management department have special permissions:
   - Basic access level for regular users
   - No administrative access
 
-- ~~Level 6: Junior Approver~~ [DEPRECATED]
-  - ~~Can approve PRs below Rule 1 threshold~~
-  - ~~Organization assignment determines approval scope~~
-  - ~~Cannot approve high-value PRs~~
+- Level 6: Finance Approver (FIN_APPROVER)
+  - Can approve PRs within rule thresholds (0 to Rule 1 threshold)
+  - Cannot approve PRs above Rule 1 threshold (requires Level 1 or 2 approvers)
+  - Appears as potential approver in PR request forms for their organization
+  - Has same capabilities as Finance Admin (Level 4) for financial processing
+  - Can manage Project Categories and Expense Types in Reference Data Management
+  - Can edit Project Category and Expense Type fields in PRs/POs
+  - Organization assignment determines approval scope
+  - **Key Difference from Finance Admin:** Has approval limits based on rule thresholds
 
 ### Organization Assignment
 - Users can be assigned to one primary organization

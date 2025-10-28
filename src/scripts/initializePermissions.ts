@@ -72,6 +72,16 @@ const permissions = [
     active: true,
     createdAt: new Date().toISOString(),
   },
+  {
+    code: 'FIN_APPROVER',
+    name: PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER],
+    description: 'Can approve requests within rule thresholds and manage financial aspects',
+    level: PERMISSION_LEVELS.FIN_APPROVER,
+    actions: ['read', 'write', 'approve', 'process'],
+    scope: ['organization'],
+    active: true,
+    createdAt: new Date().toISOString(),
+  },
 ];
 
 async function initializePermissions() {

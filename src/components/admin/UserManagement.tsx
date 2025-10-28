@@ -116,6 +116,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<ReferenceData[]>([]);
+  const [allDepartments, setAllDepartments] = useState<ReferenceData[]>([]);
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDepartmentsLoading, setIsDepartmentsLoading] = useState(false);
@@ -152,7 +153,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     try {
       await Promise.all([
         loadUsers(), 
-        loadOrganizations()
+        loadOrganizations(),
+        loadAllDepartments()
       ]);
     } finally {
       setIsLoading(false);
@@ -253,6 +255,32 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     } catch (error) {
       console.error('Error loading organizations:', error);
       showSnackbar('Error loading organizations', 'error');
+    }
+  };
+
+  const loadAllDepartments = async () => {
+    try {
+      console.log('Loading all departments...');
+      const allDepts: ReferenceData[] = [];
+      
+      // First get organizations, then load departments for each
+      const loadedOrganizations = await referenceDataService.getOrganizations();
+      
+      // Load departments for each organization
+      for (const org of loadedOrganizations) {
+        try {
+          const orgDepartments = await referenceDataService.getDepartments(org.id);
+          allDepts.push(...orgDepartments);
+        } catch (error) {
+          console.error(`Error loading departments for organization ${org.id}:`, error);
+        }
+      }
+      
+      console.log('Loaded all departments:', allDepts);
+      setAllDepartments(allDepts);
+    } catch (error) {
+      console.error('Error loading all departments:', error);
+      showSnackbar('Error loading departments', 'error');
     }
   };
 
@@ -511,7 +539,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   };
 
   const getDepartmentName = (id: string): string => {
-    const dept = departments.find(d => d.id === id);
+    const dept = allDepartments.find(d => d.id === id);
     return dept?.name || id;
   };
 

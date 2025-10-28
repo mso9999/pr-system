@@ -65,7 +65,7 @@ import { Card as CustomCard, CardContent as CustomCardContent, CardDescription, 
 import { PlusIcon, EyeIcon, FileIcon } from 'lucide-react';
 import { QuoteCard } from './QuoteCard';
 import { StorageService } from "@/services/storage";
-import { CircularProgress, Chip } from "@mui/material";
+import { CircularProgress, Chip, Alert } from "@mui/material";
 import { db } from "@/config/firebase";
 import { collection, doc, getDoc, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { QuotesStep } from './steps/QuotesStep';
@@ -908,13 +908,16 @@ export function PRView() {
   };
 
   const validateApproverAmount = (): string | null => {
+    // Don't validate if rules haven't loaded yet - show warning instead
     if (!rules || rules.length === 0) {
+      console.warn('Rules not loaded yet - validation skipped');
       return null;
     }
 
     const currentAmount = editedPR.estimatedAmount || pr?.estimatedAmount;
     const currentApprover = selectedApprover || pr?.approver;
 
+    // If we have both amount and approver, we MUST validate
     if (!currentAmount || !currentApprover) {
       return null;
     }
@@ -926,6 +929,12 @@ export function PRView() {
     if (isNaN(amount) || amount <= 0) {
       return null;
     }
+    
+    console.log('Validating approver-amount combination:', { 
+      amount, 
+      approverId: currentApprover, 
+      rulesCount: rules.length 
+    });
 
     const rule1 = rules.find((rule: any) => rule.number === 1 || rule.name === 'Rule 1');
     const rule2 = rules.find((rule: any) => rule.number === 2 || rule.name === 'Rule 2');
@@ -965,15 +974,30 @@ export function PRView() {
   };
 
   const handleApproverChange = (approverId: string) => {
+    console.log('Approver changed to:', approverId);
     setSelectedApprover(approverId || undefined);
     handleFieldChange('approver', approverId);
     
     // Trigger validation after approver change
     setTimeout(() => {
       const error = validateApproverAmount();
+      console.log('Validation result after approver change:', error);
       setApproverAmountError(error);
     }, 100);
   };
+  
+  // Auto-validate whenever approver or amount changes
+  useEffect(() => {
+    // Only validate when rules are loaded and we're in edit mode
+    if (rules.length > 0 && (selectedApprover || editedPR.estimatedAmount)) {
+      const error = validateApproverAmount();
+      setApproverAmountError(error);
+      
+      if (error) {
+        console.log('Approver-amount validation error detected:', error);
+      }
+    }
+  }, [selectedApprover, editedPR.estimatedAmount, rules.length]);
 
   const handleCancel = (): void => {
     handleExitEditMode();
@@ -1053,6 +1077,15 @@ export function PRView() {
   const renderBasicInformation = () => {
     return (
       <Grid container spacing={2}>
+        {/* Validation Error Alert */}
+        {approverAmountError && (
+          <Grid item xs={12}>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <strong>Invalid Approver-Amount Combination:</strong> {approverAmountError}
+            </Alert>
+          </Grid>
+        )}
+        
         {/* Editable Information - Left Side */}
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>

@@ -42,11 +42,26 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var _a, _b, _c, _d, _e;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const nodemailer = __importStar(require("nodemailer"));
 const db = admin.firestore();
+// Create nodemailer transporter for SMTP
+const transporter = nodemailer.createTransport({
+    host: ((_a = functions.config().smtp) === null || _a === void 0 ? void 0 : _a.host) || 'mail.1pwrafrica.com',
+    port: parseInt(((_b = functions.config().smtp) === null || _b === void 0 ? void 0 : _b.port) || '465'),
+    secure: ((_c = functions.config().smtp) === null || _c === void 0 ? void 0 : _c.secure) === 'true',
+    auth: {
+        user: ((_d = functions.config().smtp) === null || _d === void 0 ? void 0 : _d.user) || 'noreply@1pwrafrica.com',
+        pass: ((_e = functions.config().smtp) === null || _e === void 0 ? void 0 : _e.password) || ''
+    },
+    tls: {
+        rejectUnauthorized: false
+    }
+});
 /**
  * Calculate business days between two dates (excluding weekends)
  */
@@ -399,8 +414,23 @@ async function sendDelayNotification(po, daysOverdue) {
       
       Please follow up with the vendor regarding delivery status.
     `;
-        // TODO: Send actual email
-        console.log(`Would send delay notification for PO ${po.prNumber} to:`, recipients);
+        // Send actual email via SMTP
+        try {
+            const mailOptions = {
+                to: recipients,
+                cc: cc,
+                from: '"1PWR System" <noreply@1pwrafrica.com>',
+                subject: subject,
+                text: message,
+                html: `<pre>${message}</pre>`
+            };
+            const result = await transporter.sendMail(mailOptions);
+            console.log(`Sent delay notification for PO ${po.prNumber} - MessageID: ${result.messageId}`);
+        }
+        catch (emailError) {
+            console.error(`Failed to send delay notification for PO ${po.prNumber}:`, emailError);
+            // Don't throw - we still want to log the notification
+        }
         // Log notification
         await db.collection('notificationLogs').add({
             type: 'DELIVERY_DELAY',
@@ -443,8 +473,22 @@ async function sendReminderEmail(recipient, role, items, isUrgent) {
     
     Please log in to the PR System to take action.
   `;
-    // TODO: Send actual email via SendGrid
-    console.log(`Would send ${isUrgent ? 'URGENT' : 'daily'} reminder to ${recipient} (${role}): ${items.length} items`);
+    // Send actual email via SMTP
+    try {
+        const mailOptions = {
+            to: recipient,
+            from: '"1PWR System" <noreply@1pwrafrica.com>',
+            subject: subject,
+            text: message,
+            html: `<pre>${message}</pre>`
+        };
+        const result = await transporter.sendMail(mailOptions);
+        console.log(`Sent ${isUrgent ? 'URGENT' : 'daily'} reminder to ${recipient} (${role}): ${items.length} items - MessageID: ${result.messageId}`);
+    }
+    catch (emailError) {
+        console.error(`Failed to send ${isUrgent ? 'URGENT' : 'daily'} reminder to ${recipient}:`, emailError);
+        // Don't throw - we still want to log the notification
+    }
     // Log notification
     await db.collection('notificationLogs').add({
         type: isUrgent ? 'URGENT_REMINDER' : 'DAILY_REMINDER',

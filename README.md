@@ -143,10 +143,11 @@ A comprehensive procurement requisition system built for 1PWR to manage purchase
   - Active/Inactive status tracking
 
 ### Reference Data Management
-- CRUD operations for all reference data types
+- CRUD operations for all reference data types (directly in Firestore)
 - Code-based ID generation for currencies and UOM
 - Duplicate prevention for codes
 - Active/Inactive status tracking
+- **Note**: CSV files in project root are archival only. Firestore is the source of truth.
 - Organization-specific data filtering
 - Vendor approval tracking and expiry management
 

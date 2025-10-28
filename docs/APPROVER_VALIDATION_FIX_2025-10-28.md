@@ -1,255 +1,201 @@
 # Approver Validation Fix - October 28, 2025
 
 ## Issue Summary
-**Severity**: High  
-**Status**: ✅ Fixed  
-**Reported By**: User (Phoka - Procurement)
 
-### Problem Description
-When a procurement user edited a PR and changed the estimated amount to **LSL 635,636**, the system allowed saving the PR with **"Admin User"** as the approver, even though this approver didn't have authority to approve that amount according to the approval rules.
+**Problem:** Users with procurement permissions could change the approver on a PR from a Level 1/2 approver to a Level 6 (Finance Approver) or Level 4 (Finance Admin), even when the PR amount exceeded the Rule 1 threshold. The system was not validating the approver-amount combination when the approver field was changed.
 
-### Specific Example
+**Example:**
+- PR with LSL 635,636 amount
+- Originally assigned to Level 1 approver (can approve any amount)
+- Procurement user changed approver to "Admin User" (Level 6)
+- System ALLOWED the change without validation ❌
+- Result: Invalid approver-amount combination persisted
+
+## Root Cause
+
+The validation logic existed but had two critical gaps:
+
+1. **Missing Auto-Validation**: Validation was only triggered manually when specific fields were changed, but not automatically when the combination of approver + amount changed
+2. **Silent Failure**: If approval rules hadn't loaded yet, validation would silently pass (return `null`) without warning
+
+## Solution
+
+### 1. Enhanced Validation Logic (`PRView.tsx`)
+
+**Added Auto-Validation Effect:**
+```typescript
+// Auto-validate whenever approver or amount changes
+useEffect(() => {
+  // Only validate when rules are loaded and we're in edit mode
+  if (rules.length > 0 && (selectedApprover || editedPR.estimatedAmount)) {
+    const error = validateApproverAmount();
+    setApproverAmountError(error);
+    
+    if (error) {
+      console.log('Approver-amount validation error detected:', error);
+    }
+  }
+}, [selectedApprover, editedPR.estimatedAmount, rules.length]);
 ```
-PR Details:
-- Estimated Amount: LSL 635,636
-- Current Approver: Admin User
-- Organization: 1PWR LESOTHO
-- Status: SUBMITTED (edited by Phoka with procurement permissions)
 
-Problem: Approval rule violation - approver cannot approve this amount
-```
+**Improved Validation Function:**
+- Added logging when rules aren't loaded yet
+- Added detailed validation logging with amount, approver ID, and rule count
+- Better console warnings for debugging
 
-## Root Cause Analysis
+**Prominent Error Display:**
+- Added Alert component at top of form (impossible to miss)
+- Error shown on both Approver and Estimated Amount fields
+- Save button blocked when validation fails
 
-### The Bug
-The `validateApproverAmount()` function in both `PRView.tsx` and `BasicInformationStep.tsx` had incomplete validation logic:
+### 2. Same Fix Applied to New PR Creation (`BasicInformationStep.tsx`)
+
+The same auto-validation effect was added to ensure validation works during PR creation as well:
 
 ```typescript
-// BEFORE (Buggy code):
-const permissionLevel = parseInt(approver.permissionLevel);
-
-// Level 1 and 2 can approve any amount
-if (permissionLevel === 1 || permissionLevel === 2) {
-  return null;
-}
-
-// Level 6 (Finance Approvers) can only approve within rule thresholds
-if (permissionLevel === 6) {
-  if (isAboveRule1Threshold && rule1) {
-    return `Selected Finance Approver cannot approve...`;
+// Auto-validate whenever approver or amount changes
+React.useEffect(() => {
+  // Only validate when rules are loaded and we have approvers or amount
+  if (rules.length > 0 && (formState.approvers.length > 0 || formState.estimatedAmount)) {
+    const error = validateApproverAmount();
+    setApproverAmountError(error);
+    
+    if (error) {
+      console.log('Approver-amount validation error detected:', error);
+    }
   }
-}
-
-return null;  // ⬅️ BUG: Returns null for Levels 3, 4, 5!
+}, [formState.approvers, formState.estimatedAmount, rules.length]);
 ```
 
-**The Problem**: The validation only checked Level 6 (Finance Approvers) and allowed Levels 1 and 2. For any other permission level (3, 4, 5), the function returned `null` (no error), effectively allowing these levels to be assigned as approvers for any amount.
+## Validation Rules Enforced
 
-### Affected Scenarios
+### Permission Levels:
+- **Level 1** (Global Approver): Can approve ANY amount ✅
+- **Level 2** (Senior Approver): Can approve ANY amount ✅
+- **Level 3** (Procurement Officer): CANNOT be assigned as approver ❌
+- **Level 4** (Finance Admin): Can ONLY approve up to Rule 1 threshold
+- **Level 5** (Requester): CANNOT be assigned as approver ❌
+- **Level 6** (Finance Approver): Can ONLY approve up to Rule 1 threshold
 
-1. **Level 3 (Procurement Officers)**: Could be assigned as approvers for high-value PRs
-2. **Level 4 (Finance Admin)**: Could approve amounts above Rule 1 threshold
-3. **Level 5 (Requesters)**: Could be assigned as approvers for their own PRs
+### Example Rule 1:
+- **Threshold:** LSL 50,000
+- **Currency:** LSL
 
-## The Fix
+**Valid Combinations:**
+- ✅ LSL 635,636 with Level 1 approver
+- ✅ LSL 635,636 with Level 2 approver
+- ✅ LSL 30,000 with Level 6 approver
+- ✅ LSL 45,000 with Level 4 approver
 
-### Updated Validation Logic
+**Invalid Combinations:**
+- ❌ LSL 635,636 with Level 6 approver (exceeds Rule 1 threshold)
+- ❌ LSL 100,000 with Level 4 approver (exceeds Rule 1 threshold)
+- ❌ Any amount with Level 3 approver (procurement can't approve)
+- ❌ Any amount with Level 5 approver (requesters can't approve)
 
-```typescript
-// AFTER (Fixed code):
-const permissionLevel = parseInt(approver.permissionLevel);
+## User Experience Changes
 
-// Level 1 and 2 can approve any amount
-if (permissionLevel === 1 || permissionLevel === 2) {
-  return null;
-}
+### Before Fix:
+1. User changes approver to Level 6
+2. Amount is LSL 635,636 (way above threshold)
+3. System allows the change
+4. Invalid combination saved to database
 
-// Level 6 (Finance Approvers) and Level 4 (Finance Admin) can only approve within Rule 1 threshold
-if (permissionLevel === 6 || permissionLevel === 4) {
-  if (isAboveRule1Threshold && rule1) {
-    return `Selected approver (${approver.name}) cannot approve amounts above ${rule1.threshold} ${rule1.currency}...`;
-  }
-  if (isAboveRule2Threshold && rule2) {
-    return `Selected approver (${approver.name}) cannot approve amounts above ${rule2.threshold} ${rule2.currency}...`;
-  }
-}
+### After Fix:
+1. User changes approver to Level 6
+2. **Validation runs automatically**
+3. **Red Alert appears at top of form:**
+   > ⚠️ **Invalid Approver-Amount Combination:** Selected approver (Admin User) cannot approve amounts above 50000 LSL. Only Level 1 or 2 approvers can approve this amount.
+4. **Error shown on Approver field**
+5. **Error shown on Amount field**
+6. **Save button blocked**
+7. User must change to valid approver or reduce amount
 
-// Levels 3 and 5 should not be approvers at all
-if (permissionLevel === 3 || permissionLevel === 5) {
-  return `User ${approver.name} (Permission Level ${permissionLevel}) cannot be assigned as an approver...`;
-}
+## Files Modified
 
-return null;
-```
+1. **`src/components/pr/PRView.tsx`**
+   - Added auto-validation useEffect
+   - Enhanced validateApproverAmount with logging
+   - Added Alert component import
+   - Added prominent error Alert at top of form
+   - Enhanced logging in handleApproverChange
 
-### Changes Made
+2. **`src/components/pr/steps/BasicInformationStep.tsx`**
+   - Added auto-validation useEffect for new PR creation
 
-#### 1. PRView.tsx (Line 942-964)
-- ✅ Added Level 4 to threshold validation (same rules as Level 6)
-- ✅ Added explicit rejection of Level 3 and 5 as approvers
-- ✅ Improved error messages to be more generic
-- ✅ Added Rule 2 threshold check
+## Testing Instructions
 
-#### 2. BasicInformationStep.tsx (Line 192-227)
-- ✅ Added Level 4 to threshold validation
-- ✅ Added explicit rejection of Level 3 and 5 as approvers
-- ✅ Added generic error message for invalid approvers
-- ✅ Made validation consistent with PRView.tsx
+### Test Case 1: Editing Existing PR
+1. Login as procurement user (e.g., Phoka)
+2. Open a PR with high amount (e.g., LSL 635,636)
+3. Click "Edit"
+4. Try to change approver from Level 1 to Level 6
+5. **Expected:** Red alert appears immediately, save is blocked
 
-## Permission Level Rules (After Fix)
+### Test Case 2: Creating New PR
+1. Login as requester
+2. Start creating new PR
+3. Enter high amount (e.g., LSL 100,000)
+4. Try to select Level 6 approver
+5. **Expected:** Error message appears, can't proceed
 
-| Level | Role | Approval Authority |
-|-------|------|-------------------|
-| **1** | Administrator | ✅ Can approve **any amount** |
-| **2** | Senior Approver | ✅ Can approve **any amount** |
-| **4** | Finance Admin | ✅ Can approve **up to Rule 1 threshold** only |
-| **6** | Finance Approver | ✅ Can approve **up to Rule 1 threshold** only |
-| **3** | Procurement Officer | ❌ **Cannot be assigned as approver** (procurement role) |
-| **5** | Requester | ❌ **Cannot be assigned as approver** (requestor role) |
+### Test Case 3: Valid Combination
+1. Login as procurement user
+2. Open a PR with amount LSL 30,000 (below threshold)
+3. Click "Edit"
+4. Change approver to Level 6
+5. **Expected:** No error, save allowed
 
-### Example Rule Thresholds (1PWR LESOTHO)
+### Test Case 4: Changing Amount After Approver
+1. Login as procurement user
+2. Open PR with Level 6 approver and amount LSL 30,000
+3. Click "Edit"
+4. Change amount to LSL 100,000
+5. **Expected:** Error appears immediately
 
-```
-Rule 1 Threshold: LSL 1,500
-- Below: Level 4 or 6 can approve
-- Above: Only Level 1 or 2 can approve
+## Technical Details
 
-Rule 2 Threshold: LSL 50,000
-- Above: May require dual approval
-- Only Level 1 or 2 can approve
-```
+### Validation Trigger Points:
+1. ✅ When approver field changes
+2. ✅ When amount field changes
+3. ✅ Automatically via useEffect when either changes
+4. ✅ Before save operation
+5. ✅ On initial load (if editing existing PR)
 
-## Validation Behavior
+### Validation Dependencies:
+- `selectedApprover` or `formState.approvers`
+- `editedPR.estimatedAmount` or `formState.estimatedAmount`
+- `rules.length` (ensures rules are loaded)
 
-### During PR Creation (BasicInformationStep.tsx)
-- User selects approver(s) from dropdown
-- System validates approver permission level vs estimated amount
-- Shows error if approver cannot approve the amount
-- Prevents form submission until valid approver selected
+### Performance Considerations:
+- Validation runs locally (no API calls)
+- Only runs when rules are loaded
+- Uses setTimeout(100ms) for debouncing in manual triggers
+- useEffect runs immediately for real-time feedback
 
-### During PR Edit (PRView.tsx)
-- Procurement edits amount field
-- System validates current approver vs new amount
-- Shows error message if invalid combination
-- **Prevents saving** PR with rule violation
+## Deployment Notes
 
-### Error Messages
-
-**Level 4/6 above threshold:**
-```
-Selected approver (Admin User) cannot approve amounts above 1,500 LSL. 
-Only Level 1 or 2 approvers can approve this amount.
-```
-
-**Level 3/5 assigned as approver:**
-```
-User John Doe (Permission Level 3) cannot be assigned as an approver. 
-Only Level 1, 2, 4, or 6 users can approve PRs.
-```
-
-## Testing Recommendations
-
-### Test Case 1: Procurement Edits Amount Above Threshold
-1. Create PR with LSL 500, approver: Level 4 Finance Admin ✅
-2. Procurement edits amount to LSL 10,000
-3. Try to save
-4. **Expected**: Error message, save blocked ✅
-
-### Test Case 2: Level 3 Assigned as Approver
-1. Try to select Level 3 (Procurement) user as approver
-2. Enter amount LSL 100
-3. Try to save
-4. **Expected**: Error message, save blocked ✅
-
-### Test Case 3: Valid Combinations
-1. Amount: LSL 500, Approver: Level 6 ✅ (below threshold)
-2. Amount: LSL 10,000, Approver: Level 2 ✅ (senior approver)
-3. Amount: LSL 100,000, Approver: Level 1 ✅ (admin)
-
-### Test Case 4: Edge Cases
-1. Amount: Exactly LSL 1,500, Approver: Level 4 ✅ (at threshold, should pass)
-2. Amount: LSL 1,500.01, Approver: Level 4 ❌ (above threshold, should fail)
-
-## Deployment Checklist
-
-- [x] Code changes committed
-- [x] No linter errors
-- [x] Validation logic consistent across both components
-- [x] Error messages are user-friendly
-- [x] Changes pushed to remote repository
-- [ ] Test with real users (Phoka - Procurement)
-- [ ] Verify existing PRs with rule violations are flagged
-- [ ] Document in user manual/training
+- **No database migrations required**
+- **No environment variable changes**
+- **Frontend-only changes**
+- **Backward compatible** (only adds validation, doesn't change data structure)
 
 ## Related Files
 
-- `src/components/pr/PRView.tsx` - Lines 910-964 (validateApproverAmount function)
-- `src/components/pr/steps/BasicInformationStep.tsx` - Lines 135-231 (validateApproverAmount function)
-- `src/utils/prValidation.ts` - PR validation utilities
-- `src/services/approver.ts` - Approver service
+- [`src/components/pr/PRView.tsx`](../src/components/pr/PRView.tsx)
+- [`src/components/pr/steps/BasicInformationStep.tsx`](../src/components/pr/steps/BasicInformationStep.tsx)
+- [`src/config/permissions.ts`](../src/config/permissions.ts)
 
-## Impact
+## Prevention
 
-**Before Fix:**
-- ❌ Level 3, 4, 5 users could be assigned as approvers regardless of amount
-- ❌ Procurement could save PRs with invalid approver-amount combinations
-- ❌ Approval workflow could be bypassed accidentally
+To prevent similar issues in the future:
 
-**After Fix:**
-- ✅ All permission levels properly validated
-- ✅ Cannot save PR with rule violations
-- ✅ Clear error messages guide users to select appropriate approvers
-- ✅ Approval rules enforced consistently
+1. ✅ Always add auto-validation useEffect when creating form validation
+2. ✅ Validate on ALL related field changes, not just one field
+3. ✅ Never silently pass validation - always log when validation is skipped
+4. ✅ Display errors prominently (Alert component at top of form)
+5. ✅ Block save operations when validation fails
 
-## Rollback Plan
+## Version History
 
-If issues arise, revert commit:
-```bash
-git revert 6adb90c
-git push origin main
-```
-
-This will restore the previous validation logic (Level 6 only).
-
-## Future Enhancements
-
-### Recommended
-1. **Auto-reassign approver**: When amount changes, automatically suggest appropriate approver
-2. **Warning before amount change**: "Changing amount may require different approver"
-3. **Audit trail**: Log when validation blocks invalid approver assignments
-4. **Rules dashboard**: Admin UI to view and edit approval rules in real-time
-
-### Optional
-1. **Approval matrix**: Visual chart showing which levels can approve which amounts
-2. **Smart approver suggestions**: Based on availability, workload, and amount
-3. **Delegation**: Allow approvers to delegate authority temporarily
-4. **Holiday/absence mode**: Auto-reassign when approver is unavailable
-
-## Documentation Updates Needed
-
-- [ ] Update Specifications.md with validation rules
-- [ ] Update PR_WORKFLOW_FLOWCHART.md with permission level details
-- [ ] Add approver selection guidelines to user manual
-- [ ] Training materials for procurement team
-
-## Contributors
-
-- AI Assistant (Claude Sonnet 4.5)
-- User: MSO (@1pwrafrica.com)
-- Reported by: Phoka (Procurement User)
-
-## Commit Details
-
-- **Commit**: `6adb90c`
-- **Branch**: `main`
-- **Date**: October 28, 2025
-- **Files Changed**: 2
-- **Lines Added**: 263
-- **Lines Removed**: 15
-
-## Status
-
-**✅ FIXED AND DEPLOYED**
-
-The validation now properly checks all permission levels and prevents saving PRs with invalid approver-amount combinations.
-
+- **v1.0** (2025-10-28): Initial fix for approver validation issue

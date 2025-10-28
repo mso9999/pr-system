@@ -65,13 +65,25 @@ export async function validatePRForApproval(
 
   // Helper function to check if user can approve
   const canApprove = (user: User, pr: PRRequest): boolean => {
-    // If PO is in PENDING_APPROVAL, only approvers can approve it
-    if (pr.status === PRStatus.PENDING_APPROVAL && pr.type === 'PO') {
-      return pr.approvers?.includes(user.id) || false;
+    // For PRs in PENDING_APPROVAL, check if user is assigned approver OR has approval permissions
+    if (pr.status === PRStatus.PENDING_APPROVAL) {
+      // Check if user is an assigned approver
+      const isAssignedApprover = pr.approvers?.includes(user.id) || 
+                                 user.id === pr.approver || 
+                                 user.id === pr.approver2;
+      
+      // Check if user has general approval permissions (Level 1, 2, 4, or 6)
+      // Level 3 (Procurement) can process but NOT approve
+      const hasApprovalPermissions = user.permissionLevel === 1 || // Admin
+                                    user.permissionLevel === 2 || // Senior Approver
+                                    user.permissionLevel === 4 || // Finance Admin
+                                    user.permissionLevel === 6;   // Finance Approver
+      
+      return isAssignedApprover || hasApprovalPermissions;
     }
     
-    // For other cases, procurement and approvers can approve
-    return user.permissionLevel === 1 || user.permissionLevel === 3 || pr.approvers?.includes(user.id) || false;
+    // For other cases, approvers and finance approvers can approve (but not procurement)
+    return user.permissionLevel === 1 || user.permissionLevel === 2 || user.permissionLevel === 4 || user.permissionLevel === 6 || pr.approvers?.includes(user.id) || false;
   };
 
   console.log('Validating PR:', {
@@ -242,16 +254,26 @@ export async function validatePRForApproval(
       return false;
     }
     
-    // Senior Approvers (Level 2) can approve PRs of any value (per specifications)
+    // Level 6 (Finance Approvers) can only approve within rule thresholds
+    if (approver.permissionLevel === 6) {
+      // Finance Approvers can only approve amounts within rule thresholds
+      if (isAboveRule1Threshold && rule1) {
+        return true; // Cannot approve above rule 1 threshold
+      }
+      if (isAboveRule2Threshold && rule2) {
+        return true; // Cannot approve above rule 2 threshold
+      }
+      return false; // Can approve within thresholds
+    }
     
     return false;
   });
 
   if (hasInsufficientApprover) {
     if (isAboveRule2Threshold && rule2) {
-      errors.push(`Only Level 1 or 2 approvers can approve PRs above ${rule2.threshold} ${rule2.currency}`);
+      errors.push(`Only Level 1, 2, or 6 approvers can approve PRs above ${rule2.threshold} ${rule2.currency}. Finance Approvers (Level 6) can only approve within rule thresholds.`);
     } else if (isAboveRule1Threshold && rule1) {
-      errors.push(`Only Level 1 or 2 approvers can approve PRs above ${rule1.threshold} ${rule1.currency}`);
+      errors.push(`Only Level 1, 2, or 6 approvers can approve PRs above ${rule1.threshold} ${rule1.currency}. Finance Approvers (Level 6) can only approve within rule thresholds.`);
     }
   }
 
