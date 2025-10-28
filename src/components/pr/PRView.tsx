@@ -444,7 +444,7 @@ export function PRView() {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [lineItems, setLineItems] = useState<Array<ExtendedLineItem>>([]);
   const currentUser = useSelector((state: RootState) => state.auth.user);
-  const isProcurement = currentUser?.permissionLevel === 2 || currentUser?.permissionLevel === 3;
+  const isProcurement = currentUser?.permissionLevel === 3; // Level 3 = Procurement Officer
   const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
   const canProcessPR = isProcurement || (isRequestor && (
     pr?.status === PRStatus.IN_QUEUE ||
@@ -464,6 +464,7 @@ export function PRView() {
   const [vehicles, setVehicles] = useState<ReferenceDataItem[]>([]);
   const [vendors, setVendors] = useState<ReferenceDataItem[]>([]);
   const [currencies, setCurrencies] = useState<ReferenceDataItem[]>([]);
+  const [rules, setRules] = useState<any[]>([]);
   const [loadingReference, setLoadingReference] = useState(true);
   const [approvers, setApprovers] = useState<User[]>([]);
   const [selectedApprover, setSelectedApprover] = useState<string | undefined>(
@@ -476,6 +477,7 @@ export function PRView() {
   const { enqueueSnackbar } = useSnackbar();
   const [isExitingEditMode, setIsExitingEditMode] = React.useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
+  const [approverAmountError, setApproverAmountError] = React.useState<string | null>(null);
 
   // Fetch PR data
   const fetchPR = async () => {
@@ -546,6 +548,7 @@ export function PRView() {
           vehicleList,
           vendorList,
           currencyList,
+          rulesList,
         ] = await Promise.all([
           referenceDataService.getDepartments(organization),
           referenceDataService.getItemsByType('projectCategories', organization),
@@ -554,6 +557,7 @@ export function PRView() {
           referenceDataService.getItemsByType('vehicles', organization),
           referenceDataService.getItemsByType('vendors'),
           referenceDataService.getItemsByType('currencies'),
+          referenceDataService.getItemsByType('rules', organization),
         ]);
 
         setDepartments(depts);
@@ -563,6 +567,7 @@ export function PRView() {
         setVehicles(vehicleList);
         setVendors(vendorList);
         setCurrencies(currencyList);
+        setRules(rulesList);
       } catch (error) {
         console.error('Error loading reference data:', error);
         enqueueSnackbar('Error loading reference data', { variant: 'error' });
@@ -892,11 +897,82 @@ export function PRView() {
     }
 
     setHasUnsavedChanges(true);
+    
+    // Trigger validation if amount or approver changes
+    if (field === 'estimatedAmount' || field === 'approver') {
+      setTimeout(() => {
+        const error = validateApproverAmount();
+        setApproverAmountError(error);
+      }, 100);
+    }
+  };
+
+  const validateApproverAmount = (): string | null => {
+    if (!rules || rules.length === 0) {
+      return null;
+    }
+
+    const currentAmount = editedPR.estimatedAmount || pr?.estimatedAmount;
+    const currentApprover = selectedApprover || pr?.approver;
+
+    if (!currentAmount || !currentApprover) {
+      return null;
+    }
+
+    const amount = typeof currentAmount === 'string' 
+      ? parseFloat(currentAmount) 
+      : currentAmount;
+
+    if (isNaN(amount) || amount <= 0) {
+      return null;
+    }
+
+    const rule1 = rules.find((rule: any) => rule.number === 1 || rule.name === 'Rule 1');
+    const rule2 = rules.find((rule: any) => rule.number === 2 || rule.name === 'Rule 2');
+
+    const isAboveRule1Threshold = rule1 && amount > rule1.threshold;
+    const isAboveRule2Threshold = rule2 && amount > rule2.threshold;
+
+    // Find the approver in the approvers list
+    const approver = approvers.find(a => a.id === currentApprover);
+    if (!approver) {
+      return null;
+    }
+
+    const permissionLevel = parseInt(approver.permissionLevel);
+    
+    // Level 1 and 2 can approve any amount
+    if (permissionLevel === 1 || permissionLevel === 2) {
+      return null;
+    }
+    
+    // Level 6 (Finance Approvers) and Level 4 (Finance Admin) can only approve within rule thresholds
+    if (permissionLevel === 6 || permissionLevel === 4) {
+      if (isAboveRule1Threshold && rule1) {
+        return `Selected approver (${approver.name}) cannot approve amounts above ${rule1.threshold} ${rule1.currency}. Only Level 1 or 2 approvers can approve this amount.`;
+      }
+      if (isAboveRule2Threshold && rule2) {
+        return `Selected approver (${approver.name}) cannot approve amounts above ${rule2.threshold} ${rule2.currency}. Only Level 1 or 2 approvers can approve this amount.`;
+      }
+    }
+    
+    // Levels 3 and 5 should not be approvers at all
+    if (permissionLevel === 3 || permissionLevel === 5) {
+      return `User ${approver.name} (Permission Level ${permissionLevel}) cannot be assigned as an approver. Only Level 1, 2, 4, or 6 users can approve PRs.`;
+    }
+    
+    return null;
   };
 
   const handleApproverChange = (approverId: string) => {
     setSelectedApprover(approverId || undefined);
     handleFieldChange('approver', approverId);
+    
+    // Trigger validation after approver change
+    setTimeout(() => {
+      const error = validateApproverAmount();
+      setApproverAmountError(error);
+    }, 100);
   };
 
   const handleCancel = (): void => {
@@ -906,6 +982,16 @@ export function PRView() {
   const handleSave = async () => {
     if (!pr) {
       enqueueSnackbar('No PR data to save', { variant: 'error' });
+      return;
+    }
+    
+    // Validate approver vs amount before saving
+    const approverAmountError = validateApproverAmount();
+    if (approverAmountError) {
+      enqueueSnackbar(approverAmountError, { 
+        variant: 'error',
+        autoHideDuration: 8000 
+      });
       return;
     }
     
@@ -1152,6 +1238,7 @@ export function PRView() {
                   value={isEditMode ? editedPR.estimatedAmount || pr?.estimatedAmount || '' : pr?.estimatedAmount || ''}
                   onChange={(e) => handleFieldChange('estimatedAmount', parseFloat(e.target.value))}
                   disabled={!isEditMode || isLockedInApprovedStatus('estimatedAmount')}
+                  error={!!approverAmountError}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -1159,7 +1246,13 @@ export function PRView() {
                       </InputAdornment>
                     ),
                   }}
-                  helperText={isEditMode && isLockedInApprovedStatus('estimatedAmount') ? 'Amount cannot be changed after approval' : ''}
+                  helperText={
+                    approverAmountError 
+                      ? approverAmountError
+                      : isEditMode && isLockedInApprovedStatus('estimatedAmount') 
+                        ? 'Amount cannot be changed after approval' 
+                        : ''
+                  }
                 />
               </Grid>
               <Grid item xs={6}>
@@ -1187,7 +1280,11 @@ export function PRView() {
                 />
               </Grid>
               <Grid item xs={6}>
-                <FormControl fullWidth disabled={!isEditMode || (!isProcurement && !isRequestor) || isLockedInApprovedStatus('approver')}>
+                <FormControl 
+                  fullWidth 
+                  disabled={!isEditMode || (!isProcurement && !isRequestor) || isLockedInApprovedStatus('approver')}
+                  error={!!approverAmountError}
+                >
                   <InputLabel>Approver</InputLabel>
                   <Select
                     value={selectedApprover || ''}
@@ -1199,13 +1296,21 @@ export function PRView() {
                     </MenuItem>
                     {approvers.map((approver) => (
                       <MenuItem key={approver.id} value={approver.id}>
-                        {approver.name}{approver.department ? ` (${approver.department})` : ''}
+                        {(() => {
+                          const level = parseInt(approver.permissionLevel);
+                          if (level === 1) return `${approver.name} (Global Approver)`;
+                          if (level === 2) return `${approver.name} (Senior Approver)`;
+                          if (level === 6) return `${approver.name} (Finance Approver)`;
+                          return `${approver.name} (Level ${level} Approver)`;
+                        })()}{approver.department ? ` (${approver.department})` : ''}
                       </MenuItem>
                     ))}
                   </Select>
-                  {isEditMode && isLockedInApprovedStatus('approver') && (
+                  {approverAmountError ? (
+                    <FormHelperText>{approverAmountError}</FormHelperText>
+                  ) : isEditMode && isLockedInApprovedStatus('approver') ? (
                     <FormHelperText>Approver cannot be changed after approval</FormHelperText>
-                  )}
+                  ) : null}
                 </FormControl>
               </Grid>
             </Grid>

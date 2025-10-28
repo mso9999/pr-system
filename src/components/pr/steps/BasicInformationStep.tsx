@@ -8,7 +8,7 @@
  * project category, and initial approvers.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Grid,
   TextField,
@@ -48,6 +48,7 @@ interface BasicInformationStepProps {
     organizationId?: string;
   }>;
   currencies: ReferenceDataItem[];
+  rules: any[];
   loading: boolean;
   isSubmitted?: boolean;
   validationErrors?: string[];
@@ -64,10 +65,12 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
   vendors,
   approvers,
   currencies,
+  rules,
   loading,
   isSubmitted = false,
   validationErrors = [],
 }) => {
+  const [approverAmountError, setApproverAmountError] = useState<string | null>(null);
   const handleChange = (field: keyof FormState) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<any>
   ) => {
@@ -99,6 +102,17 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       }
       return { ...prev, [field]: value };
     });
+    
+    // Trigger validation if amount changes
+    if (field === 'estimatedAmount') {
+      setTimeout(() => {
+        const error = validateApproverAmount();
+        setApproverAmountError(error);
+        if (error) {
+          console.log('Approver amount validation error:', error);
+        }
+      }, 100);
+    }
   };
 
   const handleApproverChange = (_event: any, value: any) => {
@@ -106,7 +120,116 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       ...prev,
       approvers: value.map((approver: any) => approver.id)
     }));
+    
+    // Trigger validation after approver change
+    setTimeout(() => {
+      const error = validateApproverAmount();
+      setApproverAmountError(error);
+      if (error) {
+        console.log('Approver amount validation error:', error);
+      }
+    }, 100);
   };
+
+  // Validation function to check if selected approvers can approve the amount
+  const validateApproverAmount = (): string | null => {
+    console.log('validateApproverAmount called:', {
+      estimatedAmount: formState.estimatedAmount,
+      approvers: formState.approvers,
+      rules: rules,
+      rulesLength: rules?.length
+    });
+    
+    if (!formState.estimatedAmount || !formState.approvers || formState.approvers.length === 0 || !rules || rules.length === 0) {
+      console.log('Validation skipped - missing data');
+      return null;
+    }
+
+    const amount = typeof formState.estimatedAmount === 'string' 
+      ? parseFloat(formState.estimatedAmount) 
+      : formState.estimatedAmount;
+
+    if (isNaN(amount) || amount <= 0) {
+      return null;
+    }
+
+    // Find rules based on actual rule structure
+    // Rule 1: Finance admin approvers can approve low value PRs (threshold for Finance Approvers)
+    // Rule 3: High value threshold (requires dual approval above this amount)
+    const rule1 = rules.find((rule: any) => 
+      rule.number === 1 || rule.number === '1' || 
+      rule.description?.toLowerCase().includes('finance admin approvers can approve low value')
+    );
+    const rule3 = rules.find((rule: any) => 
+      rule.number === 3 || rule.number === '3' || 
+      rule.description?.toLowerCase().includes('high value threshold') ||
+      rule.description?.toLowerCase().includes('3 quotes and adjudication')
+    );
+    
+    console.log('Rules found:', { rule1, rule3, allRules: rules });
+    
+    // If no rules are found, skip validation
+    if (!rule1 && !rule3) {
+      console.log('No rules found - skipping validation');
+      return null;
+    }
+    
+    const effectiveRule1 = rule1;
+    const effectiveRule3 = rule3;
+    
+    console.log('Effective rules:', { effectiveRule1, effectiveRule3, amount });
+
+    // Check if amount is above Rule 1 threshold (Finance Approver limit)
+    const isAboveRule1Threshold = effectiveRule1 ? amount > effectiveRule1.threshold : false;
+    // Rule 3 is the high-value threshold for dual approval
+    const isAboveRule3Threshold = effectiveRule3 ? amount > effectiveRule3.threshold : false;
+
+    // Check if any selected approver cannot approve this amount
+    const invalidApprovers = formState.approvers.filter(approverId => {
+      const approver = approvers.find(a => a.id === approverId);
+      if (!approver) return false;
+
+      const permissionLevel = parseInt(approver.permissionLevel);
+      
+      // Level 1 and 2 can approve any amount
+      if (permissionLevel === 1 || permissionLevel === 2) {
+        return false;
+      }
+      
+      // Level 6 (Finance Approvers) and Level 4 (Finance Admin) can only approve within Rule 1 threshold
+      if (permissionLevel === 6 || permissionLevel === 4) {
+        if (isAboveRule1Threshold) {
+          return true; // Cannot approve above rule 1 threshold
+        }
+        return false; // Can approve within Rule 1 threshold
+      }
+      
+      // Levels 3 and 5 should not be approvers at all
+      if (permissionLevel === 3 || permissionLevel === 5) {
+        return true; // Invalid approver
+      }
+      
+      return false;
+    });
+
+    if (invalidApprovers.length > 0) {
+      const invalidApproverNames = invalidApprovers.map(approverId => {
+        const approver = approvers.find(a => a.id === approverId);
+        return approver ? approver.name : 'Unknown';
+      });
+
+      if (isAboveRule1Threshold && effectiveRule1) {
+        console.log('Rule 1 error:', { effectiveRule1, amount, isAboveRule1Threshold });
+        return `Selected approver(s) (${invalidApproverNames.join(', ')}) cannot approve amounts above ${effectiveRule1.threshold} ${effectiveRule1.currency}. Only Level 1 or 2 approvers can approve this amount.`;
+      }
+      
+      // Generic error for invalid approvers (Level 3, 5)
+      return `Selected user(s) (${invalidApproverNames.join(', ')}) cannot be assigned as approvers. Only Level 1, 2, 4, or 6 users can approve PRs.`;
+    }
+
+    return null;
+  };
+
 
   // Show vehicle field only for vehicle expense type
   const showVehicleField = expenseTypes.find(type => type.id === formState.expenseType)?.code === '4';
@@ -365,11 +488,13 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
           value={formState.estimatedAmount || ''}
           onChange={handleChange('estimatedAmount')}
           required
-          error={isSubmitted && (!formState.estimatedAmount || formState.estimatedAmount <= 0)}
+          error={isSubmitted && (!formState.estimatedAmount || formState.estimatedAmount <= 0) || !!approverAmountError}
           helperText={
-            isSubmitted && (!formState.estimatedAmount || formState.estimatedAmount <= 0)
-              ? 'Amount must be greater than 0'
-              : 'Estimated total amount'
+            approverAmountError
+              ? approverAmountError
+              : isSubmitted && (!formState.estimatedAmount || formState.estimatedAmount <= 0)
+                ? 'Amount must be greater than 0'
+                : 'Estimated total amount'
           }
           disabled={loading}
         />
@@ -495,7 +620,13 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
           multiple
           id="approvers-select"
           options={approvers}
-          getOptionLabel={(option) => `${option.name} (${option.permissionLevel === '1' ? 'Global' : 'Organization'} Approver)`}
+          getOptionLabel={(option) => {
+            const level = parseInt(option.permissionLevel);
+            if (level === 1) return `${option.name} (Global Approver)`;
+            if (level === 2) return `${option.name} (Senior Approver)`;
+            if (level === 6) return `${option.name} (Finance Approver)`;
+            return `${option.name} (Level ${level} Approver)`;
+          }}
           value={approvers.filter(a => (formState.approvers || []).includes(a.id))}
           onChange={handleApproverChange}
           disabled={loading}
@@ -504,8 +635,14 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
               {...params}
               label="Approvers"
               required
-              error={isSubmitted && (formState.approvers || []).length === 0}
-              helperText={isSubmitted && (formState.approvers || []).length === 0 ? 'Please select at least one approver' : 'Select at least one approver'}
+              error={isSubmitted && (formState.approvers || []).length === 0 || !!approverAmountError}
+              helperText={
+                approverAmountError 
+                  ? approverAmountError
+                  : isSubmitted && (formState.approvers || []).length === 0 
+                    ? 'Please select at least one approver' 
+                    : 'Select at least one approver'
+              }
             />
           )}
           renderTags={(tagValue, getTagProps) =>
@@ -514,7 +651,13 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
               return (
                 <Chip
                   key={key}
-                  label={`${option.name} (${option.permissionLevel === '1' ? 'Global' : 'Organization'})`}
+                  label={(() => {
+                    const level = parseInt(option.permissionLevel);
+                    if (level === 1) return `${option.name} (Global)`;
+                    if (level === 2) return `${option.name} (Senior)`;
+                    if (level === 6) return `${option.name} (Finance)`;
+                    return `${option.name} (Level ${level})`;
+                  })()}
                   {...otherProps}
                 />
               );
