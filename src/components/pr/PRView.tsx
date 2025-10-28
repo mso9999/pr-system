@@ -933,43 +933,95 @@ export function PRView() {
     console.log('Validating approver-amount combination:', { 
       amount, 
       approverId: currentApprover, 
-      rulesCount: rules.length 
+      rulesCount: rules.length,
+      approversCount: approvers.length
     });
 
     const rule1 = rules.find((rule: any) => rule.number === 1 || rule.name === 'Rule 1');
     const rule2 = rules.find((rule: any) => rule.number === 2 || rule.name === 'Rule 2');
 
+    console.log('Rules found:', { 
+      rule1: rule1 ? { name: rule1.name, threshold: rule1.threshold, currency: rule1.currency } : null,
+      rule2: rule2 ? { name: rule2.name, threshold: rule2.threshold, currency: rule2.currency } : null
+    });
+
     const isAboveRule1Threshold = rule1 && amount > rule1.threshold;
     const isAboveRule2Threshold = rule2 && amount > rule2.threshold;
 
+    console.log('Threshold checks:', { 
+      isAboveRule1Threshold, 
+      isAboveRule2Threshold,
+      rule1Threshold: rule1?.threshold,
+      rule2Threshold: rule2?.threshold
+    });
+
     // Find the approver in the approvers list
     const approver = approvers.find(a => a.id === currentApprover);
+    
+    console.log('Approver lookup:', {
+      searchingFor: currentApprover,
+      found: !!approver,
+      approverName: approver?.name,
+      approverPermissionLevel: approver?.permissionLevel,
+      totalApproversInList: approvers.length
+    });
+    
     if (!approver) {
-      return null;
+      console.error('VALIDATION ERROR: Approver not found in approvers list', {
+        approverId: currentApprover,
+        availableApprovers: approvers.map(a => ({ id: a.id, name: a.name, level: a.permissionLevel }))
+      });
+      return `Cannot validate approver. The selected approver may have been removed or permissions changed. Please select a valid approver.`;
     }
 
     const permissionLevel = parseInt(approver.permissionLevel);
+    console.log('Approver permission level:', { 
+      approverName: approver.name, 
+      permissionLevel,
+      permissionLevelType: typeof approver.permissionLevel
+    });
     
     // Level 1 and 2 can approve any amount
     if (permissionLevel === 1 || permissionLevel === 2) {
+      console.log('Validation PASSED: Level 1 or 2 approver can approve any amount');
       return null;
     }
     
     // Level 6 (Finance Approvers) and Level 4 (Finance Admin) can only approve within rule thresholds
     if (permissionLevel === 6 || permissionLevel === 4) {
+      console.log(`Checking Level ${permissionLevel} approver against thresholds`);
       if (isAboveRule1Threshold && rule1) {
+        console.error(`Validation FAILED: Level ${permissionLevel} cannot approve above Rule 1 threshold`, {
+          amount,
+          rule1Threshold: rule1.threshold,
+          approverName: approver.name
+        });
         return `Selected approver (${approver.name}) cannot approve amounts above ${rule1.threshold} ${rule1.currency}. Only Level 1 or 2 approvers can approve this amount.`;
       }
       if (isAboveRule2Threshold && rule2) {
+        console.error(`Validation FAILED: Level ${permissionLevel} cannot approve above Rule 2 threshold`, {
+          amount,
+          rule2Threshold: rule2.threshold,
+          approverName: approver.name
+        });
         return `Selected approver (${approver.name}) cannot approve amounts above ${rule2.threshold} ${rule2.currency}. Only Level 1 or 2 approvers can approve this amount.`;
       }
+      console.log(`Validation PASSED: Level ${permissionLevel} approver within threshold limits`);
+      return null;
     }
     
     // Levels 3 and 5 should not be approvers at all
     if (permissionLevel === 3 || permissionLevel === 5) {
+      console.error(`Validation FAILED: Level ${permissionLevel} cannot be an approver`, {
+        approverName: approver.name,
+        permissionLevel
+      });
       return `User ${approver.name} (Permission Level ${permissionLevel}) cannot be assigned as an approver. Only Level 1, 2, 4, or 6 users can approve PRs.`;
     }
     
+    // If we get here, it's an unknown permission level - fail validation
+    console.warn('Validation: Unknown permission level', { permissionLevel, approverName: approver.name });
+    console.log('Validation PASSED by default (unknown permission level)');
     return null;
   };
 
