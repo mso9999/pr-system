@@ -57,8 +57,13 @@ async function resolveReferenceData(id: string, type: string, organization?: str
       return readableName;
     }
     
+    // If it's all numeric, it's definitely an ID that needs lookup (like vendor "1029")
+    if (/^\d+$/.test(id)) {
+      console.debug(`ID ${id} is numeric, will look it up as ${type} ID`);
+      // Continue to lookup below
+    }
     // If it doesn't look like an ID (no special characters, just plain text), return as is
-    if (!/[^a-zA-Z0-9_]/.test(id) && !/^[a-zA-Z0-9]{20}$/.test(id)) {
+    else if (!/[^a-zA-Z0-9_]/.test(id) && !/^[a-zA-Z0-9]{20}$/.test(id)) {
       console.debug(`ID ${id} appears to be a plain text value, returning as is`);
       return id;
     }
@@ -83,8 +88,79 @@ async function resolveReferenceData(id: string, type: string, organization?: str
         console.debug(`Fetching vendors for organization: ${organization || 'Not specified'}`);
         try {
           // Get ALL vendors (vendors are org-independent)
-          items = await referenceDataService.getVendors();
-          console.debug(`Got ${items.length} vendors from referenceDataService`);
+          const rawVendors = await referenceDataService.getVendors();
+          console.debug(`Got ${rawVendors.length} vendors from referenceDataService`);
+          
+          // Check if vendor 1030 is in raw data
+          const raw1030 = rawVendors.find(v => v.id === '1030');
+          if (raw1030) {
+            console.debug('[VENDOR DEBUG] Raw vendor 1030 from referenceDataService:', raw1030);
+          } else {
+            console.error('[VENDOR DEBUG] Vendor 1030 NOT in raw vendors from referenceDataService');
+          }
+          
+          // Normalize vendor data structure to ensure consistent fields
+          items = rawVendors.map(v => {
+            const data = v;
+            const approvedValue = data.approved !== undefined ? data.approved : data.Approved;
+            const activeValue = data.active !== undefined ? data.active : data.isActive;
+            
+            const normalized = {
+              id: v.id,
+              vendorId: data.vendorId || data.code || data.Code || v.id,
+              code: data.code || data.Code,
+              name: data.name || data.Name,
+              active: activeValue === true,
+              approved: approvedValue,
+              _rawData: data // Include raw data for debugging
+            };
+            
+            // Debug log for vendor 1030 specifically
+            if (v.id === '1030' || data.code === '1030') {
+              console.debug('[VENDOR DEBUG] Normalizing vendor 1030:', {
+                id: normalized.id,
+                vendorId: normalized.vendorId,
+                code: normalized.code,
+                name: normalized.name,
+                active: normalized.active,
+                approved: normalized.approved,
+                rawApproved: data.approved,
+                rawActive: data.active,
+                rawIsActive: data.isActive
+              });
+            }
+            
+            return normalized;
+          });
+          
+          console.debug(`Normalized ${items.length} vendors`);
+          if (items.length > 0) {
+            console.debug('Sample normalized vendor:', { 
+              id: items[0].id, 
+              vendorId: items[0].vendorId,
+              code: items[0].code, 
+              name: items[0].name, 
+              active: items[0].active, 
+              approved: items[0].approved 
+            });
+          }
+          
+          // Check if vendor 1030 is in normalized items BEFORE filtering
+          const normalized1030 = items.find(v => v.id === '1030' || v.code === '1030');
+          if (normalized1030) {
+            console.debug('[VENDOR DEBUG] Vendor 1030 in normalized list (BEFORE filtering):', normalized1030);
+          } else {
+            console.error('[VENDOR DEBUG] Vendor 1030 NOT found in normalized list');
+          }
+          
+          // Check if vendor 1030 is in the list
+          const vendor1030 = items.find(v => v.id === '1030' || v.code === '1030' || v.vendorId === '1030');
+          if (vendor1030) {
+            console.debug('[VENDOR DEBUG] Found vendor 1030 in normalized list:', vendor1030);
+          } else {
+            console.error('[VENDOR DEBUG] Vendor 1030 NOT found in normalized list of', items.length, 'vendors');
+            console.debug('[VENDOR DEBUG] First 5 vendor IDs:', items.slice(0, 5).map(v => v.id));
+          }
         } catch (e) {
           console.error(`Error getting vendors: ${e instanceof Error ? e.message : String(e)}`);
           // Try a direct Firestore query as fallback to get ALL vendors
@@ -94,15 +170,35 @@ async function resolveReferenceData(id: string, type: string, organization?: str
             const vendorDocs = await getDocs(vendorsCollection);
             items = vendorDocs.docs.map(doc => {
               const data = doc.data();
+              const approvedValue = data.approved !== undefined ? data.approved : data.Approved;
+              const activeValue = data.active !== undefined ? data.active : data.isActive;
+              
               return {
                 id: doc.id,
-                vendorId: data.vendorId || data.code || doc.id,
-                code: data.code,
-                name: data.name,
-                active: data.active
+                vendorId: data.vendorId || data.code || data.Code || doc.id,
+                code: data.code || data.Code,
+                name: data.name || data.Name,
+                active: activeValue === true,
+                approved: approvedValue,
+                _rawData: data // Include raw data for debugging
               };
-            }).filter(v => v.active);
+            }).filter(v => {
+              // Include vendors that are active OR approved OR have no explicit approval status
+              // This ensures unapproved but active vendors are still usable
+              const isActive = v.active === true;
+              const isApproved = v.approved === true || v.approved === 'TRUE' || v.approved === '' || v.approved === undefined;
+              const shouldInclude = isActive || isApproved;
+              
+              if (!shouldInclude) {
+                console.debug(`Filtering out vendor ${v.id} (${v.name}): active=${v.active}, approved=${v.approved}`);
+              }
+              
+              return shouldInclude;
+            });
             console.debug(`Got ${items.length} active vendors directly from Firestore`);
+            if (items.length > 0) {
+              console.debug('Sample vendor after filtering:', { id: items[0].id, vendorId: items[0].vendorId, code: items[0].code, name: items[0].name, active: items[0].active, approved: items[0].approved });
+            }
           } catch (firestoreError) {
             console.error(`Firestore fallback also failed: ${firestoreError instanceof Error ? firestoreError.message : String(firestoreError)}`);
           }
@@ -121,29 +217,75 @@ async function resolveReferenceData(id: string, type: string, organization?: str
     
     // Special handling for vendors - try multiple matching strategies
     if (type === 'vendor') {
-      const vendor = items.find(item => 
-        // Try exact match on id
-        item.id === id ||
-        // Try match on vendorId field (could be string or number)
-        (item.vendorId && item.vendorId.toString() === id) ||
-        // Try match on code field
-        (item.code && item.code.toString() === id) ||
-        // For numeric IDs, try numeric comparison
-        (/^\d+$/.test(id) && (
-          item.vendorId === id || 
-          item.id === id || 
-          item.code === id ||
-          (item.vendorId && item.vendorId.toString() === id) ||
-          (item.code && item.code.toString() === id)
-        ))
-      );
+      console.debug(`Matching vendor ID '${id}' against ${items.length} vendors`);
+      console.debug(`Search ID: '${id}' (type: ${typeof id})`);
+      
+      // Check if we're looking for vendor 1030 specifically
+      if (id === '1030' || id === 1030) {
+        console.debug('[VENDOR DEBUG] Searching for vendor 1030 in items list');
+        const check1030 = items.find(v => v.id === '1030' || v.code === '1030');
+        if (check1030) {
+          console.debug('[VENDOR DEBUG] Vendor 1030 IS in items list:', check1030);
+        } else {
+          console.error('[VENDOR DEBUG] Vendor 1030 NOT in items list. Available vendor IDs:', items.map(v => v.id).slice(0, 10));
+        }
+      }
+      
+      const vendor = items.find(item => {
+        // Get code value (check both cases)
+        const codeValue = item.code || item.Code;
+        const codeStr = codeValue ? codeValue.toString().trim() : null;
+        
+        // Get vendorId value
+        const vendorIdStr = item.vendorId ? item.vendorId.toString().trim() : null;
+        
+        // Get document ID
+        const docId = item.id ? item.id.toString().trim() : null;
+        
+        // Normalize the search ID for comparison
+        const searchId = id.toString().trim();
+        
+        // Try multiple matching strategies (case-insensitive)
+        const matchesId = docId && docId.toLowerCase() === searchId.toLowerCase();
+        const matchesVendorId = vendorIdStr && vendorIdStr.toLowerCase() === searchId.toLowerCase();
+        const matchesCode = codeStr && codeStr.toLowerCase() === searchId.toLowerCase();
+        
+        const isMatch = matchesId || matchesVendorId || matchesCode;
+        
+        // Debug logging for vendor 1030 specifically
+        if (item.id === '1030' || codeStr === '1030') {
+          console.debug(`[VENDOR DEBUG] Matching vendor 1030: ID='${docId}', vendorId='${vendorIdStr}', code='${codeStr}', name='${item.name}' | searchId='${searchId}' | Match: ${isMatch} (ID:${matchesId}, VID:${matchesVendorId}, Code:${matchesCode})`);
+        }
+        
+        // Debug logging for each vendor to understand matching
+        console.debug(`Checking vendor: ID='${docId}', vendorId='${vendorIdStr}', code='${codeStr}', name='${item.name}' | Match: ${isMatch} (ID:${matchesId}, VID:${matchesVendorId}, Code:${matchesCode})`);
+        
+        if (isMatch) {
+          console.info(`✓ Vendor match found: ID='${docId}', code='${codeStr}', vendorId='${vendorIdStr}', name='${item.name || item.Name}'`);
+        }
+        
+        return isMatch;
+      });
       
       if (vendor) {
-        console.debug(`Found vendor with ID ${id}: ${vendor.name}`);
-        return vendor.name;
+        const vendorName = vendor.name || vendor.Name;
+        if (!vendorName || vendorName === id) {
+          console.error(`Vendor found but name is missing or same as ID: ${JSON.stringify(vendor)}`);
+          // Return vendor code with indicator that name is missing
+          return `Vendor ${id} (Name Missing)`;
+        }
+        console.info(`✓ Successfully resolved vendor '${id}' to '${vendorName}'`);
+        return vendorName;
       } else {
-        console.warn(`Vendor with ID '${id}' not found in ${items.length} vendors`);
-        console.debug('Available vendors:', items.map(v => ({ id: v.id, vendorId: v.vendorId, code: v.code, name: v.name })));
+        console.error(`✗ Vendor with ID '${id}' not found in ${items.length} vendors`);
+        console.debug('All available vendors:', items.map(v => ({ 
+          id: v.id, 
+          vendorId: v.vendorId, 
+          code: v.code || v.Code, 
+          name: v.name || v.Name,
+          active: v.active,
+          approved: v.approved
+        })));
         // For numeric vendor IDs, make it clear this is a vendor code
         return /^\d+$/.test(id) ? `Vendor #${id}` : id;
       }
@@ -299,15 +441,28 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
 
   // For vendor name, use enhanced resolution
   let vendorName = 'Not specified';
+  console.log(`[VENDOR DEBUG] ========== VENDOR RESOLUTION START ==========`);
+  console.log(`[VENDOR DEBUG] PR ID: ${pr.id}`);
+  console.log(`[VENDOR DEBUG] Preferred Vendor: '${pr.preferredVendor}' (type: ${typeof pr.preferredVendor})`);
+  console.log(`[VENDOR DEBUG] Organization: '${pr.organization}'`);
+  console.log(`[VENDOR DEBUG] ================================================`);
+  
   if (pr.preferredVendor) {
-    console.log(`Resolving vendor: '${pr.preferredVendor}' for organization: '${pr.organization}'`);
+    console.log(`[VENDOR DEBUG] Calling resolveReferenceData with: id='${pr.preferredVendor}', type='vendor', org='${pr.organization}'`);
     vendorName = await resolveReferenceData(pr.preferredVendor, 'vendor', pr.organization);
-    console.log(`Resolved vendor '${pr.preferredVendor}' to '${vendorName}'`);
+    console.log(`[VENDOR DEBUG] ========== VENDOR RESOLUTION RESULT ==========`);
+    console.log(`[VENDOR DEBUG] Input: '${pr.preferredVendor}'`);
+    console.log(`[VENDOR DEBUG] Output: '${vendorName}'`);
+    console.log(`[VENDOR DEBUG] ================================================`);
     
     // If still showing ID/code, it means resolution failed
     if (vendorName === pr.preferredVendor || vendorName.startsWith('Vendor #')) {
-      console.warn(`Vendor resolution failed or vendor not found: ${pr.preferredVendor}`);
+      console.error(`[VENDOR DEBUG] ✗ Vendor resolution FAILED - vendor not found or name missing: ${pr.preferredVendor}`);
+    } else {
+      console.log(`[VENDOR DEBUG] ✓ Vendor resolution SUCCESSFUL: '${pr.preferredVendor}' → '${vendorName}'`);
     }
+  } else {
+    console.warn(`[VENDOR DEBUG] ✗ No preferredVendor field in PR object`);
   }
 
   const html = `

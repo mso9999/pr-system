@@ -81,7 +81,44 @@ class ReferenceDataService {
       })) as ReferenceData[];
 
       // Filter inactive items
-      const activeItems = items.filter(item => item.active);
+      // For vendors, check 'approved' or 'Approved' field, for others check 'active'
+      const activeItems = items.filter(item => {
+        if (type === 'vendors') {
+          // Check both lowercase and uppercase 'approved'/'Approved' fields
+          const approvedValue = item.approved !== undefined ? item.approved : item.Approved;
+          const activeValue = item.active !== undefined ? item.active : item.isActive;
+          
+          // Vendor is active if approved is true, "TRUE", empty string, undefined, OR active is true
+          const shouldInclude = approvedValue === true || 
+                 approvedValue === 'TRUE' || 
+                 approvedValue === '' || 
+                 approvedValue === undefined || 
+                 activeValue === true;
+          
+          // Debug logging for vendor 1030 specifically
+          if (item.id === '1030' || item.code === '1030') {
+            console.debug(`[VENDOR DEBUG] referenceData.ts filtering vendor 1030: approved=${approvedValue}, active=${activeValue}, shouldInclude=${shouldInclude}`);
+          }
+          
+          return shouldInclude;
+        }
+        return item.active !== false;
+      });
+      
+      // Check if vendor 1030 is in active items after filtering
+      if (type === 'vendors') {
+        const vendor1030 = activeItems.find(v => v.id === '1030' || v.code === '1030');
+        if (vendor1030) {
+          console.debug('[VENDOR DEBUG] referenceData.ts: vendor 1030 INCLUDED in active items:', {
+            id: vendor1030.id,
+            name: vendor1030.name,
+            active: vendor1030.active,
+            approved: vendor1030.approved
+          });
+        } else {
+          console.error('[VENDOR DEBUG] referenceData.ts: vendor 1030 FILTERED OUT. Total items before filter:', items.length, ', after filter:', activeItems.length);
+        }
+      }
 
       return activeItems;
     } catch (error) {

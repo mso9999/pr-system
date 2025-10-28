@@ -344,7 +344,11 @@ export async function getRuleForOrganization(
 export async function createPR(
   prData: PRCreateData
 ): Promise<{ prId: string; prNumber: string }> {
-   console.log('Attempting to create PR with data:', prData);
+   console.log('[PR SERVICE] ========== CREATE PR START ==========');
+   console.log('[PR SERVICE] Attempting to create PR with data:', prData);
+   console.log('[PR SERVICE] Preferred Vendor from input:', prData.preferredVendor);
+   console.log('[PR SERVICE] ==========================================');
+   
    if (!prData || !prData.requestorId) {
      console.error('createPR called with invalid prData or missing requestorId.');
      throw new Error('Invalid PR data provided.');
@@ -365,9 +369,14 @@ export async function createPR(
        // approvalWorkflow initialization might be needed here
      };
 
+     console.log('[PR SERVICE] Final PR data before saving to Firestore:');
+     console.log('[PR SERVICE] - PR Number:', finalPRData.prNumber);
+     console.log('[PR SERVICE] - Preferred Vendor:', finalPRData.preferredVendor);
+     console.log('[PR SERVICE] - Organization:', finalPRData.organization);
+
      // Use addDoc to create a new document with an auto-generated ID
      const docRef = await addDoc(collection(db, PR_COLLECTION), finalPRData);
-     console.log(`Successfully created PR ${prNumber} with ID ${docRef.id}`);
+     console.log(`[PR SERVICE] Successfully created PR ${prNumber} with ID ${docRef.id}`);
      
     // Trigger notification for new PR submission
     try {
@@ -378,6 +387,12 @@ export async function createPR(
         ...finalPRData,
         id: docRef.id
       };
+      
+      // Add a delay to allow Firestore to make the document available
+      // This helps with eventual consistency issues
+      // Increased from 100ms to 500ms to better handle Firestore propagation
+      console.log('Waiting 500ms for Firestore document propagation before sending notification...');
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const notificationResult = await notificationHandler.createNotification(completePRData, prNumber);
       console.log('PR submission notification result:', notificationResult);
@@ -483,6 +498,7 @@ export async function getUserPRs(
 
 /**
  * Generates a new PR number based on the organization and current date.
+ * Uses a Firestore counter to ensure unique sequential numbers.
  * @param organization - The organization code.
  * @returns The next PR number
  */
@@ -492,6 +508,7 @@ export async function generatePRNumber(organization: string = 'UNK'): Promise<st
   const yy = now.getFullYear().toString().slice(-2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
+  const currentYear = now.getFullYear();
   
   // Normalize organization name (handle spaces, special chars, case)
   const normalizedOrg = organization.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -531,13 +548,49 @@ export async function generatePRNumber(organization: string = 'UNK'): Promise<st
   const orgCode = orgCodeMap[normalizedOrg] || organization.substring(0, 3).toUpperCase();
   const countryCode = countryCodeMap[normalizedOrg] || 'XX';
   
-  // Generate sequential number (0-9999, reset each year)
-  // For now, use timestamp-based approach, but this should be replaced with a proper counter
-  const sequentialNumber = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+  // Use Firestore transaction to get and increment counter atomically
+  // Counter document is stored per year to enable annual reset
+  const counterDocId = `pr_counter_${currentYear}_${normalizedOrg}`;
+  const counterRef = doc(db, 'counters', counterDocId);
   
-  const prNumber = `${yy}${mm}${dd}-${sequentialNumber}-${orgCode}-${countryCode}`;
-  console.log(`Generated PR Number: ${prNumber}`);
-  return prNumber;
+  try {
+    // Use runTransaction to ensure atomic read and update
+    const { runTransaction } = await import('firebase/firestore');
+    const sequentialNumber = await runTransaction(db, async (transaction) => {
+      const counterDoc = await transaction.get(counterRef);
+      
+      let newCount = 1; // Start from 1
+      if (counterDoc.exists()) {
+        const currentCount = counterDoc.data().count || 0;
+        newCount = currentCount + 1;
+      }
+      
+      // Update the counter
+      transaction.set(counterRef, {
+        count: newCount,
+        year: currentYear,
+        organization: normalizedOrg,
+        lastUpdated: new Date().toISOString()
+      });
+      
+      return newCount;
+    });
+    
+    // Format the sequential number with leading zeros (4 digits)
+    const sequentialStr = sequentialNumber.toString().padStart(4, '0');
+    
+    const prNumber = `${yy}${mm}${dd}-${sequentialStr}-${orgCode}-${countryCode}`;
+    console.log(`Generated PR Number: ${prNumber} (sequential: ${sequentialNumber})`);
+    return prNumber;
+  } catch (error) {
+    console.error('Failed to generate PR number with counter, falling back to timestamp:', error);
+    // Fallback to timestamp-based if counter fails (to prevent complete failure)
+    const timestampNumber = Date.now() % 10000;
+    const sequentialStr = timestampNumber.toString().padStart(4, '0');
+    const prNumber = `${yy}${mm}${dd}-${sequentialStr}-${orgCode}-${countryCode}`;
+    console.warn(`Using timestamp-based PR Number: ${prNumber}`);
+    return prNumber;
+  }
 }
 
 /**

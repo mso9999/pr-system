@@ -187,6 +187,9 @@ export const NewPRForm = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
+  
+  // Use a ref to track submission status synchronously (prevents race conditions)
+  const isSubmittingRef = React.useRef(false);
 
   // Reference data state
   const [departments, setDepartments] = useState<ReferenceDataItem[]>([]);
@@ -198,6 +201,7 @@ export const NewPRForm = () => {
   const [approvers, setApprovers] = useState<any[]>([]);
   const [availableApprovers, setAvailableApprovers] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<ReferenceDataItem[]>([]);
+  const [rules, setRules] = useState<any[]>([]);
 
   // Business rule state
   const [requiresFinanceApproval, setRequiresFinanceApproval] = useState(false);
@@ -261,7 +265,8 @@ export const NewPRForm = () => {
           vehicleItems,
           vendorItems,
           approverItems,
-          currencyItems
+          currencyItems,
+          rulesItems
         ] = await Promise.all([
           referenceDataService.getProjectCategories(formState.organization.id),
           referenceDataService.getSites(formState.organization.id),
@@ -269,7 +274,8 @@ export const NewPRForm = () => {
           referenceDataService.getVehicles(formState.organization.id),
           referenceDataService.getVendors(),
           approverService.getApprovers(formState.organization.id),
-          referenceDataService.getCurrencies()
+          referenceDataService.getCurrencies(),
+          referenceDataService.getItemsByType('rules', formState.organization.id)
         ]);
 
         setProjectCategories(projectCategoryItems);
@@ -279,7 +285,10 @@ export const NewPRForm = () => {
         setVendors(vendorItems);
         setApprovers(approverItems);
         setAvailableApprovers(approverItems);
+        console.log('Approvers loaded in NewPRForm:', approverItems);
         setCurrencies(currencyItems);
+        setRules(rulesItems);
+        console.log('Rules loaded in NewPRForm:', rulesItems);
 
       } catch (error) {
         console.error('Error loading reference data:', error);
@@ -412,6 +421,7 @@ export const NewPRForm = () => {
       vendors={vendors}
       approvers={availableApprovers}
       currencies={currencies}
+      rules={rules}
       loading={isLoadingData}
       isSubmitted={validationAttempted}
       validationErrors={validationErrors}
@@ -559,6 +569,17 @@ export const NewPRForm = () => {
           variant: 'error',
           autoHideDuration: 5000 
         });
+      } else {
+        // Check if selected approvers can approve the amount
+        const approverAmountError = validateApproverAmount();
+        if (approverAmountError) {
+          console.log('Approver amount validation failed:', approverAmountError);
+          errors.push(approverAmountError);
+          enqueueSnackbar(approverAmountError, { 
+            variant: 'error',
+            autoHideDuration: 8000 
+          });
+        }
       }
 
       // Check required date
@@ -583,6 +604,98 @@ export const NewPRForm = () => {
       });
       return false;
     }
+  };
+
+  // Validation function to check if selected approvers can approve the amount
+  const validateApproverAmount = (): string | null => {
+    console.log('NewPRForm validateApproverAmount called:', {
+      estimatedAmount: formState.estimatedAmount,
+      approvers: formState.approvers,
+      availableApprovers: availableApprovers,
+      rules: rules,
+      rulesLength: rules?.length
+    });
+    
+    if (!formState.estimatedAmount || !formState.approvers || formState.approvers.length === 0 || !rules || rules.length === 0) {
+      console.log('NewPRForm validation skipped - missing data');
+      return null;
+    }
+
+    const amount = typeof formState.estimatedAmount === 'string' 
+      ? parseFloat(formState.estimatedAmount) 
+      : formState.estimatedAmount;
+
+    if (isNaN(amount) || amount <= 0) {
+      return null;
+    }
+
+    // Find rules based on actual rule structure
+    // Rule 1: Finance admin approvers can approve low value PRs (threshold for Finance Approvers)
+    // Rule 3: High value threshold (requires dual approval above this amount)
+    const rule1 = rules.find((rule: any) => 
+      rule.number === 1 || rule.number === '1' || 
+      rule.description?.toLowerCase().includes('finance admin approvers can approve low value')
+    );
+    const rule3 = rules.find((rule: any) => 
+      rule.number === 3 || rule.number === '3' || 
+      rule.description?.toLowerCase().includes('high value threshold') ||
+      rule.description?.toLowerCase().includes('3 quotes and adjudication')
+    );
+    
+    console.log('NewPRForm Rules found:', { rule1, rule3, allRules: rules });
+    
+    // If no rules are found, skip validation
+    if (!rule1 && !rule3) {
+      console.log('NewPRForm: No rules found - skipping validation');
+      return null;
+    }
+    
+    const effectiveRule1 = rule1;
+    const effectiveRule3 = rule3;
+    
+    console.log('NewPRForm Effective rules:', { effectiveRule1, effectiveRule3, amount });
+
+    // Check if amount is above Rule 1 threshold (Finance Approver limit)
+    const isAboveRule1Threshold = effectiveRule1 ? amount > effectiveRule1.threshold : false;
+    // Rule 3 is the high-value threshold for dual approval
+    const isAboveRule3Threshold = effectiveRule3 ? amount > effectiveRule3.threshold : false;
+
+    // Check if any selected approver cannot approve this amount
+    const invalidApprovers = formState.approvers.filter(approverId => {
+      const approver = availableApprovers.find(a => a.id === approverId);
+      if (!approver) return false;
+
+      const permissionLevel = parseInt(approver.permissionLevel);
+      
+      // Level 1 and 2 can approve any amount
+      if (permissionLevel === 1 || permissionLevel === 2) {
+        return false;
+      }
+      
+        // Level 6 (Finance Approvers) can only approve within Rule 1 threshold
+        if (permissionLevel === 6) {
+          if (isAboveRule1Threshold) {
+            return true; // Cannot approve above rule 1 threshold (1,500 LSL)
+          }
+          return false; // Can approve within Rule 1 threshold
+        }
+      
+      return false;
+    });
+
+    if (invalidApprovers.length > 0) {
+      const invalidApproverNames = invalidApprovers.map(approverId => {
+        const approver = availableApprovers.find(a => a.id === approverId);
+        return approver ? approver.name : 'Unknown';
+      });
+
+      if (isAboveRule1Threshold && effectiveRule1) {
+        console.log('NewPRForm Rule 1 error:', { effectiveRule1, amount, isAboveRule1Threshold });
+        return `Selected Finance Approvers (${invalidApproverNames.join(', ')}) cannot approve amounts above ${effectiveRule1.threshold} ${effectiveRule1.currency}. Only Level 1 or 2 approvers can approve this amount.`;
+      }
+    }
+
+    return null;
   };
 
   const validateLineItems = () => {
@@ -750,20 +863,39 @@ export const NewPRForm = () => {
   };
 
   const handleSubmit = async () => {
-    console.log('Form submit triggered');
+    console.log('Form submit triggered', { isSubmitting, isSubmittingRef: isSubmittingRef.current, timestamp: new Date().toISOString() });
+    
+    // Check ref first (synchronous check to prevent race conditions)
+    if (isSubmittingRef.current) {
+      console.warn('Form submission already in progress (ref check) - ignoring duplicate submit');
+      return;
+    }
+    
+    // Also check state for UI consistency
+    if (isSubmitting) {
+      console.warn('Form submission already in progress (state check) - ignoring duplicate submit');
+      return;
+    }
+    
+    // Set ref IMMEDIATELY (synchronous) to block any concurrent submissions
+    isSubmittingRef.current = true;
+    
     if (!user) {
       console.error('Cannot submit PR: User is not authenticated.');
       setError('You must be logged in to submit a Purchase Request.');
       enqueueSnackbar('Authentication error. Please log in again.', { variant: 'error' });
+      isSubmittingRef.current = false; // Reset ref on error
       return; // Prevent submission if user is null
     }
 
     // Validate form
     if (!validateForm()) {
       console.log('Form validation failed');
+      isSubmittingRef.current = false; // Reset ref on validation failure
       return;
     }
 
+    // Set submitting flag for UI updates
     setIsSubmitting(true);
     setError(null);
 
@@ -903,7 +1035,10 @@ export const NewPRForm = () => {
         autoHideDuration: 5000 
       });
     } finally {
+      // Reset both state and ref
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
+      console.log('Form submission completed, flags reset');
     }
   };
 

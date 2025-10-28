@@ -108,74 +108,35 @@ export class SubmitPRNotificationHandler {
         return { success: false, message: 'PR object is null or undefined' };
       }
       
-      // Generate a user-friendly PR number if not available
-      // Ensure consistent PR number format - prefer the official format from PR document
+      // Determine the PR number to use
+      // Priority: inputPrNumber (passed from createPR) > pr.prNumber (from PR object)
       let prNumber = '';
-      if (pr.prNumber && pr.prNumber.startsWith('PR-')) {
-        // Use the official PR number if it's in the correct format
-        prNumber = pr.prNumber;
-      } else if (inputPrNumber && inputPrNumber.startsWith('PR-')) {
-        // Use the input PR number if it's in the correct format
+      
+      // First check if we have an explicitly passed PR number
+      if (inputPrNumber) {
         prNumber = inputPrNumber;
-      } else {
-        // Generate a fallback PR number using the new format: [YYMMDD-####-ORG-CC]
-        const now = new Date();
-        const yy = now.getFullYear().toString().slice(-2);
-        const mm = String(now.getMonth() + 1).padStart(2, '0');
-        const dd = String(now.getDate()).padStart(2, '0');
-        
-        // Get organization code mapping from actual database values
-        const orgCodeMap: { [key: string]: string } = {
-          '1pwr_lesotho': '1PL',
-          '1pwr_benin': '1PB',
-          '1pwr_zambia': '1PZ',
-          'neo1': 'NEO',
-          'pueco_benin': 'PCB',
-          'pueco_lesotho': 'PCL',
-          'smp': 'SMP',
-          // Legacy mappings for backward compatibility
-          'lesotho': '1PL',
-          'benin': '1PB',
-          'zambia': '1PZ',
-          'sotho_minigrid_portfolio': 'SMP'
-        };
-        
-        // Get country code mapping from actual database values
-        const countryCodeMap: { [key: string]: string } = {
-          '1pwr_lesotho': 'LS',
-          '1pwr_benin': 'BN', // Using BN instead of BJ as requested
-          '1pwr_zambia': 'ZM',
-          'neo1': 'LS',
-          'pueco_benin': 'BN', // Using BN instead of BJ as requested
-          'pueco_lesotho': 'LS',
-          'smp': 'LS',
-          // Legacy mappings for backward compatibility
-          'lesotho': 'LS',
-          'benin': 'BN', // Using BN instead of BJ as requested
-          'zambia': 'ZM',
-          'sotho_minigrid_portfolio': 'LS'
-        };
-        
-        // Normalize organization name (handle spaces, special chars, case)
-        const normalizedOrg = (pr.organization || 'UNK').toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const orgCode = orgCodeMap[normalizedOrg] || (pr.organization || 'UNK').substring(0, 3).toUpperCase();
-        const countryCode = countryCodeMap[normalizedOrg] || 'XX';
-        
-        // Generate sequential number (0-9999, reset each year)
-        const sequentialNumber = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
-        
-        prNumber = `${yy}${mm}${dd}-${sequentialNumber}-${orgCode}-${countryCode}`;
-        
-        console.warn('Using fallback PR number format', { 
+        console.log('Using explicitly passed PR number:', prNumber);
+      } 
+      // Then check if PR object has a valid PR number
+      else if (pr.prNumber) {
+        prNumber = pr.prNumber;
+        console.log('Using PR number from PR object:', prNumber);
+      } 
+      // If we don't have a PR number at this point, something went wrong
+      else {
+        console.error('No PR number available for notification', { 
           prId: pr.id, 
-          fallbackPrNumber: prNumber,
-          originalPrNumber: pr.prNumber,
           inputPrNumber,
+          prPrNumber: pr.prNumber,
           organization: pr.organization
         });
+        throw new Error('PR number is required for notification but was not provided');
       }
 
       console.log('Creating PR submission notification', { prId: pr.id, prNumber });
+      
+      // Comprehensive duplicate check across multiple collections
+      console.log('Checking for existing notifications for PR:', pr.id);
       
       // Check if this PR already has a notification sent in the notifications collection
       const notificationsRef = collection(db, 'notifications');
@@ -187,14 +148,15 @@ export class SubmitPRNotificationHandler {
       
       const querySnapshot = await getDocs(q);
       if (!querySnapshot.empty) {
-        console.log('PR submission notification already exists in notifications collection, skipping', { 
+        console.warn('PR submission notification already exists in notifications collection, skipping duplicate', { 
           prId: pr.id, 
           prNumber,
-          existingNotifications: querySnapshot.size
+          existingNotifications: querySnapshot.size,
+          existingNotificationIds: querySnapshot.docs.map(d => d.id)
         });
         return { 
           success: true, 
-          message: 'Notification already sent',
+          message: 'Notification already sent - duplicate prevented',
           notificationId: querySnapshot.docs[0].id
         };
       }
@@ -209,14 +171,15 @@ export class SubmitPRNotificationHandler {
       
       const prNotificationsSnapshot = await getDocs(prNotificationsQuery);
       if (!prNotificationsSnapshot.empty) {
-        console.log('PR submission notification already exists in purchaseRequestsNotifications, skipping', { 
+        console.warn('PR submission notification already exists in purchaseRequestsNotifications, skipping duplicate', { 
           prId: pr.id, 
           prNumber,
-          existingNotifications: prNotificationsSnapshot.size
+          existingNotifications: prNotificationsSnapshot.size,
+          existingNotificationIds: prNotificationsSnapshot.docs.map(d => d.id)
         });
         return { 
           success: true, 
-          message: 'Notification already sent',
+          message: 'Notification already sent - duplicate prevented',
           notificationId: prNotificationsSnapshot.docs[0].id
         };
       }
@@ -234,17 +197,20 @@ export class SubmitPRNotificationHandler {
       
       const notificationLogsSnapshot = await getDocs(notificationLogsQuery);
       if (!notificationLogsSnapshot.empty) {
-        console.log('PR submission notification already exists in notificationLogs, skipping', { 
+        console.warn('PR submission notification already exists in notificationLogs, skipping duplicate', { 
           prId: pr.id, 
           prNumber,
-          existingNotifications: notificationLogsSnapshot.size
+          existingNotifications: notificationLogsSnapshot.size,
+          existingNotificationIds: notificationLogsSnapshot.docs.map(d => d.id)
         });
         return { 
           success: true, 
-          message: 'Notification already sent via logs',
+          message: 'Notification already sent via logs - duplicate prevented',
           notificationId: notificationLogsSnapshot.docs[0].id
         };
       }
+      
+      console.log('No existing notifications found, proceeding to create new notification for PR:', pr.id);
       
       // Get the PR document to ensure we have all the data
       let prDoc = await this.getPRDocument(pr.id);
@@ -476,9 +442,18 @@ export class SubmitPRNotificationHandler {
       const requestorName = await this.getRequestorName(prDoc);
       
       console.log(`Creating PR submission notification`, { prId: prDoc.id, prNumber, requestorName });
+      console.log(`[VENDOR DEBUG] ========== PR NOTIFICATION START ==========`);
+      console.log(`[VENDOR DEBUG] PR ID: ${prDoc.id}`);
+      console.log(`[VENDOR DEBUG] PR Number: ${prNumber}`);
+      console.log(`[VENDOR DEBUG] Preferred Vendor: '${prDoc.preferredVendor}' (type: ${typeof prDoc.preferredVendor})`);
+      console.log(`[VENDOR DEBUG] Organization: '${prDoc.organization}'`);
+      console.log(`[VENDOR DEBUG] Full PR object:`, JSON.stringify(prDoc, null, 2));
+      console.log(`[VENDOR DEBUG] ==========================================`);
       
       // Generate email content
       const { html, text, subject } = await generateNewPREmail(notificationContext);
+      console.log(`[VENDOR DEBUG] Email content generated`);
+
       
       // Get recipients
       const recipients = [this.PROCUREMENT_EMAIL];
@@ -777,26 +752,50 @@ export class SubmitPRNotificationHandler {
       .join(' ');
   }
 
-  private async getPRDocument(prId: string): Promise<any> {
-    try {
-      // Try to get the document from Firestore
-      const prRef = doc(db, 'prs', prId);
-      const prSnap = await getDoc(prRef);
-      
-      if (prSnap.exists()) {
-        return { id: prSnap.id, ...prSnap.data() };
+  private async getPRDocument(prId: string, maxRetries: number = 5): Promise<any> {
+    // Increase retries and wait time to handle Firestore's eventual consistency
+    const retryDelays = [200, 500, 1000, 1500, 2000]; // Progressive backoff
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        // Try to get the document from Firestore
+        const prRef = doc(db, 'prs', prId);
+        const prSnap = await getDoc(prRef);
+        
+        if (prSnap.exists()) {
+          console.log(`Successfully retrieved PR document from Firestore on attempt ${attempt}/${maxRetries}: ${prId}`);
+          return { id: prSnap.id, ...prSnap.data() };
+        }
+        
+        // If not found and this is not the last attempt, wait and retry with progressive backoff
+        if (attempt < maxRetries) {
+          const delay = retryDelays[attempt - 1] || 1000;
+          console.log(`PR document not found in Firestore (attempt ${attempt}/${maxRetries}): ${prId}. Retrying in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        // If not found after all retries, log a warning but don't fail - we'll use the in-memory data
+        console.warn(`PR document not found in Firestore after ${maxRetries} attempts and ~${retryDelays.reduce((a, b) => a + b, 0)}ms: ${prId}. This may be due to Firestore's eventual consistency or the document was not created successfully.`);
+        return null;
+      } catch (error) {
+        console.error(`Error fetching PR document (attempt ${attempt}/${maxRetries})`, { 
+          error: error instanceof Error ? error.message : String(error),
+          prId 
+        });
+        
+        // If this is not the last attempt, wait and retry
+        if (attempt < maxRetries) {
+          const delay = retryDelays[attempt - 1] || 1000;
+          await new Promise(resolve => setTimeout(resolve, delay));
+          continue;
+        }
+        
+        return null;
       }
-      
-      // If not found, log a warning but don't fail - we'll use the in-memory data
-      console.warn(`PR document not found in Firestore: ${prId}. This may be due to Firestore's eventual consistency.`);
-      return null;
-    } catch (error) {
-      console.error('Error fetching PR document', { 
-        error: error instanceof Error ? error.message : String(error),
-        prId 
-      });
-      return null;
     }
+    
+    return null;
   }
 }
 
