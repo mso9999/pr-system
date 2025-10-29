@@ -1,0 +1,37 @@
+Number,Description,Threshold,Currency,Active,Organization
+1,Finance admin approvers can approve low value PRs,1500,LSL,Y,1PWR LESOTHO
+2,Low Threshold Multiplier to set the boundary between 1 quote (if vendor is approved revert to zero quotes required) or [rule 4] quotes (if vendor is approved revert to floor),4,NA,Y,1PWR LESOTHO
+3,"Items below this high value threshold (and above rule 1 * rule 2) require [rule 4] quotes unless the vendor is approved; above the threshold [rule 4] quotes, [rule 5] unique approvers, and adjudication notes are always required",50000,LSL,Y,1PWR LESOTHO
+4,Number of Quotes required above minimum floor of 1 quote,3,LSL,Y,1PWR LESOTHO
+5,Number of approvers required for high value expenditures,2,NA,Y,1PWR LESOTHO
+1,Finance admin approvers can approve low value PRs,,,Y,SMP
+2,Low Threshold Multiplier to set the boundary between 1 quote (if vendor is approved revert to zero quotes required) or [rule 4] quotes (if vendor is approved revert to floor),,,Y,SMP
+3,"Items below this high value threshold (and above rule 1 * rule 2) require [rule 4] quotes unless the vendor is approved; above the threshold [rule 4] quotes, [rule 5] unique approvers, and adjudication notes are always required",,,Y,SMP
+4,Number of Quotes required above minimum floor of 1 quote,,,Y,SMP
+5,Number of approvers required for high value expenditures,,,Y,SMP
+1,Finance admin approvers can approve low value PRs,,,Y,PUECO LESOTHO
+2,Low Threshold Multiplier to set the boundary between 1 quote (if vendor is approved revert to zero quotes required) or [rule 4] quotes (if vendor is approved revert to floor),,,Y,PUECO LESOTHO
+3,"Items below this high value threshold (and above rule 1 * rule 2) require [rule 4] quotes unless the vendor is approved; above the threshold [rule 4] quotes, [rule 5] unique approvers, and adjudication notes are always required",,,Y,PUECO LESOTHO
+4,Number of Quotes required above minimum floor of 1 quote,,,Y,PUECO LESOTHO
+5,Number of approvers required for high value expenditures,,,Y,PUECO LESOTHO
+1,Finance admin approvers can approve low value PRs,,,Y,NEO1
+2,Low Threshold Multiplier to set the boundary between 1 quote (if vendor is approved revert to zero quotes required) or [rule 4] quotes (if vendor is approved revert to floor),,,Y,NEO1
+3,"Items below this high value threshold (and above rule 1 * rule 2) require [rule 4] quotes unless the vendor is approved; above the threshold [rule 4] quotes, [rule 5] unique approvers, and adjudication notes are always required",,,Y,NEO1
+4,Number of Quotes required above minimum floor of 1 quote,,,Y,NEO1
+5,Number of approvers required for high value expenditures,,,Y,NEO1
+1,Finance admin approvers can approve low value PRs,,,Y,1PWR BENIN
+2,Low Threshold Multiplier to set the boundary between 1 quote (if vendor is approved revert to zero quotes required) or [rule 4] quotes (if vendor is approved revert to floor),,,Y,1PWR BENIN
+3,"Items below this high value threshold (and above rule 1 * rule 2) require [rule 4] quotes unless the vendor is approved; above the threshold [rule 4] quotes, [rule 5] unique approvers, and adjudication notes are always required",,,Y,1PWR BENIN
+4,Number of Quotes required above minimum floor of 1 quote,,,Y,1PWR BENIN
+5,Number of approvers required for high value expenditures,,,Y,1PWR BENIN
+1,Finance admin approvers can approve low value PRs,,,Y,1PWR ZAMBIA
+2,Low Threshold Multiplier to set the boundary between 1 quote (if vendor is approved revert to zero quotes required) or [rule 4] quotes (if vendor is approved revert to floor),,,Y,1PWR ZAMBIA
+3,"Items below this high value threshold (and above rule 1 * rule 2) require [rule 4] quotes unless the vendor is approved; above the threshold [rule 4] quotes, [rule 5] unique approvers, and adjudication notes are always required",,,Y,1PWR ZAMBIA
+4,Number of Quotes required above minimum floor of 1 quote,,,Y,1PWR ZAMBIA
+5,Number of approvers required for high value expenditures,,,Y,1PWR ZAMBIA
+1,Finance admin approvers can approve low value PRs,,,Y,PUECO BENIN
+2,Low Threshold Multiplier to set the boundary between 1 quote (if vendor is approved revert to zero quotes required) or [rule 4] quotes (if vendor is approved revert to floor),,,Y,PUECO BENIN
+3,"Items below this high value threshold (and above rule 1 * rule 2) require [rule 4] quotes unless the vendor is approved; above the threshold [rule 4] quotes, [rule 5] unique approvers, and adjudication notes are always required",,,Y,PUECO BENIN
+4,Number of Quotes required above minimum floor of 1 quote,,,Y,PUECO BENIN
+5,Number of approvers required for high value expenditures,,,Y,PUECO BENIN
+
