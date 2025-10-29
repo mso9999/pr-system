@@ -33,6 +33,8 @@ import { signOut } from '../../services/auth';
 import { clearUser } from '../../store/slices/authSlice';
 import { clearPRState, setShowOnlyMyPRs } from '../../store/slices/prSlice';
 import { UserProfile } from '@/components/user/UserProfile';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from './LanguageToggle';
 
 const NavItem = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -50,6 +52,7 @@ const NavItem = styled('div')(({ theme }) => ({
 export const Layout = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { t } = useTranslation();
   const user = useSelector((state: RootState) => state.auth.user);
   const showOnlyMyPRs = useSelector((state: RootState) => state.pr.showOnlyMyPRs);
   
@@ -96,7 +99,7 @@ export const Layout = () => {
           <ListItemIcon>
             <Dashboard />
           </ListItemIcon>
-          <ListItemText primary="Dashboard" />
+          <ListItemText primary={t('nav.dashboard')} />
         </NavItem>
         <NavItem>
           <ListItemIcon>
@@ -111,7 +114,7 @@ export const Layout = () => {
                 color="primary"
               />
             }
-            label="My PRs"
+            label={t('nav.myPRs')}
           />
         </NavItem>
         <NavItem onClick={() => navigate('/pr/list')}>
@@ -127,7 +130,7 @@ export const Layout = () => {
               <ListItemIcon>
                 <AdminPanelSettings />
               </ListItemIcon>
-              <ListItemText primary="Admin Portal" />
+              <ListItemText primary={t('nav.admin')} />
             </NavItem>
           </>
         )}
@@ -156,8 +159,11 @@ export const Layout = () => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            1PWR Procurement System
+            1PWR {t('pr.purchaseRequest')} System
           </Typography>
+          <Box sx={{ mr: 2 }}>
+            <LanguageToggle />
+          </Box>
           <div>
             <IconButton
               size="large"
@@ -186,9 +192,6 @@ export const Layout = () => {
             >
               <div style={{ padding: '8px 16px', minWidth: '200px' }}>
                 <Typography variant="body2" color="textSecondary">
-                  Signed in as
-                </Typography>
-                <Typography variant="body1">
                   {user?.email}
                 </Typography>
               </div>
@@ -197,9 +200,9 @@ export const Layout = () => {
                 handleClose();
                 setIsProfileOpen(true);
               }}>
-                Manage Profile
+                {t('nav.settings')}
               </MenuItem>
-              <MenuItem onClick={handleSignOut}>Sign Out</MenuItem>
+              <MenuItem onClick={handleSignOut}>{t('auth.signOut')}</MenuItem>
             </Menu>
           </div>
         </Toolbar>
