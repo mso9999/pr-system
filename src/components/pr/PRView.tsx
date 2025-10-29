@@ -915,7 +915,7 @@ export function PRView() {
     }
 
     const currentAmount = editedPR.estimatedAmount || pr?.estimatedAmount;
-    const currentApprover = selectedApprover || pr?.approver;
+    const currentApprover = selectedApprover || editedPR.approver || pr?.approver;
 
     // If we have both amount and approver, we MUST validate
     if (!currentAmount || !currentApprover) {
@@ -986,13 +986,11 @@ export function PRView() {
     }
 
     const isAboveRule1Threshold = rule1 && amount > rule1.threshold;
-    const isAboveRule2Threshold = rule2 && amount > rule2.threshold;
-
+    
     console.log('Threshold checks:', { 
-      isAboveRule1Threshold, 
-      isAboveRule2Threshold,
+      isAboveRule1Threshold,
       rule1Threshold: rule1?.threshold,
-      rule2Threshold: rule2?.threshold
+      note: 'Rule 2 is a multiplier, not a threshold'
     });
 
     // Find the approver in the approvers list
@@ -1027,9 +1025,9 @@ export function PRView() {
       return null;
     }
     
-    // Level 6 (Finance Approvers) and Level 4 (Finance Admin) can only approve within rule thresholds
+    // Level 6 (Finance Approvers) and Level 4 (Finance Admin) can only approve up to Rule 1 threshold
     if (permissionLevel === 6 || permissionLevel === 4) {
-      console.log(`Checking Level ${permissionLevel} approver against thresholds`);
+      console.log(`Checking Level ${permissionLevel} approver against Rule 1 threshold`);
       if (isAboveRule1Threshold && rule1) {
         console.error(`Validation FAILED: Level ${permissionLevel} cannot approve above Rule 1 threshold`, {
           amount,
@@ -1038,15 +1036,7 @@ export function PRView() {
         });
         return `Selected approver (${approver.name}) cannot approve amounts above ${rule1.threshold} ${rule1.currency}. Only Level 1 or 2 approvers can approve this amount.`;
       }
-      if (isAboveRule2Threshold && rule2) {
-        console.error(`Validation FAILED: Level ${permissionLevel} cannot approve above Rule 2 threshold`, {
-          amount,
-          rule2Threshold: rule2.threshold,
-          approverName: approver.name
-        });
-        return `Selected approver (${approver.name}) cannot approve amounts above ${rule2.threshold} ${rule2.currency}. Only Level 1 or 2 approvers can approve this amount.`;
-      }
-      console.log(`Validation PASSED: Level ${permissionLevel} approver within threshold limits`);
+      console.log(`Validation PASSED: Level ${permissionLevel} approver within Rule 1 threshold`);
       return null;
     }
     
