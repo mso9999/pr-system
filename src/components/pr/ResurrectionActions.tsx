@@ -79,11 +79,23 @@ export const ResurrectionActions: React.FC<ResurrectionActionsProps> = ({
       setLoading(true);
       const targetStatus = getResurrectionStatus();
 
-      await prService.updatePR(pr.id, {
-        status: targetStatus,
-        updatedAt: new Date().toISOString(),
-        notes: `Resurrected from ${pr.status} by ${currentUser.email}. ${notes ? `Note: ${notes}` : ''}`
-      });
+      // Create UserReference for status history
+      const userRef = {
+        id: currentUser.id,
+        email: currentUser.email || '',
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        name: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email || 'Unknown'
+      };
+
+      // Update status using updatePRStatus to properly manage status history
+      const resurrectionNotes = `Resurrected from ${pr.status} to ${targetStatus} by ${currentUser.email}. ${notes ? `Note: ${notes}` : ''}`;
+      await prService.updatePRStatus(
+        pr.id,
+        targetStatus,
+        resurrectionNotes,
+        userRef
+      );
 
       // Send notification
       await notificationService.handleStatusChange(
