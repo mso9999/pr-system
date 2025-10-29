@@ -140,12 +140,14 @@
   "status": {
     "DRAFT": "Brouillon",
     "SUBMITTED": "Soumis",
+    "RESUBMITTED": "Resoumis",
     "IN_QUEUE": "En file d'attente",
     "PENDING_APPROVAL": "En attente d'approbation",
     "APPROVED": "Approuvé",
     "REJECTED": "Rejeté",
     "REVISION_REQUIRED": "Révision requise",
     "ORDERED": "Commandé",
+    "COMPLETED": "Complété",
     "RECEIVED": "Reçu",
     "CANCELED": "Annulé"
   },

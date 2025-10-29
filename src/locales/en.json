@@ -140,12 +140,14 @@
   "status": {
     "DRAFT": "Draft",
     "SUBMITTED": "Submitted",
+    "RESUBMITTED": "Resubmitted",
     "IN_QUEUE": "In Queue",
     "PENDING_APPROVAL": "Pending Approval",
     "APPROVED": "Approved",
     "REJECTED": "Rejected",
     "REVISION_REQUIRED": "Revision Required",
     "ORDERED": "Ordered",
+    "COMPLETED": "Completed",
     "RECEIVED": "Received",
     "CANCELED": "Canceled"
   },

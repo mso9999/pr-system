@@ -320,19 +320,19 @@ export const Dashboard = () => {
     }
   ];
 
-  // Status display names and colors
+  // Status display names and colors (translated)
   const statusConfig: { [key in PRStatus]?: { label: string; color: string } } = {
-    [PRStatus.DRAFT]: { label: 'Draft', color: '#9E9E9E' },
-    [PRStatus.SUBMITTED]: { label: 'Submitted', color: '#4CAF50' },
-    [PRStatus.RESUBMITTED]: { label: 'Resubmitted', color: '#8BC34A' },
-    [PRStatus.IN_QUEUE]: { label: 'In Queue', color: '#2196F3' },
-    [PRStatus.PENDING_APPROVAL]: { label: 'Pending Approval', color: '#FF9800' },
-    [PRStatus.APPROVED]: { label: 'Approved', color: '#4CAF50' },
-    [PRStatus.ORDERED]: { label: 'Ordered', color: '#9C27B0' },
-    [PRStatus.COMPLETED]: { label: 'Completed', color: '#009688' },
-    [PRStatus.REVISION_REQUIRED]: { label: 'Revision Required', color: '#F44336' },
-    [PRStatus.CANCELED]: { label: 'Canceled', color: '#9E9E9E' },
-    [PRStatus.REJECTED]: { label: 'Rejected', color: '#E91E63' }
+    [PRStatus.DRAFT]: { label: t('status.DRAFT'), color: '#9E9E9E' },
+    [PRStatus.SUBMITTED]: { label: t('status.SUBMITTED'), color: '#4CAF50' },
+    [PRStatus.RESUBMITTED]: { label: t('status.RESUBMITTED'), color: '#8BC34A' },
+    [PRStatus.IN_QUEUE]: { label: t('status.IN_QUEUE'), color: '#2196F3' },
+    [PRStatus.PENDING_APPROVAL]: { label: t('status.PENDING_APPROVAL'), color: '#FF9800' },
+    [PRStatus.APPROVED]: { label: t('status.APPROVED'), color: '#4CAF50' },
+    [PRStatus.ORDERED]: { label: t('status.ORDERED'), color: '#9C27B0' },
+    [PRStatus.COMPLETED]: { label: t('status.COMPLETED'), color: '#009688' },
+    [PRStatus.REVISION_REQUIRED]: { label: t('status.REVISION_REQUIRED'), color: '#F44336' },
+    [PRStatus.CANCELED]: { label: t('status.CANCELED'), color: '#9E9E9E' },
+    [PRStatus.REJECTED]: { label: t('status.REJECTED'), color: '#E91E63' }
   };
 
   const calculateDaysOpen = (pr: PRWithHistory): number => {
