@@ -69,6 +69,8 @@
     "urgent": "Urgent PRs",
     "overdue": "Overdue PRs",
     "avgDaysOpen": "Avg Days Open",
+    "daysOpen": "Days Open",
+    "urgency": "Urgency",
     "filterByStatus": "Filter by Status",
     "all": "All PRs",
     "myRequests": "My PRs",
@@ -78,6 +80,8 @@
     "dateCreated": "Date Created",
     "dueDate": "Due Date",
     "amount": "Amount",
+    "resubmittedDate": "Resubmitted Date",
+    "statusChangeDate": "Status Change Date",
     "noPRsFound": "No purchase requests found"
   },
   "pr": {
@@ -85,6 +89,7 @@
     "prNumber": "PR Number",
     "status": "Status",
     "requestor": "Requestor",
+    "submittedBy": "Submitted By",
     "approver": "Approver",
     "department": "Department",
     "site": "Site",

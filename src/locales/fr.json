@@ -69,6 +69,8 @@
     "urgent": "DR urgentes",
     "overdue": "DR en retard",
     "avgDaysOpen": "Jours moyens ouverts",
+    "daysOpen": "Jours ouverts",
+    "urgency": "Urgence",
     "filterByStatus": "Filtrer par statut",
     "all": "Toutes les DR",
     "myRequests": "Mes DR",
@@ -78,6 +80,8 @@
     "dateCreated": "Date de création",
     "dueDate": "Date d'échéance",
     "amount": "Montant",
+    "resubmittedDate": "Date de resoumission",
+    "statusChangeDate": "Date de changement de statut",
     "noPRsFound": "Aucune demande d'achat trouvée"
   },
   "pr": {
@@ -85,6 +89,7 @@
     "prNumber": "Numéro DR",
     "status": "Statut",
     "requestor": "Demandeur",
+    "submittedBy": "Soumis par",
     "approver": "Approbateur",
     "department": "Département",
     "site": "Site",

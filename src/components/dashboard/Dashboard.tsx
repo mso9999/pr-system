@@ -645,19 +645,19 @@ export const Dashboard = () => {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>PR Number</TableCell>
-                    <TableCell>Description</TableCell>
-                    <TableCell>Submitted By</TableCell>
-                    <TableCell>Created Date</TableCell>
-                    <TableCell>Days Open</TableCell>
-                    <TableCell>Urgency</TableCell>
+                    <TableCell>{t('pr.prNumber')}</TableCell>
+                    <TableCell>{t('pr.description')}</TableCell>
+                    <TableCell>{t('pr.submittedBy')}</TableCell>
+                    <TableCell>{t('dashboard.dateCreated')}</TableCell>
+                    <TableCell>{t('dashboard.daysOpen')}</TableCell>
+                    <TableCell>{t('dashboard.urgency')}</TableCell>
                     {selectedStatus === PRStatus.RESUBMITTED && (
-                      <TableCell>Resubmitted Date</TableCell>
+                      <TableCell>{t('dashboard.resubmittedDate')}</TableCell>
                     )}
                     {selectedStatus !== PRStatus.SUBMITTED && selectedStatus !== PRStatus.RESUBMITTED && (
-                      <TableCell>Status Change Date</TableCell>
+                      <TableCell>{t('dashboard.statusChangeDate')}</TableCell>
                     )}
-                    <TableCell>Actions</TableCell>
+                    <TableCell>{t('common.actions')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
