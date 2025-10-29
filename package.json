@@ -11,6 +11,7 @@
     "seed": "tsx src/scripts/seed.ts",
     "seed-reference-data": "tsx src/scripts/seedReferenceData.ts",
     "initialize-permissions": "tsx src/scripts/initializePermissions.ts",
+    "initialize-rules": "tsx src/scripts/initializeRules.ts",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:emails": "tsx src/scripts/testEmails.ts",

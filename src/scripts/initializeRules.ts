@@ -20,47 +20,94 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// Helper function to create 5 rules for an organization
+function createOrgRules(organizationId: string, orgName: string, rule1Threshold?: number, rule3Threshold?: number, rule2Multiplier?: number, rule4Quotes?: number, rule5Approvers?: number, currency: string = 'LSL') {
+  const timestamp = new Date().toISOString();
+  return [
+    {
+      number: 1,
+      name: 'Rule 1',
+      description: 'Finance admin approvers can approve low value PRs',
+      threshold: rule1Threshold || 0, // Will need to be updated per org
+      currency: currency,
+      organizationId: organizationId,
+      organization: orgName,
+      active: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      number: 2,
+      name: 'Rule 2',
+      description: 'Low Threshold Multiplier to set the boundary between 1 quote (if vendor is approved revert to zero quotes required) or [rule 4] quotes (if vendor is approved revert to floor)',
+      threshold: rule2Multiplier || 0, // Will need to be updated per org
+      currency: 'NA',
+      organizationId: organizationId,
+      organization: orgName,
+      active: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      number: 3,
+      name: 'Rule 3',
+      description: 'Items below this high value threshold (and above rule 1 * rule 2) require [rule 4] quotes unless the vendor is approved; above the threshold [rule 4] quotes, [rule 5] unique approvers, and adjudication notes are always required',
+      threshold: rule3Threshold || 0, // Will need to be updated per org
+      currency: currency,
+      organizationId: organizationId,
+      organization: orgName,
+      active: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      number: 4,
+      name: 'Rule 4',
+      description: 'Number of Quotes required above minimum floor of 1 quote',
+      threshold: rule4Quotes || 0, // Will need to be updated per org
+      currency: currency,
+      organizationId: organizationId,
+      organization: orgName,
+      active: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+    {
+      number: 5,
+      name: 'Rule 5',
+      description: 'Number of approvers required for high value expenditures',
+      threshold: rule5Approvers || 0, // Will need to be updated per org
+      currency: 'NA',
+      organizationId: organizationId,
+      organization: orgName,
+      active: true,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    },
+  ];
+}
+
 const rules = [
-  {
-    number: 1,
-    name: 'Rule 1',
-    description: 'First approval threshold - Finance Approvers can approve up to this amount',
-    threshold: 50000,
-    currency: 'USD',
-    organizationId: '1pwr_lesotho',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    number: 2,
-    name: 'Rule 2',
-    description: 'Second approval threshold - Requires dual approval above this amount',
-    threshold: 100000,
-    currency: 'USD',
-    organizationId: '1pwr_lesotho',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    number: 1,
-    name: 'Rule 1',
-    description: 'First approval threshold - Finance Approvers can approve up to this amount',
-    threshold: 50000,
-    currency: 'USD',
-    organizationId: '1pwr_benin',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
-  {
-    number: 2,
-    name: 'Rule 2',
-    description: 'Second approval threshold - Requires dual approval above this amount',
-    threshold: 100000,
-    currency: 'USD',
-    organizationId: '1pwr_benin',
-    active: true,
-    createdAt: new Date().toISOString(),
-  },
+  // 1PWR LESOTHO - FULLY CONFIGURED (Reference)
+  ...createOrgRules('1pwr_lesotho', '1PWR LESOTHO', 1500, 50000, 4, 3, 2, 'LSL'),
+  
+  // SMP - TO BE CONFIGURED (thresholds set to 0)
+  ...createOrgRules('smp', 'SMP', 0, 0, 0, 0, 0, 'LSL'),
+  
+  // PUECO LESOTHO - TO BE CONFIGURED (thresholds set to 0)
+  ...createOrgRules('pueco_lesotho', 'PUECO LESOTHO', 0, 0, 0, 0, 0, 'LSL'),
+  
+  // NEO1 - TO BE CONFIGURED (thresholds set to 0)
+  ...createOrgRules('neo1', 'NEO1', 0, 0, 0, 0, 0, 'LSL'),
+  
+  // 1PWR BENIN - TO BE CONFIGURED (thresholds set to 0)
+  ...createOrgRules('1pwr_benin', '1PWR BENIN', 0, 0, 0, 0, 0, 'XOF'),
+  
+  // 1PWR ZAMBIA - TO BE CONFIGURED (thresholds set to 0, org inactive)
+  ...createOrgRules('1pwr_zambia', '1PWR ZAMBIA', 0, 0, 0, 0, 0, 'ZMW'),
+  
+  // PUECO BENIN - TO BE CONFIGURED (thresholds set to 0, org inactive)
+  ...createOrgRules('pueco_benin', 'PUECO BENIN', 0, 0, 0, 0, 0, 'XOF'),
 ];
 
 async function initializeRules() {
