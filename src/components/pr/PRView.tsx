@@ -898,8 +898,9 @@ export function PRView() {
 
     setHasUnsavedChanges(true);
     
-    // Trigger validation if amount or approver changes
-    if (field === 'estimatedAmount' || field === 'approver') {
+    // Trigger validation if amount changes
+    // Note: Don't validate on 'approver' change here because handleApproverChange already does it
+    if (field === 'estimatedAmount') {
       setTimeout(() => {
         const error = validateApproverAmount();
         setApproverAmountError(error);
