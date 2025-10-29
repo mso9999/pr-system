@@ -20,6 +20,7 @@ import { SnackbarProvider } from 'notistack';
 import { store } from './store';
 import './index.css';
 import App from './App';
+import './config/i18n'; // Initialize i18n
 
 console.log('main.tsx: Starting application initialization');
 

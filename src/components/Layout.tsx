@@ -54,11 +54,14 @@ import { signOut } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { useAuth } from '../hooks/useAuth';
 import { useSnackbar } from '../hooks/useSnackbar';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from './common/LanguageToggle';
 
 export const Layout: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showSnackbar } = useSnackbar();
+  const { t } = useTranslation();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -72,11 +75,11 @@ export const Layout: React.FC = () => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      showSnackbar('Successfully logged out', 'success');
+      showSnackbar(t('auth.logoutSuccess'), 'success');
       navigate('/login', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
-      showSnackbar('Failed to log out', 'error');
+      showSnackbar(t('errors.genericError'), 'error');
     }
     handleClose();
   };
@@ -86,19 +89,22 @@ export const Layout: React.FC = () => {
       <AppBar position="static">
         <Toolbar>
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            PR System
+            {t('pr.purchaseRequest')} System
           </Typography>
           <Button color="inherit" onClick={() => navigate('/dashboard')}>
-            Dashboard
+            {t('nav.dashboard')}
           </Button>
           <Button color="inherit" onClick={() => navigate('/pr/new')}>
-            New PR
+            {t('nav.newPR')}
           </Button>
           {user && user.permissionLevel && user.permissionLevel <= 4 && (
             <Button color="inherit" onClick={() => navigate('/admin')}>
-              Admin Portal
+              {t('nav.admin')}
             </Button>
           )}
+          <Box sx={{ mx: 2 }}>
+            <LanguageToggle />
+          </Box>
           {user && (
             <div>
               <IconButton
@@ -129,7 +135,7 @@ export const Layout: React.FC = () => {
                 <MenuItem disabled>
                   {user.email} ({user.role})
                 </MenuItem>
-                <MenuItem onClick={handleLogout}>Logout</MenuItem>
+                <MenuItem onClick={handleLogout}>{t('auth.logout')}</MenuItem>
               </Menu>
             </div>
           )}

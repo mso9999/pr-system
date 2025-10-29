@@ -5,10 +5,13 @@ import { Box, Button, TextField, Typography, CircularProgress, Link } from '@mui
 import { signIn, resetPassword } from '../../services/auth';
 import { setError } from '../../store/slices/authSlice';
 import { RootState } from '../../store';
+import { useTranslation } from 'react-i18next';
+import LanguageToggle from '../common/LanguageToggle';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { t } = useTranslation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -47,7 +50,7 @@ export const LoginPage = () => {
 
   const handleResetPassword = async () => {
     if (!email) {
-      setLocalError('Please enter your email address');
+      setLocalError(t('validation.required'));
       return;
     }
 
@@ -60,7 +63,7 @@ export const LoginPage = () => {
       setResetSent(true);
     } catch (error) {
       console.error('LoginPage: Password reset error:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Password reset failed';
+      const errorMessage = error instanceof Error ? error.message : t('errors.genericError');
       setLocalError(errorMessage);
     } finally {
       setLoading(false);
@@ -82,6 +85,10 @@ export const LoginPage = () => {
         padding: 3,
       }}
     >
+      <Box sx={{ position: 'absolute', top: 20, right: 20 }}>
+        <LanguageToggle />
+      </Box>
+      
       <Box
         component="form"
         onSubmit={handleLogin}
@@ -95,7 +102,7 @@ export const LoginPage = () => {
         }}
       >
         <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-          Sign In
+          {t('auth.signIn')}
         </Typography>
 
         {(localError || globalError) && (
@@ -115,7 +122,7 @@ export const LoginPage = () => {
           required
           fullWidth
           id="email"
-          label="Email Address"
+          label={t('auth.email')}
           name="email"
           autoComplete="email"
           autoFocus
@@ -129,7 +136,7 @@ export const LoginPage = () => {
           required
           fullWidth
           name="password"
-          label="Password"
+          label={t('auth.password')}
           type="password"
           id="password"
           autoComplete="current-password"
@@ -145,7 +152,7 @@ export const LoginPage = () => {
           sx={{ mt: 3, mb: 2 }}
           disabled={loading}
         >
-          {loading ? <CircularProgress size={24} /> : 'Sign In'}
+          {loading ? <CircularProgress size={24} /> : t('auth.signIn')}
         </Button>
 
         <Box sx={{ mt: 2, textAlign: 'center' }}>
@@ -155,7 +162,7 @@ export const LoginPage = () => {
             onClick={handleResetPassword}
             disabled={loading}
           >
-            Forgot password?
+            {t('auth.forgotPassword')}
           </Link>
         </Box>
       </Box>
