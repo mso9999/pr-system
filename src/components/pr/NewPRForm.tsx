@@ -57,6 +57,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSnackbar } from 'notistack';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -91,9 +92,6 @@ import { BasicInformationStep } from './steps/BasicInformationStep';
 import { LineItemsStep } from './steps/LineItemsStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { createPR, getUserPRs } from '../../services/pr'; // Updated import
-
-// Form steps definition
-const steps = ['Basic Information', 'Line Items', 'Review'];
 
 // Type definitions for form data structures
 interface LineItem {
@@ -167,6 +165,10 @@ export const NewPRForm = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { enqueueSnackbar } = useSnackbar();
+  const { t } = useTranslation();
+  
+  // Form steps definition (translated)
+  const steps = [t('pr.basicInformation'), t('pr.lineItems'), t('pr.reviewSubmit')];
 
   // Memoize selector to prevent unnecessary re-renders
   const { user, loading: authLoading } = useSelector((state: RootState) => {
@@ -1108,12 +1110,12 @@ export const NewPRForm = () => {
               onClick={handleBack}
               sx={{ mr: 1 }}
             >
-              Back
+              {t('common.back')}
             </Button>
 
             {activeStep === steps.length - 1 ? null : (
               <Button onClick={handleNextStep}>
-                Next
+                {t('common.next')}
               </Button>
             )}
           </Box>
