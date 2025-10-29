@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Grid,
   Paper,
@@ -59,6 +60,7 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const location = useLocation();
+  const { t } = useTranslation();
   const { user } = useSelector((state: RootState) => state.auth);
   const { userPRs, pendingApprovals, loading, showOnlyMyPRs, myActionsFilter } = useSelector(
     (state: RootState) => state.pr
@@ -552,7 +554,7 @@ export const Dashboard = () => {
               >
                 <Badge badgeContent={myActionsCount} color="error" max={99}>
                   <Box sx={{ pr: myActionsCount > 0 ? 2 : 0 }}>
-                    MY ACTIONS
+                    {t('dashboard.needsMyApproval')}
                   </Box>
                 </Badge>
               </Button>
@@ -563,7 +565,7 @@ export const Dashboard = () => {
               startIcon={<AddIcon />}
               onClick={() => navigate('/pr/new')}
             >
-              New PR
+              {t('nav.newPR')}
             </Button>
           </Paper>
         </Grid>
@@ -604,14 +606,14 @@ export const Dashboard = () => {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Typography variant="h5" component="h1">
-                  Purchase Requests
+                  {t('dashboard.title')}
                 </Typography>
                 <Typography variant="body2" color="textSecondary">
                   {myActionsFilter 
-                    ? "Showing items requiring your action" 
+                    ? t('dashboard.needsMyApproval')
                     : showOnlyMyPRs 
-                      ? "Showing your PRs and approvals" 
-                      : "Showing all PRs"}
+                      ? t('dashboard.myRequests')
+                      : t('dashboard.all')}
                 </Typography>
               </Box>
             </Box>

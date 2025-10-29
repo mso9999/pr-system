@@ -1,12 +1,14 @@
 import { Grid, Paper, Typography } from '@mui/material';
 import { PRRequest } from '../../types/pr';
 import { calculateDaysOpen } from '../../utils/formatters';
+import { useTranslation } from 'react-i18next';
 
 interface MetricsPanelProps {
   prs: PRRequest[];
 }
 
 export const MetricsPanel = ({ prs }: MetricsPanelProps) => {
+  const { t } = useTranslation();
   const calculateMetrics = () => {
     const totalPRs = prs.length;
     console.log('MetricsPanel - PRs:', prs.map(pr => ({
@@ -89,17 +91,17 @@ export const MetricsPanel = ({ prs }: MetricsPanelProps) => {
   return (
     <Paper sx={{ p: 2, mb: 3 }}>
       <Typography variant="h6" gutterBottom>
-        Key Metrics
+        {t('dashboard.metrics')}
       </Typography>
       <Grid container spacing={2}>
-        <MetricItem label="Total PRs" value={metrics.totalPRs} />
-        <MetricItem label="Urgent PRs" value={metrics.urgentPRs} />
-        <MetricItem label="Avg Days Open" value={metrics.avgDaysOpen} />
-        <MetricItem label="Overdue PRs" value={metrics.overduePRs} />
-        <MetricItem label="Quotes Required" value={metrics.quotesRequired} />
-        <MetricItem label="Adjudication Required" value={metrics.adjudicationRequired} />
-        <MetricItem label="Customs Required" value={metrics.customsClearanceRequired} />
-        <MetricItem label="Completion Rate" value={`${metrics.completionRate}%`} />
+        <MetricItem label={t('dashboard.totalPRs')} value={metrics.totalPRs} />
+        <MetricItem label={t('dashboard.urgent')} value={metrics.urgentPRs} />
+        <MetricItem label={t('dashboard.avgDaysOpen')} value={metrics.avgDaysOpen} />
+        <MetricItem label={t('dashboard.overdue')} value={metrics.overduePRs} />
+        <MetricItem label={t('pr.quotes')} value={metrics.quotesRequired} />
+        <MetricItem label={t('pr.adjudicationNotes')} value={metrics.adjudicationRequired} />
+        <MetricItem label={t('common.customsRequired')} value={metrics.customsClearanceRequired} />
+        <MetricItem label={t('common.completionRate')} value={`${metrics.completionRate}%`} />
       </Grid>
     </Paper>
   );
