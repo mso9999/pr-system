@@ -8,6 +8,7 @@ import { useOutletContext } from "react-router-dom"
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { PERMISSION_NAMES } from '../../config/permissions'
+import { useTranslation } from 'react-i18next'
 
 interface TabPanelProps {
   children?: React.ReactNode
@@ -47,6 +48,7 @@ function a11yProps(index: number) {
 }
 
 export function AdminDashboard() {
+  const { t } = useTranslation();
   const context = useOutletContext<AdminContext>();
   const { user } = useSelector((state: RootState) => state.auth);
   const isReadOnly = context?.isReadOnly ?? (user?.permissionLevel === 2);
@@ -72,10 +74,10 @@ export function AdminDashboard() {
     <Box sx={{ width: '100%', p: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
         <Typography variant="h4" component="h1">
-          Admin Dashboard
+          {t('admin.administration')}
         </Typography>
         <Chip 
-          label={`${permissionName} ${isReadOnly ? '(View Only)' : ''}`}
+          label={`${permissionName} ${isReadOnly ? `(${t('admin.viewOnly')})` : ''}`}
           color={isReadOnly ? 'default' : 'primary'}
           sx={{ ml: 2 }}
         />
@@ -83,10 +85,10 @@ export function AdminDashboard() {
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={value} onChange={handleChange} aria-label="admin tabs">
-          <Tab label="User Management" {...a11yProps(0)} />
-          <Tab label="Reference Data" {...a11yProps(1)} />
-          {isSuperadmin && <Tab label="Organization Settings" {...a11yProps(2)} />}
-          {isSuperadmin && <Tab label="Database Cleanup" {...a11yProps(3)} />}
+          <Tab label={t('admin.userManagement')} {...a11yProps(0)} />
+          <Tab label={t('admin.referenceData')} {...a11yProps(1)} />
+          {isSuperadmin && <Tab label={t('admin.organizationSettings')} {...a11yProps(2)} />}
+          {isSuperadmin && <Tab label={t('admin.databaseCleanup')} {...a11yProps(3)} />}
         </Tabs>
       </Box>
 
