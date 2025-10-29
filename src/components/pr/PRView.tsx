@@ -1061,12 +1061,8 @@ export function PRView() {
     setSelectedApprover(approverId || undefined);
     handleFieldChange('approver', approverId);
     
-    // Trigger validation after approver change
-    setTimeout(() => {
-      const error = validateApproverAmount();
-      console.log('Validation result after approver change:', error);
-      setApproverAmountError(error);
-    }, 100);
+    // Note: Validation is handled by useEffect when selectedApprover changes
+    // No need to manually trigger validation here
   };
   
   // Auto-validate whenever approver or amount changes
