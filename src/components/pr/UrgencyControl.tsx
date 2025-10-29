@@ -41,7 +41,16 @@ export const UrgencyControl: React.FC<UrgencyControlProps> = ({
     // Administrator can always change
     if (currentUser.permissionLevel === 1) return true;
 
-    // SUBMITTED, IN_QUEUE: Locked (cannot be changed)
+    // Check if current user is the requestor
+    const isRequestor = currentUser.id === pr.requestorId || 
+                        currentUser.email?.toLowerCase() === pr.requestorEmail?.toLowerCase();
+
+    // REQUESTOR can edit urgency when in edit mode (DRAFT or REVISION_REQUIRED)
+    if (isRequestor) {
+      return pr.status === PRStatus.DRAFT || pr.status === PRStatus.REVISION_REQUIRED;
+    }
+
+    // SUBMITTED, IN_QUEUE: Locked (cannot be changed by non-requestors)
     if (pr.status === PRStatus.SUBMITTED || 
         pr.status === PRStatus.RESUBMITTED ||
         pr.status === PRStatus.IN_QUEUE) {
@@ -89,6 +98,16 @@ export const UrgencyControl: React.FC<UrgencyControlProps> = ({
   };
 
   if (!canChangeUrgency()) {
+    const isRequestor = currentUser.id === pr.requestorId || 
+                        currentUser.email?.toLowerCase() === pr.requestorEmail?.toLowerCase();
+    
+    let lockMessage = '(No permission to change)';
+    if (isRequestor && (pr.status === PRStatus.SUBMITTED || pr.status === PRStatus.RESUBMITTED || pr.status === PRStatus.IN_QUEUE)) {
+      lockMessage = '(Locked after submission - can be changed if returned for revision)';
+    } else if (pr.status === PRStatus.SUBMITTED || pr.status === PRStatus.RESUBMITTED || pr.status === PRStatus.IN_QUEUE) {
+      lockMessage = '(Locked at requestor\'s setting)';
+    }
+
     return (
       <Box>
         <Typography variant="caption" color="textSecondary">
@@ -102,9 +121,7 @@ export const UrgencyControl: React.FC<UrgencyControlProps> = ({
           sx={{ ml: 1 }}
         />
         <Typography variant="caption" color="textSecondary" display="block" sx={{ mt: 0.5 }}>
-          {pr.status === PRStatus.SUBMITTED || pr.status === PRStatus.IN_QUEUE 
-            ? '(Locked at requestor\'s setting)' 
-            : '(No permission to change)'}
+          {lockMessage}
         </Typography>
       </Box>
     );
