@@ -211,6 +211,8 @@ export interface PRRequest {
   lineItems: LineItem[];
   /** Vendor quotes received */
   quotes: Quote[];
+  /** ID of the preferred quote selected by procurement (for multi-quote situations) */
+  preferredQuoteId?: string;
   /** Current status of the PR */
   status: PRStatus;
   /** Creation timestamp */
@@ -299,12 +301,18 @@ export interface ApprovalWorkflow {
   requiresDualApproval: boolean;
   /** Whether the first approver has approved */
   firstApprovalComplete: boolean;
+  /** Quote ID selected by first approver */
+  firstApproverSelectedQuoteId?: string;
   /** Justification from first approver (if 3-quote scenario) */
   firstApproverJustification?: string;
   /** Whether the second approver has approved */
   secondApprovalComplete: boolean;
+  /** Quote ID selected by second approver */
+  secondApproverSelectedQuoteId?: string;
   /** Justification from second approver (if 3-quote scenario) */
   secondApproverJustification?: string;
+  /** Whether there is a quote selection conflict (both approvers selected different quotes) */
+  quoteConflict?: boolean;
   /** History of approval steps */
   approvalHistory: ApprovalHistoryItem[];
   /** Timestamp of last update */

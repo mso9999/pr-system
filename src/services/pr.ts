@@ -142,7 +142,8 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
       requestorId: data.requestorId,
       requestorEmail: data.requestorEmail,
       submittedBy: data.submittedBy,
-      approver: data.approver, 
+      approver: data.approver,
+      approver2: data.approver2, // Second approver for dual approval
       requiredDate: data.requiredDate || '', // Simple date string from HTML input, no conversion needed
       preferredVendor: data.preferredVendor || '',
       vehicle: data.vehicle || '',
@@ -150,6 +151,7 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
       updatedAt: safeTimestampToISO(data.updatedAt) || new Date().toISOString(),
       lineItems: (data.lineItems || []).map((item: any): LineItem => ({ ...item })),
       quotes: data.quotes || [],
+      preferredQuoteId: data.preferredQuoteId, // ID of the preferred quote selected by procurement
       attachments: data.attachments || [],
       history: (data.history || []).map((item: any): HistoryItem => ({
           ...item,
@@ -171,7 +173,22 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
       metrics: data.metrics || undefined,
       purchaseOrderNumber: data.purchaseOrderNumber,
     };
-    console.log(`Successfully fetched PR with ID: ${prId}`);
+    
+    // Debug logging for approver fields and quotes on fetch
+    console.log(`Successfully fetched PR with ID: ${prId}`, {
+      prNumber: pr.prNumber,
+      approver: pr.approver || '(not set)',
+      approver2: pr.approver2 || '(not set)',
+      approvalWorkflow: pr.approvalWorkflow ? {
+        currentApprover: pr.approvalWorkflow.currentApprover || '(not set)',
+        secondApprover: pr.approvalWorkflow.secondApprover || '(not set)'
+      } : '(not set)',
+      rawDataApprover2: data.approver2 || '(not in raw data)',
+      quotesCount: pr.quotes?.length || 0,
+      preferredQuoteId: pr.preferredQuoteId || '(not set)',
+      rawQuotes: data.quotes || '(no quotes in raw data)'
+    });
+    
     return pr;
 
   } catch (error) {
@@ -262,13 +279,37 @@ export async function updatePR(prId: string, updateData: Partial<PRRequest>): Pr
       delete (updateData as any).status;
     }
     
-    // Filter out undefined values - Firestore doesn't allow undefined
-    const cleanedData: any = {};
-    Object.keys(updateData).forEach(key => {
-      const value = (updateData as any)[key];
-      if (value !== undefined) {
-        cleanedData[key] = value;
+    // Recursively filter out undefined values - Firestore doesn't allow undefined
+    const cleanUndefined = (obj: any): any => {
+      if (obj === null) return null;
+      if (obj === undefined) return undefined;
+      if (Array.isArray(obj)) {
+        return obj.map(item => cleanUndefined(item));
       }
+      if (typeof obj === 'object') {
+        const cleaned: any = {};
+        Object.keys(obj).forEach(key => {
+          const value = cleanUndefined(obj[key]);
+          if (value !== undefined) {
+            cleaned[key] = value;
+          }
+        });
+        return cleaned;
+      }
+      return obj;
+    };
+    
+    const cleanedData = cleanUndefined(updateData);
+    
+    // Debug logging for approver fields
+    console.log(`Firestore update payload for ${prId}:`, {
+      approver: cleanedData.approver || '(not in payload)',
+      approver2: cleanedData.approver2 || '(not in payload)',
+      approvalWorkflow: cleanedData.approvalWorkflow ? {
+        currentApprover: cleanedData.approvalWorkflow.currentApprover || '(not set)',
+        secondApprover: cleanedData.approvalWorkflow.secondApprover || '(not set)'
+      } : '(not in payload)',
+      allKeys: Object.keys(cleanedData)
     });
     
     await updateDoc(prDocRef, { ...cleanedData, updatedAt: serverTimestamp() });

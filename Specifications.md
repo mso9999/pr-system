@@ -1,6 +1,6 @@
 # 1PWR Procurement System Specifications
 
-> **Last Updated: 2025-01-15**
+> **Last Updated: 2025-10-30**
 > **Consolidated from SPECIFICATION.md and Specifications.md**
 
 ## Authentication Flow
@@ -887,10 +887,12 @@ Users assigned to the Asset Management department have special permissions:
 9. APPROVED → Object renamed to PO, PO document generated
 10. APPROVED (PO) → ORDERED (procurement or finance/admin - after ETD and documents/overrides)
 11. ORDERED (PO) → COMPLETED (procurement or asset management or finance/admin for below Rule 1)
-12. REVISION_REQUIRED → RESUBMITTED → SUBMITTED (re-enters workflow)
-13. REVISION_REQUIRED → CANCELED (requestor only)
-14. REJECTED → Can be resurrected by procurement/admin to highest previous status
-15. CANCELED → Can be resurrected by requestor to SUBMITTED status
+12. REVISION_REQUIRED → RESUBMITTED → SUBMITTED (requestor re-enters workflow)
+13. REVISION_REQUIRED → [Previous Status] (procurement reverts to status before revision)
+14. REVISION_REQUIRED → REJECTED (procurement determines PR should not proceed)
+15. REVISION_REQUIRED → CANCELED (requestor only)
+16. REJECTED → Can be resurrected by procurement/admin to highest previous status
+17. CANCELED → Can be resurrected by requestor to SUBMITTED status
 
 ## PR Workflow Implementation
 
@@ -961,29 +963,50 @@ Users assigned to the Asset Management department have special permissions:
      - Validation check before moving to PENDING_APPROVAL
      - Data attached to PR object for audit trail
 
-3. Procurement Users (permissionLevel 3 or 1):
+3. **Preferred Quote Selection (multi-quote situations):**
+   - **Who Can Select:** Procurement Users (Level 3) or Administrators (Level 1)
+   - **When:** During IN_QUEUE status when PR has multiple quotes
+   - **UI Mechanism:** Radio button/checkbox next to each quote
+   - **Automatic Update:** When procurement selects a preferred quote:
+     - The PR's `estimatedAmount` is automatically updated to match the preferred quote's amount
+     - The PR's `preferredQuoteId` field is set to the selected quote's ID
+     - Change is saved immediately to the database
+   - **Purpose:** 
+     - Allows procurement to indicate which quote should be used
+     - Ensures the PR amount reflects the actual quote being approved
+     - Maintains audit trail of which quote was selected
+   - **Validation:** Preferred quote selection is checked before pushing to PENDING_APPROVAL
+   - **Notes Requirement for Non-Lowest Quote Selection:**
+     - **When Required:** In dual approval scenarios (PR amount above Rule 3 threshold requiring 2 approvers), if procurement selects a quote that is NOT the lowest quote
+     - **Validation:** Notes field becomes MANDATORY (cannot be empty) when pushing from IN_QUEUE to PENDING_APPROVAL
+     - **Purpose:** Requires procurement to provide justification for selecting a more expensive quote
+     - **User Experience:** System displays clear validation error if notes are missing when lowest quote not selected
+     - **Storage:** Notes are stored in the PR's status history and visible to all approvers
+
+4. **Procurement Users (permissionLevel 3 or 1):**
    - Validate quotes and quote requirements
+   - Select preferred quote (in multi-quote situations)
    - Collect supplier data for non-approved vendors
    - Select appropriate approver based on rules
    - Can "Push to Approver" (changes status to PENDING_APPROVAL)
    - Receive notifications about status changes
 
-4. Requestor Users:
+5. **Requestor Users:**
    - Can "Cancel PR" (changes status to CANCELED)
    - Optional notes when canceling
    - Receive notifications about status changes
 
-5. Approvers:
+6. **Approvers:**
    - Receive notification when PR is pushed for approval
    - Notification includes PR details (requestor, category, expense type, site, estimatedAmount, preferredVendor, requiredDate)
    - CC: Procurement (always)
 
 ### PR Processing in REVISION_REQUIRED Status
 1. **Who Can Take Actions in REVISION_REQUIRED Status:**
-   - **Requestor (Level 5):** Can edit their own PR and resubmit or cancel - **EXCLUSIVE ACCESS**
+   - **Requestor (Level 5):** Can edit their own PR and resubmit or cancel - **EXCLUSIVE EDIT ACCESS**
    - **Administrators (Level 1):** Full access as superuser (override capability)
-   - **Procurement (Level 3):** CANNOT edit or take actions - must wait for requestor
-   - **Finance/Admin (Level 4):** CANNOT edit or take actions - must wait for requestor
+   - **Procurement (Level 3):** Can revert PR to previous status or reject - **CANNOT EDIT**
+   - **Finance/Admin (Level 4):** CANNOT edit or take actions - must wait for requestor or procurement
    - **Approvers (Level 2):** CANNOT edit or take actions - can only view
 
 2. **Requestor Edit Capabilities in REVISION_REQUIRED:**
@@ -991,11 +1014,31 @@ Users assigned to the Asset Management department have special permissions:
    - Cannot edit: Created by, Created date, History/Audit trail, PR Number
    - **CRITICAL:** In REVISION_REQUIRED status, the requestor has FULL edit access including Project Category and Expense Type
    - **Key Difference:** This is the ONLY status where requestor can edit Project Category and Expense Type
-   - **Exclusive Access:** NO other user (except superadmin Level 1) can edit the PR in this status
+   - **Exclusive Edit Access:** NO other user (except superadmin Level 1) can edit the PR in this status
 
-3. **Two Possible Actions:**
+3. **Requestor Actions from REVISION_REQUIRED:**
    - **Resubmit:** Returns PR to SUBMITTED status for procurement review
+     - Notifies procurement team
+     - Requestor must have made changes to address revision request
    - **Cancel:** Changes status to CANCELED (requestor no longer wants to proceed)
+     - Optional notes
+     - Notifies procurement team
+
+4. **Procurement Actions from REVISION_REQUIRED:**
+   - **Revert to Previous Status:** Moves PR back to its status before REVISION_REQUIRED was set
+     - Requires notes explaining why revision is no longer needed
+     - Retrieves previous status from statusHistory
+     - Valid previous statuses: SUBMITTED, RESUBMITTED, IN_QUEUE, PENDING_APPROVAL
+     - Notifies requestor, CC: Procurement
+     - Use case: Procurement determines the revision request was incorrect or unnecessary
+   - **Reject PR:** Changes status to REJECTED
+     - Must provide notes (validated)
+     - Notifies requestor, CC: Procurement
+     - Use case: Procurement determines the PR should not proceed
+   - **CANNOT:**
+     - Edit the PR (exclusive to requestor in this status)
+     - Push to approver (must wait for requestor to resubmit, or revert/reject)
+     - Request additional revision (already in revision status)
 
 ### PR Resurrection Feature
 PRs with REJECTED or CANCELED status can be restored to active workflow:
@@ -1260,45 +1303,107 @@ For PRs/POs pending action for MORE than 2 business days:
 - Special category rules
 - Organization assignment
 
-#### Approval Justification Requirements
-Justification is ONLY required for PRs that require 3 quotes:
+#### Approval Notes Requirements
 
-1. **When Justification is REQUIRED (3-Quote Scenarios):**
-   - **Applies to:**
-     - Above Rule 1 threshold with non-approved vendor (requires 3 quotes)
-     - Above Rule 2 threshold (always requires 3 quotes)
-   - **If Lowest Quote is Selected:**
-     - Default justification option available: "Value for Money" (radio button)
-     - OR approver can write custom justification note
-   - **If Lowest Quote is NOT Selected:**
-     - Custom justification REQUIRED (cannot use default)
-     - Must explain why higher quote was chosen
-     - System validates justification is provided
-     - Common reasons: Better quality, faster delivery, better warranty, vendor reliability
+Approvers provide notes through a **unified notes field** that adapts based on the approval scenario.
 
-2. **When Justification is NOT Required (1-Quote Scenarios):**
-   - **Applies to:**
-     - Below Rule 1 threshold (requires 1 quote)
-     - Above Rule 1 threshold with approved vendor (requires 1 quote)
-   - Approval process: Simple approval with optional notes
-   - No justification validation enforced
+**Dynamic Field Behavior:**
 
-3. **For Dual-Approval PRs (Above Rule 2 - Always 3 Quotes):**
-   - BOTH approvers must provide justification
-   - Both can use default "Value for Money" if lowest quote selected
-   - Both must provide custom justification if non-lowest quote selected
-   - Each approver's justification recorded independently
-   - Both justifications preserved in approval history
+| Scenario | Field Label | Required? | Purpose |
+|----------|-------------|-----------|---------|
+| Dual approval + Non-lowest quote | "Adjudication & Justification Notes" | **Yes** | Explain high-value approval + non-lowest selection |
+| Dual approval + Lowest quote | "Adjudication Notes" | **Yes** | Explain high-value approval decision |
+| Single approval + Non-lowest quote | "Justification for Non-Lowest Quote" | **Yes** | Explain why non-lowest quote selected |
+| Single approval + Lowest quote | "Notes (Optional)" | No | Optional approval notes |
+
+**Requirements by Scenario:**
+
+1. **Dual Approval PRs (Over Rule 2 Threshold):**
+   - **Adjudication notes REQUIRED** from both approvers
+   - Explains reasoning for high-value approval
+   - If non-lowest quote selected: **Also requires justification** in same notes field
+   - Both approvers' notes recorded independently in approval history
+
+2. **Single Approval + Non-Lowest Quote:**
+   - **Justification REQUIRED** explaining why non-lowest selected
+   - Common reasons: Better quality, faster delivery, better warranty, vendor reliability, technical requirements
+   - System validates notes are provided before allowing approval
+
+3. **Single Approval + Lowest Quote:**
+   - Notes are **optional**
+   - Approver can provide additional context if desired
+
+4. **Benefits of Unified Field:**
+   - No redundancy when both adjudication and justification needed
+   - Clear, context-aware guidance
+   - Single place for all approval reasoning
+   - Appropriate validation based on scenario
+
+#### Quote Selection by Approvers
+
+**When Approving with Multiple Quotes:**
+1. **Quote Selection UI:**
+   - Approvers must explicitly select which quote they are approving
+   - UI displays all quotes with key information:
+     - Vendor name
+     - Quote amount and currency
+     - "Lowest Quote" badge (for lowest quote)
+     - "Procurement Preferred" badge (if procurement selected this quote)
+   - Quote selection is mandatory when multiple quotes exist
+   - Default selection: Procurement's preferred quote (if set), otherwise lowest quote
+
+2. **Notes Requirements:**
+   - **Lowest Quote Selected:** 
+     - Single approval: Optional notes
+     - Dual approval: Adjudication notes REQUIRED
+   - **Non-Lowest Quote Selected:** 
+     - Single approval: Justification REQUIRED
+     - Dual approval: Adjudication + Justification REQUIRED (unified notes field)
+   - System validates notes are provided before allowing approval when required
+   - Unified notes field adapts label and guidance based on scenario
+
+3. **Dual Approval Quote Conflict Resolution:**
+   - **Scenario:** Both approvers approve but select different quotes
+   - **Action Taken:**
+     - PR **stays in `PENDING_APPROVAL` status**
+     - PR is **red-flagged** with `quoteConflict` flag set to true
+     - Immediate notification sent to both approvers
+     - Procurement receives notification as CC
+     - Requestor receives notification as CC
+     - **Daily reminder emails** sent until conflict is resolved
+   - **Conflict Resolution Process:**
+     - One or both approvers must change their quote selection
+     - Approvers can update their selection while red-flagged
+     - When both approvers select the SAME quote:
+       - Conflict automatically resolved
+       - Red flag removed
+       - PR moves to `APPROVED` status
+       - All stakeholders notified of resolution
+   - **While Red-Flagged:**
+     - PR is on hold and cannot proceed to APPROVED
+     - Visual indicator: Red alert with 🚩 flag icon
+     - Approvers can change selection as many times as needed
+     - Last selection by each approver is tracked
+     - Justification can be updated with each selection change
+     - Daily reminder emails sent at 9:00 AM (Lesotho time)
 
 #### Approval Workflow Tracking
 The `approvalWorkflow` object tracks:
 - Current approver information
 - For dual-approval PRs: Both approver details
+- **Quote selection by each approver** (quote ID)
+- **Quote conflict status** (boolean flag - `quoteConflict`)
 - Complete approval history with timestamps
 - Approval justifications from each approver
 - Which approver approved first (order captured but not enforced)
-- Status: Pending both, One approved (waiting for second), Both approved
+- Status: Pending both, One approved (waiting for second), Both approved, Quote conflict (red-flagged in PENDING_APPROVAL)
 - Timestamps of each approval action
+
+**Red Flag Indicators:**
+- PRs with `quoteConflict: true` remain in PENDING_APPROVAL but are visually distinguished
+- Dashboard shows red flag indicator (🚩) for conflicted PRs
+- PR detail page shows prominent red alert banner
+- Daily reminder system tracks and notifies until resolved
 
 ## PR Notifications System
 

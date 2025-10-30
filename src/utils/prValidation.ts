@@ -49,7 +49,12 @@ export async function validatePRForApproval(
     email: user.email
   });
   
-  const errors: string[] = [];
+  // Categorized errors for better organization
+  const quoteErrors: string[] = [];
+  const approverErrors: string[] = [];
+  const vendorErrors: string[] = [];
+  const permissionErrors: string[] = [];
+  const otherErrors: string[] = [];
   
   // Helper function to check if user can push to approver
   const canPushToApprover = (user: User): boolean => {
@@ -95,49 +100,44 @@ export async function validatePRForApproval(
 
   // 1. Check if user can take action
   if (targetStatus === PRStatus.PENDING_APPROVAL && !canPushToApprover(user)) {
-    errors.push('Only system administrators and procurement users can push PRs to approver');
+    permissionErrors.push('Only system administrators and procurement users can push PRs to approver');
   } else if (targetStatus === PRStatus.APPROVED && !canApprove(user, pr)) {
-    errors.push('You do not have permission to approve this document');
+    permissionErrors.push('You do not have permission to approve this document');
   }
 
-  // 2. Get rules first since we need them for validation
-  // Try multiple approaches to find the rules (type, name, or id field)
-  const rule1 = rules.find(r => 
-    r.type === 'RULE_1' || 
-    r.name?.includes('RULE 1') || 
-    r.id === 'rule_1' ||
-    (r as any).number === '1'
-  );
-  const rule2 = rules.find(r => 
-    r.type === 'RULE_2' || 
-    r.name?.includes('RULE 2') || 
-    r.id === 'rule_2' ||
-    (r as any).number === '2'
-  );
+  // 2. Get all 5 rules for comprehensive validation
+  const rule1 = rules.find(r => (r as any).number === 1 || (r as any).number === '1');
+  const rule2 = rules.find(r => (r as any).number === 2 || (r as any).number === '2');
+  const rule3 = rules.find(r => (r as any).number === 3 || (r as any).number === '3');
+  const rule4 = rules.find(r => (r as any).number === 4 || (r as any).number === '4');
+  const rule5 = rules.find(r => (r as any).number === 5 || (r as any).number === '5');
 
   console.log('Rules matching:', {
-    rule1Found: !!rule1,
-    rule2Found: !!rule2,
-    rule1Data: rule1 ? { id: rule1.id, type: rule1.type, name: (rule1 as any).name, threshold: rule1.threshold } : null,
-    rule2Data: rule2 ? { id: rule2.id, type: rule2.type, name: (rule2 as any).name, threshold: rule2.threshold } : null,
+    rule1: rule1 ? { threshold: rule1.threshold, currency: rule1.currency } : null,
+    rule2: rule2 ? { threshold: rule2.threshold, desc: 'multiplier' } : null,
+    rule3: rule3 ? { threshold: rule3.threshold, currency: rule3.currency } : null,
+    rule4: rule4 ? { threshold: rule4.threshold, desc: 'number of quotes' } : null,
+    rule5: rule5 ? { threshold: rule5.threshold, desc: 'number of approvers' } : null,
     allRules: rules.map(r => ({ 
       id: r.id, 
-      type: r.type, 
       name: (r as any).name, 
       number: (r as any).number,
       threshold: r.threshold 
     }))
   });
 
-  // If no rules found for organization, bypass rule checks
-  if (!rule1 && !rule2) {
-    console.warn('No rules found for organization - this should not happen in production!', {
+  // If no rules found for organization, fail validation
+  if (!rule1 || !rule2 || !rule3 || !rule4 || !rule5) {
+    console.warn('Incomplete rules configuration for organization', {
       rulesProvided: rules.length,
-      rulesData: rules
+      rule1: !!rule1,
+      rule2: !!rule2,
+      rule3: !!rule3,
+      rule4: !!rule4,
+      rule5: !!rule5
     });
-    // Don't bypass - fail validation if rules are expected
-    errors.push('Business rules are not configured for this organization. Please contact system administrator.');
-    return { isValid: false, errors };
+    otherErrors.push('Business rules are not configured for this organization. Please contact system administrator.');
+    return { isValid: false, errors: otherErrors };
   }
 
   // 3. Early validation of quotes
@@ -200,106 +200,177 @@ export async function validatePRForApproval(
     lowestQuoteAmount = pr.estimatedAmount || 0;
   }
 
+  // Calculate the key thresholds
+  const rule1Threshold = rule1.threshold; // e.g., 1500 LSL
+  const rule1xRule2Threshold = rule1.threshold * rule2.threshold; // e.g., 1500 × 4 = 6000 LSL
+  const rule3Threshold = rule3.threshold; // e.g., 50000 LSL
+  const quotesRequired = rule4.threshold; // e.g., 3 quotes
+  const approversRequired = rule5.threshold; // e.g., 2 approvers
+
   console.log('Threshold check:', {
     lowestQuoteAmount,
-    rule1Threshold: rule1?.threshold,
-    rule2Threshold: rule2?.threshold,
-    estimatedAmount: pr.estimatedAmount,
-    isAboveRule1: rule1 ? lowestQuoteAmount >= rule1.threshold : false,
-    isAboveRule2: rule2 ? lowestQuoteAmount >= rule2.threshold : false
+    rule1Threshold,
+    rule1xRule2Threshold,
+    rule3Threshold,
+    quotesRequired,
+    approversRequired,
+    estimatedAmount: pr.estimatedAmount
   });
 
-  const isAboveRule2Threshold = rule2 ? lowestQuoteAmount >= rule2.threshold : false;
-  const isAboveRule1Threshold = rule1 ? lowestQuoteAmount >= rule1.threshold : false;
+  // Check if vendor is approved
+  const isApprovedVendor = pr.preferredVendor && await isVendorApproved(pr.preferredVendor.toLowerCase());
 
   // 5. Apply quote requirements based on thresholds
-  if (isAboveRule2Threshold && rule2) {
-    // Above Rule 2: Need at least 3 quotes with attachments
-    if (validQuotes.length < 3) {
-      errors.push(`At least three quotes with attachments are required for amounts above ${rule2.threshold} ${rule2.currency}`);
-    }
-  } else if (isAboveRule1Threshold && rule1) {
-    const isPreferredVendor = pr.preferredVendor && await isVendorApproved(pr.preferredVendor.toLowerCase());
-    const is4xRule1 = lowestQuoteAmount >= (rule1.threshold * 4);
-    
-    console.log('Rule 1 validation:', {
-      isPreferredVendor,
-      is4xRule1,
-      quotesRequired: is4xRule1 ? 3 : (isPreferredVendor ? 1 : 3),
-      quotesProvided: validQuotes.length,
-      validQuotes: validQuotes.map(q => ({
-        id: q.id,
-        attachmentsCount: q.attachments?.length || 0
-      }))
+  // Business Rules:
+  // - Below Rule 1: No quotes required
+  // - Rule 1 to Rule 1×Rule 2: 1 quote (0 if approved vendor)
+  // - Rule 1×Rule 2 to Rule 3: [Rule 4] quotes (1 if approved vendor)
+  // - Above Rule 3: [Rule 4] quotes (Rule 4 - 1 if approved vendor)
+
+  if (lowestQuoteAmount < rule1Threshold) {
+    // Below Rule 1: No quotes required, any approver level OK
+    console.log('Below Rule 1: No quotes required');
+  } else if (lowestQuoteAmount < rule1xRule2Threshold) {
+    // Between Rule 1 and Rule 1×Rule 2: 1 quote required (0 if approved vendor)
+    const requiredQuotes = isApprovedVendor ? 0 : 1;
+    console.log(`Between Rule 1 and Rule 1×Rule 2: ${requiredQuotes} quote(s) required`, {
+      isApprovedVendor,
+      validQuotes: validQuotes.length
     });
     
-    if (is4xRule1 && validQuotes.length < 3) {
-      errors.push(`Three quotes with attachments are required for amounts above ${rule1.threshold * 4} ${rule1.currency}`);
-    } else if (!isPreferredVendor && validQuotes.length < 3) {
-      errors.push(`Three quotes with attachments are required for amounts above ${rule1.threshold} ${rule1.currency} unless using an approved vendor`);
-    } else if (isPreferredVendor && validQuotes.length < 1) {
-      errors.push(`At least one quote with attachment is required when using an approved vendor`);
+    if (validQuotes.length < requiredQuotes) {
+      if (isApprovedVendor) {
+        // Should not happen since requiredQuotes = 0
+      } else {
+        quoteErrors.push(`At least one quote with attachment is required for amounts between ${rule1Threshold} and ${rule1xRule2Threshold} ${rule1.currency}.`);
+      }
     }
-  }
-  // Below Rule 1: Quotes are optional, no validation needed
-
-  // 6. Check if there are approvers with sufficient permission
-  const approvers = await approverService.getApprovers(pr.organization);
-  console.log('Available approvers:', approvers);
-
-  // Check if any approver has insufficient permissions
-  const hasInsufficientApprover = approvers.some(approver => {
-    // Level 1 and 2 can approve any amount
-    if (approver.permissionLevel === 1 || approver.permissionLevel === 2) {
-      return false;
+  } else if (lowestQuoteAmount < rule3Threshold) {
+    // Between Rule 1×Rule 2 and Rule 3: [Rule 4] quotes (1 if approved vendor)
+    const requiredQuotes = isApprovedVendor ? 1 : quotesRequired;
+    console.log(`Between Rule 1×Rule 2 and Rule 3: ${requiredQuotes} quote(s) required`, {
+      isApprovedVendor,
+      validQuotes: validQuotes.length
+    });
+    
+    if (validQuotes.length < requiredQuotes) {
+      if (isApprovedVendor) {
+        quoteErrors.push(`At least one quote with attachment is required for amounts between ${rule1xRule2Threshold} and ${rule3Threshold} ${rule1.currency} when using an approved vendor.`);
+      } else {
+        quoteErrors.push(`At least ${quotesRequired} quotes with attachments are required for amounts between ${rule1xRule2Threshold} and ${rule3Threshold} ${rule1.currency}. (Use an approved vendor to reduce to 1 quote.)`);
+      }
+    }
+  } else {
+    // Above Rule 3: [Rule 4] quotes required ([Rule 4] - 1 if approved vendor)
+    const requiredQuotes = isApprovedVendor ? (quotesRequired - 1) : quotesRequired;
+    console.log(`Above Rule 3: ${requiredQuotes} quote(s) required, ${approversRequired} approvers required`, {
+      isApprovedVendor,
+      validQuotes: validQuotes.length
+    });
+    
+    if (validQuotes.length < requiredQuotes) {
+      if (isApprovedVendor) {
+        quoteErrors.push(`At least ${quotesRequired - 1} quotes with attachments are required for amounts above ${rule3Threshold} ${rule3.currency} when using an approved vendor.`);
+      } else {
+        quoteErrors.push(`At least ${quotesRequired} quotes with attachments are required for amounts above ${rule3Threshold} ${rule3.currency}. (Use an approved vendor to reduce to ${quotesRequired - 1} quotes.)`);
+      }
     }
     
-    // Level 6 (Finance Approvers) can only approve within rule thresholds
-    if (approver.permissionLevel === 6) {
-      // Finance Approvers can only approve amounts within rule thresholds
-      if (isAboveRule1Threshold && rule1) {
-        return true; // Cannot approve above rule 1 threshold
-      }
-      if (isAboveRule2Threshold && rule2) {
-        return true; // Cannot approve above rule 2 threshold
-      }
-      return false; // Can approve within thresholds
-    }
+    // Check dual approval requirement for high-value PRs
+    // Check both new format (approver + approver2) and old format (approvers array)
+    const assignedApproversCount = pr.approver2 ? 2 : (pr.approver ? 1 : 0);
+    const oldFormatCount = pr.approvers?.length || 0;
+    const actualApproversCount = Math.max(assignedApproversCount, oldFormatCount);
     
-    return false;
-  });
-
-  if (hasInsufficientApprover) {
-    if (isAboveRule2Threshold && rule2) {
-      errors.push(`Only Level 1, 2, or 6 approvers can approve PRs above ${rule2.threshold} ${rule2.currency}. Finance Approvers (Level 6) can only approve within rule thresholds.`);
-    } else if (isAboveRule1Threshold && rule1) {
-      errors.push(`Only Level 1, 2, or 6 approvers can approve PRs above ${rule1.threshold} ${rule1.currency}. Finance Approvers (Level 6) can only approve within rule thresholds.`);
+    console.log('Dual approver check:', {
+      approver: pr.approver,
+      approver2: pr.approver2,
+      approvers: pr.approvers,
+      assignedApproversCount,
+      oldFormatCount,
+      actualApproversCount,
+      required: approversRequired
+    });
+    
+    if (actualApproversCount < approversRequired) {
+      approverErrors.push(`At least ${approversRequired} unique approvers are required for amounts above ${rule3Threshold} ${rule3.currency}. Please assign a second approver before pushing to approval.`);
     }
   }
 
-  // Also check if there are any approvers at all
-  if (approvers.length === 0) {
-    errors.push('No approvers found for this organization');
+  // 6. Check approver permission level requirements based on amount
+  // Business Rules:
+  // - Below Rule 1: Any approver level can approve (Levels 1, 2, 4, 6)
+  // - Above Rule 1: Only Level 1 (Admin) or Level 2 (Senior Approver) can approve
+  // - Level 6 (Finance Approver) and Level 4 (Finance Admin) can only approve up to Rule 1 threshold
+  
+  if (lowestQuoteAmount >= rule1Threshold) {
+    // Above Rule 1 threshold - need Level 1 or Level 2
+    const assignedApprovers = await approverService.getApprovers(pr.organization);
+    console.log('Checking approver levels for amount above Rule 1:', {
+      amount: lowestQuoteAmount,
+      threshold: rule1Threshold,
+      assignedApprovers: assignedApprovers.map(a => ({ id: a.id, name: a.name, level: a.permissionLevel }))
+    });
+    
+    // Check if PR has Level 1 or Level 2 approvers assigned
+    const hasHighLevelApprover = assignedApprovers.some(approver => 
+      approver.permissionLevel === 1 || approver.permissionLevel === 2
+    );
+    
+    if (!hasHighLevelApprover && assignedApprovers.length > 0) {
+      // There are approvers, but none are Level 1 or 2
+      approverErrors.push(`Amounts above ${rule1Threshold} ${rule1.currency} require a Level 1 (Admin) or Level 2 (Senior Approver) for approval. Finance Approvers (Level 6) and Finance Admins (Level 4) can only approve amounts up to ${rule1Threshold} ${rule1.currency}.`);
+    } else if (assignedApprovers.length === 0) {
+      approverErrors.push('No approvers found for this organization');
+    }
   }
 
   // 7. Verify vendor status if preferred vendor is specified
-  if (pr.preferredVendor) {
-    const isApproved = await isVendorApproved(pr.preferredVendor.toLowerCase());
-    if (!isApproved) {
-      errors.push('Preferred vendor is not approved');
-    }
-  }
+  // Note: Approved vendor is NOT a requirement - it just reduces quote requirements
+  // If quote requirements are already met, vendor approval status doesn't matter
+  // This check is informational only and does NOT block progression
 
-  // 8. Check adjudication requirements
-  if (targetStatus === PRStatus.APPROVED && lowestQuoteAmount > rule2.threshold) {
-    if (!pr.adjudication?.notes) {
-      errors.push('Validation Error:\nAdjudication notes are required for high-value PRs');
-    }
+  // NOTE: Adjudication notes validation is handled in ApproverActions.tsx
+  // Notes are provided during the approval action, not stored on PR beforehand
+  // The ApproverActions component validates notes based on:
+  // - Dual approval requirement (over Rule 3 threshold)
+  // - Non-lowest quote selection
+  // This validation happens before submission, so we don't need to check here
+  
+  // Combine all errors with category headers for better clarity
+  const allErrors: string[] = [];
+  
+  if (quoteErrors.length > 0) {
+    allErrors.push('QUOTE REQUIREMENTS:');
+    quoteErrors.forEach(err => allErrors.push(`• ${err}`));
+  }
+  
+  if (approverErrors.length > 0) {
+    if (allErrors.length > 0) allErrors.push(''); // Add blank line between sections
+    allErrors.push('APPROVER REQUIREMENTS:');
+    approverErrors.forEach(err => allErrors.push(`• ${err}`));
+  }
+  
+  if (vendorErrors.length > 0) {
+    if (allErrors.length > 0) allErrors.push(''); // Add blank line between sections
+    allErrors.push('VENDOR STATUS:');
+    vendorErrors.forEach(err => allErrors.push(`• ${err}`));
+  }
+  
+  if (permissionErrors.length > 0) {
+    if (allErrors.length > 0) allErrors.push(''); // Add blank line between sections
+    allErrors.push('PERMISSIONS:');
+    permissionErrors.forEach(err => allErrors.push(`• ${err}`));
+  }
+  
+  if (otherErrors.length > 0) {
+    if (allErrors.length > 0) allErrors.push(''); // Add blank line between sections
+    otherErrors.forEach(err => allErrors.push(`• ${err}`));
   }
   
   // Return validation result
   return {
-    isValid: errors.length === 0,
-    errors
+    isValid: allErrors.length === 0,
+    errors: allErrors
   };
 }

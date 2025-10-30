@@ -31,13 +31,13 @@ interface ProcurementActionsProps {
 
 export function ProcurementActions({ prId, currentStatus, requestorEmail, currentUser, onStatusChange }: ProcurementActionsProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | 'revise' | 'cancel' | 'queue' | null>(null);
+  const [selectedAction, setSelectedAction] = useState<'approve' | 'reject' | 'revise' | 'cancel' | 'queue' | 'revert' | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
 
-  const handleActionClick = (action: 'approve' | 'reject' | 'revise' | 'cancel' | 'queue') => {
+  const handleActionClick = (action: 'approve' | 'reject' | 'revise' | 'cancel' | 'queue' | 'revert') => {
     setSelectedAction(action);
     setIsDialogOpen(true);
     setNotes('');
@@ -103,6 +103,48 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               setError(validation.errors.join('\n\n')); // Add double newline for better separation
               return;
             }
+
+            // Additional validation: Check if notes are required for non-lowest quote selection
+            // This applies only in dual approval scenarios (amount > Rule 3)
+            const rule3 = rules.find(r => (r as any).number === 3 || (r as any).number === '3');
+            const rule5 = rules.find(r => (r as any).number === 5 || (r as any).number === '5');
+            
+            if (rule3 && rule5 && pr.estimatedAmount >= rule3.threshold) {
+              // This is a dual approval scenario (requires 2 approvers)
+              const quotes = pr.quotes || [];
+              
+              if (quotes.length > 1) {
+                // Multiple quotes exist - check if lowest was selected
+                const lowestQuote = quotes.reduce((lowest, quote) => {
+                  return (quote.amount < lowest.amount) ? quote : lowest;
+                });
+                
+                const preferredQuote = quotes.find(q => q.id === pr.preferredQuoteId);
+                
+                console.log('Non-lowest quote check:', {
+                  quotesCount: quotes.length,
+                  lowestQuoteAmount: lowestQuote.amount,
+                  lowestQuoteId: lowestQuote.id,
+                  preferredQuoteId: pr.preferredQuoteId,
+                  preferredQuoteAmount: preferredQuote?.amount,
+                  notesProvided: !!notes.trim(),
+                  isDualApproval: true,
+                  rule3Threshold: rule3.threshold
+                });
+                
+                // If a preferred quote is selected and it's NOT the lowest
+                if (preferredQuote && preferredQuote.id !== lowestQuote.id) {
+                  if (!notes.trim()) {
+                    setError(
+                      `JUSTIFICATION REQUIRED:\n\n` +
+                      `You have selected a quote (${preferredQuote.amount.toLocaleString()} ${pr.currency}) that is NOT the lowest quote (${lowestQuote.amount.toLocaleString()} ${pr.currency}).\n\n` +
+                      `For high-value PRs requiring dual approval, you must provide notes explaining why a more expensive quote was selected.`
+                    );
+                    return;
+                  }
+                }
+              }
+            }
           } else {
             console.log('No rules found for organization, skipping validation');
           }
@@ -117,15 +159,14 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             return;
           }
 
-          // Determine if dual approval is required (above Rule 2 threshold)
-          const rule2 = rules?.find((r: Rule) => r.type === 'RULE_2');
-          const requiresDualApproval = rule2 && pr.estimatedAmount >= rule2.threshold;
+          // Determine if dual approval is required (above Rule 3 threshold - high-value PRs)
+          // Rule 3 is the high-value threshold that triggers dual approval requirement (Rule 5)
+          const rule3 = rules?.find((r: Rule) => (r as any).number === 3 || (r as any).number === '3');
+          const rule5 = rules?.find((r: Rule) => (r as any).number === 5 || (r as any).number === '5');
+          const requiresDualApproval = rule3 && rule5 && pr.estimatedAmount >= rule3.threshold;
 
-          // Validate we have both approvers if dual approval is required
-          if (requiresDualApproval && !pr.approver2) {
-            setError('Dual approval required: Please assign a second approver (Level 2) for PRs above Rule 2 threshold');
-            return;
-          }
+          // Note: The validation in validatePRForApproval will catch if dual approvers aren't assigned
+          // This is just for determining approval workflow settings
 
           // Change designation from PR to PO
           const poNumber = pr.prNumber.replace('PR', 'PO');
@@ -140,9 +181,12 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           });
 
           // Update PR with PO number, dual approval settings, and approver information
+          // This must happen BEFORE sending notifications so handlers can fetch the updated PR
           await prService.updatePR(prId, {
             prNumber: poNumber,
             status: newStatus,
+            approver: pr.approver || null,  // Top-level approver field for notification handler
+            approver2: pr.approver2 || null,  // Top-level approver2 field for notification handler
             requiresDualApproval: requiresDualApproval || false,
             updatedAt: new Date().toISOString(),
             approvalWorkflow: {
@@ -156,7 +200,11 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             }
           });
 
+          // Update status history separately
+          await prService.updatePRStatus(prId, newStatus, notes, currentUser);
+
           // Send notification to approver(s)
+          // This happens AFTER the PR is fully updated in Firestore
           if (requiresDualApproval) {
             // Notify both approvers simultaneously
             await notificationService.handleStatusChange(
@@ -164,7 +212,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               pr.status,
               newStatus,
               currentUser,
-              `PR ${pr.prNumber} has been converted to PO ${poNumber} and requires dual approval. Both approvers will be notified.`
+              notes || `PR ${pr.prNumber} has been converted to PO ${poNumber} and requires dual approval. Both approvers will be notified.`
             );
           } else {
             // Notify single approver
@@ -173,53 +221,49 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               pr.status,
               newStatus,
               currentUser,
-              `PR ${pr.prNumber} has been converted to PO ${poNumber} and is pending your approval.`
+              notes || `PR ${pr.prNumber} has been converted to PO ${poNumber} and is pending your approval.`
             );
           }
           break;
 
         case 'reject':
           newStatus = PRStatus.REJECTED;
-          await notificationService.handleStatusChange(
-            pr.id || prId,
-            pr.status,
-            newStatus,
-            currentUser,
-            notes || 'PR rejected'
-          );
           break;
 
         case 'revise':
           newStatus = PRStatus.REVISION_REQUIRED;
-          await notificationService.handleStatusChange(
-            pr.id || prId,
-            pr.status,
-            newStatus,
-            currentUser,
-            notes || 'PR requires revision'
-          );
           break;
 
         case 'cancel':
           newStatus = PRStatus.CANCELED;
-          await notificationService.handleStatusChange(
-            pr.id || prId,
-            pr.status,
-            newStatus,
-            currentUser,
-            notes || 'PR canceled by requestor'
-          );
           break;
 
         case 'queue':
           newStatus = PRStatus.IN_QUEUE;
-          await notificationService.handleStatusChange(
-            pr.id || prId,
-            pr.status,
-            newStatus,
-            currentUser,
-            notes || 'PR moved to queue'
+          break;
+
+        case 'revert':
+          // Get the previous status from statusHistory
+          if (!pr.statusHistory || pr.statusHistory.length < 2) {
+            setError('Cannot determine previous status. Status history is insufficient.');
+            return;
+          }
+          
+          // statusHistory is ordered chronologically, most recent first
+          // Current status is at index 0, so previous status is at index 1
+          const sortedHistory = [...pr.statusHistory].sort((a, b) => 
+            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
+          
+          const previousStatus = sortedHistory[1]?.status;
+          
+          if (!previousStatus || previousStatus === PRStatus.REVISION_REQUIRED) {
+            setError('Cannot revert: No valid previous status found.');
+            return;
+          }
+          
+          console.log('Reverting from REVISION_REQUIRED to:', previousStatus);
+          newStatus = previousStatus;
           break;
 
         default:
@@ -232,8 +276,42 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
         return;
       }
 
-      // Update PR status
-      await prService.updatePRStatus(prId, newStatus, notes, currentUser);
+      // Update PR status in Firestore FIRST (skip for 'approve' as it's already done in the switch case)
+      if (selectedAction !== 'approve') {
+        await prService.updatePRStatus(prId, newStatus, notes, currentUser);
+      }
+
+      // Send notifications AFTER the status is updated in Firestore
+      // This ensures handlers can fetch the updated PR data
+      if (selectedAction !== 'approve') {
+        // Determine the appropriate message based on action
+        let notificationMessage = notes || '';
+        switch (selectedAction) {
+          case 'reject':
+            notificationMessage = notes || 'PR rejected';
+            break;
+          case 'revise':
+            notificationMessage = notes || 'PR requires revision';
+            break;
+          case 'cancel':
+            notificationMessage = notes || 'PR canceled by requestor';
+            break;
+          case 'queue':
+            notificationMessage = notes || 'PR moved to queue';
+            break;
+          case 'revert':
+            notificationMessage = notes || `PR reverted to ${newStatus} from revision required`;
+            break;
+        }
+
+        await notificationService.handleStatusChange(
+          pr.id || prId,
+          pr.status,
+          newStatus,
+          currentUser,
+          notificationMessage
+        );
+      }
 
       enqueueSnackbar(`PR status successfully updated to ${newStatus}`, { variant: 'success' });
       handleClose();
@@ -345,13 +423,13 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           </DialogTitle>
           <DialogContent>
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
                 {error}
               </Alert>
             )}
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                {selectedAction === 'approve' && 'Add optional notes before pushing this PR to the approver.'}
+                {selectedAction === 'approve' && 'Add optional notes before pushing this PR to the approver. Note: For high-value PRs with multiple quotes, notes are REQUIRED if you selected a quote that is not the lowest.'}
                 {selectedAction === 'reject' && 'Please provide a reason for rejecting this PR.'}
                 {selectedAction === 'revise' && 'Please specify what changes are needed for this PR.'}
               </Typography>
@@ -380,6 +458,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   }
 
   // For REVISION_REQUIRED status - Procurement actions
+  // Procurement can only: 1) Revert to previous status, or 2) Reject
   if (currentStatus === PRStatus.REVISION_REQUIRED && isProcurement) {
     return (
       <>
@@ -387,16 +466,16 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           <Button
             variant="contained"
             color="primary"
-            onClick={() => handleActionClick('approve')}
+            onClick={() => handleActionClick('revert')}
           >
-            Push to Approver
+            Revert to Previous Status
           </Button>
           <Button
             variant="contained"
-            color="warning"
-            onClick={() => handleActionClick('revise')}
+            color="error"
+            onClick={() => handleActionClick('reject')}
           >
-            Revise & Resubmit
+            Reject PR
           </Button>
         </Box>
         <Dialog 
@@ -406,19 +485,19 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           fullWidth
         >
           <DialogTitle>
-            {selectedAction === 'approve' && 'Push to Approver'}
-            {selectedAction === 'revise' && 'Request Revision'}
+            {selectedAction === 'revert' && 'Revert to Previous Status'}
+            {selectedAction === 'reject' && 'Reject Purchase Request'}
           </DialogTitle>
           <DialogContent>
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
                 {error}
               </Alert>
             )}
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                {selectedAction === 'approve' && 'Add optional notes before pushing this PR to the approver.'}
-                {selectedAction === 'revise' && 'Please specify what changes are needed for this PR.'}
+                {selectedAction === 'revert' && 'The PR will be moved back to its previous status before it was marked for revision. Please add notes explaining why the revision is no longer needed.'}
+                {selectedAction === 'reject' && 'This PR will be permanently rejected. Please provide a reason for rejection.'}
               </Typography>
               <TextField
                 autoFocus
@@ -427,7 +506,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
                 label="Notes"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                required={selectedAction === 'revise'}
+                required
                 error={!!error}
                 fullWidth
               />
@@ -484,7 +563,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           </DialogTitle>
           <DialogContent>
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }}>
+              <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
                 {error}
               </Alert>
             )}

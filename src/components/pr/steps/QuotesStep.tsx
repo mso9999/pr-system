@@ -27,19 +27,24 @@ import {
   Paper,
   Select,
   MenuItem,
-  Typography
+  Typography,
+  Radio,
+  Tooltip
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import { StorageService } from '../../../services/storage';
-import { Quote, ReferenceDataItem } from '../../../types/pr';
+import { Quote, ReferenceDataItem, PRStatus } from '../../../types/pr';
 import { auth } from '../../../config/firebase';
 
 interface QuotesStepProps {
   formState: {
     quotes?: Quote[];
+    preferredQuoteId?: string;
+    status?: PRStatus;
     [key: string]: any;
   };
   setFormState: (state: any) => void;
@@ -48,6 +53,8 @@ interface QuotesStepProps {
   loading?: boolean;
   isEditing?: boolean;
   onSave?: () => Promise<void>;
+  isProcurement?: boolean;
+  onPreferredQuoteChange?: (quoteId: string) => void;
 }
 
 const emptyQuote: Quote = {
@@ -70,7 +77,9 @@ export function QuotesStep({
   currencies,
   loading,
   isEditing = false,
-  onSave
+  onSave,
+  isProcurement = false,
+  onPreferredQuoteChange
 }: QuotesStepProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteIndex, setDeleteIndex] = React.useState<number | null>(null);
@@ -78,9 +87,13 @@ export function QuotesStep({
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const quotes = formState.quotes || [];
   const readOnly = !isEditing;
+  const preferredQuoteId = formState.preferredQuoteId;
+  const isInQueue = formState.status === PRStatus.IN_QUEUE;
+  const canSelectPreferred = isProcurement && isInQueue && quotes.length > 1;
 
   console.log('QuotesStep: isEditing=', isEditing, 'readOnly=', readOnly);
   console.log('Current quotes:', quotes);
+  console.log('Can select preferred:', canSelectPreferred, { isProcurement, isInQueue, quotesCount: quotes.length });
 
   const handleAddQuote = () => {
     if (!readOnly) {
@@ -263,6 +276,13 @@ export function QuotesStep({
     return Object.keys(newErrors).length === 0;
   };
 
+  const handlePreferredQuoteSelection = (quoteId: string) => {
+    console.log('Selecting preferred quote:', quoteId);
+    if (onPreferredQuoteChange) {
+      onPreferredQuoteChange(quoteId);
+    }
+  };
+
   const handleSave = async () => {
     if (!onSave || readOnly) return;
     
@@ -285,10 +305,18 @@ export function QuotesStep({
 
   return (
     <Box>
+      {canSelectPreferred && (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Select the preferred quote to use for approval. The PR amount will be updated automatically.
+        </Typography>
+      )}
       <TableContainer>
         <Table>
           <TableHead>
             <TableRow>
+              {canSelectPreferred && (
+                <TableCell width="8%" align="center">Preferred</TableCell>
+              )}
               <TableCell width="20%">Vendor</TableCell>
               <TableCell width="15%">Date</TableCell>
               <TableCell width="15%">Amount</TableCell>
@@ -300,7 +328,25 @@ export function QuotesStep({
           </TableHead>
           <TableBody>
             {quotes.map((quote, index) => (
-              <TableRow key={quote.id}>
+              <TableRow 
+                key={quote.id}
+                sx={{
+                  backgroundColor: preferredQuoteId === quote.id ? 'rgba(76, 175, 80, 0.08)' : 'inherit'
+                }}
+              >
+                {canSelectPreferred && (
+                  <TableCell align="center">
+                    <Tooltip title={preferredQuoteId === quote.id ? "Selected as preferred quote" : "Select as preferred quote"}>
+                      <Radio
+                        checked={preferredQuoteId === quote.id}
+                        onChange={() => handlePreferredQuoteSelection(quote.id || '')}
+                        value={quote.id}
+                        name="preferred-quote"
+                        color="success"
+                      />
+                    </Tooltip>
+                  </TableCell>
+                )}
                 <TableCell>
                   <FormControl fullWidth error={!quote.vendorId && !readOnly}>
                     <InputLabel>Vendor</InputLabel>

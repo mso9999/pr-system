@@ -215,9 +215,46 @@ export class NotificationService {
           recipients = [procurementEmail];
         }
       } else if (newStatus === PRStatus.PENDING_APPROVAL) {
-        // Send to approver when approval is needed
-        // TODO: Get approver email from pr.approvalWorkflow.currentApprover
-        recipients = [procurementEmail]; // Temporary: send to procurement
+        // Send to approver(s) when approval is needed
+        // Fetch approver email(s) from pr.approver and pr.approver2
+        const approverIds: string[] = [];
+        if (pr.approver) approverIds.push(pr.approver);
+        if (pr.approver2) approverIds.push(pr.approver2);
+        
+        // Resolve user IDs to emails
+        for (const approverId of approverIds) {
+          try {
+            // Check if it's already an email
+            if (approverId.includes('@')) {
+              recipients.push(approverId);
+            } else {
+              // Fetch email from users collection
+              const userDoc = await getDoc(doc(db, 'users', approverId));
+              if (userDoc.exists()) {
+                const approverEmail = userDoc.data().email;
+                if (approverEmail) {
+                  recipients.push(approverEmail);
+                  console.log(`Resolved approver ${approverId} to email: ${approverEmail}`);
+                } else {
+                  console.warn(`No email found for approver ${approverId}`);
+                }
+              } else {
+                console.warn(`User document not found for approver ${approverId}`);
+              }
+            }
+          } catch (error) {
+            console.error(`Error fetching email for approver ${approverId}:`, error);
+          }
+        }
+        
+        // If no approvers found, send to procurement as fallback
+        if (recipients.length === 0) {
+          console.warn('No approver emails found, sending to procurement as fallback');
+          recipients = [procurementEmail];
+        }
+        
+        // CC procurement and requestor
+        ccList.push(procurementEmail);
         const requestorEmail = pr.requestorEmail || pr.requestor?.email;
         if (requestorEmail && requestorEmail !== user?.email) {
           ccList.push(requestorEmail);

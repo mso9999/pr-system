@@ -1,25 +1,16 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
-const sgMail = require('@sendgrid/mail');
+import { sendEmail } from './utils/emailSender';
 
 // Initialize Firebase
 admin.initializeApp();
 const db = admin.firestore();
 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
 
-// Helper function to initialize SendGrid
-function initializeSendGrid() {
-  const sendGridApiKey = functions.config().sendgrid?.api_key;
-  if (!sendGridApiKey) {
-    throw new Error('SendGrid API key not found in configuration');
-  }
-  sgMail.setApiKey(sendGridApiKey);
-  return sgMail;
-}
-
 // Import scheduled functions
 export { dailyVendorExpiryCheck } from './scheduledVendorExpiryCheck';
 export { dailyReminders, urgentReminders, deliveryDelayCheck } from './scheduledReminders';
+export { sendDailyQuoteConflictReminders } from './scheduled/sendDailyQuoteConflictReminders';
 
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
@@ -186,13 +177,12 @@ export const sendRevisionRequiredNotification = functions.https.onCall(
             subject: mailOptions.subject
         });
         
-        // Send emails using SendGrid API
+        // Send emails using SMTP
         const failedEmails: any[] = [];
         
         try {
-            const sg = initializeSendGrid();
-            const result = await sg.send(mailOptions);
-            console.log('Email sent successfully via SendGrid:', result[0].statusCode);
+            await sendEmail(mailOptions);
+            console.log('Email sent successfully via SMTP');
         } catch (error) {
             console.error('Failed to send email:', error);
             failedEmails.push({
@@ -310,11 +300,10 @@ export const processNotifications = functions.firestore
         subject: mailOptions.subject
       });
       
-      // Send the email using SendGrid API
+      // Send the email using SMTP
       try {
-        const sg = initializeSendGrid();
-        const result = await sg.send(mailOptions);
-        console.log('Email sent successfully via SendGrid:', result[0].statusCode);
+        await sendEmail(mailOptions);
+        console.log('Email sent successfully via SMTP');
         
         // Update the notification status in Firestore
         await snapshot.ref.update({
@@ -413,7 +402,7 @@ export const sendTestEmail = functions.https.onCall(async (data, context) => {
             throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: to, subject, message');
         }
         
-        // Use nodemailer with SMTP
+        // Use SMTP
         const mailOptions = {
             from: '"1PWR System" <noreply@1pwrafrica.com>',
             to: to,
@@ -422,14 +411,13 @@ export const sendTestEmail = functions.https.onCall(async (data, context) => {
             html: `<p>${message}</p>`
         };
         
-        const sg = initializeSendGrid();
-        const result = await sg.send(mailOptions);
-        console.log('Test email sent successfully via SendGrid:', result[0].statusCode);
+        const result = await sendEmail(mailOptions);
+        console.log('Test email sent successfully via SMTP');
         
         return {
             success: true,
-            statusCode: result[0].statusCode,
-            message: 'Test email sent successfully via SendGrid'
+            messageId: result.messageId,
+            message: 'Test email sent successfully via SMTP'
         };
         
     } catch (error) {
@@ -441,4 +429,5 @@ export const sendTestEmail = functions.https.onCall(async (data, context) => {
     }
 });
 
-export { testSendGrid } from './testSendGrid';
+// Note: testSendGrid has been replaced by sendTestEmail which now uses SMTP
+// export { testSendGrid } from './testSendGrid';

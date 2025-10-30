@@ -35,8 +35,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [justification, setJustification] = useState('');
-  const [useDefaultJustification, setUseDefaultJustification] = useState(false);
+  const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
 
@@ -69,8 +68,73 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     });
   }, [pr.quotes]);
 
-  // Determine if justification is required
-  const justificationRequired = requires3Quotes;
+  // Check if there are multiple quotes to choose from
+  const hasMultipleQuotes = (pr.quotes?.length || 0) > 1;
+
+  // Check if selected quote is the lowest
+  const isSelectedQuoteLowest = useMemo(() => {
+    if (!selectedQuoteId || !lowestQuote) return true;
+    return selectedQuoteId === lowestQuote.id;
+  }, [selectedQuoteId, lowestQuote]);
+
+  // Check if this requires adjudication (dual approval scenario - over threshold)
+  const requiresAdjudication = isDualApproval;
+
+  // Check if non-lowest quote selected
+  const isNonLowestQuote = hasMultipleQuotes && !isSelectedQuoteLowest;
+
+  // Determine notes requirements
+  const notesRequired = isNonLowestQuote || requiresAdjudication;
+
+  // Generate dynamic notes field guidance
+  const getNotesGuidance = () => {
+    if (selectedAction !== 'approve') {
+      // For reject/revise actions
+      return {
+        label: 'Notes',
+        placeholder: 'Provide notes for this action...',
+        helperText: 'Notes are required',
+        required: true
+      };
+    }
+
+    // For approval actions
+    if (requiresAdjudication && isNonLowestQuote) {
+      // Both: Over threshold AND non-lowest quote
+      return {
+        label: 'Adjudication & Justification Notes',
+        placeholder: 'Provide adjudication notes for this high-value PR and explain why this quote was selected over the lowest quote (e.g., better quality, faster delivery, better warranty, proven track record)...',
+        helperText: 'Required: Adjudication notes and justification for non-lowest quote selection',
+        required: true
+      };
+    } else if (requiresAdjudication) {
+      // Only adjudication needed (over threshold)
+      return {
+        label: 'Adjudication Notes',
+        placeholder: 'Provide adjudication notes for this high-value PR approval...',
+        helperText: 'Required: Adjudication notes for dual-approval PR',
+        required: true
+      };
+    } else if (isNonLowestQuote) {
+      // Only justification needed (non-lowest quote)
+      return {
+        label: 'Justification for Non-Lowest Quote',
+        placeholder: 'Explain why this quote was selected over the lowest quote (e.g., better quality, faster delivery, better warranty, proven track record)...',
+        helperText: 'Required: Justification for non-lowest quote selection',
+        required: true
+      };
+    } else {
+      // Optional notes
+      return {
+        label: 'Notes (Optional)',
+        placeholder: 'Optional notes for approval...',
+        helperText: 'Optional notes for approval',
+        required: false
+      };
+    }
+  };
+
+  const notesGuidance = getNotesGuidance();
 
   // Check if user has permission to take actions
   const canTakeAction = useMemo(() => {
@@ -148,6 +212,15 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     setIsDialogOpen(true);
     setNotes('');
     setError(null);
+    
+    // For approval action, initialize selected quote
+    if (action === 'approve' && hasMultipleQuotes) {
+      // Default to procurement's preferred quote if available, otherwise lowest quote
+      const defaultQuoteId = pr.preferredQuoteId || lowestQuote?.id || pr.quotes?.[0]?.id;
+      setSelectedQuoteId(defaultQuoteId || null);
+    } else {
+      setSelectedQuoteId(null);
+    }
   };
 
   const handleClose = () => {
@@ -155,6 +228,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     setSelectedAction(null);
     setNotes('');
     setError(null);
+    setSelectedQuoteId(null);
   };
 
   const handleStatusUpdate = async (newStatus: PRStatus, notes?: string) => {
@@ -164,7 +238,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     while (retryCount < maxRetries) {
       try {
         setLoading(true);
-        await prService.updatePRStatus(pr.id, newStatus, notes);
+        await prService.updatePRStatus(pr.id, newStatus, notes, currentUser);
         enqueueSnackbar(`PR status successfully updated to ${newStatus}`, { variant: 'success' });
         onStatusChange(); // Trigger parent refresh
         return;
@@ -194,15 +268,24 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
         return;
       }
 
-      // Validate justification for approval in 3-quote scenarios
-      if (selectedAction === 'approve' && justificationRequired) {
-        if (!useDefaultJustification && !justification.trim()) {
-          setError('Justification is required for 3-quote scenarios. Please select "Value for Money" or provide custom justification.');
+      // Validate quote selection for approval with multiple quotes
+      if (selectedAction === 'approve' && hasMultipleQuotes) {
+        if (!selectedQuoteId) {
+          setError('Please select which quote you are approving.');
           return;
         }
-        
-        // If non-lowest quote and trying to use default justification, require custom
-        // TODO: Implement quote selection detection
+      }
+
+      // Validate notes based on requirements
+      if (selectedAction === 'approve' && notesRequired && !notes.trim()) {
+        if (requiresAdjudication && isNonLowestQuote) {
+          setError('Adjudication notes and justification for non-lowest quote selection are required.');
+        } else if (requiresAdjudication) {
+          setError('Adjudication notes are required for dual-approval PRs.');
+        } else if (isNonLowestQuote) {
+          setError('Justification is required when approving a quote that is not the lowest.');
+        }
+        return;
       }
 
       // Get the PR data
@@ -215,6 +298,86 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       let newStatus: PRStatus;
       switch (selectedAction) {
         case 'approve':
+          // Special handling for quote conflict resolution (quoteConflict flag set in PENDING_APPROVAL)
+          if (prData.status === PRStatus.PENDING_APPROVAL && prData.approvalWorkflow?.quoteConflict) {
+            const isFirstAppr = currentUser.id === prData.approver;
+            const isSecondAppr = currentUser.id === prData.approver2;
+
+            // Update the approver's selected quote
+            const firstQuoteId = isFirstAppr ? selectedQuoteId : prData.approvalWorkflow?.firstApproverSelectedQuoteId;
+            const secondQuoteId = isSecondAppr ? selectedQuoteId : prData.approvalWorkflow?.secondApproverSelectedQuoteId;
+
+            // Check if conflict is now resolved (both selected the same quote)
+            const conflictResolved = firstQuoteId && secondQuoteId && firstQuoteId === secondQuoteId;
+
+            console.log('Quote conflict resolution - Update check:', {
+              isFirstAppr,
+              isSecondAppr,
+              selectedQuoteId,
+              firstQuoteId,
+              secondQuoteId,
+              conflictResolved
+            });
+
+            // Use notes as the justification/adjudication
+            const approverNotes = notes.trim() || 'Quote selection updated';
+
+            if (conflictResolved) {
+              // Conflict resolved! Move to APPROVED
+              newStatus = PRStatus.APPROVED;
+
+              await prService.updatePR(pr.id, {
+                status: newStatus,
+                objectType: 'PO',
+                approvalWorkflow: {
+                  ...prData.approvalWorkflow,
+                  firstApproverSelectedQuoteId: firstQuoteId,
+                  secondApproverSelectedQuoteId: secondQuoteId,
+                  firstApproverJustification: isFirstAppr ? approverNotes : prData.approvalWorkflow?.firstApproverJustification,
+                  secondApproverJustification: isSecondAppr ? approverNotes : prData.approvalWorkflow?.secondApproverJustification,
+                  quoteConflict: false,
+                  lastUpdated: new Date().toISOString()
+                },
+                updatedAt: new Date().toISOString()
+              });
+
+              await notificationService.handleStatusChange(
+                pr.id,
+                pr.status,
+                newStatus,
+                currentUser,
+                `Quote conflict resolved. PR ${prData.prNumber} is now approved.`
+              );
+
+              enqueueSnackbar(`Quote conflict resolved! PR ${prData.prNumber} has been approved.`, { variant: 'success' });
+              handleClose();
+              if (onStatusChange) onStatusChange();
+              navigate('/dashboard');
+              return;
+            } else {
+              // Still in conflict or waiting - just update the quote selection
+              await prService.updatePR(pr.id, {
+                approvalWorkflow: {
+                  ...prData.approvalWorkflow,
+                  firstApproverSelectedQuoteId: firstQuoteId,
+                  secondApproverJustification: isSecondAppr ? approverNotes : prData.approvalWorkflow?.secondApproverJustification,
+                  firstApproverJustification: isFirstAppr ? approverNotes : prData.approvalWorkflow?.firstApproverJustification,
+                  secondApproverSelectedQuoteId: secondQuoteId,
+                  quoteConflict: true, // Still in conflict
+                  lastUpdated: new Date().toISOString()
+                },
+                updatedAt: new Date().toISOString()
+              });
+
+              enqueueSnackbar('Your quote selection has been updated. Waiting for other approver to agree.', { variant: 'info' });
+              handleClose();
+              if (onStatusChange) onStatusChange();
+              navigate('/dashboard');
+              return;
+            }
+          }
+
+          // Normal approval flow continues...
           // Get the rules for this organization from referenceData
           const rulesData = await referenceDataService.getItemsByType('rules', prData.organization);
           const rules = rulesData as unknown as Rule[];
@@ -249,6 +412,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
           console.log('Validation result for approval:', validation);
 
           if (!validation.isValid) {
+            console.error('Validation failed with errors:', validation.errors);
             setError(validation.errors.join('\n\n'));
             return;
           }
@@ -272,10 +436,28 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             const firstComplete = isFirstAppr ? true : (prData.approvalWorkflow?.firstApprovalComplete || false);
             const secondComplete = isSecondAppr ? true : (prData.approvalWorkflow?.secondApprovalComplete || false);
 
-            // Prepare justification (default or custom)
-            const approverJustification = justificationRequired 
-              ? (useDefaultJustification ? 'Value for Money' : justification)
-              : notes || 'Approved';
+            // Use notes field for adjudication/justification
+            const approverNotes = notes.trim() || 'Approved';
+
+            // Save selected quote IDs
+            const firstQuoteId = isFirstAppr ? selectedQuoteId : prData.approvalWorkflow?.firstApproverSelectedQuoteId;
+            const secondQuoteId = isSecondAppr ? selectedQuoteId : prData.approvalWorkflow?.secondApproverSelectedQuoteId;
+
+            // Detect quote conflict (both have approved but selected different quotes)
+            const quoteConflict = firstComplete && secondComplete && 
+                                  firstQuoteId && secondQuoteId && 
+                                  firstQuoteId !== secondQuoteId;
+
+            console.log('Dual approval - Quote selection check:', {
+              isFirstAppr,
+              isSecondAppr,
+              selectedQuoteId,
+              firstQuoteId,
+              secondQuoteId,
+              firstComplete,
+              secondComplete,
+              quoteConflict
+            });
 
             // Update approval workflow
             const updatedWorkflow = {
@@ -284,41 +466,77 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
               secondApprover: prData.approver2,
               requiresDualApproval: true,
               firstApprovalComplete: firstComplete,
-              firstApproverJustification: isFirstAppr ? approverJustification : prData.approvalWorkflow?.firstApproverJustification,
+              firstApproverSelectedQuoteId: firstQuoteId,
+              firstApproverJustification: isFirstAppr ? approverNotes : prData.approvalWorkflow?.firstApproverJustification,
               secondApprovalComplete: secondComplete,
-              secondApproverJustification: isSecondAppr ? approverJustification : prData.approvalWorkflow?.secondApproverJustification,
+              secondApproverSelectedQuoteId: secondQuoteId,
+              secondApproverJustification: isSecondAppr ? approverNotes : prData.approvalWorkflow?.secondApproverJustification,
+              quoteConflict: quoteConflict || false,
               approvalHistory: [
                 ...(prData.approvalWorkflow?.approvalHistory || []),
                 {
                   approverId: currentUser.id,
                   timestamp: new Date().toISOString(),
                   approved: true,
-                  notes: approverJustification
+                  notes: approverNotes
                 }
               ],
               lastUpdated: new Date().toISOString()
             };
 
-            // If both have approved, move to APPROVED
+            // If both have approved, check for quote conflicts
             if (firstComplete && secondComplete) {
-              newStatus = PRStatus.APPROVED;
-              
-              // Update to APPROVED and set object type to PO
-              await prService.updatePR(pr.id, {
-                status: newStatus,
-                objectType: 'PO',
-                approvalWorkflow: updatedWorkflow,
-                updatedAt: new Date().toISOString()
-              });
+              if (quoteConflict) {
+                // Quote conflict detected - stay in PENDING_APPROVAL but flag it
+                newStatus = PRStatus.PENDING_APPROVAL; // Status stays the same
+                
+                await prService.updatePR(pr.id, {
+                  approvalWorkflow: updatedWorkflow, // Has quoteConflict: true
+                  updatedAt: new Date().toISOString()
+                });
 
-              // Notify stakeholders
-              await notificationService.handleStatusChange(
-                pr.id,
-                pr.status,
-                newStatus,
-                currentUser,
-                `Both approvers have approved. PR ${prData.prNumber} is now approved.`
-              );
+                // Notify approvers and procurement of the conflict
+                // Note: We pass the same status to indicate this is a special notification
+                await notificationService.handleStatusChange(
+                  pr.id,
+                  pr.status,
+                  newStatus,
+                  currentUser,
+                  `QUOTE_CONFLICT: Both approvers have approved PR ${prData.prNumber}, but selected different quotes. Agreement required.`
+                );
+
+                enqueueSnackbar(
+                  'Both approvers have approved different quotes. Both must agree on the same quote to proceed.', 
+                  { variant: 'warning', autoHideDuration: 8000 }
+                );
+                
+                handleClose();
+                if (onStatusChange) onStatusChange();
+                navigate('/dashboard');
+                return;
+              } else {
+                // No conflict - move to APPROVED
+                newStatus = PRStatus.APPROVED;
+                
+                // Update to APPROVED and set object type to PO
+                await prService.updatePR(pr.id, {
+                  status: newStatus,
+                  objectType: 'PO',
+                  approvalWorkflow: updatedWorkflow,
+                  updatedAt: new Date().toISOString()
+                });
+
+                // Notify stakeholders
+                await notificationService.handleStatusChange(
+                  pr.id,
+                  pr.status,
+                  newStatus,
+                  currentUser,
+                  `Both approvers have approved. PR ${prData.prNumber} is now approved.`
+                );
+
+                enqueueSnackbar(`PR ${prData.prNumber} has been fully approved!`, { variant: 'success' });
+              }
             } else {
               // One approver has approved, waiting for the other
               newStatus = PRStatus.PENDING_APPROVAL; // Status stays the same
@@ -344,10 +562,8 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             // Single approval - move directly to APPROVED
             newStatus = PRStatus.APPROVED;
             
-            // Prepare justification (default or custom)
-            const approverJustification = justificationRequired 
-              ? (useDefaultJustification ? 'Value for Money' : justification)
-              : notes || 'Approved';
+            // Use notes field for justification/adjudication
+            const approverNotes = notes.trim() || 'Approved';
             
             // Update to APPROVED and set object type to PO
             await prService.updatePR(pr.id, {
@@ -359,15 +575,17 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                 secondApprover: null,
                 requiresDualApproval: false,
                 firstApprovalComplete: true,
-                firstApproverJustification: approverJustification,
+                firstApproverSelectedQuoteId: selectedQuoteId || undefined,
+                firstApproverJustification: approverNotes,
                 secondApprovalComplete: false,
+                quoteConflict: false,
                 approvalHistory: [
                   ...(prData.approvalWorkflow?.approvalHistory || []),
                   {
                     approverId: currentUser.id,
                     timestamp: new Date().toISOString(),
                     approved: true,
-                    notes: approverJustification
+                    notes: approverNotes
                   }
                 ],
                 lastUpdated: new Date().toISOString()
@@ -418,6 +636,11 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   };
 
   const getDialogTitle = () => {
+    // Special title for quote conflict resolution
+    if (pr.status === PRStatus.PENDING_APPROVAL && pr.approvalWorkflow?.quoteConflict && selectedAction === 'approve') {
+      return 'Resolve Quote Conflict - Change Your Selection';
+    }
+    
     switch (selectedAction) {
       case 'revise':
         return 'Revise & Resubmit';
@@ -434,6 +657,54 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
   return (
     <Box>
+      {/* Quote Conflict Alert - RED FLAGGED */}
+      {pr.status === PRStatus.PENDING_APPROVAL && pr.approvalWorkflow?.quoteConflict && (
+        <Alert 
+          severity="error" 
+          icon={<span style={{ fontSize: '24px' }}>🚩</span>}
+          sx={{ 
+            mb: 2,
+            border: '2px solid',
+            borderColor: 'error.main',
+            backgroundColor: 'error.light',
+            '& .MuiAlert-message': {
+              width: '100%'
+            }
+          }}
+        >
+          <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', color: 'error.dark' }}>
+            ⚠️ QUOTE CONFLICT - RED FLAGGED
+          </Typography>
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Both approvers have approved this PR but selected different quotes:
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+            {pr.approvalWorkflow.firstApproverSelectedQuoteId && (
+              <Box>
+                <strong>Approver 1 selected:</strong>{' '}
+                {pr.quotes?.find(q => q.id === pr.approvalWorkflow?.firstApproverSelectedQuoteId)?.vendorName || 'Unknown'} -{' '}
+                {pr.quotes?.find(q => q.id === pr.approvalWorkflow?.firstApproverSelectedQuoteId)?.amount.toFixed(2)}{' '}
+                {pr.quotes?.find(q => q.id === pr.approvalWorkflow?.firstApproverSelectedQuoteId)?.currency}
+              </Box>
+            )}
+            {pr.approvalWorkflow.secondApproverSelectedQuoteId && (
+              <Box>
+                <strong>Approver 2 selected:</strong>{' '}
+                {pr.quotes?.find(q => q.id === pr.approvalWorkflow?.secondApproverSelectedQuoteId)?.vendorName || 'Unknown'} -{' '}
+                {pr.quotes?.find(q => q.id === pr.approvalWorkflow?.secondApproverSelectedQuoteId)?.amount.toFixed(2)}{' '}
+                {pr.quotes?.find(q => q.id === pr.approvalWorkflow?.secondApproverSelectedQuoteId)?.currency}
+              </Box>
+            )}
+          </Box>
+          <Typography variant="body2" sx={{ mt: 2, fontWeight: 'bold', color: 'error.dark' }}>
+            🔴 ACTION REQUIRED: One or both approvers must change their selection to the same quote to proceed.
+          </Typography>
+          <Typography variant="caption" display="block" sx={{ mt: 1, fontStyle: 'italic' }}>
+            Daily reminder notifications will be sent until this conflict is resolved.
+          </Typography>
+        </Alert>
+      )}
+
       {/* Dual Approval Status Display */}
       {isDualApproval && pr.status === PRStatus.PENDING_APPROVAL && (
         <Alert severity="info" sx={{ mb: 2 }}>
@@ -510,85 +781,123 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
         <DialogTitle>{getDialogTitle()}</DialogTitle>
         <DialogContent>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
               {error}
             </Alert>
           )}
 
-          {/* Justification UI for 3-quote scenarios (approval only) */}
-          {selectedAction === 'approve' && justificationRequired && (
+          {/* Quote Selection UI (for approval with multiple quotes) */}
+          {selectedAction === 'approve' && hasMultipleQuotes && (
             <Box sx={{ mb: 3 }}>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Justification Required (3-Quote Scenario)
-                </Typography>
-                <Typography variant="body2">
-                  This PR requires 3 quotes. Please provide justification for your approval decision.
-                </Typography>
-                {lowestQuote && (
-                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-                    Lowest quote: {lowestQuote.vendorName} - {lowestQuote.amount} {lowestQuote.currency}
-                  </Typography>
-                )}
-              </Alert>
-
-              <Stack spacing={2}>
-                <Box>
-                  <Button
-                    variant={useDefaultJustification ? 'contained' : 'outlined'}
-                    onClick={() => {
-                      setUseDefaultJustification(true);
-                      setJustification('');
+              <Typography variant="subtitle2" gutterBottom>
+                Select Quote to Approve:
+              </Typography>
+              {pr.quotes.map((quote) => {
+                const isLowest = quote.id === lowestQuote?.id;
+                const isPreferred = quote.id === pr.preferredQuoteId;
+                const isSelected = quote.id === selectedQuoteId;
+                
+                return (
+                  <Box
+                    key={quote.id}
+                    sx={{
+                      p: 2,
+                      mb: 1,
+                      border: isSelected ? 2 : 1,
+                      borderColor: isSelected ? 'primary.main' : 'divider',
+                      borderRadius: 1,
+                      cursor: 'pointer',
+                      bgcolor: isSelected ? 'action.selected' : 'background.paper',
+                      '&:hover': { bgcolor: 'action.hover' }
                     }}
-                    fullWidth
+                    onClick={() => setSelectedQuoteId(quote.id)}
                   >
-                    Use Default: "Value for Money"
-                  </Button>
-                  <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5, display: 'block' }}>
-                    Select this if you're approving the lowest quote
-                  </Typography>
-                </Box>
-
-                <Typography variant="body2" align="center">OR</Typography>
-
-                <Box>
-                  <TextField
-                    fullWidth
-                    label="Custom Justification"
-                    multiline
-                    rows={3}
-                    value={justification}
-                    onChange={(e) => {
-                      setJustification(e.target.value);
-                      setUseDefaultJustification(false);
-                    }}
-                    placeholder="Required if not selecting lowest quote. Explain why higher quote was chosen..."
-                    helperText="Provide custom justification (e.g., better quality, faster delivery, warranty)"
-                  />
-                </Box>
-              </Stack>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Box>
+                        <Typography variant="subtitle2">
+                          {quote.vendorName}
+                          {isPreferred && (
+                            <Chip label="Procurement Preferred" size="small" color="info" sx={{ ml: 1 }} />
+                          )}
+                          {isLowest && (
+                            <Chip label="Lowest Quote" size="small" color="success" sx={{ ml: 1 }} />
+                          )}
+                        </Typography>
+                        <Typography variant="body1" color="primary">
+                          {quote.amount.toFixed(2)} {quote.currency}
+                        </Typography>
+                      </Box>
+                      {isSelected && (
+                        <Chip label="✓ Selected" color="primary" size="small" />
+                      )}
+                    </Stack>
+                  </Box>
+                );
+              })}
             </Box>
           )}
 
-          {/* Notes field (for all actions) */}
+          {/* Alert for non-lowest quote or adjudication requirements */}
+          {selectedAction === 'approve' && (isNonLowestQuote || requiresAdjudication) && (
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {requiresAdjudication && isNonLowestQuote && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Adjudication & Justification Required
+                  </Typography>
+                  <Typography variant="body2">
+                    This is a high-value PR requiring dual approval. Additionally, you have selected a quote that is NOT the lowest. 
+                    Please provide comprehensive notes covering both adjudication reasoning and justification for the non-lowest quote selection.
+                  </Typography>
+                  {lowestQuote && (
+                    <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                      Lowest quote: {lowestQuote.vendorName} - {lowestQuote.amount.toFixed(2)} {lowestQuote.currency}
+                    </Typography>
+                  )}
+                </>
+              )}
+              {requiresAdjudication && !isNonLowestQuote && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Adjudication Notes Required
+                  </Typography>
+                  <Typography variant="body2">
+                    This is a high-value PR requiring dual approval. Please provide adjudication notes explaining your approval decision.
+                  </Typography>
+                </>
+              )}
+              {!requiresAdjudication && isNonLowestQuote && (
+                <>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Justification Required
+                  </Typography>
+                  <Typography variant="body2">
+                    You have selected a quote that is NOT the lowest. Please provide justification for selecting this quote.
+                  </Typography>
+                  {lowestQuote && (
+                    <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                      Lowest quote: {lowestQuote.vendorName} - {lowestQuote.amount.toFixed(2)} {lowestQuote.currency}
+                    </Typography>
+                  )}
+                </>
+              )}
+            </Alert>
+          )}
+
+          {/* Single unified notes field with dynamic guidance */}
           <TextField
-            autoFocus={!justificationRequired}
+            autoFocus
             margin="dense"
-            label={selectedAction === 'approve' && !justificationRequired ? 'Notes (Optional)' : 'Notes'}
+            label={notesGuidance.label}
             fullWidth
             multiline
             rows={4}
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
-            required={selectedAction === 'reject' || selectedAction === 'revise'}
-            error={!notes.trim() && (selectedAction === 'reject' || selectedAction === 'revise')}
-            helperText={
-              !notes.trim() && (selectedAction === 'reject' || selectedAction === 'revise')
-                ? 'Notes are required'
-                : selectedAction === 'approve' && !justificationRequired
-                  ? 'Optional notes for approval'
-                  : ''
-            }
+            placeholder={notesGuidance.placeholder}
+            required={notesGuidance.required}
+            error={notesGuidance.required && !notes.trim()}
+            helperText={notesGuidance.required && !notes.trim() ? notesGuidance.helperText : notesGuidance.helperText}
           />
         </DialogContent>
         <DialogActions>

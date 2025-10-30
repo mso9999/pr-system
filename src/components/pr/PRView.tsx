@@ -445,6 +445,7 @@ export function PRView() {
   const [lineItems, setLineItems] = useState<Array<ExtendedLineItem>>([]);
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isProcurement = currentUser?.permissionLevel === 3; // Level 3 = Procurement Officer
+  const isAdmin = currentUser?.permissionLevel === 1 || currentUser?.role === 'admin'; // Level 1 = Admin
   const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
   const canProcessPR = isProcurement || (isRequestor && (
     pr?.status === PRStatus.IN_QUEUE ||
@@ -469,6 +470,9 @@ export function PRView() {
   const [approvers, setApprovers] = useState<User[]>([]);
   const [selectedApprover, setSelectedApprover] = useState<string | undefined>(
     pr?.approver || pr?.approvalWorkflow?.currentApprover || undefined
+  );
+  const [selectedApprover2, setSelectedApprover2] = useState<string | undefined>(
+    pr?.approver2 || pr?.approvalWorkflow?.secondApprover || undefined
   );
   const [loadingApprovers, setLoadingApprovers] = useState(false);
   const [currentApprover, setCurrentApprover] = useState<User | null>(null);
@@ -655,9 +659,11 @@ export function PRView() {
     const loadCurrentApprover = async () => {
       // Check pr.approver first as it's the single source of truth
       const approverId = pr?.approver || pr?.approvalWorkflow?.currentApprover;
+      const approver2Id = pr?.approver2 || pr?.approvalWorkflow?.secondApprover;
       
       // Update selectedApprover state for the edit form
       setSelectedApprover(approverId || undefined);
+      setSelectedApprover2(approver2Id || undefined);
       
       if (approverId) {
         try {
@@ -679,7 +685,7 @@ export function PRView() {
     };
 
     loadCurrentApprover();
-  }, [pr?.approvalWorkflow?.currentApprover, pr?.approver]);
+  }, [pr?.approvalWorkflow?.currentApprover, pr?.approvalWorkflow?.secondApprover, pr?.approver, pr?.approver2]);
 
   const handleAddLineItem = (): void => {
     const newItem: ExtendedLineItem = {
@@ -1064,6 +1070,12 @@ export function PRView() {
     // Note: Validation is handled by useEffect when selectedApprover changes
     // No need to manually trigger validation here
   };
+
+  const handleApprover2Change = (approverId: string) => {
+    console.log('Second approver changed to:', approverId);
+    setSelectedApprover2(approverId || undefined);
+    handleFieldChange('approver2', approverId);
+  };
   
   // Auto-validate whenever approver or amount changes
   useEffect(() => {
@@ -1101,10 +1113,23 @@ export function PRView() {
     setLoading(true);
     
     try {
+      // Debug: Log approver states before save
+      console.log('PRView handleSave - Approver states:', {
+        selectedApprover,
+        selectedApprover2,
+        'editedPR.approver': editedPR.approver,
+        'editedPR.approver2': editedPR.approver2,
+        'pr.approver': pr.approver,
+        'pr.approver2': pr.approver2
+      });
+      
       // Prepare the PR data for update
       const updatedPR: PRUpdateParams = {
         ...pr,
         ...editedPR,
+        // Explicitly preserve approver fields
+        approver: selectedApprover || editedPR.approver || pr.approver,
+        approver2: selectedApprover2 || editedPR.approver2 || pr.approver2,
         lineItems: lineItems.map(item => ({
           id: item.id,
           description: item.description,
@@ -1117,11 +1142,18 @@ export function PRView() {
         quotes: pr.quotes || [],
         updatedAt: new Date().toISOString(),
         approvalWorkflow: {
-          currentApprover: pr.approvalWorkflow?.currentApprover || null,
+          currentApprover: selectedApprover || pr.approvalWorkflow?.currentApprover || null,
+          secondApprover: selectedApprover2 || pr.approvalWorkflow?.secondApprover || null,
           approvalHistory: pr.approvalWorkflow?.approvalHistory || [],
           lastUpdated: new Date().toISOString()
         }
       };
+      
+      console.log('PRView handleSave - Computed approver fields:', {
+        approver: updatedPR.approver,
+        approver2: updatedPR.approver2,
+        'approvalWorkflow.secondApprover': updatedPR.approvalWorkflow?.secondApprover
+      });
       
       // Update the PR
       await prService.updatePR(pr.id, updatedPR);
@@ -1425,6 +1457,57 @@ export function PRView() {
                   ) : null}
                 </FormControl>
               </Grid>
+
+              {/* Second Approver (for dual approval on high-value PRs) */}
+              {(() => {
+                // Check if dual approval is required based on Rule 3 and Rule 5
+                const rule3 = rules.find(r => r.number === 3 || r.number === '3');
+                const rule5 = rules.find(r => r.number === 5 || r.number === '5');
+                const requiresDualApproval = rule3 && rule5 && 
+                  (pr?.estimatedAmount || editedPR.estimatedAmount || 0) >= rule3.threshold;
+
+                if (!requiresDualApproval) return null;
+
+                return (
+                  <Grid item xs={6}>
+                    <FormControl 
+                      fullWidth 
+                      disabled={!isEditMode || (!isProcurement && !isRequestor) || isLockedInApprovedStatus('approver2')}
+                    >
+                      <InputLabel>Second Approver (Required)</InputLabel>
+                      <Select
+                        value={selectedApprover2 || ''}
+                        onChange={(e) => handleApprover2Change(e.target.value)}
+                        label="Second Approver (Required)"
+                      >
+                        <MenuItem value="">
+                          <em>None</em>
+                        </MenuItem>
+                        {approvers
+                          .filter(approver => approver.id !== selectedApprover) // Don't show same approver
+                          .map((approver) => (
+                          <MenuItem key={approver.id} value={approver.id}>
+                            {(() => {
+                              const level = parseInt(approver.permissionLevel);
+                              if (level === 1) return `${approver.name} (Global Approver)`;
+                              if (level === 2) return `${approver.name} (Senior Approver)`;
+                              if (level === 6) return `${approver.name} (Finance Approver)`;
+                              return `${approver.name} (Level ${level} Approver)`;
+                            })()}{approver.department ? ` (${approver.department})` : ''}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                      {isEditMode && isLockedInApprovedStatus('approver2') ? (
+                        <FormHelperText>Second approver cannot be changed after approval</FormHelperText>
+                      ) : (
+                        <FormHelperText>
+                          Required for amounts above {rule3.threshold.toLocaleString()} {rule3.currency}
+                        </FormHelperText>
+                      )}
+                    </FormControl>
+                  </Grid>
+                );
+              })()}
             </Grid>
           </Paper>
         </Grid>
@@ -1749,12 +1832,60 @@ export function PRView() {
     );
   };
 
+  const handlePreferredQuoteChange = async (quoteId: string) => {
+    if (!pr) return;
+    
+    try {
+      const selectedQuote = pr.quotes?.find(q => q.id === quoteId);
+      if (!selectedQuote) {
+        console.error('Selected quote not found:', quoteId);
+        return;
+      }
+
+      console.log('Setting preferred quote:', {
+        quoteId,
+        amount: selectedQuote.amount,
+        vendor: selectedQuote.vendorName
+      });
+
+      // Update both preferredQuoteId and estimatedAmount
+      const updates = {
+        preferredQuoteId: quoteId,
+        estimatedAmount: selectedQuote.amount,
+        updatedAt: new Date().toISOString()
+      };
+
+      await prService.updatePR(pr.id, updates);
+      
+      // Update local state
+      setPr(prev => prev ? {
+        ...prev,
+        preferredQuoteId: quoteId,
+        estimatedAmount: selectedQuote.amount,
+        updatedAt: new Date().toISOString()
+      } : null);
+
+      enqueueSnackbar(`Preferred quote selected. PR amount updated to ${selectedQuote.amount} ${selectedQuote.currency}`, { 
+        variant: 'success' 
+      });
+    } catch (error) {
+      console.error('Error setting preferred quote:', error);
+      enqueueSnackbar('Failed to set preferred quote', { variant: 'error' });
+    }
+  };
+
   const renderQuotes = () => {
     if (!pr) return null;
 
-    // Allow procurement team to edit quotes in IN_QUEUE status
-    const canEditQuotes = currentUser?.permissionLevel >= 2 && 
-      pr.status === PRStatus.IN_QUEUE;
+    // Allow editing quotes in edit mode for appropriate statuses
+    // Procurement (level 3) and admins (level 1) can edit in SUBMITTED, IN_QUEUE
+    // Requestors (level 5) can edit in SUBMITTED, REVISION_REQUIRED (their own PRs)
+    const canEditQuotes = isEditMode && (
+      (isProcurement && (pr.status === PRStatus.SUBMITTED || pr.status === PRStatus.IN_QUEUE)) ||
+      (isAdmin) ||
+      (isRequestor && pr.requestorId === currentUser?.id && 
+        (pr.status === PRStatus.SUBMITTED || pr.status === PRStatus.REVISION_REQUIRED))
+    );
 
     return (
       <Grid container spacing={2}>
@@ -1775,6 +1906,8 @@ export function PRView() {
             currencies={currencies}
             loading={loading}
             isEditing={canEditQuotes}
+            isProcurement={isProcurement}
+            onPreferredQuoteChange={handlePreferredQuoteChange}
             onSave={async () => {
               if (!pr || !canEditQuotes) return;
               

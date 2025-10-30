@@ -33,24 +33,14 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.testSendGrid = exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
-const sgMail = require('@sendgrid/mail');
+const emailSender_1 = require("./utils/emailSender");
 // Initialize Firebase
 admin.initializeApp();
 const db = admin.firestore();
 const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
-// Helper function to initialize SendGrid
-function initializeSendGrid() {
-    var _a;
-    const sendGridApiKey = (_a = functions.config().sendgrid) === null || _a === void 0 ? void 0 : _a.api_key;
-    if (!sendGridApiKey) {
-        throw new Error('SendGrid API key not found in configuration');
-    }
-    sgMail.setApiKey(sendGridApiKey);
-    return sgMail;
-}
 // Import scheduled functions
 var scheduledVendorExpiryCheck_1 = require("./scheduledVendorExpiryCheck");
 Object.defineProperty(exports, "dailyVendorExpiryCheck", { enumerable: true, get: function () { return scheduledVendorExpiryCheck_1.dailyVendorExpiryCheck; } });
@@ -165,12 +155,11 @@ async (data, context) => {
             cc: mailOptions.cc,
             subject: mailOptions.subject
         });
-        // Send emails using SendGrid API
+        // Send emails using SMTP
         const failedEmails = [];
         try {
-            const sg = initializeSendGrid();
-            const result = await sg.send(mailOptions);
-            console.log('Email sent successfully via SendGrid:', result[0].statusCode);
+            await (0, emailSender_1.sendEmail)(mailOptions);
+            console.log('Email sent successfully via SMTP');
         }
         catch (error) {
             console.error('Failed to send email:', error);
@@ -262,11 +251,10 @@ exports.processNotifications = functions.firestore
             cc: mailOptions.cc,
             subject: mailOptions.subject
         });
-        // Send the email using SendGrid API
+        // Send the email using SMTP
         try {
-            const sg = initializeSendGrid();
-            const result = await sg.send(mailOptions);
-            console.log('Email sent successfully via SendGrid:', result[0].statusCode);
+            await (0, emailSender_1.sendEmail)(mailOptions);
+            console.log('Email sent successfully via SMTP');
             // Update the notification status in Firestore
             await snapshot.ref.update({
                 status: 'sent',
@@ -354,7 +342,7 @@ exports.sendTestEmail = functions.https.onCall(async (data, context) => {
         if (!to || !subject || !message) {
             throw new functions.https.HttpsError('invalid-argument', 'Missing required fields: to, subject, message');
         }
-        // Use nodemailer with SMTP
+        // Use SMTP
         const mailOptions = {
             from: '"1PWR System" <noreply@1pwrafrica.com>',
             to: to,
@@ -362,13 +350,12 @@ exports.sendTestEmail = functions.https.onCall(async (data, context) => {
             text: message,
             html: `<p>${message}</p>`
         };
-        const sg = initializeSendGrid();
-        const result = await sg.send(mailOptions);
-        console.log('Test email sent successfully via SendGrid:', result[0].statusCode);
+        const result = await (0, emailSender_1.sendEmail)(mailOptions);
+        console.log('Test email sent successfully via SMTP');
         return {
             success: true,
-            statusCode: result[0].statusCode,
-            message: 'Test email sent successfully via SendGrid'
+            messageId: result.messageId,
+            message: 'Test email sent successfully via SMTP'
         };
     }
     catch (error) {
@@ -379,6 +366,6 @@ exports.sendTestEmail = functions.https.onCall(async (data, context) => {
         };
     }
 });
-var testSendGrid_1 = require("./testSendGrid");
-Object.defineProperty(exports, "testSendGrid", { enumerable: true, get: function () { return testSendGrid_1.testSendGrid; } });
+// Note: testSendGrid has been replaced by sendTestEmail which now uses SMTP
+// export { testSendGrid } from './testSendGrid';
 //# sourceMappingURL=index.js.map

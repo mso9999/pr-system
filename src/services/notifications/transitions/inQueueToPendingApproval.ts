@@ -6,6 +6,29 @@ import { generatePendingApprovalEmail } from '../templates/pendingApprovalTempla
 import { PRRequest } from '../../../types/pr';
 import { generateEmailHeaders } from '../types/emailHeaders';
 
+// Helper function to fetch user email from Firestore
+async function getUserEmail(userIdOrEmail: string): Promise<string | null> {
+  try {
+    // Check if it's already an email (contains @)
+    if (userIdOrEmail.includes('@')) {
+      return userIdOrEmail;
+    }
+    
+    // Otherwise, fetch from users collection
+    const userDoc = await getDoc(doc(db, 'users', userIdOrEmail));
+    if (userDoc.exists()) {
+      const userData = userDoc.data();
+      return userData.email || null;
+    }
+    
+    console.warn(`User with ID ${userIdOrEmail} not found`);
+    return null;
+  } catch (error) {
+    console.error(`Error fetching user email for ${userIdOrEmail}:`, error);
+    return null;
+  }
+}
+
 export class InQueueToPendingApprovalHandler implements StatusTransitionHandler {
   async getRecipients(context: NotificationContext): Promise<Recipients> {
     const recipients: Recipients = {
@@ -23,18 +46,66 @@ export class InQueueToPendingApprovalHandler implements StatusTransitionHandler 
 
     const pr = prDoc.data() as PRRequest;
 
-    // Add current approver as primary recipient - prioritize pr.approver as the single source of truth
+    console.log('InQueueToPendingApproval: Fetched PR data', {
+      prId: context.prId,
+      approver: pr.approver || '(not set)',
+      approver2: pr.approver2 || '(not set)',
+      approvalWorkflow: pr.approvalWorkflow ? {
+        currentApprover: pr.approvalWorkflow.currentApprover || '(not set)',
+        secondApprover: pr.approvalWorkflow.secondApprover || '(not set)'
+      } : '(not set)'
+    });
+
+    // Add current approver(s) as primary recipient(s)
+    // For dual approval (high-value PRs), both approvers should receive the notification
+    
+    // Resolve primary approver
+    let approverEmail: string | null = null;
     if (pr.approver) {
-      // According to PR type definition, approver is a string (email)
-      recipients.to.push(pr.approver);
+      // According to PR type definition, approver is a string (email or user ID)
+      approverEmail = await getUserEmail(pr.approver);
+      console.log('InQueueToPendingApproval: Resolved primary approver', {
+        approverId: pr.approver,
+        approverEmail: approverEmail || '(not found)'
+      });
+      if (approverEmail) {
+        recipients.to.push(approverEmail);
+      }
     } 
     // Fallback to approvalWorkflow.currentApprover only if pr.approver is not available
     else if (pr.approvalWorkflow?.currentApprover) {
       // Handle currentApprover which could be a string or an object
       if (typeof pr.approvalWorkflow.currentApprover === 'string') {
-        recipients.to.push(pr.approvalWorkflow.currentApprover);
+        approverEmail = await getUserEmail(pr.approvalWorkflow.currentApprover);
+        if (approverEmail) {
+          recipients.to.push(approverEmail);
+        }
       } else if (typeof pr.approvalWorkflow.currentApprover === 'object' && pr.approvalWorkflow.currentApprover?.email) {
         recipients.to.push(pr.approvalWorkflow.currentApprover.email);
+      }
+    }
+
+    // Resolve second approver for dual approval scenarios (high-value PRs above Rule 3)
+    let approver2Email: string | null = null;
+    if (pr.approver2) {
+      approver2Email = await getUserEmail(pr.approver2);
+      console.log('InQueueToPendingApproval: Resolved second approver', {
+        approver2Id: pr.approver2,
+        approver2Email: approver2Email || '(not found)'
+      });
+      if (approver2Email) {
+        recipients.to.push(approver2Email);
+      }
+    } 
+    // Fallback to approvalWorkflow.secondApprover
+    else if (pr.approvalWorkflow?.secondApprover) {
+      if (typeof pr.approvalWorkflow.secondApprover === 'string') {
+        approver2Email = await getUserEmail(pr.approvalWorkflow.secondApprover);
+        if (approver2Email) {
+          recipients.to.push(approver2Email);
+        }
+      } else if (typeof pr.approvalWorkflow.secondApprover === 'object' && pr.approvalWorkflow.secondApprover?.email) {
+        recipients.to.push(pr.approvalWorkflow.secondApprover.email);
       }
     }
 
@@ -51,6 +122,13 @@ export class InQueueToPendingApprovalHandler implements StatusTransitionHandler 
       recipients.cc = [];
     }
     recipients.cc.push('procurement@1pwrafrica.com');
+
+    console.log('InQueueToPendingApproval: Final recipients', {
+      to: recipients.to,
+      cc: recipients.cc,
+      toCount: recipients.to.length,
+      ccCount: recipients.cc?.length || 0
+    });
 
     return recipients;
   }
