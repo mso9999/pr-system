@@ -153,6 +153,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       isSecondApprover,
       hasFirstApproved,
       hasSecondApproved,
+      quoteConflict: pr.approvalWorkflow?.quoteConflict,
       isProcurement,
       isApprover,
       isAdmin,
@@ -161,8 +162,12 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
     // In PENDING_APPROVAL, assigned approvers can approve, procurement can reject/R&R, finance approvers can approve
     if (pr.status === PRStatus.PENDING_APPROVAL) {
+      // Special case: If there's a quote conflict, approvers MUST be able to take action to resolve it
+      const hasQuoteConflict = pr.approvalWorkflow?.quoteConflict === true;
+      
       // For dual approval, check if this approver hasn't already acted
-      if (isDualApproval) {
+      // UNLESS there's a quote conflict - then they need to be able to change their selection
+      if (isDualApproval && !hasQuoteConflict) {
         if (isFirstApprover && hasFirstApproved) return false; // Already approved
         if (isSecondApprover && hasSecondApproved) return false; // Already approved
       }
@@ -172,7 +177,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     }
 
     return isProcurement || isApprover || isFinanceApprover || isAdmin;
-  }, [currentUser, pr.approver, pr.approver2, pr.status, isDualApproval, isFirstApprover, isSecondApprover, hasFirstApproved, hasSecondApproved]);
+  }, [currentUser, pr.approver, pr.approver2, pr.status, pr.approvalWorkflow?.quoteConflict, isDualApproval, isFirstApprover, isSecondApprover, hasFirstApproved, hasSecondApproved]);
 
   if (!canTakeAction) {
     return null;
