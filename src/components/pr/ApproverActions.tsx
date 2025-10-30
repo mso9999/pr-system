@@ -339,8 +339,8 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
               // Conflict resolved! Move to APPROVED
               newStatus = PRStatus.APPROVED;
 
+              // First, update the PR workflow and object type (status is handled separately)
               await prService.updatePR(pr.id, {
-                status: newStatus,
                 objectType: 'PO',
                 approvalWorkflow: {
                   ...prData.approvalWorkflow,
@@ -353,6 +353,14 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                 },
                 updatedAt: new Date().toISOString()
               });
+
+              // Then update the status using updatePRStatus (which handles status history)
+              await prService.updatePRStatus(
+                pr.id,
+                newStatus,
+                approverNotes || 'Quote conflict resolved',
+                currentUser
+              );
 
               await notificationService.handleStatusChange(
                 pr.id,
