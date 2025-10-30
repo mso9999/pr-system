@@ -40,7 +40,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
-import { getFunctions } from 'firebase/functions';
+import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getAnalytics } from 'firebase/analytics';
 
 console.log('=== Firebase Initialization Starting ===');
@@ -112,8 +112,11 @@ console.log('Firebase storage initialized successfully');
 // Initialize Firebase Functions with the correct region and custom domain
 export const functions = getFunctions(app, 'us-central1');
 if (import.meta.env.DEV) {
-  const { connectFunctionsEmulator } = require('firebase/functions');
+  console.log('🔧 Connecting to Functions emulator at http://localhost:5001');
   connectFunctionsEmulator(functions, 'localhost', 5001);
+  console.log('✅ Functions emulator connected successfully');
+} else {
+  console.log('🌐 Using production functions');
 }
 console.log('Firebase functions initialized successfully');
 

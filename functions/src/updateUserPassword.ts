@@ -1,6 +1,5 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
-import { onCall, HttpsError } from 'firebase-functions/v2/https';
 
 interface UpdatePasswordData {
   userId: string;
@@ -26,47 +25,40 @@ function isValidEmail(email: string): boolean {
 
 /**
  * Cloud Function to update a user's password in Firebase Auth
- * Using v2 onCall with automatic CORS support
+ * Using v1 onCall with CORS support
  */
-export const updateUserPassword = onCall(
-  { 
-    cors: true,  // Enable CORS for all origins (development + production)
-  },
-  async (request) => {
-    const data = request.data as UpdatePasswordData;
-    const context = request.auth;
-    
-    try {
-      // Check if the caller is authenticated
-      if (!context) {
-        throw new HttpsError(
-          'unauthenticated',
-          'User must be authenticated to update passwords'
-        );
-      }
-
-      // Get the calling user's data from Firestore to check permission level
-      const db = admin.firestore();
-      const callingUserDoc = await db.collection('users').doc(context.uid).get();
-      const callingUserData = callingUserDoc.data();
-      
-      // Only Level 1 (Superadmin) can reset passwords
-      if (!callingUserData || callingUserData.permissionLevel !== 1) {
-        throw new HttpsError(
-          'permission-denied',
-          'Only Superadmin (Level 1) can update user passwords'
-        );
-      }
-    } catch (error) {
-      if (error instanceof HttpsError) {
-        throw error;
-      }
-      throw new HttpsError(
-        'internal',
-        'Error checking permissions',
-        error instanceof Error ? error.message : undefined
+export const updateUserPassword = functions.https.onCall(async (data: UpdatePasswordData, context) => {
+  try {
+    // Check if the caller is authenticated
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        'User must be authenticated to update passwords'
       );
     }
+
+    // Get the calling user's data from Firestore to check permission level
+    const db = admin.firestore();
+    const callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
+    const callingUserData = callingUserDoc.data();
+    
+    // Only Level 1 (Superadmin) can reset passwords
+    if (!callingUserData || callingUserData.permissionLevel !== 1) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'Only Superadmin (Level 1) can update user passwords'
+      );
+    }
+  } catch (error) {
+    if (error instanceof functions.https.HttpsError) {
+      throw error;
+    }
+    throw new functions.https.HttpsError(
+      'internal',
+      'Error checking permissions',
+      error instanceof Error ? error.message : undefined
+    );
+  }
 
   try {
     // Log incoming data for debugging
@@ -83,7 +75,7 @@ export const updateUserPassword = onCall(
       if (!data.email) missingFields.push('email');
       if (!data.newPassword) missingFields.push('newPassword');
 
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         'invalid-argument',
         `Missing required fields: ${missingFields.join(', ')}`
       );
@@ -92,7 +84,7 @@ export const updateUserPassword = onCall(
     // Clean and validate email
     const cleanEmail = data.email.trim().toLowerCase();
     if (!isValidEmail(cleanEmail)) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         'invalid-argument',
         `Invalid email format: ${cleanEmail}`
       );
@@ -100,7 +92,7 @@ export const updateUserPassword = onCall(
 
     // Validate password length
     if (data.newPassword.length < 6) {
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         'invalid-argument',
         'Password must be at least 6 characters long'
       );
@@ -113,7 +105,7 @@ export const updateUserPassword = onCall(
       
       // Verify email matches
       if (userRecord.email?.toLowerCase() !== cleanEmail) {
-        throw new HttpsError(
+        throw new functions.https.HttpsError(
           'invalid-argument',
           `Email does not match user record. Expected: ${userRecord.email}, Got: ${cleanEmail}`
         );
@@ -133,27 +125,27 @@ export const updateUserPassword = onCall(
     } catch (error) {
       console.error('Error in Firebase Auth operations:', error);
       
-      if (error instanceof HttpsError) {
+      if (error instanceof functions.https.HttpsError) {
         throw error;
       }
 
       if (error instanceof Error && 'code' in error) {
         const authError = error as { code: string };
         if (authError.code === 'auth/user-not-found') {
-          throw new HttpsError(
+          throw new functions.https.HttpsError(
             'not-found',
             'User not found'
           );
         }
         if (authError.code === 'auth/invalid-password') {
-          throw new HttpsError(
+          throw new functions.https.HttpsError(
             'invalid-argument',
             'Invalid password format'
           );
         }
       }
 
-      throw new HttpsError(
+      throw new functions.https.HttpsError(
         'internal',
         'Error updating user password',
         error instanceof Error ? error.message : undefined
@@ -162,11 +154,11 @@ export const updateUserPassword = onCall(
   } catch (error) {
     console.error('Error in updateUserPassword:', error);
     
-    if (error instanceof HttpsError) {
+    if (error instanceof functions.https.HttpsError) {
       throw error;
     }
 
-    throw new HttpsError(
+    throw new functions.https.HttpsError(
       'internal',
       'Error updating user password',
       error instanceof Error ? error.message : undefined

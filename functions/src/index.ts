@@ -12,6 +12,9 @@ export { dailyVendorExpiryCheck } from './scheduledVendorExpiryCheck';
 export { dailyReminders, urgentReminders, deliveryDelayCheck } from './scheduledReminders';
 export { sendDailyQuoteConflictReminders } from './scheduled/sendDailyQuoteConflictReminders';
 
+// Export user management functions
+export { updateUserPassword } from './updateUserPassword';
+
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
     console.log('ensureRequestorName input:', { user, requestorEmail });
