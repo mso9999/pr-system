@@ -215,9 +215,17 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     
     // For approval action, initialize selected quote
     if (action === 'approve' && hasMultipleQuotes) {
-      // Default to procurement's preferred quote if available, otherwise lowest quote
-      const defaultQuoteId = pr.preferredQuoteId || lowestQuote?.id || pr.quotes?.[0]?.id;
-      setSelectedQuoteId(defaultQuoteId || null);
+      // In conflict scenario, pre-select the current approver's previous choice
+      if (pr.status === PRStatus.PENDING_APPROVAL && pr.approvalWorkflow?.quoteConflict) {
+        const myPreviousQuoteId = isFirstApprover 
+          ? pr.approvalWorkflow.firstApproverSelectedQuoteId 
+          : pr.approvalWorkflow.secondApproverSelectedQuoteId;
+        setSelectedQuoteId(myPreviousQuoteId || pr.preferredQuoteId || lowestQuote?.id || pr.quotes?.[0]?.id || null);
+      } else {
+        // Normal approval: default to procurement's preferred quote if available, otherwise lowest quote
+        const defaultQuoteId = pr.preferredQuoteId || lowestQuote?.id || pr.quotes?.[0]?.id;
+        setSelectedQuoteId(defaultQuoteId || null);
+      }
     } else {
       setSelectedQuoteId(null);
     }
@@ -789,6 +797,18 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
           {/* Quote Selection UI (for approval with multiple quotes) */}
           {selectedAction === 'approve' && hasMultipleQuotes && (
             <Box sx={{ mb: 3 }}>
+              {/* Show conflict context if in conflict mode */}
+              {pr.status === PRStatus.PENDING_APPROVAL && pr.approvalWorkflow?.quoteConflict && (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    You are resolving a quote conflict
+                  </Typography>
+                  <Typography variant="body2">
+                    You and the other approver selected different quotes. Review the selections below and change your choice if needed to match.
+                  </Typography>
+                </Alert>
+              )}
+              
               <Typography variant="subtitle2" gutterBottom>
                 Select Quote to Approve:
               </Typography>
@@ -796,6 +816,17 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                 const isLowest = quote.id === lowestQuote?.id;
                 const isPreferred = quote.id === pr.preferredQuoteId;
                 const isSelected = quote.id === selectedQuoteId;
+                
+                // Check if this quote was selected by approvers in conflict scenario
+                const inConflictMode = pr.status === PRStatus.PENDING_APPROVAL && pr.approvalWorkflow?.quoteConflict;
+                const isMyPreviousSelection = inConflictMode && (
+                  (isFirstApprover && quote.id === pr.approvalWorkflow?.firstApproverSelectedQuoteId) ||
+                  (isSecondApprover && quote.id === pr.approvalWorkflow?.secondApproverSelectedQuoteId)
+                );
+                const isOtherApproverSelection = inConflictMode && (
+                  (isFirstApprover && quote.id === pr.approvalWorkflow?.secondApproverSelectedQuoteId) ||
+                  (isSecondApprover && quote.id === pr.approvalWorkflow?.firstApproverSelectedQuoteId)
+                );
                 
                 return (
                   <Box
@@ -813,22 +844,30 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                     onClick={() => setSelectedQuoteId(quote.id)}
                   >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Box>
+                      <Box sx={{ flex: 1 }}>
                         <Typography variant="subtitle2">
                           {quote.vendorName}
-                          {isPreferred && (
-                            <Chip label="Procurement Preferred" size="small" color="info" sx={{ ml: 1 }} />
-                          )}
-                          {isLowest && (
-                            <Chip label="Lowest Quote" size="small" color="success" sx={{ ml: 1 }} />
-                          )}
                         </Typography>
-                        <Typography variant="body1" color="primary">
+                        <Typography variant="body1" color="primary" sx={{ mb: 1 }}>
                           {quote.amount.toFixed(2)} {quote.currency}
                         </Typography>
+                        <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ gap: 0.5 }}>
+                          {isPreferred && (
+                            <Chip label="Procurement Preferred" size="small" color="info" />
+                          )}
+                          {isLowest && (
+                            <Chip label="Lowest Quote" size="small" color="success" />
+                          )}
+                          {isMyPreviousSelection && (
+                            <Chip label="Your Previous Selection" size="small" color="warning" />
+                          )}
+                          {isOtherApproverSelection && (
+                            <Chip label="Other Approver's Selection" size="small" color="error" />
+                          )}
+                        </Stack>
                       </Box>
                       {isSelected && (
-                        <Chip label="✓ Selected" color="primary" size="small" />
+                        <Chip label="✓ Current Selection" color="primary" size="small" />
                       )}
                     </Stack>
                   </Box>

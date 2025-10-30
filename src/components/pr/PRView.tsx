@@ -2255,6 +2255,87 @@ export function PRView() {
         </Box>
       )}
 
+      {/* Status History Notes */}
+      {pr?.statusHistory && pr.statusHistory.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            Status History & Notes
+          </Typography>
+          <Paper sx={{ p: 2 }}>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Date & Time</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pr.statusHistory
+                    .slice()
+                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                    .map((historyItem, index) => (
+                      <TableRow key={index} hover>
+                        <TableCell sx={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                          <Typography variant="body2">
+                            {new Date(historyItem.timestamp).toLocaleString('en-US', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ verticalAlign: 'top' }}>
+                          <Chip
+                            label={historyItem.status}
+                            size="small"
+                            color={
+                              historyItem.status === 'REJECTED'
+                                ? 'error'
+                                : historyItem.status === 'APPROVED'
+                                ? 'success'
+                                : historyItem.status === 'REVISION_REQUIRED'
+                                ? 'warning'
+                                : 'default'
+                            }
+                          />
+                        </TableCell>
+                        <TableCell sx={{ verticalAlign: 'top' }}>
+                          <Typography variant="body2">
+                            {historyItem.user?.email || 'System'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ verticalAlign: 'top' }}>
+                          {historyItem.notes ? (
+                            <Typography 
+                              variant="body2" 
+                              sx={{ 
+                                whiteSpace: 'pre-wrap',
+                                wordBreak: 'break-word',
+                                maxWidth: '400px'
+                              }}
+                            >
+                              {historyItem.notes}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                              No notes
+                            </Typography>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        </Box>
+      )}
+
       {/* Stepper */}
       {isEditMode && (
         <Box sx={{ width: '100%', mb: 4 }}>
