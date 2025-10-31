@@ -539,13 +539,20 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                 // No conflict - move to APPROVED
                 newStatus = PRStatus.APPROVED;
                 
-                // Update to APPROVED and set object type to PO
+                // First, update the PR workflow and object type (status is handled separately)
                 await prService.updatePR(pr.id, {
-                  status: newStatus,
                   objectType: 'PO',
                   approvalWorkflow: updatedWorkflow,
                   updatedAt: new Date().toISOString()
                 });
+
+                // Then update the status using updatePRStatus (which handles status history)
+                await prService.updatePRStatus(
+                  pr.id,
+                  newStatus,
+                  notes.trim() || 'Both approvers approved',
+                  currentUser
+                );
 
                 // Notify stakeholders
                 await notificationService.handleStatusChange(
@@ -586,9 +593,8 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             // Use notes field for justification/adjudication
             const approverNotes = notes.trim() || 'Approved';
             
-            // Update to APPROVED and set object type to PO
+            // First, update the PR workflow and object type (status is handled separately)
             await prService.updatePR(pr.id, {
-              status: newStatus,
               objectType: 'PO',
               approvalWorkflow: {
                 ...prData.approvalWorkflow,
@@ -613,6 +619,14 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
               },
               updatedAt: new Date().toISOString()
             });
+
+            // Then update the status using updatePRStatus (which handles status history)
+            await prService.updatePRStatus(
+              pr.id,
+              newStatus,
+              approverNotes,
+              currentUser
+            );
 
             // Send notification
             await notificationService.handleStatusChange(
