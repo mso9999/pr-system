@@ -15,15 +15,18 @@ import {
   CircularProgress,
   Divider,
   FormHelperText,
-  SelectChangeEvent
+  SelectChangeEvent,
+  Checkbox,
+  FormControlLabel
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { organizationService } from '@/services/organizationService';
 import { Organization } from '@/types/organization';
-
-const CURRENCY_OPTIONS = ['LSL', 'USD', 'ZAR', 'EUR', 'GBP'];
+import { referenceDataAdminService } from '@/services/referenceDataAdmin';
+import { ReferenceDataItem } from '@/types/referenceData';
+import { getOrganizationRules, updateOrganizationRules, getRuleThresholds } from '@/services/rulesService';
 
 export const OrganizationConfig: React.FC = () => {
   const { enqueueSnackbar } = useSnackbar();
@@ -50,29 +53,84 @@ export const OrganizationConfig: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+  const [currencies, setCurrencies] = useState<ReferenceDataItem[]>([]);
+  const [loadingCurrencies, setLoadingCurrencies] = useState(true);
+  
+  // Rules state (single source of truth from referenceData_rules)
+  const [rulesData, setRulesData] = useState<{
+    rule1Threshold: number;
+    rule2Multiplier: number;
+    rule3Threshold: number;
+    rule6UpwardVariance: number;
+    rule7DownwardVariance: number;
+  }>({
+    rule1Threshold: 0,
+    rule2Multiplier: 0,
+    rule3Threshold: 0,
+    rule6UpwardVariance: 5,
+    rule7DownwardVariance: 20
+  });
   
   // Form state
   const [formData, setFormData] = useState<Partial<Organization>>({
     name: '',
     code: '',
+    country: '',
     active: true,
     procurementEmail: '',
     assetManagementEmail: '',
     adminEmail: '',
     baseCurrency: 'LSL',
     allowedCurrencies: ['LSL', 'USD', 'ZAR'],
-    rule1ThresholdAmount: 0,
-    rule2ThresholdAmount: 0,
     vendorApproval3QuoteDuration: 12,
     vendorApprovalCompletedDuration: 6,
     vendorApprovalManualDuration: 12,
     highValueVendorMultiplier: 10,
-    highValueVendorMaxDuration: 24
+    highValueVendorMaxDuration: 24,
+    timeZone: '',
+    // Company details for PO documents
+    companyLegalName: '',
+    companyPhone: '',
+    companyWebsite: '',
+    companyRegistrationNumber: '',
+    companyTaxId: '',
+    companyAddress: {
+      street: '',
+      city: '',
+      state: '',
+      postalCode: '',
+      country: ''
+    },
+    defaultDeliveryAddressSameAsCompany: true,
+    defaultDeliveryAddress: undefined,
+    defaultBillingAddressSameAsCompany: true,
+    defaultBillingAddress: undefined
   });
 
   // Load organizations on mount
   useEffect(() => {
     loadOrganizations();
+  }, []);
+
+  // Load currencies from reference data
+  useEffect(() => {
+    const loadCurrencies = async () => {
+      try {
+        setLoadingCurrencies(true);
+        const currencyItems = await referenceDataAdminService.getItems('currencies', '');
+        // Sort currencies by code for consistent display
+        const sortedCurrencies = [...currencyItems].sort((a, b) => 
+          (a.code || '').localeCompare(b.code || '')
+        );
+        setCurrencies(sortedCurrencies);
+      } catch (error) {
+        console.error('Error loading currencies:', error);
+        enqueueSnackbar('Failed to load currencies', { variant: 'error' });
+      } finally {
+        setLoadingCurrencies(false);
+      }
+    };
+    loadCurrencies();
   }, []);
 
   // Load selected organization data
@@ -104,26 +162,57 @@ export const OrganizationConfig: React.FC = () => {
     try {
       setLoading(true);
       const org = await organizationService.getOrganizationById(orgId);
+      
+      // Load rules from single source of truth (referenceData_rules)
+      const thresholds = await getRuleThresholds(orgId);
+      
       if (org) {
         setSelectedOrg(org);
         setFormData({
           name: org.name || '',
           code: org.code || '',
+          country: org.country || '',
           active: org.active ?? true,
           procurementEmail: org.procurementEmail || '',
           assetManagementEmail: org.assetManagementEmail || '',
           adminEmail: org.adminEmail || '',
           baseCurrency: org.baseCurrency || 'LSL',
           allowedCurrencies: org.allowedCurrencies || ['LSL', 'USD', 'ZAR'],
-          rule1ThresholdAmount: org.rule1ThresholdAmount || 0,
-          rule2ThresholdAmount: org.rule2ThresholdAmount || 0,
           vendorApproval3QuoteDuration: org.vendorApproval3QuoteDuration || 12,
           vendorApprovalCompletedDuration: org.vendorApprovalCompletedDuration || 6,
           vendorApprovalManualDuration: org.vendorApprovalManualDuration || 12,
           highValueVendorMultiplier: org.highValueVendorMultiplier || 10,
           highValueVendorMaxDuration: org.highValueVendorMaxDuration || 24,
-          timeZone: org.timeZone || ''
+          timeZone: org.timeZone || '',
+          // Company details
+          companyLegalName: org.companyLegalName || '',
+          companyPhone: org.companyPhone || '',
+          companyWebsite: org.companyWebsite || '',
+          companyRegistrationNumber: org.companyRegistrationNumber || '',
+          companyTaxId: org.companyTaxId || '',
+          companyAddress: org.companyAddress || {
+            street: '',
+            city: '',
+            state: '',
+            postalCode: '',
+            country: ''
+          },
+          defaultDeliveryAddressSameAsCompany: org.defaultDeliveryAddressSameAsCompany ?? true,
+          defaultDeliveryAddress: org.defaultDeliveryAddress || undefined,
+          defaultBillingAddressSameAsCompany: org.defaultBillingAddressSameAsCompany ?? true,
+          defaultBillingAddress: org.defaultBillingAddress || undefined
         });
+        
+        // Load rules into separate state
+        if (thresholds) {
+          setRulesData({
+            rule1Threshold: thresholds.rule1Threshold,
+            rule2Multiplier: thresholds.rule2Multiplier,
+            rule3Threshold: thresholds.rule3Threshold,
+            rule6UpwardVariance: thresholds.rule6UpwardVariance,
+            rule7DownwardVariance: thresholds.rule7DownwardVariance
+          });
+        }
       }
     } catch (error: any) {
       console.error('Error loading organization data:', error);
@@ -139,6 +228,14 @@ export const OrganizationConfig: React.FC = () => {
       [field]: value
     }));
     setErrors([]); // Clear errors when user makes changes
+  };
+
+  const handleRuleChange = (field: keyof typeof rulesData, value: number) => {
+    setRulesData(prev => ({
+      ...prev,
+      [field]: value
+    }));
+    setErrors([]);
   };
 
   const handleCurrencyChange = (event: SelectChangeEvent<string[]>) => {
@@ -162,8 +259,20 @@ export const OrganizationConfig: React.FC = () => {
 
     try {
       setSaving(true);
+      
+      // Save organization data (emails, vendor approvals, etc.)
       await organizationService.updateOrganization(selectedOrgId, formData);
-      enqueueSnackbar('Organization configuration saved successfully', { variant: 'success' });
+      
+      // Save rules to single source of truth (referenceData_rules collection)
+      await updateOrganizationRules(selectedOrgId, {
+        rule1Threshold: rulesData.rule1Threshold,
+        rule2Multiplier: rulesData.rule2Multiplier,
+        rule3Threshold: rulesData.rule3Threshold,
+        rule6UpwardVariance: rulesData.rule6UpwardVariance,
+        rule7DownwardVariance: rulesData.rule7DownwardVariance
+      });
+      
+      enqueueSnackbar('Organization configuration and rules saved successfully', { variant: 'success' });
       await loadOrganizationData(selectedOrgId);
     } catch (error: any) {
       console.error('Error saving organization:', error);
@@ -173,26 +282,9 @@ export const OrganizationConfig: React.FC = () => {
     }
   };
 
-  const handleReset = () => {
-    if (selectedOrg) {
-      setFormData({
-        name: selectedOrg.name || '',
-        code: selectedOrg.code || '',
-        active: selectedOrg.active ?? true,
-        procurementEmail: selectedOrg.procurementEmail || '',
-        assetManagementEmail: selectedOrg.assetManagementEmail || '',
-        adminEmail: selectedOrg.adminEmail || '',
-        baseCurrency: selectedOrg.baseCurrency || 'LSL',
-        allowedCurrencies: selectedOrg.allowedCurrencies || ['LSL', 'USD', 'ZAR'],
-        rule1ThresholdAmount: selectedOrg.rule1ThresholdAmount || 0,
-        rule2ThresholdAmount: selectedOrg.rule2ThresholdAmount || 0,
-        vendorApproval3QuoteDuration: selectedOrg.vendorApproval3QuoteDuration || 12,
-        vendorApprovalCompletedDuration: selectedOrg.vendorApprovalCompletedDuration || 6,
-        vendorApprovalManualDuration: selectedOrg.vendorApprovalManualDuration || 12,
-        highValueVendorMultiplier: selectedOrg.highValueVendorMultiplier || 10,
-        highValueVendorMaxDuration: selectedOrg.highValueVendorMaxDuration || 24,
-        timeZone: selectedOrg.timeZone || ''
-      });
+  const handleReset = async () => {
+    if (selectedOrgId) {
+      await loadOrganizationData(selectedOrgId);
       setErrors([]);
     }
   };
@@ -324,25 +416,33 @@ export const OrganizationConfig: React.FC = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
+              <FormControl fullWidth disabled={loadingCurrencies}>
                 <InputLabel>Base Currency</InputLabel>
                 <Select
                   value={formData.baseCurrency}
                   onChange={(e) => handleFieldChange('baseCurrency', e.target.value)}
                   label="Base Currency"
                 >
-                  {CURRENCY_OPTIONS.map((currency) => (
-                    <MenuItem key={currency} value={currency}>
-                      {currency}
+                  {loadingCurrencies ? (
+                    <MenuItem disabled>
+                      <CircularProgress size={20} /> Loading currencies...
                     </MenuItem>
-                  ))}
+                  ) : (
+                    currencies
+                      .filter(currency => currency.isActive !== false)
+                      .map((currency) => (
+                        <MenuItem key={currency.id} value={currency.code}>
+                          {currency.code} - {currency.name}
+                        </MenuItem>
+                      ))
+                  )}
                 </Select>
                 <FormHelperText>Default currency for the organization</FormHelperText>
               </FormControl>
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <FormControl fullWidth>
+              <FormControl fullWidth disabled={loadingCurrencies}>
                 <InputLabel>Allowed Currencies</InputLabel>
                 <Select
                   multiple
@@ -357,11 +457,19 @@ export const OrganizationConfig: React.FC = () => {
                     </Box>
                   )}
                 >
-                  {CURRENCY_OPTIONS.map((currency) => (
-                    <MenuItem key={currency} value={currency}>
-                      {currency}
+                  {loadingCurrencies ? (
+                    <MenuItem disabled>
+                      <CircularProgress size={20} /> Loading currencies...
                     </MenuItem>
-                  ))}
+                  ) : (
+                    currencies
+                      .filter(currency => currency.isActive !== false)
+                      .map((currency) => (
+                        <MenuItem key={currency.id} value={currency.code}>
+                          {currency.code} - {currency.name}
+                        </MenuItem>
+                      ))
+                  )}
                 </Select>
                 <FormHelperText>Currencies accepted for transactions</FormHelperText>
               </FormControl>
@@ -372,6 +480,12 @@ export const OrganizationConfig: React.FC = () => {
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
                 Business Rules (Approval Thresholds)
               </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  📋 <strong>Single Source of Truth:</strong> These rules are stored in <code>referenceData_rules</code> collection.
+                  Changes here also update Reference Data Management.
+                </Typography>
+              </Alert>
               <Divider sx={{ mb: 2 }} />
             </Grid>
 
@@ -380,8 +494,8 @@ export const OrganizationConfig: React.FC = () => {
                 fullWidth
                 label="Rule 1 Threshold Amount"
                 type="number"
-                value={formData.rule1ThresholdAmount}
-                onChange={(e) => handleFieldChange('rule1ThresholdAmount', parseFloat(e.target.value))}
+                value={rulesData.rule1Threshold}
+                onChange={(e) => handleRuleChange('rule1Threshold', parseFloat(e.target.value) || 0)}
                 helperText="Lower threshold for approval requirements"
                 InputProps={{ inputProps: { min: 0 } }}
               />
@@ -390,12 +504,57 @@ export const OrganizationConfig: React.FC = () => {
             <Grid item xs={12} md={6}>
               <TextField
                 fullWidth
-                label="Rule 2 Threshold Amount"
+                label="Rule 2 Multiplier"
                 type="number"
-                value={formData.rule2ThresholdAmount}
-                onChange={(e) => handleFieldChange('rule2ThresholdAmount', parseFloat(e.target.value))}
-                helperText="Higher threshold (requires dual approval)"
+                value={rulesData.rule2Multiplier}
+                onChange={(e) => handleRuleChange('rule2Multiplier', parseFloat(e.target.value) || 0)}
+                helperText="Multiplier to calculate Rule 1 * Rule 2 threshold"
                 InputProps={{ inputProps: { min: 0 } }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Rule 3: High Value Threshold"
+                type="number"
+                value={rulesData.rule3Threshold}
+                onChange={(e) => handleRuleChange('rule3Threshold', parseFloat(e.target.value) || 0)}
+                helperText="Above this: 3 quotes + dual approval + adjudication always required"
+                InputProps={{ inputProps: { min: 0 } }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <Box sx={{ display: 'flex', alignItems: 'center', height: '100%', p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  💡 <strong>Rule 4</strong> (# quotes) and <strong>Rule 5</strong> (# approvers) 
+                  can be edited in Reference Data Management → Rules
+                </Typography>
+              </Box>
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Rule 6: Final Price Upward Variance Threshold (%)"
+                type="number"
+                value={rulesData.rule6UpwardVariance}
+                onChange={(e) => handleRuleChange('rule6UpwardVariance', parseFloat(e.target.value) || 5)}
+                helperText="Max % increase from approved to final price (default: 5%)"
+                InputProps={{ inputProps: { min: 0, max: 100, step: 0.1 } }}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Rule 7: Final Price Downward Variance Threshold (%)"
+                type="number"
+                value={rulesData.rule7DownwardVariance}
+                onChange={(e) => handleRuleChange('rule7DownwardVariance', parseFloat(e.target.value) || 20)}
+                helperText="Max % decrease from approved to final price (default: 20%)"
+                InputProps={{ inputProps: { min: 0, max: 100, step: 0.1 } }}
               />
             </Grid>
 
@@ -475,6 +634,316 @@ export const OrganizationConfig: React.FC = () => {
               />
             </Grid>
 
+            {/* Company Details for PO Documents */}
+            <Grid item xs={12}>
+              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
+                Company Details for PO Documents
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <Typography variant="body2">
+                  📄 These details will appear on generated Purchase Order (PO) documents sent to suppliers.
+                </Typography>
+              </Alert>
+              <Divider sx={{ mb: 2 }} />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Company Legal Name"
+                value={formData.companyLegalName}
+                onChange={(e) => handleFieldChange('companyLegalName', e.target.value)}
+                helperText="Full legal name for PO documents"
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Company Phone"
+                value={formData.companyPhone}
+                onChange={(e) => handleFieldChange('companyPhone', e.target.value)}
+                helperText="Main phone number"
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Company Website"
+                value={formData.companyWebsite}
+                onChange={(e) => handleFieldChange('companyWebsite', e.target.value)}
+                helperText="Company website URL"
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Registration Number"
+                value={formData.companyRegistrationNumber}
+                onChange={(e) => handleFieldChange('companyRegistrationNumber', e.target.value)}
+                helperText="Business registration number"
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Tax ID / VAT Number"
+                value={formData.companyTaxId}
+                onChange={(e) => handleFieldChange('companyTaxId', e.target.value)}
+                helperText="Tax identification number"
+              />
+            </Grid>
+
+            {/* Company Address */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" gutterBottom sx={{ mt: 2, fontWeight: 'bold' }}>
+                Company Address
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Street Address"
+                value={formData.companyAddress?.street || ''}
+                onChange={(e) => handleFieldChange('companyAddress', {
+                  ...formData.companyAddress,
+                  street: e.target.value
+                })}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="City"
+                value={formData.companyAddress?.city || ''}
+                onChange={(e) => handleFieldChange('companyAddress', {
+                  ...formData.companyAddress,
+                  city: e.target.value
+                })}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="State/Province"
+                value={formData.companyAddress?.state || ''}
+                onChange={(e) => handleFieldChange('companyAddress', {
+                  ...formData.companyAddress,
+                  state: e.target.value
+                })}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={4}>
+              <TextField
+                fullWidth
+                label="Postal Code"
+                value={formData.companyAddress?.postalCode || ''}
+                onChange={(e) => handleFieldChange('companyAddress', {
+                  ...formData.companyAddress,
+                  postalCode: e.target.value
+                })}
+              />
+            </Grid>
+
+            <Grid item xs={12} md={6}>
+              <TextField
+                fullWidth
+                label="Country"
+                value={formData.companyAddress?.country || ''}
+                onChange={(e) => handleFieldChange('companyAddress', {
+                  ...formData.companyAddress,
+                  country: e.target.value
+                })}
+              />
+            </Grid>
+
+            {/* Company Logo - Note: Logo is hardcoded for entire 1PWR Africa group in src/components/common/CompanyLogo.tsx */}
+            
+            {/* Default Delivery Address */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" gutterBottom sx={{ mt: 3, fontWeight: 'bold' }}>
+                Default Delivery Address
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.defaultDeliveryAddressSameAsCompany ?? true}
+                    onChange={(e) => {
+                      handleFieldChange('defaultDeliveryAddressSameAsCompany', e.target.checked);
+                      if (e.target.checked) {
+                        // Clear delivery address when using company address
+                        handleFieldChange('defaultDeliveryAddress', undefined);
+                      }
+                    }}
+                  />
+                }
+                label="Same as company address"
+              />
+            </Grid>
+
+            {!formData.defaultDeliveryAddressSameAsCompany && (
+              <>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Delivery Street Address"
+                    value={formData.defaultDeliveryAddress?.street || ''}
+                    onChange={(e) => handleFieldChange('defaultDeliveryAddress', {
+                      ...formData.defaultDeliveryAddress,
+                      street: e.target.value
+                    })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="City"
+                    value={formData.defaultDeliveryAddress?.city || ''}
+                    onChange={(e) => handleFieldChange('defaultDeliveryAddress', {
+                      ...formData.defaultDeliveryAddress,
+                      city: e.target.value
+                    })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="State/Province"
+                    value={formData.defaultDeliveryAddress?.state || ''}
+                    onChange={(e) => handleFieldChange('defaultDeliveryAddress', {
+                      ...formData.defaultDeliveryAddress,
+                      state: e.target.value
+                    })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Postal Code"
+                    value={formData.defaultDeliveryAddress?.postalCode || ''}
+                    onChange={(e) => handleFieldChange('defaultDeliveryAddress', {
+                      ...formData.defaultDeliveryAddress,
+                      postalCode: e.target.value
+                    })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Country"
+                    value={formData.defaultDeliveryAddress?.country || ''}
+                    onChange={(e) => handleFieldChange('defaultDeliveryAddress', {
+                      ...formData.defaultDeliveryAddress,
+                      country: e.target.value
+                    })}
+                  />
+                </Grid>
+              </>
+            )}
+
+            {/* Default Billing Address */}
+            <Grid item xs={12}>
+              <Typography variant="subtitle1" gutterBottom sx={{ mt: 3, fontWeight: 'bold' }}>
+                Default Billing Address
+              </Typography>
+            </Grid>
+
+            <Grid item xs={12}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.defaultBillingAddressSameAsCompany ?? true}
+                    onChange={(e) => {
+                      handleFieldChange('defaultBillingAddressSameAsCompany', e.target.checked);
+                      if (e.target.checked) {
+                        // Clear billing address when using company address
+                        handleFieldChange('defaultBillingAddress', undefined);
+                      }
+                    }}
+                  />
+                }
+                label="Same as company address"
+              />
+            </Grid>
+
+            {!formData.defaultBillingAddressSameAsCompany && (
+              <>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="Billing Street Address"
+                    value={formData.defaultBillingAddress?.street || ''}
+                    onChange={(e) => handleFieldChange('defaultBillingAddress', {
+                      ...formData.defaultBillingAddress,
+                      street: e.target.value
+                    })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="City"
+                    value={formData.defaultBillingAddress?.city || ''}
+                    onChange={(e) => handleFieldChange('defaultBillingAddress', {
+                      ...formData.defaultBillingAddress,
+                      city: e.target.value
+                    })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="State/Province"
+                    value={formData.defaultBillingAddress?.state || ''}
+                    onChange={(e) => handleFieldChange('defaultBillingAddress', {
+                      ...formData.defaultBillingAddress,
+                      state: e.target.value
+                    })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={4}>
+                  <TextField
+                    fullWidth
+                    label="Postal Code"
+                    value={formData.defaultBillingAddress?.postalCode || ''}
+                    onChange={(e) => handleFieldChange('defaultBillingAddress', {
+                      ...formData.defaultBillingAddress,
+                      postalCode: e.target.value
+                    })}
+                  />
+                </Grid>
+
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Country"
+                    value={formData.defaultBillingAddress?.country || ''}
+                    onChange={(e) => handleFieldChange('defaultBillingAddress', {
+                      ...formData.defaultBillingAddress,
+                      country: e.target.value
+                    })}
+                  />
+                </Grid>
+              </>
+            )}
+
             {/* Other Settings */}
             <Grid item xs={12}>
               <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
@@ -484,13 +953,22 @@ export const OrganizationConfig: React.FC = () => {
             </Grid>
 
             <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Time Zone"
-                value={formData.timeZone}
-                onChange={(e) => handleFieldChange('timeZone', e.target.value)}
-                helperText="Organization time zone (e.g., Africa/Maseru)"
-              />
+              <FormControl fullWidth>
+                <InputLabel>Time Zone</InputLabel>
+                <Select
+                  value={formData.timeZone || ''}
+                  onChange={(e) => handleFieldChange('timeZone', e.target.value)}
+                  label="Time Zone"
+                >
+                  <MenuItem value="">
+                    <em>Select a time zone</em>
+                  </MenuItem>
+                  <MenuItem value="Africa/Abidjan">GMT (West Africa - Ghana, Ivory Coast)</MenuItem>
+                  <MenuItem value="Africa/Lagos">GMT+1 (West Africa - Nigeria, Benin)</MenuItem>
+                  <MenuItem value="Africa/Johannesburg">GMT+2 (Southern Africa - South Africa, Lesotho)</MenuItem>
+                  <MenuItem value="Africa/Nairobi">GMT+3 (East Africa - Kenya, Tanzania)</MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
 
             {/* Action Buttons */}

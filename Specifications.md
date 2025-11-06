@@ -271,14 +271,42 @@ Each organization document should include:
   - Organization name
   - Currency (base currency for the organization)
   - Active status
+- **Company Details for PO Documents:**
+  - `companyLegalName`: Full legal company name
+  - `companyLogo`: URL or path to company logo (PNG/JPG, recommended size: 200-400px wide)
+  - `companyLogoWidth`: Logo width in pixels for PO document (default: 200)
+  - `companyLogoHeight`: Logo height in pixels (default: auto, maintains aspect ratio)
+  - `companyAddress`: Object with street, city, state, postalCode, country
+  - `companyRegistrationNumber`: Business registration number
+  - `companyTaxId`: VAT/Tax identification number
+  - `companyPhone`: Main company phone
+  - `companyWebsite`: Company website URL
+  - `buyerRepresentativeName`: Default buyer contact name
+  - `buyerRepresentativePhone`: Default buyer contact phone
+  - `buyerRepresentativeEmail`: Default buyer contact email
+  - `buyerRepresentativeTitle`: Default buyer contact title/position
+- **Company Banking Details:**
+  - `bankName`: Company's bank name
+  - `bankAccountName`: Account holder name
+  - `bankAccountNumber`: Account number
+  - `bankSwiftCode`: SWIFT/BIC code
+  - `bankIban`: IBAN (if applicable)
+  - `bankBranch`: Bank branch information
 - **Notification Email Addresses:**
   - `procurementEmail`: Email for procurement team
   - `assetManagementEmail`: Email for asset management team
   - `adminEmail`: Email for organization administrator
 - **Business Rules Configuration:**
-  - Rule 1 threshold amount
-  - Rule 2 threshold amount
+  - Rule 1 threshold amount (for single approval)
+  - Rule 2 threshold amount (for dual approval)
+  - **Rule 6:** Final Price Upward Variance Threshold (%) - Maximum percentage increase from approved to final price (default: 5%)
+  - **Rule 7:** Final Price Downward Variance Threshold (%) - Maximum percentage decrease from approved to final price (default: 20%)
   - Allowed currencies
+  - **Final Price Variance Thresholds:**
+    - `finalPriceUpwardVarianceThreshold`: Percentage (default: 5) - Maximum upward variance allowed without re-approval
+    - `finalPriceDownwardVarianceThreshold`: Percentage (default: 20) - Maximum downward variance allowed without re-approval
+    - Purpose: Control when approvers must re-approve final prices from proforma invoices
+    - Examples: 5% upward, 20% downward means final prices between -20% and +5% of approved amount auto-approve
 - **Vendor Approval Duration Settings (Configurable):**
   - `vendorApproval3QuoteDuration`: Duration in months for auto-approval from 3-quote process (default: 12)
   - `vendorApprovalCompletedDuration`: Duration in months for auto-approval from any completed order (default: 6)
@@ -860,6 +888,53 @@ Users assigned to the Asset Management department have special permissions:
   4. Track all approver changes and both approvals in history
   5. Record approval justifications when 3 quotes are required
 
+### Automatic Approval Rescinding
+
+Approvals are automatically rescinded (reset) under the following conditions to ensure approval integrity:
+
+#### 1. Status Reversion from PO back to PR
+- **Trigger:** A PO (status APPROVED, ORDERED, or COMPLETED) is moved back to a PR status (IN_QUEUE, SUBMITTED, RESUBMITTED, or earlier)
+- **Action:** All approvals are automatically rescinded:
+  - `approvalWorkflow.firstApprovalComplete` → `false`
+  - `approvalWorkflow.secondApprovalComplete` → `false`
+  - `approvalWorkflow.firstApproverJustification` → cleared (empty string)
+  - `approvalWorkflow.secondApproverJustification` → cleared (empty string)
+  - `approvalWorkflow.firstApproverSelectedQuoteId` → cleared (undefined)
+  - `approvalWorkflow.secondApproverSelectedQuoteId` → cleared (undefined)
+  - `approvalWorkflow.quoteConflict` → `false`
+  - History entry added documenting the approval rescission
+- **Rationale:** When a PO is reverted to PR status, it needs to go through the approval process again
+
+#### 2. Significant Amount Changes
+- **Trigger:** The PR/PO `estimatedAmount` is edited and the change exceeds the following thresholds:
+  - **Upward change:** More than 5% increase from the approved amount
+  - **Downward change:** More than 20% decrease from the approved amount
+- **Action:** All approvals are automatically rescinded (same as status reversion above)
+- **Rationale:** Significant price changes materially alter the approval decision basis
+- **Implementation Notes:**
+  - Track the `lastApprovedAmount` when approvals are completed
+  - Compare new amount against `lastApprovedAmount` (not just any previous amount)
+  - Formula for upward change: `(newAmount - lastApprovedAmount) / lastApprovedAmount > 0.05`
+  - Formula for downward change: `(lastApprovedAmount - newAmount) / lastApprovedAmount > 0.20`
+  - Only apply to PRs/POs that have been approved (have `firstApprovalComplete` or `secondApprovalComplete` true)
+  - Changes within the threshold do NOT rescind approvals
+
+#### 3. Notification Requirements
+- **Who to Notify:** When approvals are rescinded:
+  - Original approver(s) who had approved
+  - Requestor
+  - Procurement team
+- **Notification Content:** Should clearly state:
+  - Why approvals were rescinded (status reversion or amount change with specifics)
+  - What status the PR/PO is currently in
+  - What actions are needed next
+
+#### 4. Audit Trail
+- All approval rescissions must be recorded in:
+  - `approvalWorkflow.approvalHistory` with action type: "APPROVALS_RESCINDED"
+  - Include reason: "Status reverted from PO to PR" or "Amount changed by X% (from Y to Z)"
+  - Timestamp and user who triggered the change (if applicable)
+
 ### PR/PO Status Workflow
 - PRs (Purchase Requests) and POs (Purchase Orders) follow a defined status flow:
   - **SUBMITTED**: Initial state when PR is first created
@@ -1105,14 +1180,11 @@ PRs with REJECTED or CANCELED status can be restored to active workflow:
 ### PR to PO Transition and APPROVED Status Processing
 
 #### Object Rename at APPROVED Status
-- When PR is approved, it is renamed to PO (Purchase Order)
+- When PR is approved, it is **renamed to PO (Purchase Order)**
+- **From APPROVED status onward, the object is referred to as a PO, not PR**
 - PO retains the same number as the PR (format: ORG-YYYYMM-XXX)
-- System automatically generates a downloadable PO document containing:
-  - All line items with quantities and prices
-  - Reference to selected quotation
-  - Vendor details
-  - Delivery information
-  - Approval details (approver names, dates, justifications if applicable)
+- **PO Number = PR Number** (no renumbering occurs)
+- Procurement can generate a downloadable PDF PO document (optional)
 
 #### Who Can Take Actions in APPROVED Status
 - **Procurement Officers (Level 3):** Can perform all procurement and document management actions
@@ -1123,11 +1195,12 @@ PRs with REJECTED or CANCELED status can be restored to active workflow:
 #### Procurement Actions in APPROVED Status
 1. Download PO document
 2. Upload Proforma Invoice
-3. Upload Proof of Payment (PoP)
-4. Initiate Override for Proforma (requires justification)
-5. Initiate Override for PoP (requires justification)
-6. Notify Finance Team to execute payment (validation: proforma uploaded OR override with note)
-7. Move to ORDERED status (validation: proforma AND PoP uploaded OR overrides valid)
+3. **Enter Final Price from Proforma Invoice**
+4. Upload Proof of Payment (PoP)
+5. Initiate Override for Proforma (requires justification)
+6. Initiate Override for PoP (requires justification)
+7. Notify Finance Team to execute payment (validation: proforma uploaded OR override with note)
+8. Move to ORDERED status (validation: proforma AND PoP uploaded OR overrides valid, final price approved if variance exceeds thresholds)
 
 #### Finance/Admin Actions in APPROVED Status
 1. Upload Proforma Invoice
@@ -1151,13 +1224,265 @@ PRs with REJECTED or CANCELED status can be restored to active workflow:
   - OR select override with justification note
   - Validation enforced before status change
 
+#### Final Price from Proforma Invoice
+When procurement uploads the proforma invoice, they must enter the **Final Price** shown on the proforma:
+
+**Final Price Variance Approval Requirement:**
+- System compares the Final Price against the Last Approved Amount (amount when PR was approved)
+- If variance exceeds configurable thresholds, approvers must re-approve the price difference
+- If variance is within thresholds, PO can proceed to ORDERED without re-approval
+
+**Configurable Thresholds (Set in Admin Portal - Organization Settings):**
+- **Upward Variance Threshold:** Default +5%
+  - Formula: `(finalPrice - lastApprovedAmount) / lastApprovedAmount > threshold`
+  - Example: If threshold is 5%, final price of 10,500 on approved amount of 10,000 requires re-approval
+- **Downward Variance Threshold:** Default -20%
+  - Formula: `(lastApprovedAmount - finalPrice) / lastApprovedAmount > threshold`
+  - Example: If threshold is 20%, final price of 7,900 on approved amount of 10,000 requires re-approval
+
+**Workflow When Final Price Exceeds Thresholds:**
+1. Procurement enters final price in APPROVED status
+2. When attempting to move to ORDERED status, system calculates variance percentage
+3. If variance exceeds either threshold:
+   - **Warning dialog appears** with variance details (approved vs final, percentage)
+   - User must either:
+     - **Cancel:** Return to APPROVED status to review/adjust
+     - **Proceed with Override:** Provide written justification (required, max 500 chars)
+   - If override chosen:
+     - `finalPriceVarianceOverride` flag set to `true`
+     - `finalPriceVarianceOverrideJustification` stores the justification text
+     - `finalPriceRequiresApproval` flag set to `true` (for future audit/review)
+     - PO **moves to ORDERED status** with documented override
+   - Override justification examples: Currency fluctuation, supplier price increase, additional requirements, bulk discount received, emergency circumstances
+4. If variance is within thresholds:
+   - Final price is automatically accepted
+   - `finalPriceRequiresApproval` set to `false`
+   - `finalPriceApproved` set to `true` (auto-approved)
+   - PO can proceed to ORDERED status (if all other requirements met)
+
+**Final Price Approval Actions:**
+- PO remains in APPROVED status throughout
+- Approvers see: Original approved amount, Final price, Variance percentage, Procurement's notes
+- Approvers can:
+  - **Approve Final Price:** Sets `finalPriceApproved` to `true`, can proceed to ORDERED
+  - **Reject Final Price:** PO moves to REVISION_REQUIRED, procurement must address the issue
+  - **Request Justification:** Approver can request additional explanation from procurement
+
+**Validation Before Moving to ORDERED:**
+The system now checks FOUR requirements before allowing ORDERED status:
+1. **ETD (Estimated Delivery Date):** Required for ALL POs
+2. **Proforma Invoice:** Required if above Rule 1 (or override with justification)
+3. **Proof of Payment:** Required if above Rule 1 (or override with justification)
+4. **Final Price Approved:** If `finalPriceRequiresApproval` is `true`, then `finalPriceApproved` must also be `true`
+
+**Notifications:**
+- When final price requires approval: Notify original approver(s) with variance details
+- When final price is approved: Notify procurement and requestor
+- When final price is rejected: Notify procurement and requestor with rejection reason
+
+**Audit Trail:**
+- All final price entries logged with timestamp and user
+- All final price approvals/rejections logged in approval history
+- Variance percentage recorded for compliance reporting
+
+#### PO Document Generation
+
+Procurement can generate a downloadable PDF Purchase Order document in APPROVED status.
+
+**Requirement Level:**
+- **OPTIONAL** for PRs below Rule 3 threshold (not all suppliers require formal PO documents)
+- **REQUIRED** for PRs above Rule 3 threshold (high-value purchases) - can be overridden with written justification
+
+**Important Notes:**
+- For high-value PRs (above Rule 3), PO document must be generated OR override with justification
+- Generating/downloading the PO does NOT advance the status to ORDERED
+- Only uploading Proforma Invoice and Proof of Payment (or overrides) advances the status
+- PO can be regenerated multiple times if details need to be updated
+- Override option similar to Proforma/PoP: checkbox + justification text field
+
+**PO Document Preparation Flow:**
+1. Procurement reviews PR details in APPROVED status
+2. Procurement fills in/edits PO-specific fields (see below)
+3. System populates PO template with all information
+4. Procurement clicks "Generate PO Document"
+5. System creates PDF and attaches to PO record
+6. Procurement can download and send to supplier
+7. PO can be regenerated if corrections needed
+
+**PO Document Sections and Fields:**
+
+**Header Information:**
+- **Company Logo:** Displayed at top-left of PO document (from organization settings)
+- **PO Number:** Same as PR number (ORG-YYYYMM-XXX)
+- **Issue Date:** Date when PO is created/issued (set by procurement)
+- **Currency:** From PR currency field
+
+**Buyer/Company Information** (from Organization settings):
+- Company Legal Name
+- Company Address (street, city, state, postal code, country)
+- Company Registration Number
+- Company Tax ID / VAT Number
+- Company Phone
+- Company Website
+- Buyer Representative:
+  - Name
+  - Title
+  - Phone
+  - Email
+
+**Supplier/Vendor Information:**
+- Supplier Name (from selected vendor OR manually entered)
+- Supplier Address (from vendor database OR manually entered)
+- Supplier Contact Person:
+  - Name
+  - Title
+  - Phone
+  - Email
+- **Note:** If supplier is not in database, procurement can add supplier details here
+  - System should offer option to "Add Supplier to Database" after PO is finalized
+  - This creates a new vendor record with details from PO
+
+**Delivery Address (Ship-To):**
+- Checkbox: "Same as Company Address" (default checked)
+- If unchecked, show fields:
+  - Recipient Name
+  - Street Address
+  - City
+  - State/Province
+  - Postal Code
+  - Country
+  - Contact Person
+  - Contact Phone
+
+**Billing Address:**
+- Checkbox: "Same as Company Address" (default checked)
+- If unchecked, show fields:
+  - Recipient Name
+  - Street Address
+  - City
+  - State/Province
+  - Postal Code
+  - Country
+
+**Order Details:**
+
+*Line Items Table:*
+- Line Number (1, 2, 3...)
+- Item Number/SKU (optional - for company's internal tracking)
+- Item Description (from PR line items)
+- Quantity Ordered
+- Unit of Measure (UOM)
+- Unit Price (from selected quote or entered by procurement)
+- Line Total (Quantity × Unit Price)
+- Notes (optional, per line item)
+
+*Order Totals:*
+- Subtotal
+- Tax Amount (if applicable)
+- Duty Amount (if applicable)
+- **Grand Total**
+
+*Delivery Information:*
+- **Expected Delivery Date (ETD):** Required field
+- **Mode of Delivery:** Dropdown
+  - Air
+  - Sea
+  - Courier
+  - Pickup
+  - Road
+  - Rail
+  - Other (with text field if selected)
+
+**Packing/Labeling Instructions** (optional):
+- Free text field
+- Examples: "Palletized", "Items must be branded", "Barcoded", "Individually wrapped"
+
+**Payment Information:**
+
+*Payment Method:* Dropdown
+- Bank Transfer (default)
+- Check
+- Credit Card
+- Cash
+- Letter of Credit
+- Other (with text field if selected)
+
+*Payment Terms:*
+- Free text field
+- Examples: "Net 30 days", "50% advance, 50% on delivery", "Due on receipt", "Net 60 days"
+
+*Supplier Banking Details:*
+- Bank Name
+- Account Name (Beneficiary Name)
+- Account Number
+- SWIFT Code
+- IBAN
+- Bank Branch
+
+*Tax and Duty Information:*
+- Applicable Taxes/Duties (free text)
+- Tax Percentage (optional)
+- Duty Percentage (optional)
+- Examples: "VAT 15%", "Import duty 5%", "Withholding tax 10%"
+
+**Reference Information:**
+
+*Prior Documents* (optional):
+- Quotation Number/Reference
+- Contract Number/Reference
+- Tender Number/Reference
+- RFQ Number
+
+*Internal Codes* (for company use - displayed on PO but not prominently):
+- Project Code (from PR projectCategory code)
+- Expense Type Code (from PR expenseType code)
+- Cost Center Code (optional)
+
+**Special Instructions and Remarks:**
+
+*Special Instructions:* (optional)
+- Free text field for any special handling, delivery, or quality requirements
+
+*General Remarks/Notes:* (optional)
+- Free text field for any additional information
+
+**Footer/Legal:**
+- Standard terms and conditions (from organization settings)
+- Authorized signature line (optional - can be digital or blank for wet signature)
+- Company stamp/seal area
+
+**PO Document Workflow:**
+
+1. **Prepare PO:** Procurement fills in all required fields in APPROVED status
+2. **Generate PDF:** System creates PDF from template with all populated fields
+3. **Review:** Procurement reviews PDF
+4. **Regenerate if needed:** If errors found, edit fields and regenerate
+5. **Download:** Procurement downloads PDF
+6. **Send to Supplier:** Procurement emails PDF to supplier (outside system)
+7. **Continue Process:** Procurement proceeds with proforma/PoP upload (required for ORDERED status)
+
+**Supplier Onboarding from PO:**
+
+If PO is for a **first-time supplier** (not in vendor database):
+1. Procurement enters all supplier details in PO fields
+2. After PO is finalized, system shows prompt: "Add supplier to vendor database?"
+3. If YES:
+   - System creates new vendor record
+   - Populates vendor fields from PO supplier information
+   - Vendor is now available for future PRs
+   - Vendor starts as non-approved (follows normal vendor approval workflow)
+4. If NO:
+   - Supplier details remain with this PO only
+   - Prompt shown again next time PO is accessed
+
 #### Estimated Delivery Date (ETD) Requirement
 - **Required for ALL POs** before moving to ORDERED status
-- Must be entered by Procurement
+- Must be entered by Procurement (also used in PO document if generated)
 - Used for:
   - Delivery tracking
   - Automatic delay notifications (if ORDERED > 3 business days after ETD)
   - Performance metrics
+  - PO document generation
 - Validation: System blocks ORDERED status change without ETD
 
 #### Validation Checks Before ORDERED Status
@@ -1165,9 +1490,12 @@ Both Procurement and Finance/Admin must ensure:
 1. **Estimated Delivery Date (ETD):** REQUIRED for all POs
 2. **Proforma Invoice:** IF above Rule 1 - uploaded OR override with justification
 3. **Proof of Payment:** IF above Rule 1 - uploaded OR override with justification
-4. **Below Rule 1 Threshold:** Only ETD required - can move to ORDERED once ETD is entered
-5. **Above Rule 1 Threshold:** ETD, Proforma, AND PoP all required (or overrides with justification)
-6. System blocks status change if validation fails
+4. **PO Document:** IF above Rule 3 (high-value threshold) - generated and attached OR override with justification
+5. **Final Price Variance:** IF final price exceeds thresholds (+5% or -20%) - warning dialog appears requiring override justification
+6. **Below Rule 1 Threshold:** Only ETD required (plus final price variance check if final price entered)
+7. **Above Rule 1, Below Rule 3:** ETD, Proforma, PoP (plus final price variance check if entered) - all must be satisfied
+8. **Above Rule 3 Threshold:** ETD, Proforma, PoP, PO Document (plus final price variance check if entered) - all must be satisfied
+9. System blocks status change to ORDERED if ETD/Proforma/PoP requirements not met; shows warning dialog for final price variance
 
 #### Notifications in APPROVED Status
 - **Notify Finance for Payment:** Procurement → Finance Team (optional note)

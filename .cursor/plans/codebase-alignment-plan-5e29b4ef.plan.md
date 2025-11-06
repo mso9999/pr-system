@@ -999,6 +999,215 @@ interface Vendor {
 - Code aligns with specifications
 - System ready for production deployment
 
+### Phase 6.5: Automatic Approval Rescinding (COMPLETED - Oct 31, 2025)
+
+**Priority:** HIGH
+
+**Estimated Effort:** 3-4 hours
+
+**Status:** ✅ COMPLETED
+
+**Files Modified:**
+
+- `Specifications.md` - Added comprehensive documentation
+- `src/types/pr.ts` - Added `lastApprovedAmount` field
+- `src/services/pr.ts` - Added `rescindApprovals()` and `shouldRescindApprovalsForAmountChange()` functions
+- `src/components/pr/ApproverActions.tsx` - Added `lastApprovedAmount` capture on approval
+- `src/components/pr/PRView.tsx` - Added amount change detection and rescission logic
+
+**Changes:**
+
+1. Automatic rescinding of approvals when PO reverts to PR status (APPROVED/ORDERED/COMPLETED → IN_QUEUE or earlier)
+2. Automatic rescinding when amount changes exceed thresholds:
+
+   - >5% upward change
+   - >20% downward change
+
+3. New `lastApprovedAmount` field to track amount when approved
+4. Complete audit trail in approval history
+5. User notifications for rescission events
+
+**Testing Checkpoint Phase 6.5:**
+
+- ✅ Status reversion from PO to PR rescinded approvals correctly
+- ✅ Amount increase >5% rescinded approvals with notification
+- ✅ Amount decrease >20% rescinded approvals with notification
+- ✅ Amount changes within thresholds do NOT rescind approvals
+- ✅ Dual approvals both rescinded when triggered
+- ✅ Audit trail entries created correctly
+- ✅ No linter errors in modified files
+- ✅ Documentation created: `docs/APPROVAL_RESCINDING_IMPLEMENTATION_2025-10-31.md`
+
+---
+
+### Phase 6.6: Final Price Approval from Proforma Invoice (IN PROGRESS - Nov 2, 2025)
+
+**Priority:** HIGH
+
+**Estimated Effort:** 6-8 hours
+
+**Status:** 🔄 65% COMPLETE (Specifications, Core Implementation & Admin Portal Complete, Final Price Entry UI Pending)
+
+**Files Modified:**
+
+- `Specifications.md` - Added comprehensive final price approval documentation
+- `src/types/pr.ts` - Added 10 new fields for final price tracking (NO new status required)
+- `src/types/organization.ts` - Added configurable variance thresholds
+- `src/services/pr.ts` - Added `checkFinalPriceVariance()` function
+- `src/components/pr/ApprovedStatusActions.tsx` - Added state management for final price entry
+- `src/components/admin/OrganizationConfig.tsx` - Added Rule 6 & Rule 7 threshold configuration UI
+- `docs/FINAL_PRICE_APPROVAL_FEATURE_2025-11-02.md` - Complete feature documentation
+
+**Changes:**
+
+1. **NO new status required** - PO remains in APPROVED status throughout
+2. Uses flags for tracking: `finalPriceRequiresApproval` and `finalPriceApproved`
+3. Configurable variance thresholds per organization:
+
+   - `finalPriceUpwardVarianceThreshold` (default 5%)
+   - `finalPriceDownwardVarianceThreshold` (default 20%)
+
+4. Final price entry by procurement in APPROVED status
+5. Automatic variance checking against approved amount
+6. Approver sign-off required if variance exceeds thresholds (PO stays in APPROVED)
+7. Added as 4th validation requirement before moving to ORDERED
+8. Complete final price tracking with audit trail
+
+**Completed:**
+
+- ✅ Specifications documented (PO remains in APPROVED status)
+- ✅ Type definitions updated (10 PR fields, organization thresholds)
+- ✅ Service function for variance checking (`checkFinalPriceVariance`)
+- ✅ State management in ApprovedStatusActions component
+- ✅ Validation logic updated in specifications
+- ✅ **Admin portal UI for configuring Rule 6 & Rule 7 variance thresholds** (OrganizationConfig.tsx)
+- ✅ No linter errors
+- ✅ Documentation created and updated: `docs/FINAL_PRICE_APPROVAL_FEATURE_2025-11-02.md`
+
+**Pending:**
+
+- ⏳ Complete UI implementation in ApprovedStatusActions (final price entry form)
+- ⏳ Approver actions in PRView for approving/rejecting final price (while in APPROVED status)
+- ⏳ Validation logic in "Move to ORDERED" - check finalPriceApproved flag
+- ⏳ Visual indicator when final price approval is pending
+- ⏳ Notification system integration
+- ⏳ Integration testing
+- ⏳ User acceptance testing
+
+**Testing Checkpoint Phase 6.6 (Partial):**
+
+- ✅ Variance calculation function works correctly
+- ✅ Thresholds properly configurable in organization type
+- ✅ **Admin can configure Rule 6 & Rule 7 thresholds per organization**
+- ⏳ Final price entry UI in APPROVED status
+- ⏳ Flags set correctly when variance exceeds thresholds
+- ⏳ PO remains in APPROVED status (no status change)
+- ⏳ Approver notification on variance
+- ⏳ Approver can approve/reject final price
+- ⏳ Validation blocks ORDERED if finalPriceApproved is false
+
+---
+
+### Phase 6.7: PO Document Generation (SPECIFIED - Nov 2, 2025)
+
+**Priority:** HIGH
+
+**Estimated Effort:** 12-16 hours
+
+**Status:** 📋 FULLY SPECIFIED (Ready for Implementation)
+
+**Files Modified:**
+
+- `Specifications.md` - Comprehensive PO document generation section (lines 1159-1453)
+- `src/types/pr.ts` - Added 50+ PO document fields
+- `src/types/organization.ts` - Added company details for PO documents (20+ fields)
+- `docs/PO_DOCUMENT_GENERATION_FEATURE_2025-11-02.md` - Complete feature documentation
+
+**Changes:**
+
+1. **Terminology Clarification:** PR becomes PO from APPROVED status onward
+2. **REQUIRED for High-Value PRs:** PO document generation mandatory above Rule 3 threshold - can be overridden with justification
+3. **Optional for Lower-Value PRs:** PO generation optional below Rule 3 threshold
+4. **Comprehensive PO Fields:**
+
+   - Header info (PO#, issue date, currency)
+   - Buyer/company details (from organization settings)
+   - Supplier/vendor information
+   - Delivery and billing addresses (with checkboxes for "same as company")
+   - Contact persons (buyer and supplier representatives)
+   - Order details with line items table
+   - Mode of delivery dropdown
+   - Packing/labeling instructions
+   - Payment information (method, terms, banking details)
+   - Tax and duty information
+   - References (quotation, contract, tender numbers)
+   - Internal codes (project, expense, cost center)
+   - Special instructions and remarks
+
+5. **Supplier Onboarding:** Option to add first-time suppliers to vendor database from PO
+6. **Editable and Regenerable:** PO can be generated multiple times with updates
+7. **Override Mechanism:** High-value PRs can skip PO generation with justification (similar to Proforma/PoP)
+
+**Type Definitions Added:**
+
+**Organization Type (20+ fields):**
+
+- Company details: legal name, address, registration#, tax ID, phone, website
+- Company banking: bank name, account details, SWIFT, IBAN
+- Default buyer representative: name, title, phone, email
+
+**PR Type (50+ fields for PO):**
+
+- PO issue date
+- Delivery address (with "different from company" checkbox)
+- Billing address (with "different from company" checkbox)
+- Supplier and buyer contact persons
+- Mode of delivery (Air, Sea, Courier, Pickup, Road, Rail, Other)
+- Packing instructions
+- Payment method and terms
+- Supplier banking details
+- Tax and duty information
+- Reference numbers (quotation, contract, tender)
+- Internal codes (project, expense, cost center)
+- Special instructions and remarks
+- Line items with SKU/item numbers
+
+**Completed:**
+
+- ✅ Comprehensive specifications (200+ lines)
+- ✅ Type definitions (70+ new fields total)
+- ✅ Organization data model updated
+- ✅ PO document sections detailed
+- ✅ PDF template layout specified
+- ✅ Supplier onboarding workflow defined
+- ✅ Admin portal requirements documented
+- ✅ No linter errors
+- ✅ Complete documentation: `docs/PO_DOCUMENT_GENERATION_FEATURE_2025-11-02.md`
+
+**Pending Implementation:**
+
+- ⏳ Admin UI for organization company details
+- ⏳ PO document preparation UI in ApprovedStatusActions
+- ⏳ PDF template creation (HTML/CSS)
+- ⏳ PDF generation service function
+- ⏳ Download PO functionality
+- ⏳ Supplier onboarding prompt and workflow
+- ⏳ PO regeneration logic
+- ⏳ Audit trail for PO generations
+- ⏳ Integration testing
+- ⏳ User acceptance testing
+
+**Key Features:**
+
+- **Optional:** Doesn't block workflow progression
+- **Flexible:** Delivery/billing can be same as or different from company address
+- **Professional:** Comprehensive PDF with all business details
+- **Reusable:** Supplier onboarding creates vendor records for future use
+- **Trackable:** Internal codes for project/expense tracking
+- **Editable:** Can regenerate with updates any time
+
+---
+
 ### To-dos
 
 - [ ] Phase 0: Git commit and push all uncommitted changes and documentation
@@ -1008,6 +1217,8 @@ interface Vendor {
 - [ ] Phase 4: Implement MY ACTIONS button and filtering
 - [ ] Phase 5: Advanced search, filtering, analytics, and export
 - [ ] Phase 6: Dual approver concurrent approval workflow
+- [x] **Phase 6.5: Automatic Approval Rescinding** ✅ COMPLETED
+- [x] **Phase 6.7: PO Document Generation** 📋 FULLY SPECIFIED
 - [ ] Phase 7: Approval justification for 3-quote scenarios
 - [ ] Phase 8: APPROVED status processing and document management
 - [ ] Phase 9: ORDERED status processing and automated vendor approval

@@ -322,6 +322,30 @@ firebase deploy --only functions
 
 ## Recent Changes
 
+### November 6, 2025 - Purchase Order Generation Enhancements
+**Major Feature Improvements:**
+- ✅ **Automated Vendor Data Population**: PO now automatically fetches and displays actual vendor names and contact details from vendors database
+- ✅ **Buyer Information Auto-fill**: Organization details (company name, address, phone, tax ID) automatically populate from organizational settings
+- ✅ **Company Logo on PO**: 1PWR logo now appears on all generated PO documents
+  - Logo stored locally in `public/logo.png` to avoid CORS issues
+  - Automatically converted to base64 for PDF embedding
+- ✅ **Enhanced Supplier Details**: PO displays complete vendor information including:
+  - Vendor name (not just internal ID)
+  - Contact person, email, and phone from vendor record
+  - Vendor address and location
+- ✅ **PO Review Dialog**: Pre-populated with buyer and supplier information from database
+- ✅ **Improved PDF Rendering**: Fixed empty string validation errors in address fields
+
+**Technical Details:**
+- Local logo storage eliminates external CORS restrictions
+- Two-method image loading (fetch API and HTML Image element) for reliability
+- Comprehensive logging for troubleshooting
+- Base64 encoding for reliable PDF image rendering
+
+**Impact:** Professional, fully-branded PO documents with accurate vendor and company information, ready for immediate use.
+
+---
+
 ### October 12, 2025 - Email Notifications & PR Number Country Codes
 **Critical Bug Fixes:**
 - ✅ **Email Notifications**: Now show human-readable names instead of database IDs

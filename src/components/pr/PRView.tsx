@@ -1123,6 +1123,28 @@ export function PRView() {
         'pr.approver2': pr.approver2
       });
       
+      // Check if amount has changed significantly and approvals should be rescinded
+      const newAmount = editedPR.estimatedAmount ?? pr.estimatedAmount;
+      const oldApprovedAmount = pr.lastApprovedAmount;
+      const hasApprovals = pr.approvalWorkflow?.firstApprovalComplete || pr.approvalWorkflow?.secondApprovalComplete;
+      
+      if (hasApprovals && oldApprovedAmount && newAmount !== oldApprovedAmount) {
+        const amountChangeCheck = prService.shouldRescindApprovalsForAmountChange(oldApprovedAmount, newAmount);
+        
+        if (amountChangeCheck.shouldRescind) {
+          console.log('Amount change exceeds threshold. Rescinding approvals...', amountChangeCheck);
+          await prService.rescindApprovals(
+            pr.id,
+            amountChangeCheck.reason || 'Amount changed significantly',
+            user || undefined
+          );
+          enqueueSnackbar(
+            `Approvals have been rescinded due to significant amount change (${amountChangeCheck.percentChange?.toFixed(2)}%)`,
+            { variant: 'warning', autoHideDuration: 8000 }
+          );
+        }
+      }
+      
       // Prepare the PR data for update
       const updatedPR: PRUpdateParams = {
         ...pr,
@@ -2111,7 +2133,7 @@ export function PRView() {
       {/* Header with Title and Actions */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
-          PR Details: {pr?.prNumber}
+          {pr?.status === PRStatus.APPROVED || pr?.status === PRStatus.ORDERED || pr?.status === PRStatus.DELIVERED ? 'PO' : 'PR'} Details: {pr?.prNumber}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
@@ -2319,7 +2341,11 @@ export function PRView() {
                                 maxWidth: '400px'
                               }}
                             >
-                              {historyItem.notes}
+                              {typeof historyItem.notes === 'string' 
+                                ? historyItem.notes 
+                                : typeof historyItem.notes === 'object' && 'email' in historyItem.notes
+                                  ? `By: ${(historyItem.notes as any).email || (historyItem.notes as any).name || 'User'}`
+                                  : 'Status changed'}
                             </Typography>
                           ) : (
                             <Typography variant="body2" color="text.secondary" fontStyle="italic">
@@ -2332,6 +2358,88 @@ export function PRView() {
                 </TableBody>
               </Table>
             </TableContainer>
+          </Paper>
+        </Box>
+      )}
+
+      {/* Overrides & Exceptions Section */}
+      {(pr?.proformaOverride || pr?.popOverride || pr?.poDocumentOverride || pr?.finalPriceVarianceOverride) && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            ⚠️ Overrides & Exceptions
+          </Typography>
+          <Paper sx={{ p: 2, bgcolor: 'warning.light' }}>
+            <Grid container spacing={2}>
+              {pr.proformaOverride && (
+                <Grid item xs={12}>
+                  <Card sx={{ bgcolor: 'background.paper' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" color="warning.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        📄 Proforma Invoice Override
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                        <strong>Justification:</strong> {pr.proformaOverrideJustification || 'No justification provided'}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+
+              {pr.popOverride && (
+                <Grid item xs={12}>
+                  <Card sx={{ bgcolor: 'background.paper' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" color="warning.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        💰 Proof of Payment Override
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                        <strong>Justification:</strong> {pr.popOverrideJustification || 'No justification provided'}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+
+              {pr.poDocumentOverride && (
+                <Grid item xs={12}>
+                  <Card sx={{ bgcolor: 'background.paper' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" color="warning.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        📋 PO Document Override (High-Value PR)
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                        <strong>Justification:</strong> {pr.poDocumentOverrideJustification || 'No justification provided'}
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+
+              {pr.finalPriceVarianceOverride && (
+                <Grid item xs={12}>
+                  <Card sx={{ bgcolor: 'background.paper' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" color="error.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        💲 Final Price Variance Override
+                      </Typography>
+                      {pr.finalPriceVariancePercentage && (
+                        <Typography variant="body2" color="text.secondary" gutterBottom>
+                          <strong>Variance:</strong> {pr.finalPriceVariancePercentage > 0 ? '+' : ''}{pr.finalPriceVariancePercentage.toFixed(2)}%
+                          {' '}(Approved: {formatCurrency(pr.approvalWorkflow?.approvedAmount || pr.estimatedAmount, pr.currency || 'LSL')} 
+                          → Final: {formatCurrency(pr.finalPrice || 0, pr.finalPriceCurrency || pr.currency || 'LSL')})
+                        </Typography>
+                      )}
+                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                        <strong>Justification:</strong> {pr.finalPriceVarianceOverrideJustification || 'No justification provided'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        ⚠️ This override has been flagged for management review (finalPriceRequiresApproval: {pr.finalPriceRequiresApproval ? 'Yes' : 'No'})
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+            </Grid>
           </Paper>
         </Box>
       )}

@@ -35,6 +35,7 @@ import { clearPRState, setShowOnlyMyPRs } from '../../store/slices/prSlice';
 import { UserProfile } from '@/components/user/UserProfile';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from './LanguageToggle';
+import { CompanyLogo } from './CompanyLogo';
 
 const NavItem = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -92,7 +93,15 @@ export const Layout = () => {
 
   const drawer = (
     <Box>
-      <Toolbar />
+      <Box sx={{ 
+        p: 2, 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center',
+        minHeight: '64px'
+      }}>
+        <CompanyLogo />
+      </Box>
       <Divider />
       <List>
         <NavItem onClick={() => navigate('/dashboard')}>
@@ -159,7 +168,7 @@ export const Layout = () => {
             <MenuIcon />
           </IconButton>
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            1PWR {t('pr.purchaseRequest')} System
+            {t('pr.purchaseRequest')} System
           </Typography>
           <Box sx={{ mr: 2 }}>
             <LanguageToggle />

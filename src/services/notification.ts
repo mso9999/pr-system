@@ -131,16 +131,16 @@ export class NotificationService {
     let lastError: Error | null = null;
     
     try {
-      // Fetch PR data
+      // Fetch PR data (force fetch from server to avoid cache issues)
       const prRef = doc(db, 'purchaseRequests', prId);
-      const prSnapshot = await getDoc(prRef);
+      const prSnapshot = await getDoc(prRef, { source: 'server' });
       
       if (!prSnapshot.exists()) {
         throw new Error(`PR with ID ${prId} not found`);
       }
       
       const pr = { id: prId, ...prSnapshot.data() } as PRRequest;
-      console.log('Full PR data:', pr);
+      console.log('Full PR data (from server):', pr);
       
       // Ensure prNumber is always defined
       const prNumber = pr.prNumber || `ID-${prId.substring(0, 8)}`;

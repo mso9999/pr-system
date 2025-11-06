@@ -75,7 +75,8 @@ export interface Rule {
   number: string;
   description: string;
   threshold: number;
-  currency?: string; // Made optional since it's not relevant for multipliers and quote requirements
+  uom?: string; // Unit of Measure: Can be currency (LSL, USD, etc.), percentage (%), or NA
+  currency?: string; // Deprecated - kept for backwards compatibility, use uom instead
   active: boolean;
   organization: {
     id: string;

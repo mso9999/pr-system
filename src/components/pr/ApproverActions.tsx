@@ -542,6 +542,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                 // First, update the PR workflow and object type (status is handled separately)
                 await prService.updatePR(pr.id, {
                   objectType: 'PO',
+                  lastApprovedAmount: prData.estimatedAmount,
                   approvalWorkflow: updatedWorkflow,
                   updatedAt: new Date().toISOString()
                 });
@@ -596,6 +597,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             // First, update the PR workflow and object type (status is handled separately)
             await prService.updatePR(pr.id, {
               objectType: 'PO',
+              lastApprovedAmount: prData.estimatedAmount,
               approvalWorkflow: {
                 ...prData.approvalWorkflow,
                 currentApprover: prData.approver || null,

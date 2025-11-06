@@ -34,8 +34,18 @@ service cloud.firestore {
     // Purchase Requests collection
     match /purchaseRequests/{docId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        (resource == null || resource.data.requestorId == request.auth.uid);
+      // Allow create for any authenticated user
+      allow create: if request.auth != null;
+      // Allow update if:
+      // - You are the requestor, OR
+      // - You have permissionLevel <= 4 (procurement, finance, admins)
+      // NOTE: Users are stored by email, not UID!
+      allow update: if request.auth != null &&
+        (resource.data.requestorId == request.auth.uid ||
+         get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.permissionLevel <= 4);
+      // Only admins can delete (permissionLevel <= 2)
+      allow delete: if request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.permissionLevel <= 2;
     }
 
     // All other collections

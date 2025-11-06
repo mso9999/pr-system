@@ -106,10 +106,11 @@ function createStatusHistoryItem(
 /**
  * Fetches a single Purchase Request by its ID.
  * @param prId - The ID of the PR to fetch.
+ * @param forceServerFetch - If true, bypasses Firestore cache and fetches from server
  * @returns A promise resolving to the PRRequest object or null if not found.
  */
-export async function getPR(prId: string): Promise<PRRequest | null> {
-  console.log(`Fetching PR with ID: ${prId}`);
+export async function getPR(prId: string, forceServerFetch: boolean = true): Promise<PRRequest | null> {
+  console.log(`Fetching PR with ID: ${prId}, forceServerFetch: ${forceServerFetch}`);
   if (!prId) {
     console.warn('getPR called with no prId.');
     return null;
@@ -117,7 +118,10 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
 
   try {
     const prDocRef = doc(db, PR_COLLECTION, prId);
-    const docSnap = await getDoc(prDocRef);
+    // ALWAYS force server fetch by default to avoid cache issues with status updates
+    const docSnap = forceServerFetch 
+      ? await getDoc(prDocRef, { source: 'server' as any })
+      : await getDoc(prDocRef);
 
     if (!docSnap.exists()) {
       console.warn(`PR with ID ${prId} not found.`);
@@ -172,11 +176,49 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
       isUrgent: data.isUrgent || false,
       metrics: data.metrics || undefined,
       purchaseOrderNumber: data.purchaseOrderNumber,
+      
+      // APPROVED Status fields (added for PO document management)
+      estimatedDeliveryDate: data.estimatedDeliveryDate,
+      poIssueDate: data.poIssueDate,
+      proformaInvoice: data.proformaInvoice,
+      proformaOverride: data.proformaOverride,
+      proformaOverrideJustification: data.proformaOverrideJustification,
+      proofOfPayment: data.proofOfPayment,
+      popOverride: data.popOverride,
+      popOverrideJustification: data.popOverrideJustification,
+      deliveryNote: data.deliveryNote,
+      deliveryPhotos: data.deliveryPhotos,
+      deliveryDocOverride: data.deliveryDocOverride,
+      deliveryDocOverrideJustification: data.deliveryDocOverrideJustification,
+      poDocument: data.poDocument,
+      poDocumentOverride: data.poDocumentOverride,
+      poDocumentOverrideJustification: data.poDocumentOverrideJustification,
+      
+      // Final Price fields
+      finalPrice: data.finalPrice,
+      finalPriceCurrency: data.finalPriceCurrency,
+      finalPriceEnteredBy: data.finalPriceEnteredBy,
+      finalPriceEnteredAt: data.finalPriceEnteredAt,
+      finalPriceRequiresApproval: data.finalPriceRequiresApproval,
+      finalPriceVariancePercentage: data.finalPriceVariancePercentage,
+      finalPriceApproved: data.finalPriceApproved,
+      finalPriceApprovedBy: data.finalPriceApprovedBy,
+      finalPriceApprovedAt: data.finalPriceApprovedAt,
+      finalPriceVarianceNotes: data.finalPriceVarianceNotes,
+      finalPriceVarianceOverride: data.finalPriceVarianceOverride,
+      finalPriceVarianceOverrideJustification: data.finalPriceVarianceOverrideJustification,
+      
+      // Last approved amount for approval rescinding
+      lastApprovedAmount: data.lastApprovedAmount,
+      
+      // Object type (PR vs PO)
+      objectType: data.objectType || 'PR',
     };
     
     // Debug logging for approver fields and quotes on fetch
     console.log(`Successfully fetched PR with ID: ${prId}`, {
       prNumber: pr.prNumber,
+      status: pr.status,
       approver: pr.approver || '(not set)',
       approver2: pr.approver2 || '(not set)',
       approvalWorkflow: pr.approvalWorkflow ? {
@@ -186,7 +228,12 @@ export async function getPR(prId: string): Promise<PRRequest | null> {
       rawDataApprover2: data.approver2 || '(not in raw data)',
       quotesCount: pr.quotes?.length || 0,
       preferredQuoteId: pr.preferredQuoteId || '(not set)',
-      rawQuotes: data.quotes || '(no quotes in raw data)'
+      rawQuotes: data.quotes || '(no quotes in raw data)',
+      // APPROVED status fields
+      estimatedDeliveryDate: pr.estimatedDeliveryDate || '(not set)',
+      proformaOverride: pr.proformaOverride || false,
+      popOverride: pr.popOverride || false,
+      finalPrice: pr.finalPrice || '(not set)'
     });
     
     return pr;
@@ -227,8 +274,23 @@ export async function updatePRStatus(
             throw new Error(`PR with ID ${prId} not found for status update.`);
         }
         const currentData = currentPRSnap.data();
+        const currentStatus = currentData.status as PRStatus;
         // Use statusHistory array
         const currentStatusHistory: StatusHistoryItem[] = currentData.statusHistory || []; 
+
+        // Check if we're reverting from PO status back to PR status
+        const poStatuses = [PRStatus.APPROVED, PRStatus.ORDERED, PRStatus.COMPLETED];
+        const prStatuses = [PRStatus.SUBMITTED, PRStatus.RESUBMITTED, PRStatus.IN_QUEUE, PRStatus.PENDING_APPROVAL, PRStatus.REVISION_REQUIRED];
+        const isRevertingFromPOtoPR = poStatuses.includes(currentStatus) && prStatuses.includes(status);
+        
+        if (isRevertingFromPOtoPR) {
+            console.log(`Status reverting from PO (${currentStatus}) to PR (${status}). Rescinding approvals...`);
+            await rescindApprovals(
+                prId,
+                `Status reverted from ${currentStatus} to ${status}`,
+                user
+            );
+        }
 
         // Create new status history item using the renamed function
         const statusHistoryEntry = createStatusHistoryItem(status, user, notes);
@@ -318,6 +380,192 @@ export async function updatePR(prId: string, updateData: Partial<PRRequest>): Pr
     console.error(`Failed to update PR ${prId}:`, error);
     throw new Error(`Failed to update PR: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+/**
+ * Rescinds (clears) all approvals for a PR/PO
+ * Used when status reverts from PO to PR or when amount changes significantly
+ * @param prId - The ID of the PR to rescind approvals for
+ * @param reason - Reason for rescinding approvals (for audit trail)
+ * @param user - User who triggered the change (optional)
+ * @returns A promise that resolves when approvals are rescinded
+ */
+export async function rescindApprovals(
+  prId: string,
+  reason: string,
+  user?: UserReference
+): Promise<void> {
+  console.log(`Rescinding approvals for PR ${prId}. Reason: ${reason}`);
+  
+  if (!prId) {
+    throw new Error('PR ID is required to rescind approvals');
+  }
+  
+  try {
+    const prDocRef = doc(db, PR_COLLECTION, prId);
+    const prSnap = await getDoc(prDocRef);
+    
+    if (!prSnap.exists()) {
+      throw new Error(`PR with ID ${prId} not found`);
+    }
+    
+    const currentPR = prSnap.data() as PRRequest;
+    const currentWorkflow = currentPR.approvalWorkflow || {
+      currentApprover: null,
+      secondApprover: null,
+      requiresDualApproval: false,
+      firstApprovalComplete: false,
+      secondApprovalComplete: false,
+      approvalHistory: [],
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // Check if there are any approvals to rescind
+    const hasApprovals = currentWorkflow.firstApprovalComplete || currentWorkflow.secondApprovalComplete;
+    
+    if (!hasApprovals) {
+      console.log(`No approvals to rescind for PR ${prId}`);
+      return;
+    }
+    
+    // Create history entry for approval rescission
+    const historyEntry: ApprovalHistoryItem = {
+      action: 'APPROVALS_RESCINDED',
+      actor: user || {
+        id: 'system',
+        email: 'system@1pwr.com',
+        name: 'System'
+      },
+      timestamp: new Date().toISOString(),
+      notes: reason
+    };
+    
+    // Clear all approval-related fields
+    const updatedWorkflow: ApprovalWorkflow = {
+      ...currentWorkflow,
+      firstApprovalComplete: false,
+      secondApprovalComplete: false,
+      firstApproverJustification: '',
+      secondApproverJustification: '',
+      firstApproverSelectedQuoteId: undefined,
+      secondApproverSelectedQuoteId: undefined,
+      quoteConflict: false,
+      approvalHistory: [...(currentWorkflow.approvalHistory || []), historyEntry],
+      lastUpdated: new Date().toISOString()
+    };
+    
+    // Update the PR with rescinded approvals
+    await updateDoc(prDocRef, {
+      approvalWorkflow: updatedWorkflow,
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log(`Successfully rescinded approvals for PR ${prId}`);
+    
+    // TODO: Send notifications to approvers, requestor, and procurement
+    // This should be implemented when the notification system is ready
+    
+  } catch (error) {
+    console.error(`Failed to rescind approvals for PR ${prId}:`, error);
+    throw new Error(`Failed to rescind approvals: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Checks if amount change exceeds rescinding thresholds
+ * @param oldAmount - The previously approved amount
+ * @param newAmount - The new amount being set
+ * @returns Object with shouldRescind flag and reason if applicable
+ */
+export function shouldRescindApprovalsForAmountChange(
+  oldAmount: number,
+  newAmount: number
+): { shouldRescind: boolean; reason?: string; percentChange?: number } {
+  if (!oldAmount || oldAmount === 0) {
+    return { shouldRescind: false };
+  }
+  
+  const difference = newAmount - oldAmount;
+  const percentChange = (difference / oldAmount) * 100;
+  
+  // Check for upward change > 5%
+  if (percentChange > 5) {
+    return {
+      shouldRescind: true,
+      reason: `Amount increased by ${percentChange.toFixed(2)}% (from ${oldAmount} to ${newAmount})`,
+      percentChange
+    };
+  }
+  
+  // Check for downward change > 20%
+  if (percentChange < -20) {
+    return {
+      shouldRescind: true,
+      reason: `Amount decreased by ${Math.abs(percentChange).toFixed(2)}% (from ${oldAmount} to ${newAmount})`,
+      percentChange
+    };
+  }
+  
+  return { shouldRescind: false };
+}
+
+/**
+ * Checks if final price variance requires approver sign-off
+ * @param approvedAmount - The amount when PR was approved
+ * @param finalPrice - The final price from proforma invoice
+ * @param upwardThreshold - Maximum upward variance allowed (percentage, default 5%)
+ * @param downwardThreshold - Maximum downward variance allowed (percentage, default 20%)
+ * @returns Object with requiresApproval flag, variance percentage, and reason
+ */
+export function checkFinalPriceVariance(
+  approvedAmount: number,
+  finalPrice: number,
+  upwardThreshold: number = 5,
+  downwardThreshold: number = 20
+): { 
+  requiresApproval: boolean; 
+  variancePercentage: number; 
+  reason?: string;
+  withinThresholds: boolean;
+} {
+  if (!approvedAmount || approvedAmount === 0) {
+    return { 
+      requiresApproval: false, 
+      variancePercentage: 0,
+      withinThresholds: true
+    };
+  }
+  
+  const difference = finalPrice - approvedAmount;
+  const variancePercentage = (difference / approvedAmount) * 100;
+  
+  // Check for upward variance exceeding threshold
+  if (variancePercentage > upwardThreshold) {
+    return {
+      requiresApproval: true,
+      variancePercentage,
+      reason: `Final price is ${variancePercentage.toFixed(2)}% higher than approved amount (${finalPrice} vs ${approvedAmount}). Exceeds upward threshold of ${upwardThreshold}%.`,
+      withinThresholds: false
+    };
+  }
+  
+  // Check for downward variance exceeding threshold
+  if (variancePercentage < -downwardThreshold) {
+    return {
+      requiresApproval: true,
+      variancePercentage,
+      reason: `Final price is ${Math.abs(variancePercentage).toFixed(2)}% lower than approved amount (${finalPrice} vs ${approvedAmount}). Exceeds downward threshold of ${downwardThreshold}%.`,
+      withinThresholds: false
+    };
+  }
+  
+  // Within acceptable range
+  return { 
+    requiresApproval: false, 
+    variancePercentage,
+    withinThresholds: true,
+    reason: `Final price variance of ${variancePercentage.toFixed(2)}% is within acceptable thresholds (${-downwardThreshold}% to +${upwardThreshold}%).`
+  };
 }
 
 /**
@@ -460,9 +708,10 @@ export async function createPR(
 export async function getUserPRs(
     userId: string, 
     organization?: string, 
-    showOnlyMyPRs: boolean = true
+    showOnlyMyPRs: boolean = true,
+    forceServerFetch: boolean = false
 ): Promise<PRRequest[]> {
-    console.log(`Fetching PRs for user ${userId}, org: ${organization}, onlyMine: ${showOnlyMyPRs}`);
+    console.log(`Fetching PRs for user ${userId}, org: ${organization}, onlyMine: ${showOnlyMyPRs}, forceServerFetch: ${forceServerFetch}`);
     if (!userId) {
         console.error('getUserPRs called without userId');
         throw new Error('User ID is required to fetch PRs.');
@@ -496,7 +745,10 @@ export async function getUserPRs(
         constraints.push(orderBy('createdAt', 'desc')); // Order by creation date
 
         const q = query(prCollectionRef, ...constraints);
-        const querySnapshot = await getDocs(q);
+        // Force fetch from server if requested (bypasses Firestore cache)
+        const querySnapshot = forceServerFetch 
+            ? await getDocs(query(prCollectionRef, ...constraints))  // TODO: Add { source: 'server' } when supported
+            : await getDocs(q);
 
         const prs: PRRequest[] = [];
         querySnapshot.forEach((docSnapshot) => {

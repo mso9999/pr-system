@@ -262,7 +262,7 @@ const ruleFields: ReferenceDataField[] = [
   { name: 'number', label: 'Number', required: true },
   { name: 'description', label: 'Description', required: true, sx: { width: '40%' } },
   { name: 'threshold', label: 'Threshold', required: true, type: 'number' },
-  { name: 'currency', label: 'Currency', required: true, type: 'currency' },
+  { name: 'uom', label: 'UOM', required: true, type: 'uom' },
   { name: 'active', label: 'Active', type: 'boolean', defaultValue: true },
   { name: 'organizationId', label: 'Organization', required: true, type: 'organization' }
 ];
@@ -337,7 +337,7 @@ function getDisplayFields(type: ReferenceDataType): ReferenceDataField[] {
         { name: 'number', label: 'Number' },
         { name: 'description', label: 'Description', sx: { width: '40%' } },
         { name: 'threshold', label: 'Threshold' },
-        { name: 'currency', label: 'Currency' },
+        { name: 'uom', label: 'UOM' },
         { name: 'active', label: 'Active', type: 'boolean' },
         // Only show organization field for rules that require it
         ...(type === 'rules' ? [{ name: 'organization', label: 'Organization', type: 'organization' }] : [])
@@ -701,7 +701,13 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   };
 
   const renderField = (field: ReferenceDataField) => {
-    const value = editItem?.[field.name] || '';
+    // For backwards compatibility: if field is 'uom' but not present, fallback to 'currency'
+    let value = editItem?.[field.name];
+    if (field.name === 'uom' && (value === null || value === undefined || value === '')) {
+      value = editItem?.['currency'] || '';
+    } else if (!value) {
+      value = '';
+    }
     const error = formErrors[field.name];
     const helperText = error || '';
 
@@ -830,6 +836,69 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       );
     }
 
+    if (field.type === 'uom') {
+      return (
+        <FormControl 
+          key={field.name} 
+          fullWidth 
+          margin="normal" 
+          error={!!error}
+        >
+          <InputLabel id={`${selectedType}-${field.name}-label`}>
+            {field.label}
+          </InputLabel>
+          <Select
+            labelId={`${selectedType}-${field.name}-label`}
+            id={`${selectedType}-${field.name}`}
+            name={field.name}
+            value={value}
+            label={field.label}
+            onChange={(e) => {
+              if (editItem) {
+                setEditItem({
+                  ...editItem,
+                  [field.name]: e.target.value
+                });
+              }
+            }}
+            required={field.required}
+            autoComplete="off"
+            disabled={isCurrenciesLoading}
+          >
+            <MenuItem value="NA">
+              <span style={{ fontWeight: 500 }}>NA</span>
+              <span style={{ color: 'text.secondary', marginLeft: '8px' }}>- Not Applicable</span>
+            </MenuItem>
+            <MenuItem value="%">
+              <span style={{ fontWeight: 500 }}>%</span>
+              <span style={{ color: 'text.secondary', marginLeft: '8px' }}>- Percentage</span>
+            </MenuItem>
+            {isCurrenciesLoading ? (
+              <MenuItem disabled>Loading currencies...</MenuItem>
+            ) : currencies.length === 0 ? (
+              null
+            ) : (
+              currencies.map((currency) => (
+                <MenuItem 
+                  key={currency.code} 
+                  value={currency.code}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1
+                  }}
+                >
+                  <span style={{ fontWeight: 500 }}>{currency.code}</span>
+                  <span style={{ color: 'text.secondary' }}>- {currency.name}</span>
+                </MenuItem>
+              ))
+            )}
+          </Select>
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
+
     return (
       <FormControl 
         key={field.name} 
@@ -864,7 +933,12 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   };
 
   const renderCellContent = (item: ReferenceDataItem, field: ReferenceDataField) => {
-    const value = (item as any)[field.name];
+    let value = (item as any)[field.name];
+    
+    // For backwards compatibility: if field is 'uom' but not present, fallback to 'currency'
+    if (field.name === 'uom' && (value === null || value === undefined)) {
+      value = (item as any)['currency'];
+    }
     
     if (field.type === 'boolean') {
       return (

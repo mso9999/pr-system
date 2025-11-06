@@ -51,9 +51,17 @@ export class OrganizationService {
       // Remove id from data if present (can't update document id)
       const { id: _, ...updateData } = data as any
       
+      // Remove undefined values (Firestore doesn't accept undefined)
+      const cleanedData = Object.entries(updateData).reduce((acc, [key, value]) => {
+        if (value !== undefined) {
+          acc[key] = value;
+        }
+        return acc;
+      }, {} as any);
+      
       // Add timestamp
       const updates = {
-        ...updateData,
+        ...cleanedData,
         updatedAt: new Date().toISOString()
       }
       

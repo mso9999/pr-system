@@ -127,6 +127,8 @@ export interface PRRequest {
   vehicle?: string;
   /** Estimated total cost */
   estimatedAmount: number;
+  /** Amount when last approved (used for approval rescinding on significant changes) */
+  lastApprovedAmount?: number;
   /** Currency for the request */
   currency: string;
   /** Date by which items are needed */
@@ -166,6 +168,33 @@ export interface PRRequest {
   popOverride?: boolean;
   /** Justification note if PoP override is set */
   popOverrideJustification?: string;
+  
+  // Final Price Fields (APPROVED Status)
+  /** Final price from proforma invoice (entered by procurement) */
+  finalPrice?: number;
+  /** Currency for final price */
+  finalPriceCurrency?: string;
+  /** User who entered the final price */
+  finalPriceEnteredBy?: UserReference;
+  /** Timestamp when final price was entered */
+  finalPriceEnteredAt?: string;
+  /** Whether final price requires approval due to variance */
+  finalPriceRequiresApproval?: boolean;
+  /** Variance percentage from approved amount */
+  finalPriceVariancePercentage?: number;
+  /** Whether final price has been approved by approver(s) */
+  finalPriceApproved?: boolean;
+  /** User who approved the final price */
+  finalPriceApprovedBy?: UserReference;
+  /** Timestamp when final price was approved */
+  finalPriceApprovedAt?: string;
+  /** Notes/justification for final price variance (from procurement) */
+  finalPriceVarianceNotes?: string;
+  /** Flag indicating final price variance override is used */
+  finalPriceVarianceOverride?: boolean;
+  /** Justification note if final price variance override is set */
+  finalPriceVarianceOverrideJustification?: string;
+  
   /** Uploaded delivery note file (ORDERED status) */
   deliveryNote?: Attachment;
   /** Array of uploaded delivery photo files (ORDERED status) */
@@ -176,8 +205,104 @@ export interface PRRequest {
   deliveryDocOverrideJustification?: string;
   /** System-generated PO document (created at APPROVED status) */
   poDocument?: Attachment;
+  /** Flag indicating PO document override is used (for high-value PRs above Rule 3) */
+  poDocumentOverride?: boolean;
+  /** Justification note if PO document override is set */
+  poDocumentOverrideJustification?: string;
   /** Expected delivery date (ETD) - required before ORDERED */
   estimatedDeliveryDate?: string;
+  
+  // PO Document Fields (APPROVED Status - for PO generation)
+  /** PO issue date (date when PO was created/issued) */
+  poIssueDate?: string;
+  
+  /** Delivery/Ship-to Address (if different from company address) */
+  deliveryAddressDifferent?: boolean;
+  deliveryAddress?: {
+    recipientName?: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+    contactPerson?: string;
+    contactPhone?: string;
+  };
+  
+  /** Billing Address (if different from company address) */
+  billingAddressDifferent?: boolean;
+  billingAddress?: {
+    recipientName?: string;
+    street?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  
+  /** Supplier/Vendor Contact Person for this PO */
+  supplierRepresentativeName?: string;
+  supplierRepresentativePhone?: string;
+  supplierRepresentativeEmail?: string;
+  supplierRepresentativeTitle?: string;
+  
+  /** Buyer/Company Contact Person for this PO */
+  buyerRepresentativeName?: string;
+  buyerRepresentativePhone?: string;
+  buyerRepresentativeEmail?: string;
+  buyerRepresentativeTitle?: string;
+  
+  /** Mode of delivery/shipment */
+  modeOfDelivery?: 'Air' | 'Sea' | 'Courier' | 'Pickup' | 'Road' | 'Rail' | 'Other';
+  modeOfDeliveryOther?: string; // If "Other" is selected
+  
+  /** Packing or labeling instructions */
+  packingInstructions?: string;
+  
+  /** Payment Information */
+  paymentMethod?: 'Bank Transfer' | 'Check' | 'Credit Card' | 'Cash' | 'Letter of Credit' | 'Other';
+  paymentMethodOther?: string; // If "Other" is selected
+  paymentTerms?: string; // e.g., "Net 30 days", "50% advance, 50% on delivery"
+  
+  /** Banking Details (for supplier payment) */
+  supplierBankName?: string;
+  supplierBankAccountName?: string;
+  supplierBankAccountNumber?: string;
+  supplierBankSwiftCode?: string;
+  supplierBankIban?: string;
+  supplierBankBranch?: string;
+  
+  /** Tax and Duty Information */
+  applicableTaxes?: string; // VAT, import duties, withholding tax, etc.
+  taxPercentage?: number;
+  dutyPercentage?: number;
+  
+  /** Reference to prior documents */
+  referenceQuotationNumber?: string;
+  referenceContractNumber?: string;
+  referenceTenderNumber?: string;
+  
+  /** Internal Codes (for company use, not visible prominence to supplier) */
+  internalProjectCode?: string; // Project code
+  internalExpenseCode?: string; // Expense type code
+  internalCostCenter?: string;
+  
+  /** Special Instructions and Remarks */
+  poRemarks?: string;
+  specialInstructions?: string;
+  
+  /** Line Item Details for PO (with SKU/Item Numbers) */
+  lineItemsWithSKU?: Array<{
+    lineNumber: number;
+    itemNumber?: string; // SKU or internal item number
+    description: string;
+    quantity: number;
+    uom: string;
+    unitPrice: number;
+    totalAmount: number;
+    currency: string;
+    notes?: string;
+  }>;
   
   // Supplier Data Fields (for non-approved vendors)
   /** Manually entered supplier name (if not using approved vendor) */

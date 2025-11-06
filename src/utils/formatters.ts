@@ -1,6 +1,12 @@
 import { Timestamp } from 'firebase/firestore';
 
-export function formatCurrency(amount: number, currency: string = 'LSL'): string {
+export function formatCurrency(amount: number, currency: string = 'LSL', withSymbol: boolean = true): string {
+  if (!withSymbol) {
+    return new Intl.NumberFormat('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(amount);
+  }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency: currency || 'LSL'

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -24,12 +24,20 @@ import { prService } from '@/services/pr';
 import { notificationService } from '@/services/notification';
 import { StorageService } from '@/services/storage';
 import { User } from '@/types/user';
+import { formatCurrency } from '@/utils/formatters';
 import {
   CloudUpload as UploadIcon,
   Download as DownloadIcon,
   Send as SendIcon,
   CheckCircle as CheckIcon,
+  Description as DocumentIcon,
 } from '@mui/icons-material';
+import { pdf } from '@react-pdf/renderer';
+import { PODocument } from './PODocument';
+import { POReviewDialog } from './POReviewDialog';
+import { organizationService } from '@/services/organizationService';
+import { referenceDataService } from '@/services/referenceData';
+import { imageUrlToBase64, imageUrlToBase64ViaImage } from '@/utils/imageUtils';
 
 interface ApprovedStatusActionsProps {
   pr: PRRequest;
@@ -54,10 +62,69 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   const [popJustification, setPopJustification] = useState(pr.popOverrideJustification || '');
   const [etd, setEtd] = useState(pr.estimatedDeliveryDate || '');
   
+  // State for final price entry
+  const [finalPrice, setFinalPrice] = useState(pr.finalPrice?.toString() || '');
+  const [finalPriceNotes, setFinalPriceNotes] = useState(pr.finalPriceVarianceNotes || '');
+  const [showFinalPriceDialog, setShowFinalPriceDialog] = useState(false);
+  
   // Dialog state
   const [notifyDialog, setNotifyDialog] = useState<'finance' | 'procurement' | null>(null);
   const [notifyMessage, setNotifyMessage] = useState('');
   const [moveToOrderedDialog, setMoveToOrderedDialog] = useState(false);
+  
+  // Final price variance override dialog
+  const [finalPriceVarianceDialog, setFinalPriceVarianceDialog] = useState(false);
+  const [finalPriceVarianceJustification, setFinalPriceVarianceJustification] = useState('');
+  const [finalPriceVarianceData, setFinalPriceVarianceData] = useState<{
+    approvedAmount: number;
+    finalPrice: number;
+    variancePercentage: number;
+    exceedsUpward: boolean;
+    exceedsDownward: boolean;
+  } | null>(null);
+  
+  // PO Document generation state
+  const [generatingPO, setGeneratingPO] = useState(false);
+  const [poDocOverride, setPoDocOverride] = useState(pr.poDocumentOverride || false);
+  const [poDocJustification, setPoDocJustification] = useState(pr.poDocumentOverrideJustification || '');
+  const [poReviewDialogOpen, setPoReviewDialogOpen] = useState(false);
+  const [organizationDetails, setOrganizationDetails] = useState<any>(null);
+  const [vendorDetails, setVendorDetails] = useState<any>(null);
+  const [logoBase64, setLogoBase64] = useState<string>('');
+  const [loadingOrgDetails, setLoadingOrgDetails] = useState(false);
+
+  // Sync local state with PR prop changes (when data refreshes)
+  useEffect(() => {
+    console.log('ApprovedStatusActions: Syncing state with PR prop', {
+      prId: pr.id,
+      estimatedDeliveryDate: pr.estimatedDeliveryDate,
+      proformaOverride: pr.proformaOverride,
+      proformaOverrideJustification: pr.proformaOverrideJustification,
+      popOverride: pr.popOverride,
+      popOverrideJustification: pr.popOverrideJustification,
+      finalPrice: pr.finalPrice
+    });
+    
+    setProformaOverride(pr.proformaOverride || false);
+    setProformaJustification(pr.proformaOverrideJustification || '');
+    setPopOverride(pr.popOverride || false);
+    setPopJustification(pr.popOverrideJustification || '');
+    setPoDocOverride(pr.poDocumentOverride || false);
+    setPoDocJustification(pr.poDocumentOverrideJustification || '');
+    
+    // Format date to YYYY-MM-DD for date input
+    if (pr.estimatedDeliveryDate) {
+      const date = new Date(pr.estimatedDeliveryDate);
+      const formatted = date.toISOString().split('T')[0];
+      console.log('ApprovedStatusActions: Setting ETD', { original: pr.estimatedDeliveryDate, formatted });
+      setEtd(formatted);
+    } else {
+      setEtd('');
+    }
+    
+    setFinalPrice(pr.finalPrice?.toString() || '');
+    setFinalPriceNotes(pr.finalPriceVarianceNotes || '');
+  }, [pr]);
 
   // Permission checks
   const isProcurement = currentUser.permissionLevel === 3;
@@ -68,10 +135,14 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   // Get rule thresholds from organization (will need to fetch from org config)
   // For now, using a placeholder - should fetch from organization settings
   const rule1Threshold = pr.organization ? 5000 : 5000; // TODO: Fetch from org config
+  const rule3Threshold = pr.organization ? 50000 : 50000; // TODO: Fetch from org config (high-value threshold for PO doc requirement)
 
   // Check if proforma and PoP are required
   const proformaRequired = (pr.estimatedAmount || 0) > rule1Threshold;
   const popRequired = (pr.estimatedAmount || 0) > rule1Threshold;
+  
+  // Check if PO document is required (high-value PRs above Rule 3)
+  const poDocRequired = (pr.estimatedAmount || 0) > rule3Threshold;
 
   if (!canTakeAction) {
     return null;
@@ -212,17 +283,211 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
       return;
     }
 
+    console.log('ApprovedStatusActions: Saving ETD', { etd, prId: pr.id });
+
     try {
       await prService.updatePR(pr.id, {
         estimatedDeliveryDate: etd,
         updatedAt: new Date().toISOString()
       });
 
-      enqueueSnackbar('Estimated delivery date saved', { variant: 'success' });
-      onStatusChange();
+      console.log('ApprovedStatusActions: ETD saved, calling onStatusChange to refresh');
+      enqueueSnackbar('Estimated delivery date saved successfully', { variant: 'success' });
+      
+      // Refresh the PR data to show updated ETD
+      await onStatusChange();
+      
+      console.log('ApprovedStatusActions: onStatusChange completed');
     } catch (error) {
       console.error('Error updating ETD:', error);
       enqueueSnackbar('Failed to update ETD', { variant: 'error' });
+    }
+  };
+
+  // Handle Final Price Update
+  const handleFinalPriceUpdate = async () => {
+    if (!finalPrice || parseFloat(finalPrice) <= 0) {
+      enqueueSnackbar('Please enter a valid final price', { variant: 'error' });
+      return;
+    }
+
+    try {
+      const finalPriceAmount = parseFloat(finalPrice);
+      
+      await prService.updatePR(pr.id, {
+        finalPrice: finalPriceAmount,
+        finalPriceCurrency: pr.currency || 'LSL',
+        finalPriceVarianceNotes: finalPriceNotes || undefined,
+        finalPriceEnteredBy: {
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name || currentUser.email
+        },
+        finalPriceEnteredAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar('Final price saved successfully', { variant: 'success' });
+      // Refresh the PR data to show updated final price
+      await onStatusChange();
+    } catch (error) {
+      console.error('Error updating final price:', error);
+      enqueueSnackbar('Failed to save final price', { variant: 'error' });
+    }
+  };
+
+  // Open PO Review Dialog (fetch org and vendor details first)
+  const handleGeneratePO = async () => {
+    try {
+      setLoadingOrgDetails(true);
+      
+      // Fetch organization details
+      let orgId = pr.organization;
+      if (!orgId) {
+        enqueueSnackbar('Organization not found', { variant: 'error' });
+        return;
+      }
+      
+      // Normalize organization ID (convert to lowercase with underscores)
+      // e.g., "1PWR LESOTHO" -> "1pwr_lesotho"
+      const normalizedOrgId = orgId.toLowerCase().replace(/[^a-z0-9]/g, '_');
+      console.log('Fetching organization details for:', { original: orgId, normalized: normalizedOrgId });
+      
+      const orgDetails = await organizationService.getOrganizationById(normalizedOrgId);
+      console.log('Organization details fetched:', orgDetails);
+      
+      if (!orgDetails) {
+        enqueueSnackbar('Failed to load organization details. Please check organization configuration.', { variant: 'error' });
+        return;
+      }
+      
+      // Fetch vendor details
+      let vendorData = null;
+      const vendorId = pr.selectedVendor || pr.preferredVendor;
+      if (vendorId) {
+        console.log('Fetching vendor details for:', vendorId);
+        vendorData = await referenceDataService.getVendorById(vendorId);
+        console.log('Vendor details fetched:', vendorData);
+      }
+      
+      // Fetch and convert logo to base64 for PDF embedding
+      try {
+        console.log('[PO Generation] Starting logo fetch process...');
+        // Use local logo file from public folder (no CORS issues)
+        const logoUrl = window.location.origin + '/logo.png';
+        
+        let base64Logo = '';
+        
+        // Try fetch method first
+        try {
+          console.log('[PO Generation] Trying fetch method for local logo...');
+          base64Logo = await imageUrlToBase64(logoUrl);
+          console.log('[PO Generation] Fetch method succeeded! Base64 length:', base64Logo?.length);
+        } catch (fetchError) {
+          console.warn('[PO Generation] Fetch method failed, trying Image element method...', fetchError);
+          
+          // Try Image element method as fallback
+          try {
+            base64Logo = await imageUrlToBase64ViaImage(logoUrl);
+            console.log('[PO Generation] Image element method succeeded! Base64 length:', base64Logo?.length);
+          } catch (imageError) {
+            console.error('[PO Generation] Image element method also failed:', imageError);
+            throw imageError;
+          }
+        }
+        
+        if (base64Logo && base64Logo.length > 100) {
+          console.log('[PO Generation] Logo successfully converted to base64');
+          setLogoBase64(base64Logo);
+        } else {
+          console.error('[PO Generation] Logo conversion resulted in invalid data');
+        }
+      } catch (logoError) {
+        console.error('[PO Generation] All logo fetch methods failed, will proceed without it:', logoError);
+        enqueueSnackbar('Could not load logo for PO, continuing without it', { variant: 'warning' });
+        // Don't block PO generation if logo fails
+      }
+      
+      setOrganizationDetails(orgDetails);
+      setVendorDetails(vendorData);
+      setPoReviewDialogOpen(true);
+    } catch (error) {
+      console.error('Error loading details:', error);
+      enqueueSnackbar('Failed to load organization/vendor details', { variant: 'error' });
+    } finally {
+      setLoadingOrgDetails(false);
+    }
+  };
+
+  // Handle actual PO generation after review
+  const handlePOGeneration = async (updatedPR: Partial<PRRequest>) => {
+    try {
+      setGeneratingPO(true);
+      enqueueSnackbar('Generating PO document...', { variant: 'info' });
+
+      // Update PR with edited data
+      await prService.updatePR(pr.id, {
+        ...updatedPR,
+        poIssueDate: updatedPR.poIssueDate || new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      // Merge updated data with existing PR for PDF generation
+      const mergedPR = { ...pr, ...updatedPR };
+
+      // Log logo status before PDF generation
+      console.log('[PO Generation] Creating PDF with logo:', {
+        hasLogo: !!logoBase64,
+        logoLength: logoBase64?.length,
+        logoPreview: logoBase64?.substring(0, 50)
+      });
+
+      // Create the PDF document with organization and vendor details
+      const doc = <PODocument pr={mergedPR} organizationDetails={organizationDetails} vendorDetails={vendorDetails} logoBase64={logoBase64} />;
+      const asPdf = pdf(doc);
+      const blob = await asPdf.toBlob();
+
+      // Create download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `PO-${mergedPR.prNumber}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      enqueueSnackbar('PO document downloaded successfully', { variant: 'success' });
+      setPoReviewDialogOpen(false);
+      await onStatusChange();
+    } catch (error) {
+      console.error('Error generating PO:', error);
+      enqueueSnackbar('Failed to generate PO document', { variant: 'error' });
+    } finally {
+      setGeneratingPO(false);
+    }
+  };
+
+  // Handle PO Document Override
+  const handlePoDocOverride = async () => {
+    if (!poDocJustification.trim()) {
+      enqueueSnackbar('Justification required for PO document override', { variant: 'error' });
+      return;
+    }
+
+    try {
+      await prService.updatePR(pr.id, {
+        poDocumentOverride: true,
+        poDocumentOverrideJustification: poDocJustification,
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar('PO document override set successfully', { variant: 'success' });
+      setPoDocOverride(true);
+      onStatusChange();
+    } catch (error) {
+      console.error('Error setting PO document override:', error);
+      enqueueSnackbar('Failed to set PO document override', { variant: 'error' });
     }
   };
 
@@ -274,7 +539,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     }
   };
 
-  // Move to ORDERED Status
+  // Move to ORDERED Status (with validation)
   const handleMoveToOrdered = async () => {
     // Validate requirements
     const errors: string[] = [];
@@ -294,25 +559,94 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
       errors.push('Proof of Payment required (upload document or set override with justification)');
     }
 
+    // PO Document required for high-value PRs (above Rule 3)
+    if (poDocRequired && !pr.poIssueDate && !pr.poDocumentOverride) {
+      errors.push('PO Document required for high-value purchase orders (generate PO or set override with justification)');
+    }
+
     if (errors.length > 0) {
-      enqueueSnackbar(`Cannot move to ORDERED: ${errors.join('; ')}`, { variant: 'error' });
+      enqueueSnackbar(`Cannot move to ORDERED: ${errors.join('; ')}`, { variant: 'error', autoHideDuration: 10000 });
       return;
     }
 
+    // Final Price Variance Check (Rule 6 & 7) - Show warning dialog if needed
+    if (pr.finalPrice && pr.lastApprovedAmount) {
+      const approvedAmount = pr.lastApprovedAmount;
+      const finalPriceAmount = pr.finalPrice;
+      const variancePercentage = ((finalPriceAmount - approvedAmount) / approvedAmount) * 100;
+      
+      // Get thresholds from organization (TODO: fetch from org settings)
+      const upwardThreshold = 5; // Rule 6: default 5%
+      const downwardThreshold = 20; // Rule 7: default 20%
+      
+      const exceedsUpward = variancePercentage > upwardThreshold;
+      const exceedsDownward = variancePercentage < -downwardThreshold;
+      
+      console.log('Final price variance check:', {
+        approvedAmount,
+        finalPrice: finalPriceAmount,
+        variancePercentage: variancePercentage.toFixed(2),
+        upwardThreshold,
+        downwardThreshold,
+        exceedsUpward,
+        exceedsDownward,
+        requiresApproval: pr.finalPriceRequiresApproval,
+        isApproved: pr.finalPriceApproved
+      });
+      
+      if (exceedsUpward || exceedsDownward) {
+        // Variance exceeds thresholds - show warning dialog
+        if (!pr.finalPriceApproved) {
+          console.log('Final price variance exceeds threshold - showing override dialog');
+          setFinalPriceVarianceData({
+            approvedAmount,
+            finalPrice: finalPriceAmount,
+            variancePercentage,
+            exceedsUpward,
+            exceedsDownward
+          });
+          setMoveToOrderedDialog(false); // Close the move dialog
+          setFinalPriceVarianceDialog(true); // Show variance warning dialog
+          return; // Don't proceed yet - wait for user decision
+        }
+      }
+    }
+
+    // All validations passed - proceed with move
+    await performMoveToOrdered();
+  };
+
+  // Actually perform the move to ORDERED (called after all validations/overrides)
+  const performMoveToOrdered = async () => {
     try {
-      // Update ETD if changed but not saved
-      const updates: any = {
-        status: PRStatus.ORDERED,
-        updatedAt: new Date().toISOString(),
+      console.log('Moving PO to ORDERED status:', { prId: pr.id, prNumber: pr.prNumber });
+      
+      // FIRST: Update status using updatePRStatus (doesn't strip status field)
+      console.log('Updating status to ORDERED');
+      await prService.updatePRStatus(
+        pr.id, 
+        PRStatus.ORDERED, 
+        'PO moved to ORDERED status', // notes parameter (3rd)
+        {  // user parameter (4th)
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name || currentUser.email
+        }
+      );
+
+      // SECOND: Update additional fields like orderedAt and ETD
+      const additionalUpdates: any = {
         orderedAt: new Date().toISOString()
       };
 
       if (etd && etd !== pr.estimatedDeliveryDate) {
-        updates.estimatedDeliveryDate = etd;
+        additionalUpdates.estimatedDeliveryDate = etd;
       }
 
-      await prService.updatePR(pr.id, updates);
+      console.log('Updating additional fields:', additionalUpdates);
+      await prService.updatePR(pr.id, additionalUpdates);
 
+      console.log('PR updated successfully, sending notification');
       // Send notification
       await notificationService.handleStatusChange(
         pr.id,
@@ -322,13 +656,54 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
         'PO has been ordered and is awaiting delivery'
       );
 
+      console.log('Notification sent, showing success message');
       enqueueSnackbar('PO moved to ORDERED status successfully', { variant: 'success' });
       setMoveToOrderedDialog(false);
-      onStatusChange();
-      navigate('/dashboard');
+      
+      console.log('Calling onStatusChange to refresh data');
+      await onStatusChange();
+      
+      console.log('Navigating to dashboard');
+      // Add a small delay to ensure state updates propagate
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 500);
     } catch (error) {
       console.error('Error moving to ORDERED:', error);
       enqueueSnackbar('Failed to move PO to ORDERED status', { variant: 'error' });
+    }
+  };
+
+  // Handle final price variance override
+  const handleFinalPriceVarianceOverride = async () => {
+    if (!finalPriceVarianceJustification.trim()) {
+      enqueueSnackbar('Justification is required to override final price variance', { variant: 'error' });
+      return;
+    }
+
+    try {
+      console.log('Applying final price variance override with justification');
+      
+      // Save the override justification
+      await prService.updatePR(pr.id, {
+        finalPriceVarianceOverride: true,
+        finalPriceVarianceOverrideJustification: finalPriceVarianceJustification,
+        finalPriceRequiresApproval: true,
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar('Final price variance override recorded', { variant: 'info' });
+      setFinalPriceVarianceDialog(false);
+      setFinalPriceVarianceJustification('');
+      
+      // Refresh to get updated PR data
+      await onStatusChange();
+      
+      // Now proceed with move to ORDERED
+      await performMoveToOrdered();
+    } catch (error) {
+      console.error('Error setting final price variance override:', error);
+      enqueueSnackbar('Failed to set variance override', { variant: 'error' });
     }
   };
 
@@ -371,14 +746,39 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                   </Button>
                 </Box>
               ) : pr.proformaOverride ? (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  <Typography variant="body2" gutterBottom>
-                    Override Set
-                  </Typography>
-                  <Typography variant="caption">
-                    Justification: {pr.proformaOverrideJustification}
-                  </Typography>
-                </Alert>
+                <Box>
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    <Typography variant="body2" gutterBottom>
+                      ✓ Override Active
+                    </Typography>
+                  </Alert>
+                  <TextField
+                    fullWidth
+                    label="Override Justification"
+                    multiline
+                    rows={2}
+                    value={proformaJustification}
+                    onChange={(e) => setProformaJustification(e.target.value)}
+                    helperText="Override is active - you can update justification if needed"
+                    disabled
+                    sx={{ mb: 2 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      await prService.updatePR(pr.id, {
+                        proformaOverride: false,
+                        proformaOverrideJustification: undefined,
+                        updatedAt: new Date().toISOString()
+                      });
+                      enqueueSnackbar('Proforma override removed', { variant: 'info' });
+                      onStatusChange();
+                    }}
+                  >
+                    Remove Override
+                  </Button>
+                </Box>
               ) : (
                 <Stack spacing={2}>
                   <input
@@ -449,14 +849,39 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                   </Button>
                 </Box>
               ) : pr.popOverride ? (
-                <Alert severity="warning" sx={{ mb: 2 }}>
-                  <Typography variant="body2" gutterBottom>
-                    Override Set
-                  </Typography>
-                  <Typography variant="caption">
-                    Justification: {pr.popOverrideJustification}
-                  </Typography>
-                </Alert>
+                <Box>
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    <Typography variant="body2" gutterBottom>
+                      ✓ Override Active
+                    </Typography>
+                  </Alert>
+                  <TextField
+                    fullWidth
+                    label="Override Justification"
+                    multiline
+                    rows={2}
+                    value={popJustification}
+                    onChange={(e) => setPopJustification(e.target.value)}
+                    helperText="Override is active - you can update justification if needed"
+                    disabled
+                    sx={{ mb: 2 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      await prService.updatePR(pr.id, {
+                        popOverride: false,
+                        popOverrideJustification: undefined,
+                        updatedAt: new Date().toISOString()
+                      });
+                      enqueueSnackbar('PoP override removed', { variant: 'info' });
+                      onStatusChange();
+                    }}
+                  >
+                    Remove Override
+                  </Button>
+                </Box>
               ) : (
                 <Stack spacing={2}>
                   <input
@@ -505,6 +930,20 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
               <Typography variant="subtitle1" gutterBottom>
                 Estimated Delivery Date (ETD) <Chip label="Required" size="small" color="error" />
               </Typography>
+              
+              {pr.estimatedDeliveryDate && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  <Typography variant="body2">
+                    ✓ ETD Set: <strong>{new Date(pr.estimatedDeliveryDate).toLocaleDateString('en-US', { 
+                      weekday: 'short', 
+                      year: 'numeric', 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}</strong>
+                  </Typography>
+                </Alert>
+              )}
+              
               <Stack direction="row" spacing={2} alignItems="center">
                 <TextField
                   type="date"
@@ -513,19 +952,187 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                   InputLabelProps={{ shrink: true }}
                   label="Expected Delivery Date"
                   sx={{ flexGrow: 1 }}
+                  helperText={pr.estimatedDeliveryDate ? "Update to a new date if needed" : "Select the expected delivery date"}
                 />
                 <Button
                   variant="contained"
                   onClick={handleEtdUpdate}
                   disabled={!etd || etd === pr.estimatedDeliveryDate}
                 >
-                  Save ETD
+                  {pr.estimatedDeliveryDate ? 'Update ETD' : 'Save ETD'}
                 </Button>
               </Stack>
-              {pr.estimatedDeliveryDate && (
-                <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
-                  Current ETD: {new Date(pr.estimatedDeliveryDate).toLocaleDateString()}
-                </Typography>
+            </Paper>
+          </Grid>
+
+          {/* Final Price from Proforma Invoice */}
+          <Grid item xs={12}>
+            <Paper variant="outlined" sx={{ p: 2 }}>
+              <Typography variant="subtitle1" gutterBottom>
+                Final Price from Proforma Invoice
+              </Typography>
+              <Stack direction="row" spacing={2} alignItems="flex-start">
+                <TextField
+                  type="number"
+                  value={finalPrice}
+                  onChange={(e) => setFinalPrice(e.target.value)}
+                  label="Final Price Amount"
+                  InputProps={{
+                    startAdornment: pr.currency || 'LSL',
+                  }}
+                  sx={{ flexGrow: 1 }}
+                  helperText="Enter the final price from the proforma invoice"
+                />
+                <TextField
+                  multiline
+                  rows={2}
+                  value={finalPriceNotes}
+                  onChange={(e) => setFinalPriceNotes(e.target.value)}
+                  label="Variance Notes (if applicable)"
+                  placeholder="Explain any significant price variance..."
+                  sx={{ flexGrow: 2 }}
+                />
+                <Button
+                  variant="contained"
+                  onClick={handleFinalPriceUpdate}
+                  disabled={!finalPrice || parseFloat(finalPrice) <= 0}
+                >
+                  Save Final Price
+                </Button>
+              </Stack>
+              {pr.finalPrice && (
+                <Alert severity="info" sx={{ mt: 2 }}>
+                  <Typography variant="body2">
+                    Current Final Price: {formatCurrency(pr.finalPrice, pr.finalPriceCurrency || pr.currency || 'LSL')}
+                  </Typography>
+                  {pr.finalPriceVarianceNotes && (
+                    <Typography variant="caption" display="block">
+                      Notes: {pr.finalPriceVarianceNotes}
+                    </Typography>
+                  )}
+                </Alert>
+              )}
+            </Paper>
+          </Grid>
+
+          {/* PO Document Generation */}
+          <Grid item xs={12}>
+            <Paper variant="outlined" sx={{ p: 2, bgcolor: poDocRequired ? 'info.50' : 'background.paper' }}>
+              <Typography variant="subtitle1" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <DocumentIcon />
+                Purchase Order Document
+                {poDocRequired && <Chip label="Required for High-Value PO" size="small" color="warning" />}
+                {!poDocRequired && <Chip label="Optional" size="small" color="default" />}
+              </Typography>
+              
+              <Typography variant="body2" color="textSecondary" paragraph>
+                {poDocRequired 
+                  ? 'This is a high-value purchase order. A formal PO document must be generated OR override with justification.'
+                  : 'Generate a professional PO document to send to your supplier (optional for this PO value).'}
+              </Typography>
+
+              {pr.poDocumentOverride ? (
+                <Box>
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    <Typography variant="body2" gutterBottom>
+                      ✓ PO Document Override Active
+                    </Typography>
+                  </Alert>
+                  <TextField
+                    fullWidth
+                    label="Override Justification"
+                    multiline
+                    rows={2}
+                    value={poDocJustification}
+                    disabled
+                    sx={{ mb: 2 }}
+                  />
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    onClick={async () => {
+                      await prService.updatePR(pr.id, {
+                        poDocumentOverride: false,
+                        poDocumentOverrideJustification: undefined,
+                        updatedAt: new Date().toISOString()
+                      });
+                      enqueueSnackbar('PO document override removed', { variant: 'info' });
+                      onStatusChange();
+                    }}
+                  >
+                    Remove Override
+                  </Button>
+                </Box>
+              ) : pr.poIssueDate ? (
+                <Box>
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    <Typography variant="body2">
+                      ✓ PO Document Generated
+                    </Typography>
+                    <Typography variant="caption">
+                      Issue Date: {new Date(pr.poIssueDate).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'short',
+                        day: 'numeric',
+                      })}
+                    </Typography>
+                  </Alert>
+                  <Stack direction="row" spacing={2}>
+                    <Button
+                      variant="contained"
+                      startIcon={<DownloadIcon />}
+                      onClick={handleGeneratePO}
+                      disabled={generatingPO || loadingOrgDetails}
+                    >
+                      {loadingOrgDetails ? 'Loading...' : generatingPO ? 'Generating...' : 'Review & Download PO'}
+                    </Button>
+                    {poDocRequired && (
+                      <>
+                        <Divider orientation="vertical" flexItem />
+                        <Typography variant="caption" color="textSecondary" sx={{ alignSelf: 'center' }}>
+                          Or set override if PO document not needed
+                        </Typography>
+                      </>
+                    )}
+                  </Stack>
+                </Box>
+              ) : (
+                <Stack spacing={2}>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    startIcon={<DocumentIcon />}
+                    onClick={handleGeneratePO}
+                    disabled={generatingPO || loadingOrgDetails}
+                    size="large"
+                  >
+                    {loadingOrgDetails ? 'Loading...' : generatingPO ? 'Generating PO...' : 'Review & Generate PO Document'}
+                  </Button>
+
+                  {poDocRequired && (
+                    <>
+                      <Divider>OR (FOR HIGH-VALUE POs ONLY)</Divider>
+
+                      <TextField
+                        fullWidth
+                        label="Override Justification"
+                        multiline
+                        rows={2}
+                        value={poDocJustification}
+                        onChange={(e) => setPoDocJustification(e.target.value)}
+                        placeholder="E.g., Supplier doesn't require formal PO document, existing framework agreement, urgent procurement"
+                        helperText="Required if setting override for high-value PO"
+                      />
+                      <Button
+                        variant="outlined"
+                        onClick={handlePoDocOverride}
+                        disabled={!poDocJustification.trim()}
+                      >
+                        Set Override (Skip PO Document)
+                      </Button>
+                    </>
+                  )}
+                </Stack>
               )}
             </Paper>
           </Grid>
@@ -673,6 +1280,20 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                 )}
               </Box>
             )}
+            {poDocRequired && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                {pr.poIssueDate || pr.poDocumentOverride ? (
+                  <>
+                    <CheckIcon color="success" fontSize="small" />
+                    <Typography variant="body2">
+                      PO Document: {pr.poIssueDate ? 'Generated' : 'Override Set'}
+                    </Typography>
+                  </>
+                ) : (
+                  <Typography variant="body2" color="error">❌ PO Document not provided (required for high-value PO)</Typography>
+                )}
+              </Box>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -682,6 +1303,103 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Final Price Variance Warning Dialog */}
+      <Dialog 
+        open={finalPriceVarianceDialog} 
+        onClose={() => {
+          setFinalPriceVarianceDialog(false);
+          setFinalPriceVarianceJustification('');
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+          ⚠️ Final Price Variance Exceeds Threshold
+        </DialogTitle>
+        <DialogContent sx={{ mt: 2 }}>
+          {finalPriceVarianceData && (
+            <>
+              <Alert severity="warning" sx={{ mb: 3 }}>
+                <Typography variant="body1" gutterBottom fontWeight="bold">
+                  Price Variance Detected
+                </Typography>
+                <Typography variant="body2" paragraph>
+                  The final price differs significantly from the approved amount:
+                </Typography>
+                <Box sx={{ pl: 2, mb: 2 }}>
+                  <Typography variant="body2">
+                    • <strong>Approved Amount:</strong> {formatCurrency(finalPriceVarianceData.approvedAmount, pr.currency || 'LSL')}
+                  </Typography>
+                  <Typography variant="body2">
+                    • <strong>Final Price:</strong> {formatCurrency(finalPriceVarianceData.finalPrice, pr.currency || 'LSL')}
+                  </Typography>
+                  <Typography variant="body2" color={finalPriceVarianceData.variancePercentage > 0 ? 'error.main' : 'warning.main'} fontWeight="bold">
+                    • <strong>Variance:</strong> {finalPriceVarianceData.variancePercentage > 0 ? '+' : ''}{finalPriceVarianceData.variancePercentage.toFixed(2)}%
+                  </Typography>
+                </Box>
+                <Typography variant="body2">
+                  {finalPriceVarianceData.exceedsUpward && 
+                    `This exceeds the upward threshold of 5% (Rule 6).`}
+                  {finalPriceVarianceData.exceedsDownward && 
+                    `This exceeds the downward threshold of -20% (Rule 7).`}
+                </Typography>
+              </Alert>
+
+              <Typography variant="body2" paragraph>
+                To proceed with moving this PO to ORDERED status despite the price variance, you must provide a justification. 
+                This will be recorded in the audit trail and may require additional review.
+              </Typography>
+
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="Justification for Price Variance Override"
+                placeholder="Explain why the final price differs significantly from the approved amount (e.g., currency fluctuation, additional requirements, supplier price changes, etc.)"
+                value={finalPriceVarianceJustification}
+                onChange={(e) => setFinalPriceVarianceJustification(e.target.value)}
+                required
+                helperText={`${finalPriceVarianceJustification.length}/500 characters`}
+                inputProps={{ maxLength: 500 }}
+                sx={{ mt: 2 }}
+              />
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 3 }}>
+          <Button 
+            onClick={() => {
+              setFinalPriceVarianceDialog(false);
+              setFinalPriceVarianceJustification('');
+              setFinalPriceVarianceData(null);
+            }}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleFinalPriceVarianceOverride}
+            variant="contained"
+            color="warning"
+            disabled={!finalPriceVarianceJustification.trim()}
+          >
+            Proceed with Override
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* PO Review & Edit Dialog */}
+      {poReviewDialogOpen && organizationDetails && (
+        <POReviewDialog
+          open={poReviewDialogOpen}
+          pr={pr}
+          organizationDetails={organizationDetails}
+          vendorDetails={vendorDetails}
+          onClose={() => setPoReviewDialogOpen(false)}
+          onGenerate={handlePOGeneration}
+        />
+      )}
     </Box>
   );
 };
