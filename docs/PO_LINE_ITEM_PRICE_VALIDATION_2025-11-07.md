@@ -147,6 +147,24 @@ If user tries to generate without providing justification:
 ## Data Storage
 The justification is stored in the PR document under `poLineItemDiscrepancyJustification` and persists with the PR for audit and reference purposes.
 
+## Display Location
+The justification is displayed in the PR View page in the "Overrides & Special Cases" section, along with other override justifications:
+
+**File**: `src/components/pr/PRView.tsx` (lines ~2443-2462)
+
+- **Card Title**: 🧾 PO Line Items Price Discrepancy
+- **Card Color**: Warning (orange)
+- **Display Condition**: Only shown if `pr.poLineItemDiscrepancyJustification` exists
+- **Content**: 
+  - Explanation text about the discrepancy
+  - The full justification text entered by the user
+  - Audit note indicating when it was saved
+
+This card appears alongside other justification cards such as:
+- Final Price Variance Override (Approved vs Final Price)
+- PO Document Override (High-Value PR)
+- Proof of Payment Override
+
 ## Testing Checklist
 - [ ] **Scenario 1: Line items with pricing that match**
   - Create PR with lineItemsWithSKU totaling LSL 1,000 (with tax/duty)

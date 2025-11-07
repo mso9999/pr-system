@@ -2439,6 +2439,27 @@ export function PRView() {
                   </Card>
                 </Grid>
               )}
+
+              {pr.poLineItemDiscrepancyJustification && (
+                <Grid item xs={12}>
+                  <Card sx={{ bgcolor: 'background.paper' }}>
+                    <CardContent>
+                      <Typography variant="subtitle2" color="warning.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
+                        🧾 PO Line Items Price Discrepancy
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" gutterBottom>
+                        The final price from the proforma invoice did not match the sum of line items (with tax/duty).
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
+                        <strong>Justification:</strong> {pr.poLineItemDiscrepancyJustification}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                        ℹ️ This justification was provided when the PO was generated and has been saved for audit purposes.
+                      </Typography>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
             </Grid>
           </Paper>
         </Box>
