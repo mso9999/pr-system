@@ -1,18 +1,18 @@
-# PO Line Item vs Final Price Validation - November 7, 2025
+# PO Approved Amount vs Final Price Validation - November 7, 2025
 
 ## Overview
-Implemented validation to cross-check the sum of line item prices against the final price entered from the proforma invoice. If there's a discrepancy, the system requires a justification before allowing PO generation.
+Implemented validation to cross-check the approved amount against the final price entered from the proforma invoice. If there's a discrepancy, the system requires a justification before allowing PO generation.
 
 ## Business Logic
 
 ### Price Calculation
-1. **Line Item Total**: Sum of all line items' `totalAmount` + tax + duty
-2. **Final Price**: The price entered from the proforma invoice (stored in `pr.finalPrice`)
-3. **Discrepancy**: Difference between Final Price and Line Item Total
+1. **Approved Amount**: The amount that was approved for the PR (from `lastApprovedAmount`, or line items with SKU if available, or `estimatedAmount`)
+2. **Final Price**: The actual price from the proforma invoice (stored in `pr.finalPrice`)
+3. **Discrepancy**: Difference between Final Price and Approved Amount
 
 ### Validation Rules
 - **Threshold**: 0.01% (to account for minor rounding differences)
-- **Trigger**: If `|discrepancy percentage| > 0.01%`, justification is required
+- **Trigger**: If both prices exist and `|discrepancy percentage| > 0.01%`, justification is required
 - **Enforcement**: PO cannot be generated without justification when discrepancy exists
 
 ## Implementation Details
@@ -21,32 +21,35 @@ Implemented validation to cross-check the sum of line item prices against the fi
 **File**: `src/components/pr/POReviewDialog.tsx`
 
 ```typescript
-// Calculate totals
+// Calculate line item totals (if lineItemsWithSKU exists)
+const lineItems = pr.lineItemsWithSKU?.length > 0 ? pr.lineItemsWithSKU : pr.lineItems || [];
 const subtotal = lineItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
 const taxAmount = pr.taxPercentage ? (subtotal * pr.taxPercentage / 100) : 0;
 const dutyAmount = pr.dutyPercentage ? (subtotal * pr.dutyPercentage / 100) : 0;
-const grandTotal = subtotal + taxAmount + dutyAmount;
+const lineItemGrandTotal = subtotal + taxAmount + dutyAmount;
+
+// Use approved amount as baseline (line items if available, otherwise lastApprovedAmount/estimatedAmount)
+const approvedAmount = lineItemGrandTotal > 0 ? lineItemGrandTotal : (pr.lastApprovedAmount || pr.estimatedAmount || 0);
 
 // Check for discrepancy
 const finalPrice = pr.finalPrice || 0;
-const lineItemTotal = grandTotal;
-const discrepancyAmount = finalPrice - lineItemTotal;
-const discrepancyPercentage = lineItemTotal > 0 ? (discrepancyAmount / lineItemTotal) * 100 : 0;
+const discrepancyAmount = finalPrice - approvedAmount;
+const discrepancyPercentage = approvedAmount > 0 ? (discrepancyAmount / approvedAmount) * 100 : 0;
 const DISCREPANCY_THRESHOLD = 0.01; // 0.01%
-const hasDiscrepancy = Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD;
+const hasDiscrepancy = finalPrice > 0 && approvedAmount > 0 && Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD;
 ```
 
 ### 2. UI Warning Component
 When a discrepancy is detected, an Alert is displayed showing:
-- Line Item Total (with tax/duty)
-- Final Price (from proforma)
+- Approved Amount (what was approved for the PR)
+- Final Price (from proforma invoice)
 - Discrepancy Amount and Percentage
 - Required justification text field
 
 The justification field:
 - Is required when there's a discrepancy
 - Shows error state if empty
-- Provides placeholder examples (shipping costs, fees, discounts, etc.)
+- Provides placeholder examples (shipping costs, handling fees, additional services, taxes, discounts, exchange rate differences, etc.)
 
 ### 3. Validation on Generate
 **File**: `src/components/pr/POReviewDialog.tsx`
@@ -88,11 +91,11 @@ poLineItemDiscrepancyJustification?: string;
 5. PO is generated successfully
 
 ### With Discrepancy
-1. User enters final price in Approved Status (differs from line items)
+1. User enters final price in Approved Status (differs from approved amount)
 2. User clicks "Generate PO"
 3. PO Review Dialog opens with pre-populated data
 4. **Warning Alert** appears showing:
-   - Line Item Total: LSL 1,500.00
+   - Approved Amount: LSL 1,500.00
    - Final Price: LSL 1,650.00
    - Discrepancy: LSL 150.00 (+10.00%)
 5. **Required Text Field** appears for justification
@@ -103,7 +106,7 @@ poLineItemDiscrepancyJustification?: string;
 
 ### Validation Error
 If user tries to generate without providing justification:
-- Alert message: "Please provide a justification for the price discrepancy between line items and final price before generating the PO."
+- Alert message: "Please provide a justification for the price discrepancy between the approved amount and final price before generating the PO."
 - Generate button remains functional but operation is blocked
 
 ## Common Reasons for Discrepancies
@@ -119,17 +122,18 @@ If user tries to generate without providing justification:
 The justification is stored in the PR document under `poLineItemDiscrepancyJustification` and persists with the PR for audit and reference purposes.
 
 ## Testing Checklist
-- [ ] Create PR with line items totaling LSL 1,000
-- [ ] Enter final price of LSL 1,000 - should generate without warning
-- [ ] Enter final price of LSL 1,100 - should show discrepancy warning
+- [ ] Create PR with estimated amount of LSL 1,000, approve it
+- [ ] Enter final price of LSL 1,000 - should generate without warning (matches approved amount)
+- [ ] Enter final price of LSL 1,100 - should show discrepancy warning (+10%)
 - [ ] Try to generate without justification - should be blocked
 - [ ] Enter justification and generate - should succeed
-- [ ] Verify justification is saved in PR document
+- [ ] Verify justification is saved in PR document under `poLineItemDiscrepancyJustification`
 - [ ] Check that discrepancy warning shows correct amounts and percentage
-- [ ] Test with negative discrepancy (final price lower than line items)
+- [ ] Test with negative discrepancy (final price lower than approved amount)
 - [ ] Test with very small discrepancy (< 0.01%) - should not trigger warning
-- [ ] Test with no line items - should handle gracefully
-- [ ] Test with no final price - should handle gracefully
+- [ ] Test with no final price entered - should handle gracefully (no validation trigger)
+- [ ] Test with PR that has lineItemsWithSKU - should use those totals instead of approved amount
+- [ ] Verify console logging shows correct values for debugging
 
 ## Future Enhancements
 1. Make threshold configurable per organization

@@ -263,22 +263,39 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
     }
   };
 
-  // Calculate totals for display
+  // Calculate totals for display (for lineItemsWithSKU if available)
   const lineItems = pr.lineItemsWithSKU && pr.lineItemsWithSKU.length > 0 
     ? pr.lineItemsWithSKU 
     : pr.lineItems || [];
   const subtotal = lineItems.reduce((sum: number, item: any) => sum + (item.totalAmount || 0), 0);
   const taxAmount = pr.taxPercentage ? (subtotal * pr.taxPercentage / 100) : 0;
   const dutyAmount = pr.dutyPercentage ? (subtotal * pr.dutyPercentage / 100) : 0;
-  const grandTotal = subtotal + taxAmount + dutyAmount;
+  const lineItemGrandTotal = subtotal + taxAmount + dutyAmount;
 
-  // Check for price discrepancy between line items and final price
+  // Check for price discrepancy between approved amount and final price
+  // Use lastApprovedAmount (the amount actually approved) as the baseline for comparison
+  // If lineItemsWithSKU exists and has totals, use that instead
+  const approvedAmount = lineItemGrandTotal > 0 ? lineItemGrandTotal : (pr.lastApprovedAmount || pr.estimatedAmount || 0);
   const finalPrice = pr.finalPrice || 0;
-  const lineItemTotal = grandTotal; // This includes tax and duty
-  const discrepancyAmount = finalPrice - lineItemTotal;
-  const discrepancyPercentage = lineItemTotal > 0 ? (discrepancyAmount / lineItemTotal) * 100 : 0;
+  const discrepancyAmount = finalPrice - approvedAmount;
+  const discrepancyPercentage = approvedAmount > 0 ? (discrepancyAmount / approvedAmount) * 100 : 0;
   const DISCREPANCY_THRESHOLD = 0.01; // 0.01% threshold to account for rounding
-  const hasDiscrepancy = Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD;
+  const hasDiscrepancy = finalPrice > 0 && approvedAmount > 0 && Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD;
+
+  // Debug logging
+  console.log('[PO Price Validation] Price Discrepancy Check:', {
+    lineItemsWithSKU: pr.lineItemsWithSKU?.length || 0,
+    lineItems: pr.lineItems?.length || 0,
+    lineItemGrandTotal,
+    lastApprovedAmount: pr.lastApprovedAmount,
+    estimatedAmount: pr.estimatedAmount,
+    approvedAmountUsed: approvedAmount,
+    finalPrice,
+    discrepancyAmount,
+    discrepancyPercentage: discrepancyPercentage.toFixed(4) + '%',
+    hasDiscrepancy,
+    validationTrigger: finalPrice > 0 && approvedAmount > 0 ? 'yes' : 'no - missing prices'
+  });
 
   return (
     <Dialog 
@@ -729,15 +746,15 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
                   ⚠️ Price Discrepancy Detected
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  There is a difference between the line item total and the final price entered:
+                  There is a difference between the approved amount and the final price from proforma:
                 </Typography>
                 <Grid container spacing={1} sx={{ pl: 2 }}>
                   <Grid item xs={6}>
-                    <Typography variant="body2">Line Item Total (with tax/duty):</Typography>
+                    <Typography variant="body2">Approved Amount:</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" align="right" fontWeight="bold">
-                      {formatCurrency(lineItemTotal, pr.currency || 'LSL')}
+                      {formatCurrency(approvedAmount, pr.currency || 'LSL')}
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
@@ -770,7 +787,7 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
                 label="Price Discrepancy Justification (Required)"
                 value={priceDiscrepancyJustification}
                 onChange={(e) => setPriceDiscrepancyJustification(e.target.value)}
-                placeholder="Explain why the final price differs from line items (e.g., shipping costs, additional fees, discounts applied, exchange rate differences, etc.)"
+                placeholder="Explain why the final price differs from the approved amount (e.g., shipping costs, handling fees, additional services, taxes, discounts applied, exchange rate differences, etc.)"
                 required
                 error={!priceDiscrepancyJustification.trim()}
                 helperText={!priceDiscrepancyJustification.trim() ? "Justification is required to proceed" : ""}
