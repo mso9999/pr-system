@@ -257,6 +257,13 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
         poLineItemDiscrepancyJustification: hasDiscrepancy ? priceDiscrepancyJustification : undefined,
       };
       
+      console.log('[PO Generation] Saving justification to PR:', {
+        hasDiscrepancy,
+        justificationLength: priceDiscrepancyJustification?.length || 0,
+        justificationPreview: priceDiscrepancyJustification?.substring(0, 50) || '(none)',
+        willBeSaved: hasDiscrepancy ? priceDiscrepancyJustification : undefined
+      });
+      
       await onGenerate(updatedPR);
     } finally {
       setGenerating(false);

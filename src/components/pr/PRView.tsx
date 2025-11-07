@@ -2460,6 +2460,15 @@ export function PRView() {
                   </Card>
                 </Grid>
               )}
+              
+              {/* Debug logging for justification display */}
+              {console.log('[PRView] PO Line Item Discrepancy Justification Check:', {
+                hasJustification: !!pr.poLineItemDiscrepancyJustification,
+                justificationLength: pr.poLineItemDiscrepancyJustification?.length || 0,
+                justificationPreview: pr.poLineItemDiscrepancyJustification?.substring(0, 100) || '(none)',
+                prId: pr.id,
+                allPRFields: Object.keys(pr).sort()
+              })}
             </Grid>
           </Paper>
         </Box>

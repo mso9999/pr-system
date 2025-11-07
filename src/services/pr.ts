@@ -363,7 +363,7 @@ export async function updatePR(prId: string, updateData: Partial<PRRequest>): Pr
     
     const cleanedData = cleanUndefined(updateData);
     
-    // Debug logging for approver fields
+    // Debug logging for approver fields and justifications
     console.log(`Firestore update payload for ${prId}:`, {
       approver: cleanedData.approver || '(not in payload)',
       approver2: cleanedData.approver2 || '(not in payload)',
@@ -371,7 +371,9 @@ export async function updatePR(prId: string, updateData: Partial<PRRequest>): Pr
         currentApprover: cleanedData.approvalWorkflow.currentApprover || '(not set)',
         secondApprover: cleanedData.approvalWorkflow.secondApprover || '(not set)'
       } : '(not in payload)',
-      allKeys: Object.keys(cleanedData)
+      poLineItemDiscrepancyJustification: cleanedData.poLineItemDiscrepancyJustification ? 
+        `${cleanedData.poLineItemDiscrepancyJustification.substring(0, 50)}...` : '(not in payload)',
+      allKeys: Object.keys(cleanedData).sort()
     });
     
     await updateDoc(prDocRef, { ...cleanedData, updatedAt: serverTimestamp() });
