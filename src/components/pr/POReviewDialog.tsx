@@ -200,7 +200,7 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
   const handleGenerate = async () => {
     // Validate price discrepancy justification if needed
     if (hasDiscrepancy && !priceDiscrepancyJustification.trim()) {
-      alert('Please provide a justification for the price discrepancy between line items and final price before generating the PO.');
+      alert('Please provide a justification for the price discrepancy between the line items total and the final price before generating the PO.');
       return;
     }
 
@@ -263,7 +263,7 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
     }
   };
 
-  // Calculate totals for display (for lineItemsWithSKU if available)
+  // Calculate totals for display (use lineItemsWithSKU if available, they have pricing)
   const lineItems = pr.lineItemsWithSKU && pr.lineItemsWithSKU.length > 0 
     ? pr.lineItemsWithSKU 
     : pr.lineItems || [];
@@ -272,29 +272,32 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
   const dutyAmount = pr.dutyPercentage ? (subtotal * pr.dutyPercentage / 100) : 0;
   const lineItemGrandTotal = subtotal + taxAmount + dutyAmount;
 
-  // Check for price discrepancy between approved amount and final price
-  // Use lastApprovedAmount (the amount actually approved) as the baseline for comparison
-  // If lineItemsWithSKU exists and has totals, use that instead
-  const approvedAmount = lineItemGrandTotal > 0 ? lineItemGrandTotal : (pr.lastApprovedAmount || pr.estimatedAmount || 0);
+  // Check for price discrepancy between LINE ITEMS TOTAL and FINAL PRICE (for PO generation)
+  // This validates that the itemized breakdown matches the proforma invoice total
   const finalPrice = pr.finalPrice || 0;
-  const discrepancyAmount = finalPrice - approvedAmount;
-  const discrepancyPercentage = approvedAmount > 0 ? (discrepancyAmount / approvedAmount) * 100 : 0;
+  const lineItemsHavePricing = lineItemGrandTotal > 0; // Only validate if line items have pricing info
+  const discrepancyAmount = finalPrice - lineItemGrandTotal;
+  const discrepancyPercentage = lineItemGrandTotal > 0 ? (discrepancyAmount / lineItemGrandTotal) * 100 : 0;
   const DISCREPANCY_THRESHOLD = 0.01; // 0.01% threshold to account for rounding
-  const hasDiscrepancy = finalPrice > 0 && approvedAmount > 0 && Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD;
+  const hasDiscrepancy = finalPrice > 0 && lineItemsHavePricing && Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD;
 
   // Debug logging
-  console.log('[PO Price Validation] Price Discrepancy Check:', {
+  console.log('[PO Price Validation] Line Items vs Final Price Check:', {
     lineItemsWithSKU: pr.lineItemsWithSKU?.length || 0,
     lineItems: pr.lineItems?.length || 0,
+    lineItemsHavePricing,
+    subtotal,
+    taxAmount,
+    dutyAmount,
     lineItemGrandTotal,
-    lastApprovedAmount: pr.lastApprovedAmount,
-    estimatedAmount: pr.estimatedAmount,
-    approvedAmountUsed: approvedAmount,
     finalPrice,
     discrepancyAmount,
     discrepancyPercentage: discrepancyPercentage.toFixed(4) + '%',
     hasDiscrepancy,
-    validationTrigger: finalPrice > 0 && approvedAmount > 0 ? 'yes' : 'no - missing prices'
+    validationReason: !lineItemsHavePricing ? 'No line item pricing available' : 
+                      !finalPrice ? 'No final price entered' :
+                      hasDiscrepancy ? 'DISCREPANCY DETECTED - justification required' : 
+                      'Prices match within threshold'
   });
 
   return (
@@ -746,15 +749,15 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
                   ⚠️ Price Discrepancy Detected
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  There is a difference between the approved amount and the final price from proforma:
+                  The sum of line items does not match the final price from the proforma invoice:
                 </Typography>
                 <Grid container spacing={1} sx={{ pl: 2 }}>
                   <Grid item xs={6}>
-                    <Typography variant="body2">Approved Amount:</Typography>
+                    <Typography variant="body2">Line Items Total (with tax/duty):</Typography>
                   </Grid>
                   <Grid item xs={6}>
                     <Typography variant="body2" align="right" fontWeight="bold">
-                      {formatCurrency(approvedAmount, pr.currency || 'LSL')}
+                      {formatCurrency(lineItemGrandTotal, pr.currency || 'LSL')}
                     </Typography>
                   </Grid>
                   <Grid item xs={6}>
@@ -787,7 +790,7 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
                 label="Price Discrepancy Justification (Required)"
                 value={priceDiscrepancyJustification}
                 onChange={(e) => setPriceDiscrepancyJustification(e.target.value)}
-                placeholder="Explain why the final price differs from the approved amount (e.g., shipping costs, handling fees, additional services, taxes, discounts applied, exchange rate differences, etc.)"
+                placeholder="Explain why the final price differs from the line items total (e.g., shipping costs, handling fees, additional services not itemized, volume discounts, rounding differences, etc.)"
                 required
                 error={!priceDiscrepancyJustification.trim()}
                 helperText={!priceDiscrepancyJustification.trim() ? "Justification is required to proceed" : ""}
