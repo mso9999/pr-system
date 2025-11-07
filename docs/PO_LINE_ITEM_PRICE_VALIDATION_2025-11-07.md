@@ -29,9 +29,11 @@ This validation is **distinct** from the existing Final Price vs Approved Amount
 
 ### Validation Rules
 - **Threshold**: 0.01% (to account for minor rounding differences)
-- **Trigger**: If line items have pricing and `|discrepancy percentage| > 0.01%`, justification is required
-- **Enforcement**: PO cannot be generated without justification when discrepancy exists
-- **Note**: Only validates if `lineItemsWithSKU` has pricing information (`totalAmount` > 0)
+- **Trigger Conditions** (justification required if):
+  1. Final price exists BUT no line items have pricing (can't validate breakdown)
+  2. Both exist AND prices don't match within threshold (`|discrepancy percentage| > 0.01%`)
+- **Enforcement**: PO cannot be generated without justification when either condition is met
+- **Note**: Validation triggers whenever a final price is entered, regardless of line item status
 
 ## Implementation Details
 
@@ -48,11 +50,18 @@ const lineItemGrandTotal = subtotal + taxAmount + dutyAmount;
 
 // Check for discrepancy between LINE ITEMS and FINAL PRICE
 const finalPrice = pr.finalPrice || 0;
-const lineItemsHavePricing = lineItemGrandTotal > 0; // Only validate if line items have pricing
+const lineItemsHavePricing = lineItemGrandTotal > 0;
 const discrepancyAmount = finalPrice - lineItemGrandTotal;
 const discrepancyPercentage = lineItemGrandTotal > 0 ? (discrepancyAmount / lineItemGrandTotal) * 100 : 0;
 const DISCREPANCY_THRESHOLD = 0.01; // 0.01%
-const hasDiscrepancy = finalPrice > 0 && lineItemsHavePricing && Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD;
+
+// Discrepancy exists if:
+// 1. Final price entered but no line item pricing (can't validate breakdown)
+// 2. Both exist but don't match within threshold
+const hasDiscrepancy = finalPrice > 0 && (
+  !lineItemsHavePricing || // Final price exists but no line items to validate against
+  Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD // Prices don't match
+);
 ```
 
 ### 2. UI Warning Component
@@ -139,19 +148,34 @@ If user tries to generate without providing justification:
 The justification is stored in the PR document under `poLineItemDiscrepancyJustification` and persists with the PR for audit and reference purposes.
 
 ## Testing Checklist
-- [ ] Create PR with lineItemsWithSKU totaling LSL 1,000 (with tax/duty)
-- [ ] Enter final price of LSL 1,000 - should generate without warning (matches line items)
-- [ ] Enter final price of LSL 1,100 - should show discrepancy warning (+10%)
-- [ ] Try to generate without justification - should be blocked
-- [ ] Enter justification and generate - should succeed
-- [ ] Verify justification is saved in PR document under `poLineItemDiscrepancyJustification`
-- [ ] Check that discrepancy warning shows correct amounts and percentage
-- [ ] Test with negative discrepancy (final price lower than line items total)
-- [ ] Test with very small discrepancy (< 0.01%) - should not trigger warning
-- [ ] Test with no final price entered - should handle gracefully (no validation trigger)
-- [ ] Test with PR that has no lineItemsWithSKU pricing - should skip validation gracefully
-- [ ] Verify console logging shows correct values and reasons for debugging
-- [ ] Confirm this validation is independent from the Final Price vs Approved Amount variance check
+- [ ] **Scenario 1: Line items with pricing that match**
+  - Create PR with lineItemsWithSKU totaling LSL 1,000 (with tax/duty)
+  - Enter final price of LSL 1,000
+  - Should generate without warning (matches line items)
+  
+- [ ] **Scenario 2: Line items with pricing that don't match**
+  - Create PR with lineItemsWithSKU totaling LSL 1,000
+  - Enter final price of LSL 1,100
+  - Should show discrepancy warning with LSL 100 difference (+10%)
+  - Try to generate without justification - should be blocked
+  - Enter justification and generate - should succeed
+  
+- [ ] **Scenario 3: Final price but NO line item pricing (CRITICAL)**
+  - Create PR with line items but no pricing (lineItemsWithSKU empty or totaling 0)
+  - Enter final price of LSL 2,000
+  - Should show discrepancy warning: "No pricing" vs LSL 2,000
+  - Should require justification explaining why PO has no itemized breakdown
+  - Should be blocked without justification
+  
+- [ ] **Scenario 4: Edge cases**
+  - Test with negative discrepancy (final price lower than line items)
+  - Test with very small discrepancy (< 0.01%) - should not trigger warning
+  - Test with no final price entered - should skip validation gracefully
+  
+- [ ] **Verification**
+  - Verify justification is saved under `poLineItemDiscrepancyJustification`
+  - Check console logging shows correct validation reason
+  - Confirm this validation is independent from Final Price vs Approved Amount variance check
 
 ## Future Enhancements
 1. Make threshold configurable per organization
