@@ -1602,13 +1602,66 @@ export function PRView() {
               </Grid>
               <Grid item xs={6}>
                 <Typography color="textSecondary">Preferred Vendor</Typography>
-                <Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography>
+                    {(() => {
+                      if (!pr?.preferredVendor) return 'Not specified';
+                      const vendor = vendors.find(v => v.id === pr.preferredVendor);
+                      return vendor ? vendor.name : pr.preferredVendor;
+                    })()}
+                  </Typography>
                   {(() => {
-                    if (!pr?.preferredVendor) return 'Not specified';
+                    if (!pr?.preferredVendor) return null;
                     const vendor = vendors.find(v => v.id === pr.preferredVendor);
-                    return vendor ? vendor.name : pr.preferredVendor;
+                    if (!vendor) return null;
+                    
+                    // Check if vendor is approved
+                    const isApproved = vendor.isApproved === true;
+                    const isExpired = vendor.approvalExpiryDate && new Date(vendor.approvalExpiryDate) < new Date();
+                    
+                    if (isApproved && !isExpired) {
+                      return (
+                        <Chip 
+                          label="Approved" 
+                          size="small" 
+                          color="success"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      );
+                    } else if (isApproved && isExpired) {
+                      return (
+                        <Chip 
+                          label="Approval Expired" 
+                          size="small" 
+                          color="warning"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      );
+                    } else {
+                      return (
+                        <Chip 
+                          label="Not Approved" 
+                          size="small" 
+                          color="error"
+                          sx={{ height: 20, fontSize: '0.7rem' }}
+                        />
+                      );
+                    }
                   })()}
-                </Typography>
+                </Box>
+                {(() => {
+                  if (!pr?.preferredVendor) return null;
+                  const vendor = vendors.find(v => v.id === pr.preferredVendor);
+                  if (!vendor || !vendor.isApproved) return null;
+                  
+                  // Show approval details
+                  return (
+                    <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 0.5 }}>
+                      {vendor.approvalDate && `Approved: ${new Date(vendor.approvalDate).toLocaleDateString()}`}
+                      {vendor.approvalExpiryDate && ` • Expires: ${new Date(vendor.approvalExpiryDate).toLocaleDateString()}`}
+                    </Typography>
+                  );
+                })()}
               </Grid>
               <Grid item xs={12}>
                 <Typography color="textSecondary">Current Approver</Typography>
