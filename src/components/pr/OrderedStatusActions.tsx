@@ -29,6 +29,7 @@ import { notificationService } from '@/services/notification';
 import { StorageService } from '@/services/storage';
 import { referenceDataService } from '@/services/referenceData';
 import { referenceDataAdminService } from '@/services/referenceDataAdmin';
+import { organizationService } from '@/services/organization';
 import { User } from '@/types/user';
 import {
   CloudUpload as UploadIcon,
@@ -274,6 +275,12 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
     }
 
     try {
+      // Fetch organization config for vendor approval durations
+      const orgConfig = await organizationService.getOrganization(pr.organization || currentUser.organization);
+      const vendor3QuoteDuration = orgConfig?.vendorApproval3QuoteDuration || 12;
+      const vendorCompletedDuration = orgConfig?.vendorApprovalCompletedDuration || 6;
+      const vendorManualDuration = orgConfig?.vendorApprovalManualDuration || 12;
+
       // Process vendor approval based on response
       let vendorApprovalUpdates = {};
       
@@ -283,9 +290,9 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
         );
 
         if (vendor && orderSatisfactory === 'yes') {
-          // Auto-approve vendor
+          // Auto-approve vendor on successful order completion
           const was3QuoteProcess = (pr.quotes?.length || 0) >= 3;
-          const approvalDuration = was3QuoteProcess ? 12 : 6; // months (should come from org config)
+          const approvalDuration = was3QuoteProcess ? vendor3QuoteDuration : vendorCompletedDuration;
           
           const approvalExpiryDate = new Date();
           approvalExpiryDate.setMonth(approvalExpiryDate.getMonth() + approvalDuration);
@@ -301,13 +308,17 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
             lastCompletedOrderDate: new Date().toISOString()
           };
 
+          console.log(`Auto-approving vendor ${vendor.name} for ${approvalDuration} months (${was3QuoteProcess ? '3-quote process' : 'completed order'})`);
+          
           // Update vendor in database
           await referenceDataAdminService.updateItem('vendors', pr.selectedVendor, vendorApprovalUpdates);
+          
+          enqueueSnackbar(`Vendor "${vendor.name}" automatically approved for ${approvalDuration} months`, { variant: 'success' });
           
         } else if (vendor && orderSatisfactory === 'no' && approveVendorDespiteIssues) {
           // Manual approval despite issues
           const approvalExpiryDate = new Date();
-          approvalExpiryDate.setMonth(approvalExpiryDate.getMonth() + 12); // Manual duration
+          approvalExpiryDate.setMonth(approvalExpiryDate.getMonth() + vendorManualDuration);
 
           vendorApprovalUpdates = {
             isApproved: true,
@@ -320,8 +331,12 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
             lastCompletedOrderDate: new Date().toISOString()
           };
 
+          console.log(`Manually approving vendor ${vendor.name} for ${vendorManualDuration} months despite issues`);
+          
           // Update vendor in database
           await referenceDataAdminService.updateItem('vendors', pr.selectedVendor, vendorApprovalUpdates);
+          
+          enqueueSnackbar(`Vendor "${vendor.name}" manually approved for ${vendorManualDuration} months`, { variant: 'info' });
         }
         // If NO without override, vendor remains non-approved (no action needed)
       }
