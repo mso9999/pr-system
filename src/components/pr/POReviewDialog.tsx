@@ -87,6 +87,11 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
 }) => {
   const [generating, setGenerating] = useState(false);
   
+  // Price discrepancy state
+  const [priceDiscrepancyJustification, setPriceDiscrepancyJustification] = useState(
+    pr.poLineItemDiscrepancyJustification || ''
+  );
+  
   // Editable PO fields
   const [poNumber, setPoNumber] = useState(pr.prNumber);
   const [poIssueDate, setPoIssueDate] = useState(
@@ -193,6 +198,12 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
   }, [pr, organizationDetails]);
 
   const handleGenerate = async () => {
+    // Validate price discrepancy justification if needed
+    if (hasDiscrepancy && !priceDiscrepancyJustification.trim()) {
+      alert('Please provide a justification for the price discrepancy between line items and final price before generating the PO.');
+      return;
+    }
+
     try {
       setGenerating(true);
       
@@ -241,6 +252,9 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
           postalCode: billingPostalCode,
           country: billingCountry,
         } : undefined,
+
+        // Store price discrepancy justification if provided
+        poLineItemDiscrepancyJustification: hasDiscrepancy ? priceDiscrepancyJustification : undefined,
       };
       
       await onGenerate(updatedPR);
@@ -257,6 +271,14 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
   const taxAmount = pr.taxPercentage ? (subtotal * pr.taxPercentage / 100) : 0;
   const dutyAmount = pr.dutyPercentage ? (subtotal * pr.dutyPercentage / 100) : 0;
   const grandTotal = subtotal + taxAmount + dutyAmount;
+
+  // Check for price discrepancy between line items and final price
+  const finalPrice = pr.finalPrice || 0;
+  const lineItemTotal = grandTotal; // This includes tax and duty
+  const discrepancyAmount = finalPrice - lineItemTotal;
+  const discrepancyPercentage = lineItemTotal > 0 ? (discrepancyAmount / lineItemTotal) * 100 : 0;
+  const DISCREPANCY_THRESHOLD = 0.01; // 0.01% threshold to account for rounding
+  const hasDiscrepancy = Math.abs(discrepancyPercentage) > DISCREPANCY_THRESHOLD;
 
   return (
     <Dialog 
@@ -698,6 +720,63 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
               </Grid>
             </Alert>
           </Box>
+
+          {/* Price Discrepancy Warning and Justification */}
+          {hasDiscrepancy && (
+            <Box>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                  ⚠️ Price Discrepancy Detected
+                </Typography>
+                <Typography variant="body2" paragraph>
+                  There is a difference between the line item total and the final price entered:
+                </Typography>
+                <Grid container spacing={1} sx={{ pl: 2 }}>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">Line Item Total (with tax/duty):</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" align="right" fontWeight="bold">
+                      {formatCurrency(lineItemTotal, pr.currency || 'LSL')}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2">Final Price (from proforma):</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" align="right" fontWeight="bold">
+                      {formatCurrency(finalPrice, pr.currency || 'LSL')}
+                    </Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" color="error">Discrepancy:</Typography>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Typography variant="body2" align="right" color="error" fontWeight="bold">
+                      {formatCurrency(Math.abs(discrepancyAmount), pr.currency || 'LSL')} 
+                      ({discrepancyAmount > 0 ? '+' : '-'}{Math.abs(discrepancyPercentage).toFixed(2)}%)
+                    </Typography>
+                  </Grid>
+                </Grid>
+                <Typography variant="body2" sx={{ mt: 2 }} fontWeight="bold">
+                  Please provide a justification for this discrepancy before generating the PO:
+                </Typography>
+              </Alert>
+              
+              <TextField
+                fullWidth
+                multiline
+                rows={3}
+                label="Price Discrepancy Justification (Required)"
+                value={priceDiscrepancyJustification}
+                onChange={(e) => setPriceDiscrepancyJustification(e.target.value)}
+                placeholder="Explain why the final price differs from line items (e.g., shipping costs, additional fees, discounts applied, exchange rate differences, etc.)"
+                required
+                error={!priceDiscrepancyJustification.trim()}
+                helperText={!priceDiscrepancyJustification.trim() ? "Justification is required to proceed" : ""}
+              />
+            </Box>
+          )}
         </Stack>
       </DialogContent>
       

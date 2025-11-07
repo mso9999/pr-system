@@ -216,6 +216,9 @@ export interface PRRequest {
   /** PO issue date (date when PO was created/issued) */
   poIssueDate?: string;
   
+  /** Justification for price discrepancy between line items and final price */
+  poLineItemDiscrepancyJustification?: string;
+  
   /** Delivery/Ship-to Address (if different from company address) */
   deliveryAddressDifferent?: boolean;
   deliveryAddress?: {

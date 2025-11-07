@@ -62,6 +62,7 @@ A comprehensive procurement requisition system built for 1PWR to manage purchase
   - Validation before moving to ORDERED
   - Inter-team notifications (Finance ↔ Procurement)
   - Automatic PO document generation
+  - **PO Line Item Price Validation**: Cross-checks line item total vs final price, requires justification for discrepancies
 - **ORDERED Status**:
   - Delivery note upload
   - Delivery photos upload (multiple)
@@ -321,6 +322,18 @@ firebase deploy --only functions
 - [ ] Verify scheduled functions running (check Firebase Console > Functions > Logs)
 
 ## Recent Changes
+
+### November 7, 2025 - PO Line Item Price Validation
+**Feature:**
+- ✅ **Price Discrepancy Validation**: System now cross-checks line item total against final price before PO generation
+  - Calculates sum of all line items (including tax/duty)
+  - Compares with final price from proforma invoice
+  - Requires mandatory justification if discrepancy > 0.01%
+  - Blocks PO generation until justification provided
+  - Stores justification for audit trail
+  - Common reasons: shipping costs, fees, discounts, exchange rate differences
+
+**Documentation:** See `docs/PO_LINE_ITEM_PRICE_VALIDATION_2025-11-07.md` for full details
 
 ### November 6, 2025 - Purchase Order Generation Enhancements
 **Major Feature Improvements:**
