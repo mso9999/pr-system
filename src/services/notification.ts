@@ -167,12 +167,23 @@ export class NotificationService {
       });
 
       // Generate email content first
+      const isActualStatusChange = oldStatus !== newStatus;
       const emailContent = {
-        subject: `${pr.isUrgent ? 'URGENT: ' : ''}PR ${prNumber} Status Changed: ${oldStatus || 'NEW'} → ${newStatus}`,
-        text: `PR ${prNumber} status has changed from ${oldStatus || 'NEW'} to ${newStatus}\n${notes ? `Notes: ${notes}\n` : ''}`,
-        html: `
+        subject: isActualStatusChange 
+          ? `${pr.isUrgent ? 'URGENT: ' : ''}PR ${prNumber} Status Changed: ${oldStatus || 'NEW'} → ${newStatus}`
+          : `${pr.isUrgent ? 'URGENT: ' : ''}PR ${prNumber} - ${notes || 'Update'}`,
+        text: isActualStatusChange
+          ? `PR ${prNumber} status has changed from ${oldStatus || 'NEW'} to ${newStatus}\n${notes ? `Notes: ${notes}\n` : ''}`
+          : `PR ${prNumber} (${newStatus})\n${notes || 'This PR requires your attention'}\n`,
+        html: isActualStatusChange
+          ? `
           <p>PR ${prNumber} status has changed from ${oldStatus || 'NEW'} to ${newStatus}</p>
           ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ''}
+          <p><a href="${prUrl}">View PR</a></p>
+        `
+          : `
+          <p><strong>PR ${prNumber}</strong> (Status: ${newStatus})</p>
+          ${notes ? `<p>${notes}</p>` : '<p>This PR requires your attention</p>'}
           <p><a href="${prUrl}">View PR</a></p>
         `,
         headers: {}
@@ -787,11 +798,19 @@ export class NotificationService {
       </div>
         `;
       } else {
-        // Status change notification
-        subject = `${pr.isUrgent ? 'URGENT: ' : ''}PR ${prNumber} Status Changed: ${oldStatus || 'NEW'} → ${newStatus}`;
+        // Status change notification (or same-status update)
+        const isActualStatusChange = oldStatus !== newStatus;
         
-        plainText = `PR ${prNumber} status has changed from ${oldStatus || 'NEW'} to ${newStatus}\n`;
-        if (notes) plainText += `Notes: ${notes}\n`;
+        if (isActualStatusChange) {
+          subject = `${pr.isUrgent ? 'URGENT: ' : ''}PR ${prNumber} Status Changed: ${oldStatus || 'NEW'} → ${newStatus}`;
+          plainText = `PR ${prNumber} status has changed from ${oldStatus || 'NEW'} to ${newStatus}\n`;
+        } else {
+          // Same status notification
+          subject = `${pr.isUrgent ? 'URGENT: ' : ''}PR ${prNumber} - ${notes || 'Update'}`;
+          plainText = `PR ${prNumber} (${newStatus})\n`;
+        }
+        
+        if (notes) plainText += `${notes}\n`;
         plainText += `\nView PR: ${window.location.origin}/pr/${pr.id}`;
         
         htmlContent = `
@@ -826,13 +845,16 @@ export class NotificationService {
     line-height: 1.5;
     font-size: 16px;
   ">
-            Status changed from <strong>${oldStatus || 'NEW'}</strong> to <strong>${newStatus}</strong>
+            ${isActualStatusChange 
+              ? `Status changed from <strong>${oldStatus || 'NEW'}</strong> to <strong>${newStatus}</strong>`
+              : `Current Status: <strong>${newStatus}</strong>`
+            }
           </p>
           ${notes ? `<p style="
     margin: 10px 0;
     line-height: 1.5;
   ">
-            <strong>Notes:</strong> ${notes}
+            ${isActualStatusChange ? '<strong>Notes:</strong> ' : ''}${notes}
           </p>` : ''}
           <p style="
     margin: 10px 0;

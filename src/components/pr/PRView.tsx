@@ -76,6 +76,7 @@ import * as auth from '@/services/auth';
 import { ApproverActions } from './ApproverActions';
 import { ApprovedStatusActions } from './ApprovedStatusActions';
 import { OrderedStatusActions } from './OrderedStatusActions';
+import { CompletedStatusView } from './CompletedStatusView';
 import { ResurrectionActions } from './ResurrectionActions';
 import { UrgencyControl } from './UrgencyControl';
 
@@ -2211,6 +2212,13 @@ export function PRView() {
             currentUser={currentUser}
             onStatusChange={refreshPR}
           />
+        </Box>
+      )}
+
+      {/* COMPLETED Status View (Read-only document archive) */}
+      {pr?.status === PRStatus.COMPLETED && (
+        <Box sx={{ mb: 3 }}>
+          <CompletedStatusView pr={pr} />
         </Box>
       )}
 

@@ -39,6 +39,8 @@ interface FileUploadManagerProps {
   uploading?: boolean;
   /** Whether the component is disabled */
   disabled?: boolean;
+  /** Whether the component is read-only (view/download only, no upload/delete) */
+  readOnly?: boolean;
   /** Accept attribute for file input */
   accept?: string;
   /** Maximum number of files allowed */
@@ -56,6 +58,7 @@ export const FileUploadManager: React.FC<FileUploadManagerProps> = ({
   onDelete,
   uploading = false,
   disabled = false,
+  readOnly = false,
   accept,
   maxFiles,
   helperText,
@@ -100,13 +103,15 @@ export const FileUploadManager: React.FC<FileUploadManagerProps> = ({
 
   return (
     <Box>
-      <Typography variant="subtitle2" gutterBottom>
-        {label}
-      </Typography>
+      {label && (
+        <Typography variant="subtitle2" gutterBottom>
+          {label}
+        </Typography>
+      )}
 
       {/* File List */}
       {files.length > 0 && (
-        <Paper variant="outlined" sx={{ mb: 2, maxHeight: 300, overflow: 'auto' }}>
+        <Paper variant="outlined" sx={{ mb: readOnly ? 0 : 2, maxHeight: 300, overflow: 'auto' }}>
           <List dense>
             {files.map((file) => (
               <ListItem key={file.id}>
@@ -129,25 +134,27 @@ export const FileUploadManager: React.FC<FileUploadManagerProps> = ({
                       edge="end"
                       size="small"
                       onClick={() => handleDownload(file)}
-                      sx={{ mr: 1 }}
+                      sx={{ mr: readOnly ? 0 : 1 }}
                     >
                       <DownloadIcon fontSize="small" />
                     </IconButton>
                   </Tooltip>
-                  <Tooltip title="Delete">
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={() => handleDelete(file.id)}
-                      disabled={disabled || deleting === file.id}
-                    >
-                      {deleting === file.id ? (
-                        <CircularProgress size={20} />
-                      ) : (
-                        <DeleteIcon fontSize="small" />
-                      )}
-                    </IconButton>
-                  </Tooltip>
+                  {!readOnly && (
+                    <Tooltip title="Delete">
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => handleDelete(file.id)}
+                        disabled={disabled || deleting === file.id}
+                      >
+                        {deleting === file.id ? (
+                          <CircularProgress size={20} />
+                        ) : (
+                          <DeleteIcon fontSize="small" />
+                        )}
+                      </IconButton>
+                    </Tooltip>
+                  )}
                 </ListItemSecondaryAction>
               </ListItem>
             ))}
@@ -155,8 +162,15 @@ export const FileUploadManager: React.FC<FileUploadManagerProps> = ({
         </Paper>
       )}
 
-      {/* Upload Button */}
-      {canUploadMore && (
+      {/* No files message in read-only mode */}
+      {readOnly && files.length === 0 && (
+        <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+          No files uploaded
+        </Typography>
+      )}
+
+      {/* Upload Button (hidden in read-only mode) */}
+      {!readOnly && canUploadMore && (
         <Box>
           <input
             accept={accept}
@@ -191,7 +205,7 @@ export const FileUploadManager: React.FC<FileUploadManagerProps> = ({
         </Box>
       )}
 
-      {!canUploadMore && (
+      {!readOnly && !canUploadMore && (
         <Typography variant="body2" color="text.secondary">
           Maximum number of files reached
         </Typography>
