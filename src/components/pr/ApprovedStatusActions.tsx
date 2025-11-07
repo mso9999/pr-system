@@ -38,6 +38,7 @@ import { POReviewDialog } from './POReviewDialog';
 import { organizationService } from '@/services/organizationService';
 import { referenceDataService } from '@/services/referenceData';
 import { imageUrlToBase64, imageUrlToBase64ViaImage } from '@/utils/imageUtils';
+import { FileUploadManager } from '@/components/common/FileUploadManager';
 
 interface ApprovedStatusActionsProps {
   pr: PRRequest;
@@ -148,85 +149,147 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     return null;
   }
 
-  // Handle Proforma Invoice Upload
-  const handleProformaUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  // Helper: Normalize attachments to array (for backward compatibility)
+  const normalizeAttachments = (attachments?: Attachment | Attachment[]): Attachment[] => {
+    if (!attachments) return [];
+    return Array.isArray(attachments) ? attachments : [attachments];
+  };
+
+  // Handle Proforma Invoice Upload (multiple files)
+  const handleProformaUpload = async (files: File[]) => {
+    if (files.length === 0) return;
 
     try {
       setUploadingProforma(true);
-      const result = await StorageService.uploadToTempStorage(file);
       
-      const attachment: Attachment = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        url: result.url,
-        path: result.path,
-        type: file.type,
-        size: file.size,
-        uploadedAt: new Date().toISOString(),
-        uploadedBy: {
-          id: currentUser.id,
-          email: currentUser.email,
-          name: currentUser.name || currentUser.email
-        }
-      };
+      // Upload all files
+      const uploadPromises = files.map(async (file) => {
+        const result = await StorageService.uploadToTempStorage(file);
+        return {
+          id: crypto.randomUUID(),
+          name: file.name,
+          url: result.url,
+          path: result.path,
+          type: file.type,
+          size: file.size,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: {
+            id: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name || currentUser.email
+          }
+        } as Attachment;
+      });
+
+      const newAttachments = await Promise.all(uploadPromises);
+      
+      // Get existing attachments and merge
+      const existingAttachments = normalizeAttachments(pr.proformaInvoice);
+      const allAttachments = [...existingAttachments, ...newAttachments];
 
       await prService.updatePR(pr.id, {
-        proformaInvoice: attachment,
+        proformaInvoice: allAttachments,
         proformaOverride: false, // Clear override if uploading actual document
         proformaOverrideJustification: undefined,
         updatedAt: new Date().toISOString()
       });
 
-      enqueueSnackbar('Proforma invoice uploaded successfully', { variant: 'success' });
+      enqueueSnackbar(`${files.length} proforma invoice(s) uploaded successfully`, { variant: 'success' });
       onStatusChange();
     } catch (error) {
       console.error('Error uploading proforma:', error);
-      enqueueSnackbar('Failed to upload proforma invoice', { variant: 'error' });
+      enqueueSnackbar('Failed to upload proforma invoice(s)', { variant: 'error' });
     } finally {
       setUploadingProforma(false);
     }
   };
 
-  // Handle Proof of Payment Upload
-  const handlePoPUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  // Handle Proforma Invoice Delete
+  const handleProformaDelete = async (attachmentId: string) => {
+    try {
+      const existingAttachments = normalizeAttachments(pr.proformaInvoice);
+      const updatedAttachments = existingAttachments.filter(att => att.id !== attachmentId);
+
+      await prService.updatePR(pr.id, {
+        proformaInvoice: updatedAttachments.length > 0 ? updatedAttachments : [],
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar('Proforma invoice deleted successfully', { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error deleting proforma:', error);
+      enqueueSnackbar('Failed to delete proforma invoice', { variant: 'error' });
+      throw error; // Re-throw for FileUploadManager to handle
+    }
+  };
+
+  // Handle Proof of Payment Upload (multiple files)
+  const handlePoPUpload = async (files: File[]) => {
+    if (files.length === 0) return;
 
     try {
       setUploadingPoP(true);
-      const result = await StorageService.uploadToTempStorage(file);
       
-      const attachment: Attachment = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        url: result.url,
-        path: result.path,
-        type: file.type,
-        size: file.size,
-        uploadedAt: new Date().toISOString(),
-        uploadedBy: {
-          id: currentUser.id,
-          email: currentUser.email,
-          name: currentUser.name || currentUser.email
-        }
-      };
+      // Upload all files
+      const uploadPromises = files.map(async (file) => {
+        const result = await StorageService.uploadToTempStorage(file);
+        return {
+          id: crypto.randomUUID(),
+          name: file.name,
+          url: result.url,
+          path: result.path,
+          type: file.type,
+          size: file.size,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: {
+            id: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name || currentUser.email
+          }
+        } as Attachment;
+      });
+
+      const newAttachments = await Promise.all(uploadPromises);
+      
+      // Get existing attachments and merge
+      const existingAttachments = normalizeAttachments(pr.proofOfPayment);
+      const allAttachments = [...existingAttachments, ...newAttachments];
 
       await prService.updatePR(pr.id, {
-        proofOfPayment: attachment,
+        proofOfPayment: allAttachments,
         popOverride: false, // Clear override if uploading actual document
         popOverrideJustification: undefined,
         updatedAt: new Date().toISOString()
       });
 
-      enqueueSnackbar('Proof of payment uploaded successfully', { variant: 'success' });
+      enqueueSnackbar(`${files.length} proof of payment(s) uploaded successfully`, { variant: 'success' });
       onStatusChange();
     } catch (error) {
       console.error('Error uploading PoP:', error);
-      enqueueSnackbar('Failed to upload proof of payment', { variant: 'error' });
+      enqueueSnackbar('Failed to upload proof of payment(s)', { variant: 'error' });
     } finally {
       setUploadingPoP(false);
+    }
+  };
+
+  // Handle Proof of Payment Delete
+  const handlePoPDelete = async (attachmentId: string) => {
+    try {
+      const existingAttachments = normalizeAttachments(pr.proofOfPayment);
+      const updatedAttachments = existingAttachments.filter(att => att.id !== attachmentId);
+
+      await prService.updatePR(pr.id, {
+        proofOfPayment: updatedAttachments.length > 0 ? updatedAttachments : [],
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar('Proof of payment deleted successfully', { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error deleting PoP:', error);
+      enqueueSnackbar('Failed to delete proof of payment', { variant: 'error' });
+      throw error; // Re-throw for FileUploadManager to handle
     }
   };
 
@@ -494,7 +557,8 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   // Notify Finance Team
   const handleNotifyFinance = async () => {
     // Validate proforma is uploaded or override is set
-    if (proformaRequired && !pr.proformaInvoice && !pr.proformaOverride) {
+    const hasProforma = normalizeAttachments(pr.proformaInvoice).length > 0;
+    if (proformaRequired && !hasProforma && !pr.proformaOverride) {
       enqueueSnackbar('Cannot notify Finance: Proforma invoice required (upload or set override)', { variant: 'error' });
       return;
     }
@@ -550,12 +614,14 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     }
 
     // Proforma required if above Rule 1
-    if (proformaRequired && !pr.proformaInvoice && !pr.proformaOverride) {
+    const hasProforma = normalizeAttachments(pr.proformaInvoice).length > 0;
+    if (proformaRequired && !hasProforma && !pr.proformaOverride) {
       errors.push('Proforma invoice required (upload document or set override with justification)');
     }
 
     // PoP required if above Rule 1
-    if (popRequired && !pr.proofOfPayment && !pr.popOverride) {
+    const hasPoP = normalizeAttachments(pr.proofOfPayment).length > 0;
+    if (popRequired && !hasPoP && !pr.popOverride) {
       errors.push('Proof of Payment required (upload document or set override with justification)');
     }
 
@@ -725,27 +791,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                 Proforma Invoice {proformaRequired && <Chip label="Required" size="small" color="error" />}
               </Typography>
               
-              {pr.proformaInvoice ? (
-                <Box>
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    <Typography variant="body2">
-                      ✓ Uploaded: {pr.proformaInvoice.name}
-                    </Typography>
-                    <Typography variant="caption">
-                      By: {pr.proformaInvoice.uploadedBy.name || pr.proformaInvoice.uploadedBy.email}
-                    </Typography>
-                  </Alert>
-                  <Button
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    href={pr.proformaInvoice.url}
-                    target="_blank"
-                    fullWidth
-                  >
-                    View Document
-                  </Button>
-                </Box>
-              ) : pr.proformaOverride ? (
+              {pr.proformaOverride ? (
                 <Box>
                   <Alert severity="warning" sx={{ mb: 2 }}>
                     <Typography variant="body2" gutterBottom>
@@ -781,21 +827,16 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                 </Box>
               ) : (
                 <Stack spacing={2}>
-                  <input
-                    type="file"
-                    id="proforma-upload"
-                    style={{ display: 'none' }}
+                  <FileUploadManager
+                    label="Proforma Invoice"
+                    files={normalizeAttachments(pr.proformaInvoice)}
+                    onUpload={handleProformaUpload}
+                    onDelete={handleProformaDelete}
+                    uploading={uploadingProforma}
                     accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleProformaUpload}
+                    helperText="PDF, JPG, or PNG files (multiple files allowed)"
+                    multiple
                   />
-                  <Button
-                    variant="contained"
-                    startIcon={<UploadIcon />}
-                    onClick={() => document.getElementById('proforma-upload')?.click()}
-                    disabled={uploadingProforma}
-                  >
-                    {uploadingProforma ? 'Uploading...' : 'Upload Proforma'}
-                  </Button>
 
                   <Divider>OR</Divider>
 
@@ -828,27 +869,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                 Proof of Payment {popRequired && <Chip label="Required" size="small" color="error" />}
               </Typography>
               
-              {pr.proofOfPayment ? (
-                <Box>
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    <Typography variant="body2">
-                      ✓ Uploaded: {pr.proofOfPayment.name}
-                    </Typography>
-                    <Typography variant="caption">
-                      By: {pr.proofOfPayment.uploadedBy.name || pr.proofOfPayment.uploadedBy.email}
-                    </Typography>
-                  </Alert>
-                  <Button
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    href={pr.proofOfPayment.url}
-                    target="_blank"
-                    fullWidth
-                  >
-                    View Document
-                  </Button>
-                </Box>
-              ) : pr.popOverride ? (
+              {pr.popOverride ? (
                 <Box>
                   <Alert severity="warning" sx={{ mb: 2 }}>
                     <Typography variant="body2" gutterBottom>
@@ -884,21 +905,16 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                 </Box>
               ) : (
                 <Stack spacing={2}>
-                  <input
-                    type="file"
-                    id="pop-upload"
-                    style={{ display: 'none' }}
+                  <FileUploadManager
+                    label="Proof of Payment"
+                    files={normalizeAttachments(pr.proofOfPayment)}
+                    onUpload={handlePoPUpload}
+                    onDelete={handlePoPDelete}
+                    uploading={uploadingPoP}
                     accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handlePoPUpload}
+                    helperText="PDF, JPG, or PNG files (multiple files allowed)"
+                    multiple
                   />
-                  <Button
-                    variant="contained"
-                    startIcon={<UploadIcon />}
-                    onClick={() => document.getElementById('pop-upload')?.click()}
-                    disabled={uploadingPoP}
-                  >
-                    {uploadingPoP ? 'Uploading...' : 'Upload Proof of Payment'}
-                  </Button>
 
                   <Divider>OR</Divider>
 
@@ -1254,11 +1270,13 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
             </Box>
             {proformaRequired && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {pr.proformaInvoice || pr.proformaOverride ? (
+                {(normalizeAttachments(pr.proformaInvoice).length > 0 || pr.proformaOverride) ? (
                   <>
                     <CheckIcon color="success" fontSize="small" />
                     <Typography variant="body2">
-                      Proforma: {pr.proformaInvoice ? 'Uploaded' : 'Override Set'}
+                      Proforma: {normalizeAttachments(pr.proformaInvoice).length > 0 
+                        ? `${normalizeAttachments(pr.proformaInvoice).length} file(s)` 
+                        : 'Override Set'}
                     </Typography>
                   </>
                 ) : (
@@ -1268,11 +1286,13 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
             )}
             {popRequired && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                {pr.proofOfPayment || pr.popOverride ? (
+                {(normalizeAttachments(pr.proofOfPayment).length > 0 || pr.popOverride) ? (
                   <>
                     <CheckIcon color="success" fontSize="small" />
                     <Typography variant="body2">
-                      PoP: {pr.proofOfPayment ? 'Uploaded' : 'Override Set'}
+                      PoP: {normalizeAttachments(pr.proofOfPayment).length > 0 
+                        ? `${normalizeAttachments(pr.proofOfPayment).length} file(s)` 
+                        : 'Override Set'}
                     </Typography>
                   </>
                 ) : (

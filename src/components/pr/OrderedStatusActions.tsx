@@ -36,6 +36,7 @@ import {
   CheckCircle as CheckIcon,
   PhotoCamera as PhotoIcon,
 } from '@mui/icons-material';
+import { FileUploadManager } from '@/components/common/FileUploadManager';
 
 interface OrderedStatusActionsProps {
   pr: PRRequest;
@@ -80,61 +81,23 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
     return null;
   }
 
-  // Handle Delivery Note Upload
-  const handleDeliveryNoteUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  // Helper: Normalize attachments to array (for backward compatibility)
+  const normalizeAttachments = (attachments?: Attachment | Attachment[]): Attachment[] => {
+    if (!attachments) return [];
+    return Array.isArray(attachments) ? attachments : [attachments];
+  };
+
+  // Handle Delivery Note Upload (multiple files)
+  const handleDeliveryNoteUpload = async (files: File[]) => {
+    if (files.length === 0) return;
 
     try {
       setUploadingDeliveryNote(true);
-      const result = await StorageService.uploadToTempStorage(file);
       
-      const attachment: Attachment = {
-        id: crypto.randomUUID(),
-        name: file.name,
-        url: result.url,
-        path: result.path,
-        type: file.type,
-        size: file.size,
-        uploadedAt: new Date().toISOString(),
-        uploadedBy: {
-          id: currentUser.id,
-          email: currentUser.email,
-          name: currentUser.name || currentUser.email
-        }
-      };
-
-      await prService.updatePR(pr.id, {
-        deliveryNote: attachment,
-        deliveryDocOverride: false, // Clear override if uploading actual document
-        deliveryDocOverrideJustification: undefined,
-        updatedAt: new Date().toISOString()
-      });
-
-      enqueueSnackbar('Delivery note uploaded successfully', { variant: 'success' });
-      onStatusChange();
-    } catch (error) {
-      console.error('Error uploading delivery note:', error);
-      enqueueSnackbar('Failed to upload delivery note', { variant: 'error' });
-    } finally {
-      setUploadingDeliveryNote(false);
-    }
-  };
-
-  // Handle Delivery Photos Upload (multiple)
-  const handleDeliveryPhotosUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
-    if (!files || files.length === 0) return;
-
-    try {
-      setUploadingPhotos(true);
-      const uploadedPhotos: Attachment[] = [];
-
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
+      // Upload all files
+      const uploadPromises = files.map(async (file) => {
         const result = await StorageService.uploadToTempStorage(file);
-        
-        uploadedPhotos.push({
+        return {
           id: crypto.randomUUID(),
           name: file.name,
           url: result.url,
@@ -147,23 +110,113 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
             email: currentUser.email,
             name: currentUser.name || currentUser.email
           }
-        });
-      }
+        } as Attachment;
+      });
+
+      const newAttachments = await Promise.all(uploadPromises);
+      
+      // Get existing attachments and merge
+      const existingAttachments = normalizeAttachments(pr.deliveryNote);
+      const allAttachments = [...existingAttachments, ...newAttachments];
 
       await prService.updatePR(pr.id, {
-        deliveryPhotos: [...(pr.deliveryPhotos || []), ...uploadedPhotos],
+        deliveryNote: allAttachments,
+        deliveryDocOverride: false, // Clear override if uploading actual document
+        deliveryDocOverrideJustification: undefined,
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar(`${files.length} delivery note(s) uploaded successfully`, { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error uploading delivery note:', error);
+      enqueueSnackbar('Failed to upload delivery note(s)', { variant: 'error' });
+    } finally {
+      setUploadingDeliveryNote(false);
+    }
+  };
+
+  // Handle Delivery Note Delete
+  const handleDeliveryNoteDelete = async (attachmentId: string) => {
+    try {
+      const existingAttachments = normalizeAttachments(pr.deliveryNote);
+      const updatedAttachments = existingAttachments.filter(att => att.id !== attachmentId);
+
+      await prService.updatePR(pr.id, {
+        deliveryNote: updatedAttachments.length > 0 ? updatedAttachments : [],
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar('Delivery note deleted successfully', { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error deleting delivery note:', error);
+      enqueueSnackbar('Failed to delete delivery note', { variant: 'error' });
+      throw error;
+    }
+  };
+
+  // Handle Delivery Photos Upload (multiple)
+  const handleDeliveryPhotosUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+
+    try {
+      setUploadingPhotos(true);
+      
+      // Upload all files in parallel
+      const uploadPromises = files.map(async (file) => {
+        const result = await StorageService.uploadToTempStorage(file);
+        return {
+          id: crypto.randomUUID(),
+          name: file.name,
+          url: result.url,
+          path: result.path,
+          type: file.type,
+          size: file.size,
+          uploadedAt: new Date().toISOString(),
+          uploadedBy: {
+            id: currentUser.id,
+            email: currentUser.email,
+            name: currentUser.name || currentUser.email
+          }
+        } as Attachment;
+      });
+
+      const newPhotos = await Promise.all(uploadPromises);
+
+      await prService.updatePR(pr.id, {
+        deliveryPhotos: [...(pr.deliveryPhotos || []), ...newPhotos],
         deliveryDocOverride: false, // Clear override if uploading actual documents
         deliveryDocOverrideJustification: undefined,
         updatedAt: new Date().toISOString()
       });
 
-      enqueueSnackbar(`${uploadedPhotos.length} photo(s) uploaded successfully`, { variant: 'success' });
+      enqueueSnackbar(`${files.length} photo(s) uploaded successfully`, { variant: 'success' });
       onStatusChange();
     } catch (error) {
       console.error('Error uploading photos:', error);
       enqueueSnackbar('Failed to upload delivery photos', { variant: 'error' });
     } finally {
       setUploadingPhotos(false);
+    }
+  };
+
+  // Handle Delivery Photo Delete
+  const handleDeliveryPhotoDelete = async (attachmentId: string) => {
+    try {
+      const updatedPhotos = (pr.deliveryPhotos || []).filter(photo => photo.id !== attachmentId);
+
+      await prService.updatePR(pr.id, {
+        deliveryPhotos: updatedPhotos.length > 0 ? updatedPhotos : [],
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar('Delivery photo deleted successfully', { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error deleting delivery photo:', error);
+      enqueueSnackbar('Failed to delete delivery photo', { variant: 'error' });
+      throw error;
     }
   };
 
@@ -193,7 +246,9 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
   // Move to COMPLETED with Vendor Performance Question
   const handleMoveToCompleted = async () => {
     // Validate delivery documentation
-    const hasDeliveryDocs = pr.deliveryNote || (pr.deliveryPhotos && pr.deliveryPhotos.length > 0) || pr.deliveryDocOverride;
+    const hasDeliveryNote = normalizeAttachments(pr.deliveryNote).length > 0;
+    const hasDeliveryPhotos = (pr.deliveryPhotos && pr.deliveryPhotos.length > 0);
+    const hasDeliveryDocs = hasDeliveryNote || hasDeliveryPhotos || pr.deliveryDocOverride;
     
     if (!hasDeliveryDocs) {
       enqueueSnackbar('Delivery documentation required (upload note/photos or set override)', { variant: 'error' });
@@ -316,45 +371,16 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
                 Delivery Note
               </Typography>
               
-              {pr.deliveryNote ? (
-                <Box>
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    <Typography variant="body2">
-                      ✓ Uploaded: {pr.deliveryNote.name}
-                    </Typography>
-                    <Typography variant="caption">
-                      By: {pr.deliveryNote.uploadedBy.name || pr.deliveryNote.uploadedBy.email}
-                    </Typography>
-                  </Alert>
-                  <Button
-                    variant="outlined"
-                    startIcon={<DownloadIcon />}
-                    href={pr.deliveryNote.url}
-                    target="_blank"
-                    fullWidth
-                  >
-                    View Document
-                  </Button>
-                </Box>
-              ) : (
-                <Stack spacing={2}>
-                  <input
-                    type="file"
-                    id="delivery-note-upload"
-                    style={{ display: 'none' }}
-                    accept=".pdf,.jpg,.jpeg,.png"
-                    onChange={handleDeliveryNoteUpload}
-                  />
-                  <Button
-                    variant="contained"
-                    startIcon={<UploadIcon />}
-                    onClick={() => document.getElementById('delivery-note-upload')?.click()}
-                    disabled={uploadingDeliveryNote}
-                  >
-                    {uploadingDeliveryNote ? 'Uploading...' : 'Upload Delivery Note'}
-                  </Button>
-                </Stack>
-              )}
+              <FileUploadManager
+                label="Delivery Note"
+                files={normalizeAttachments(pr.deliveryNote)}
+                onUpload={handleDeliveryNoteUpload}
+                onDelete={handleDeliveryNoteDelete}
+                uploading={uploadingDeliveryNote}
+                accept=".pdf,.jpg,.jpeg,.png"
+                helperText="PDF, JPG, or PNG files (multiple files allowed)"
+                multiple
+              />
             </Paper>
           </Grid>
 
@@ -362,61 +388,24 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
           <Grid item xs={12} md={6}>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography variant="subtitle1" gutterBottom>
-                Delivery Photos {pr.deliveryPhotos && pr.deliveryPhotos.length > 0 && (
-                  <Chip label={`${pr.deliveryPhotos.length} photo(s)`} size="small" color="primary" />
-                )}
+                Delivery Photos
               </Typography>
               
-              {pr.deliveryPhotos && pr.deliveryPhotos.length > 0 ? (
-                <Box>
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    <Typography variant="body2">
-                      ✓ {pr.deliveryPhotos.length} photo(s) uploaded
-                    </Typography>
-                  </Alert>
-                  <Stack spacing={1}>
-                    {pr.deliveryPhotos.map((photo, index) => (
-                      <Button
-                        key={index}
-                        variant="outlined"
-                        size="small"
-                        startIcon={<PhotoIcon />}
-                        href={photo.url}
-                        target="_blank"
-                      >
-                        Photo {index + 1}: {photo.name}
-                      </Button>
-                    ))}
-                  </Stack>
-                </Box>
-              ) : (
-                <Stack spacing={2}>
-                  <input
-                    type="file"
-                    id="delivery-photos-upload"
-                    style={{ display: 'none' }}
-                    accept="image/*"
-                    multiple
-                    onChange={handleDeliveryPhotosUpload}
-                  />
-                  <Button
-                    variant="contained"
-                    startIcon={<PhotoIcon />}
-                    onClick={() => document.getElementById('delivery-photos-upload')?.click()}
-                    disabled={uploadingPhotos}
-                  >
-                    {uploadingPhotos ? 'Uploading...' : 'Upload Delivery Photos'}
-                  </Button>
-                  <Typography variant="caption" color="textSecondary">
-                    Select multiple photos at once
-                  </Typography>
-                </Stack>
-              )}
+              <FileUploadManager
+                label="Delivery Photos"
+                files={pr.deliveryPhotos || []}
+                onUpload={handleDeliveryPhotosUpload}
+                onDelete={handleDeliveryPhotoDelete}
+                uploading={uploadingPhotos}
+                accept="image/*"
+                helperText="Image files (multiple photos allowed)"
+                multiple
+              />
             </Paper>
           </Grid>
 
           {/* Delivery Documentation Override */}
-          {!pr.deliveryNote && (!pr.deliveryPhotos || pr.deliveryPhotos.length === 0) && !pr.deliveryDocOverride && (
+          {normalizeAttachments(pr.deliveryNote).length === 0 && (!pr.deliveryPhotos || pr.deliveryPhotos.length === 0) && !pr.deliveryDocOverride && (
             <Grid item xs={12}>
               <Paper variant="outlined" sx={{ p: 2, bgcolor: 'warning.50' }}>
                 <Typography variant="subtitle1" gutterBottom>

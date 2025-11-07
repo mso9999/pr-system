@@ -36,3 +36,18 @@ export function calculateDaysOpen(createdAt: string | Date | Timestamp): number 
 
   return Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 }
+
+/**
+ * Formats a file size in bytes to a human-readable string
+ * @param bytes - File size in bytes
+ * @returns Formatted file size string (e.g., "1.5 MB")
+ */
+export function formatFileSize(bytes: number): string {
+  if (bytes === 0) return '0 Bytes';
+  
+  const k = 1024;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  
+  return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+}

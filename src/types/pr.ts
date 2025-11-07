@@ -156,14 +156,14 @@ export interface PRRequest {
   approvers?: string[];
   
   // Document Management Fields (APPROVED and ORDERED Status)
-  /** Uploaded proforma invoice file */
-  proformaInvoice?: Attachment;
+  /** Uploaded proforma invoice files (supports multiple) */
+  proformaInvoice?: Attachment | Attachment[]; // Backward compatible: single or array
   /** Flag indicating proforma override is used */
   proformaOverride?: boolean;
   /** Justification note if proforma override is set */
   proformaOverrideJustification?: string;
-  /** Uploaded proof of payment file */
-  proofOfPayment?: Attachment;
+  /** Uploaded proof of payment files (supports multiple) */
+  proofOfPayment?: Attachment | Attachment[]; // Backward compatible: single or array
   /** Flag indicating PoP override is used */
   popOverride?: boolean;
   /** Justification note if PoP override is set */
@@ -195,8 +195,8 @@ export interface PRRequest {
   /** Justification note if final price variance override is set */
   finalPriceVarianceOverrideJustification?: string;
   
-  /** Uploaded delivery note file (ORDERED status) */
-  deliveryNote?: Attachment;
+  /** Uploaded delivery note files (ORDERED status, supports multiple) */
+  deliveryNote?: Attachment | Attachment[]; // Backward compatible: single or array
   /** Array of uploaded delivery photo files (ORDERED status) */
   deliveryPhotos?: Attachment[];
   /** Flag indicating delivery doc override is used */
