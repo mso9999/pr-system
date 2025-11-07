@@ -329,6 +329,102 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
       
       <DialogContent dividers>
         <Stack spacing={3}>
+          {/* Price Discrepancy Warning - Show at TOP for visibility */}
+          {hasDiscrepancy && (
+            <Box>
+              <Alert severity="error" sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom fontWeight="bold">
+                  ⚠️ BLOCKING ISSUE: Price Discrepancy Detected
+                </Typography>
+                {!lineItemsHavePricing ? (
+                  <>
+                    <Typography variant="body2" paragraph>
+                      A final price has been entered, but there are no line items with pricing information to validate against:
+                    </Typography>
+                    <Grid container spacing={1} sx={{ pl: 2 }}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">Line Items Total:</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" align="right" fontWeight="bold" color="error">
+                          {formatCurrency(0, pr.currency || 'LSL')} (No pricing)
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">Final Price (from proforma):</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" align="right" fontWeight="bold">
+                          {formatCurrency(finalPrice, pr.currency || 'LSL')}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                    <Typography variant="body2" sx={{ mt: 2 }} fontWeight="bold">
+                      Please provide a justification below to proceed:
+                    </Typography>
+                  </>
+                ) : (
+                  <>
+                    <Typography variant="body2" paragraph>
+                      The sum of line items does not match the final price from the proforma invoice:
+                    </Typography>
+                    <Grid container spacing={1} sx={{ pl: 2 }}>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">Line Items Total (with tax/duty):</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" align="right" fontWeight="bold">
+                          {formatCurrency(lineItemGrandTotal, pr.currency || 'LSL')}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2">Final Price (from proforma):</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" align="right" fontWeight="bold">
+                          {formatCurrency(finalPrice, pr.currency || 'LSL')}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" color="error">Discrepancy:</Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="body2" align="right" color="error" fontWeight="bold">
+                          {formatCurrency(Math.abs(discrepancyAmount), pr.currency || 'LSL')} 
+                          ({discrepancyAmount > 0 ? '+' : '-'}{Math.abs(discrepancyPercentage).toFixed(2)}%)
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                    <Typography variant="body2" sx={{ mt: 2 }} fontWeight="bold">
+                      Please provide a justification below to proceed:
+                    </Typography>
+                  </>
+                )}
+              </Alert>
+              
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                label="⚠️ Price Discrepancy Justification (REQUIRED TO PROCEED)"
+                value={priceDiscrepancyJustification}
+                onChange={(e) => setPriceDiscrepancyJustification(e.target.value)}
+                placeholder={!lineItemsHavePricing 
+                  ? "Explain why the PO is being generated without itemized pricing (e.g., single-item purchase, package deal, vendor pricing structure, etc.)"
+                  : "Explain why the final price differs from the line items total (e.g., shipping costs, handling fees, additional services not itemized, volume discounts, rounding differences, etc.)"
+                }
+                required
+                error={!priceDiscrepancyJustification.trim()}
+                helperText={!priceDiscrepancyJustification.trim() ? "⚠️ You must provide a justification before the PO can be generated" : "Justification will be saved with the PR for audit purposes"}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    backgroundColor: 'warning.50',
+                  }
+                }}
+              />
+            </Box>
+          )}
+          
           {/* PO Header Info */}
           <Box>
             <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
@@ -747,97 +843,6 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
               </Grid>
             </Alert>
           </Box>
-
-          {/* Price Discrepancy Warning and Justification */}
-          {hasDiscrepancy && (
-            <Box>
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom fontWeight="bold">
-                  ⚠️ Price Discrepancy Detected
-                </Typography>
-                {!lineItemsHavePricing ? (
-                  <>
-                    <Typography variant="body2" paragraph>
-                      A final price has been entered, but there are no line items with pricing information to validate against:
-                    </Typography>
-                    <Grid container spacing={1} sx={{ pl: 2 }}>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">Line Items Total:</Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2" align="right" fontWeight="bold" color="error">
-                          {formatCurrency(0, pr.currency || 'LSL')} (No pricing)
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">Final Price (from proforma):</Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2" align="right" fontWeight="bold">
-                          {formatCurrency(finalPrice, pr.currency || 'LSL')}
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                    <Typography variant="body2" sx={{ mt: 2 }} fontWeight="bold">
-                      Please provide a justification explaining why the PO should be generated without itemized pricing:
-                    </Typography>
-                  </>
-                ) : (
-                  <>
-                    <Typography variant="body2" paragraph>
-                      The sum of line items does not match the final price from the proforma invoice:
-                    </Typography>
-                    <Grid container spacing={1} sx={{ pl: 2 }}>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">Line Items Total (with tax/duty):</Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2" align="right" fontWeight="bold">
-                          {formatCurrency(lineItemGrandTotal, pr.currency || 'LSL')}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2">Final Price (from proforma):</Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2" align="right" fontWeight="bold">
-                          {formatCurrency(finalPrice, pr.currency || 'LSL')}
-                        </Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2" color="error">Discrepancy:</Typography>
-                      </Grid>
-                      <Grid item xs={6}>
-                        <Typography variant="body2" align="right" color="error" fontWeight="bold">
-                          {formatCurrency(Math.abs(discrepancyAmount), pr.currency || 'LSL')} 
-                          ({discrepancyAmount > 0 ? '+' : '-'}{Math.abs(discrepancyPercentage).toFixed(2)}%)
-                        </Typography>
-                      </Grid>
-                    </Grid>
-                    <Typography variant="body2" sx={{ mt: 2 }} fontWeight="bold">
-                      Please provide a justification for this discrepancy before generating the PO:
-                    </Typography>
-                  </>
-                )}
-              </Alert>
-              
-              <TextField
-                fullWidth
-                multiline
-                rows={3}
-                label="Price Discrepancy Justification (Required)"
-                value={priceDiscrepancyJustification}
-                onChange={(e) => setPriceDiscrepancyJustification(e.target.value)}
-                placeholder={!lineItemsHavePricing 
-                  ? "Explain why the PO is being generated without itemized pricing (e.g., single-item purchase, package deal, vendor pricing structure, etc.)"
-                  : "Explain why the final price differs from the line items total (e.g., shipping costs, handling fees, additional services not itemized, volume discounts, rounding differences, etc.)"
-                }
-                required
-                error={!priceDiscrepancyJustification.trim()}
-                helperText={!priceDiscrepancyJustification.trim() ? "Justification is required to proceed" : ""}
-              />
-            </Box>
-          )}
         </Stack>
       </DialogContent>
       
