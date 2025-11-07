@@ -154,6 +154,7 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       createdAt: safeTimestampToISO(data.createdAt) || new Date().toISOString(),
       updatedAt: safeTimestampToISO(data.updatedAt) || new Date().toISOString(),
       lineItems: (data.lineItems || []).map((item: any): LineItem => ({ ...item })),
+      lineItemsWithSKU: data.lineItemsWithSKU || [],
       quotes: data.quotes || [],
       preferredQuoteId: data.preferredQuoteId, // ID of the preferred quote selected by procurement
       attachments: data.attachments || [],
@@ -207,6 +208,71 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       finalPriceVarianceNotes: data.finalPriceVarianceNotes,
       finalPriceVarianceOverride: data.finalPriceVarianceOverride,
       finalPriceVarianceOverrideJustification: data.finalPriceVarianceOverrideJustification,
+      
+      // PO Line Item Price Discrepancy Justification
+      poLineItemDiscrepancyJustification: data.poLineItemDiscrepancyJustification,
+      
+      // PO Document Fields - Addresses
+      deliveryAddressDifferent: data.deliveryAddressDifferent,
+      deliveryAddress: data.deliveryAddress,
+      billingAddressDifferent: data.billingAddressDifferent,
+      billingAddress: data.billingAddress,
+      
+      // PO Document Fields - Representatives
+      supplierRepresentativeName: data.supplierRepresentativeName,
+      supplierRepresentativePhone: data.supplierRepresentativePhone,
+      supplierRepresentativeEmail: data.supplierRepresentativeEmail,
+      supplierRepresentativeTitle: data.supplierRepresentativeTitle,
+      buyerRepresentativeName: data.buyerRepresentativeName,
+      buyerRepresentativePhone: data.buyerRepresentativePhone,
+      buyerRepresentativeEmail: data.buyerRepresentativeEmail,
+      buyerRepresentativeTitle: data.buyerRepresentativeTitle,
+      
+      // PO Document Fields - Delivery & Payment
+      modeOfDelivery: data.modeOfDelivery,
+      modeOfDeliveryOther: data.modeOfDeliveryOther,
+      packingInstructions: data.packingInstructions,
+      paymentMethod: data.paymentMethod,
+      paymentMethodOther: data.paymentMethodOther,
+      paymentTerms: data.paymentTerms,
+      
+      // PO Document Fields - Banking
+      supplierBankName: data.supplierBankName,
+      supplierBankAccountName: data.supplierBankAccountName,
+      supplierBankAccountNumber: data.supplierBankAccountNumber,
+      supplierBankSwiftCode: data.supplierBankSwiftCode,
+      supplierBankIban: data.supplierBankIban,
+      supplierBankBranch: data.supplierBankBranch,
+      
+      // PO Document Fields - Tax & Duty
+      applicableTaxes: data.applicableTaxes,
+      taxPercentage: data.taxPercentage,
+      dutyPercentage: data.dutyPercentage,
+      
+      // PO Document Fields - References
+      referenceQuotationNumber: data.referenceQuotationNumber,
+      referenceContractNumber: data.referenceContractNumber,
+      referenceTenderNumber: data.referenceTenderNumber,
+      
+      // PO Document Fields - Internal Codes
+      internalProjectCode: data.internalProjectCode,
+      internalExpenseCode: data.internalExpenseCode,
+      internalCostCenter: data.internalCostCenter,
+      
+      // PO Document Fields - Remarks
+      poRemarks: data.poRemarks,
+      specialInstructions: data.specialInstructions,
+      
+      // Supplier Data Fields
+      supplierName: data.supplierName,
+      supplierContact: data.supplierContact,
+      supplierDataEnteredBy: data.supplierDataEnteredBy,
+      supplierDataTimestamp: data.supplierDataTimestamp,
+      
+      // Vendor information
+      selectedVendor: data.selectedVendor,
+      vendor: data.vendor,
+      vendorDetails: data.vendorDetails,
       
       // Last approved amount for approval rescinding
       lastApprovedAmount: data.lastApprovedAmount,
