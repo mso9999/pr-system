@@ -212,6 +212,12 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       // PO Line Item Price Discrepancy Justification
       poLineItemDiscrepancyJustification: data.poLineItemDiscrepancyJustification,
       
+      // Rule Validation Override
+      ruleValidationOverride: data.ruleValidationOverride,
+      ruleValidationOverrideJustification: data.ruleValidationOverrideJustification,
+      ruleValidationOverrideBy: data.ruleValidationOverrideBy,
+      ruleValidationOverrideAt: data.ruleValidationOverrideAt,
+      
       // PO Document Fields - Addresses
       deliveryAddressDifferent: data.deliveryAddressDifferent,
       deliveryAddress: data.deliveryAddress,

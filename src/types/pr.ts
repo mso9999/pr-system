@@ -219,6 +219,15 @@ export interface PRRequest {
   /** Justification for price discrepancy between line items and final price */
   poLineItemDiscrepancyJustification?: string;
   
+  /** Rule Validation Override (when approver-amount validation fails but override is granted) */
+  ruleValidationOverride?: boolean;
+  /** Justification for overriding rule validation */
+  ruleValidationOverrideJustification?: string;
+  /** User who granted the override */
+  ruleValidationOverrideBy?: string;
+  /** Timestamp of override */
+  ruleValidationOverrideAt?: string;
+  
   /** Delivery/Ship-to Address (if different from company address) */
   deliveryAddressDifferent?: boolean;
   deliveryAddress?: {

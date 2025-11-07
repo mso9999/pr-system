@@ -484,6 +484,8 @@ export function PRView() {
   const [isExitingEditMode, setIsExitingEditMode] = React.useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [approverAmountError, setApproverAmountError] = React.useState<string | null>(null);
+  const [showRuleOverrideDialog, setShowRuleOverrideDialog] = React.useState(false);
+  const [ruleOverrideJustification, setRuleOverrideJustification] = React.useState('');
 
   // Fetch PR data
   const fetchPR = async () => {
@@ -1096,19 +1098,53 @@ export function PRView() {
     handleExitEditMode();
   };
 
+  const handleRuleOverrideConfirm = async () => {
+    if (!ruleOverrideJustification.trim()) {
+      enqueueSnackbar('Justification is required to override rule validation', { variant: 'error' });
+      return;
+    }
+
+    try {
+      // Save the override to the PR
+      await prService.updatePR(id!, {
+        ruleValidationOverride: true,
+        ruleValidationOverrideJustification: ruleOverrideJustification,
+        ruleValidationOverrideBy: currentUser?.id,
+        ruleValidationOverrideAt: new Date().toISOString()
+      });
+
+      // Update local PR state
+      setPr(prev => prev ? {
+        ...prev,
+        ruleValidationOverride: true,
+        ruleValidationOverrideJustification: ruleOverrideJustification,
+        ruleValidationOverrideBy: currentUser?.id,
+        ruleValidationOverrideAt: new Date().toISOString()
+      } : null);
+
+      // Close dialog and proceed with save
+      setShowRuleOverrideDialog(false);
+      setRuleOverrideJustification('');
+      
+      enqueueSnackbar('Rule validation override applied. You can now save.', { variant: 'success' });
+    } catch (error) {
+      console.error('Error applying rule override:', error);
+      enqueueSnackbar('Failed to apply override', { variant: 'error' });
+    }
+  };
+
   const handleSave = async () => {
     if (!pr) {
       enqueueSnackbar('No PR data to save', { variant: 'error' });
       return;
     }
     
-    // Validate approver vs amount before saving
+    // Validate approver vs amount before saving (unless override is in place)
     const approverAmountError = validateApproverAmount();
-    if (approverAmountError) {
-      enqueueSnackbar(approverAmountError, { 
-        variant: 'error',
-        autoHideDuration: 8000 
-      });
+    if (approverAmountError && !pr.ruleValidationOverride) {
+      // Show override dialog instead of blocking immediately
+      setApproverAmountError(approverAmountError);
+      setShowRuleOverrideDialog(true);
       return;
     }
     
@@ -2437,7 +2473,7 @@ export function PRView() {
       )}
 
       {/* Overrides & Exceptions Section */}
-      {(pr?.proformaOverride || pr?.popOverride || pr?.poDocumentOverride || pr?.finalPriceVarianceOverride || pr?.poLineItemDiscrepancyJustification) && (
+      {(pr?.proformaOverride || pr?.popOverride || pr?.poDocumentOverride || pr?.finalPriceVarianceOverride || pr?.poLineItemDiscrepancyJustification || pr?.ruleValidationOverride) && (
         <Box sx={{ mb: 3 }}>
           <Accordion defaultExpanded={false}>
             <AccordionSummary
@@ -2455,12 +2491,42 @@ export function PRView() {
                   pr?.popOverride,
                   pr?.poDocumentOverride,
                   pr?.finalPriceVarianceOverride,
-                  pr?.poLineItemDiscrepancyJustification
+                  pr?.poLineItemDiscrepancyJustification,
+                  pr?.ruleValidationOverride
                 ].filter(Boolean).length})
               </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ bgcolor: 'warning.lighter', p: 2 }}>
             <Grid container spacing={2}>
+              {pr.ruleValidationOverride && (
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle2" color="warning.main" gutterBottom>
+                        🔓 Rule Validation Override
+                      </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        The standard approval rules were overridden for this PR. The selected approver/amount combination 
+                        does not meet the normal criteria, but an exception was granted.
+                      </Typography>
+                      <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          <strong>Justification:</strong>
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          {pr.ruleValidationOverrideJustification}
+                        </Typography>
+                      </Box>
+                      {pr.ruleValidationOverrideAt && (
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                          Override applied on {new Date(pr.ruleValidationOverrideAt).toLocaleString()}
+                          {pr.ruleValidationOverrideBy && ` by user ${pr.ruleValidationOverrideBy}`}
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
               {pr.proformaOverride && (
                 <Grid item xs={12}>
                   <Card sx={{ bgcolor: 'background.paper' }}>
@@ -2664,6 +2730,70 @@ export function PRView() {
         onClose={handleClosePreview}
         file={previewFile || { name: '', url: '', type: '' }}
       />
+
+      {/* Rule Validation Override Dialog */}
+      <Dialog
+        open={showRuleOverrideDialog}
+        onClose={() => {
+          setShowRuleOverrideDialog(false);
+          setRuleOverrideJustification('');
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: 'warning.light' }}>
+          ⚠️ Rule Validation Override Required
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <strong>Validation Issue:</strong>
+              <br />
+              {approverAmountError}
+            </Alert>
+            
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              This PR does not meet the standard approval rules. If you need to proceed despite this,
+              you must provide a detailed justification for the override.
+            </Typography>
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              <strong>Note:</strong> This override will be logged and visible in the PR audit trail.
+              Only authorized users (Admin, Procurement) should approve overrides.
+            </Typography>
+
+            <TextField
+              label="Justification for Rule Override"
+              multiline
+              rows={4}
+              fullWidth
+              value={ruleOverrideJustification}
+              onChange={(e) => setRuleOverrideJustification(e.target.value)}
+              placeholder="Explain why this PR should be allowed to proceed despite not meeting the standard approval rules..."
+              required
+              sx={{ mt: 1 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowRuleOverrideDialog(false);
+              setRuleOverrideJustification('');
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRuleOverrideConfirm}
+            variant="contained"
+            color="warning"
+            disabled={!ruleOverrideJustification.trim()}
+          >
+            Apply Override
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
