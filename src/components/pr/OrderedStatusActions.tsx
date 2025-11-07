@@ -276,7 +276,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
 
     try {
       // Fetch organization config for vendor approval durations
-      const orgConfig = await organizationService.getOrganization(pr.organization || currentUser.organization);
+      const orgConfig = await organizationService.getOrganizationById(pr.organization || currentUser.organization);
       const vendor3QuoteDuration = orgConfig?.vendorApproval3QuoteDuration || 12;
       const vendorCompletedDuration = orgConfig?.vendorApprovalCompletedDuration || 6;
       const vendorManualDuration = orgConfig?.vendorApprovalManualDuration || 12;
