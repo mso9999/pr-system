@@ -139,16 +139,42 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
                 err.includes('quotes')
               );
               
-              if (hasQuoteErrors && !pr.quoteRequirementOverride) {
+              const hasNonQuoteErrors = validation.errors.some(err => 
+                !err.includes('QUOTE REQUIREMENTS:') && 
+                !err.includes('quote') && 
+                !err.includes('quotes') &&
+                err.trim() !== '' &&
+                err !== '•' // Filter out bullet points
+              );
+              
+              // If there are quote errors and override exists, filter them out
+              if (hasQuoteErrors && pr.quoteRequirementOverride) {
+                console.log('Quote override exists, filtering out quote errors');
+                
+                // If there are other non-quote errors, show those
+                if (hasNonQuoteErrors) {
+                  const nonQuoteErrors = validation.errors.filter(err => 
+                    !err.includes('QUOTE REQUIREMENTS:') && 
+                    !err.includes('quote') && 
+                    !err.includes('quotes') &&
+                    err.trim() !== '' &&
+                    err !== '•'
+                  );
+                  setError(nonQuoteErrors.join('\n\n'));
+                  return;
+                }
+                // Otherwise, validation passes (quote errors are overridden)
+                console.log('Only quote errors present and override exists - proceeding');
+              } else if (hasQuoteErrors && !pr.quoteRequirementOverride) {
                 // Show override dialog for quote requirements
                 setQuoteErrorMessage(validation.errors.join('\n\n'));
                 setShowQuoteOverrideDialog(true);
                 return;
+              } else {
+                // For other errors, show regular error
+                setError(validation.errors.join('\n\n')); // Add double newline for better separation
+                return;
               }
-              
-              // For other errors or if override already exists, show regular error
-              setError(validation.errors.join('\n\n')); // Add double newline for better separation
-              return;
             }
 
             // Additional validation: Check if notes are required for non-lowest quote selection
