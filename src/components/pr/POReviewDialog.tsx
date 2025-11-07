@@ -731,7 +731,7 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
                 </Grid>
                 <Grid item xs={6}>
                   <Typography variant="body2" align="right" fontWeight="bold">
-                    {formatCurrency(grandTotal, pr.currency || 'LSL')}
+                    {formatCurrency(lineItemGrandTotal, pr.currency || 'LSL')}
                   </Typography>
                 </Grid>
               </Grid>
