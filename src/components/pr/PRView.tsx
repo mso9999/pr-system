@@ -65,7 +65,8 @@ import { Card as CustomCard, CardContent as CustomCardContent, CardDescription, 
 import { PlusIcon, EyeIcon, FileIcon } from 'lucide-react';
 import { QuoteCard } from './QuoteCard';
 import { StorageService } from "@/services/storage";
-import { CircularProgress, Chip, Alert } from "@mui/material";
+import { CircularProgress, Chip, Alert, Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { db } from "@/config/firebase";
 import { collection, doc, getDoc, query, where, getDocs, updateDoc } from "firebase/firestore";
 import { QuotesStep } from './steps/QuotesStep';
@@ -2280,95 +2281,124 @@ export function PRView() {
       {/* Status History Notes */}
       {pr?.statusHistory && pr.statusHistory.length > 0 && (
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Status History & Notes
-          </Typography>
-          <Paper sx={{ p: 2 }}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Date & Time</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
-                    <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {pr.statusHistory
-                    .slice()
-                    .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-                    .map((historyItem, index) => (
-                      <TableRow key={index} hover>
-                        <TableCell sx={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>
-                          <Typography variant="body2">
-                            {new Date(historyItem.timestamp).toLocaleString('en-US', {
-                              year: 'numeric',
-                              month: 'short',
-                              day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit'
-                            })}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ verticalAlign: 'top' }}>
-                          <Chip
-                            label={historyItem.status}
-                            size="small"
-                            color={
-                              historyItem.status === 'REJECTED'
-                                ? 'error'
-                                : historyItem.status === 'APPROVED'
-                                ? 'success'
-                                : historyItem.status === 'REVISION_REQUIRED'
-                                ? 'warning'
-                                : 'default'
-                            }
-                          />
-                        </TableCell>
-                        <TableCell sx={{ verticalAlign: 'top' }}>
-                          <Typography variant="body2">
-                            {historyItem.user?.email || 'System'}
-                          </Typography>
-                        </TableCell>
-                        <TableCell sx={{ verticalAlign: 'top' }}>
-                          {historyItem.notes ? (
-                            <Typography 
-                              variant="body2" 
-                              sx={{ 
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
-                                maxWidth: '400px'
-                              }}
-                            >
-                              {typeof historyItem.notes === 'string' 
-                                ? historyItem.notes 
-                                : typeof historyItem.notes === 'object' && 'email' in historyItem.notes
-                                  ? `By: ${(historyItem.notes as any).email || (historyItem.notes as any).name || 'User'}`
-                                  : 'Status changed'}
+          <Accordion defaultExpanded={false}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="status-history-content"
+              id="status-history-header"
+              sx={{
+                backgroundColor: 'action.hover',
+                '&:hover': { backgroundColor: 'action.selected' }
+              }}
+            >
+              <Typography variant="h6">
+                Status History & Notes ({pr.statusHistory.length})
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Date & Time</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {pr.statusHistory
+                      .slice()
+                      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+                      .map((historyItem, index) => (
+                        <TableRow key={index} hover>
+                          <TableCell sx={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                            <Typography variant="body2">
+                              {new Date(historyItem.timestamp).toLocaleString('en-US', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
                             </Typography>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary" fontStyle="italic">
-                              No notes
+                          </TableCell>
+                          <TableCell sx={{ verticalAlign: 'top' }}>
+                            <Chip
+                              label={historyItem.status}
+                              size="small"
+                              color={
+                                historyItem.status === 'REJECTED'
+                                  ? 'error'
+                                  : historyItem.status === 'APPROVED'
+                                  ? 'success'
+                                  : historyItem.status === 'REVISION_REQUIRED'
+                                  ? 'warning'
+                                  : 'default'
+                              }
+                            />
+                          </TableCell>
+                          <TableCell sx={{ verticalAlign: 'top' }}>
+                            <Typography variant="body2">
+                              {historyItem.user?.email || 'System'}
                             </Typography>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          </Paper>
+                          </TableCell>
+                          <TableCell sx={{ verticalAlign: 'top' }}>
+                            {historyItem.notes ? (
+                              <Typography 
+                                variant="body2" 
+                                sx={{ 
+                                  whiteSpace: 'pre-wrap',
+                                  wordBreak: 'break-word',
+                                  maxWidth: '400px'
+                                }}
+                              >
+                                {typeof historyItem.notes === 'string' 
+                                  ? historyItem.notes 
+                                  : typeof historyItem.notes === 'object' && 'email' in historyItem.notes
+                                    ? `By: ${(historyItem.notes as any).email || (historyItem.notes as any).name || 'User'}`
+                                    : 'Status changed'}
+                              </Typography>
+                            ) : (
+                              <Typography variant="body2" color="text.secondary" fontStyle="italic">
+                                No notes
+                              </Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </AccordionDetails>
+          </Accordion>
         </Box>
       )}
 
       {/* Overrides & Exceptions Section */}
-      {(pr?.proformaOverride || pr?.popOverride || pr?.poDocumentOverride || pr?.finalPriceVarianceOverride) && (
+      {(pr?.proformaOverride || pr?.popOverride || pr?.poDocumentOverride || pr?.finalPriceVarianceOverride || pr?.poLineItemDiscrepancyJustification) && (
         <Box sx={{ mb: 3 }}>
-          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            ⚠️ Overrides & Exceptions
-          </Typography>
-          <Paper sx={{ p: 2, bgcolor: 'warning.light' }}>
+          <Accordion defaultExpanded={false}>
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon />}
+              aria-controls="overrides-content"
+              id="overrides-header"
+              sx={{
+                backgroundColor: 'warning.light',
+                '&:hover': { backgroundColor: 'warning.main', '& .MuiTypography-root': { color: 'warning.contrastText' } }
+              }}
+            >
+              <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                ⚠️ Overrides & Exceptions ({[
+                  pr?.proformaOverride,
+                  pr?.popOverride,
+                  pr?.poDocumentOverride,
+                  pr?.finalPriceVarianceOverride,
+                  pr?.poLineItemDiscrepancyJustification
+                ].filter(Boolean).length})
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ bgcolor: 'warning.lighter', p: 2 }}>
             <Grid container spacing={2}>
               {pr.proformaOverride && (
                 <Grid item xs={12}>
@@ -2470,7 +2500,8 @@ export function PRView() {
                 allPRFields: Object.keys(pr).sort()
               })}
             </Grid>
-          </Paper>
+            </AccordionDetails>
+          </Accordion>
         </Box>
       )}
 
