@@ -29,7 +29,7 @@ import { notificationService } from '@/services/notification';
 import { StorageService } from '@/services/storage';
 import { referenceDataService } from '@/services/referenceData';
 import { referenceDataAdminService } from '@/services/referenceDataAdmin';
-import { organizationService } from '@/services/organization';
+import { organizationService } from '@/services/organizationService';
 import { User } from '@/types/user';
 import {
   CloudUpload as UploadIcon,
