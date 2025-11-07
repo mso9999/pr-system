@@ -37,6 +37,11 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
 
+  // Quote requirement override state
+  const [showQuoteOverrideDialog, setShowQuoteOverrideDialog] = useState(false);
+  const [quoteOverrideJustification, setQuoteOverrideJustification] = useState('');
+  const [quoteErrorMessage, setQuoteErrorMessage] = useState('');
+
   const handleActionClick = (action: 'approve' | 'reject' | 'revise' | 'cancel' | 'queue' | 'revert') => {
     setSelectedAction(action);
     setIsDialogOpen(true);
@@ -49,6 +54,33 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
     setSelectedAction(null);
     setNotes('');
     setError(null);
+  };
+
+  const handleQuoteOverrideConfirm = async () => {
+    if (!quoteOverrideJustification.trim()) {
+      enqueueSnackbar('Justification is required for override', { variant: 'error' });
+      return;
+    }
+
+    try {
+      // Save the override to the PR
+      await prService.updatePR(prId, {
+        quoteRequirementOverride: true,
+        quoteRequirementOverrideJustification: quoteOverrideJustification,
+        quoteRequirementOverrideBy: currentUser.id,
+        quoteRequirementOverrideAt: new Date().toISOString(),
+      });
+
+      enqueueSnackbar('Quote requirement override applied', { variant: 'success' });
+      setShowQuoteOverrideDialog(false);
+      setQuoteOverrideJustification('');
+      
+      // Re-trigger the submit to proceed with the override
+      handleSubmit();
+    } catch (error) {
+      console.error('Error applying quote override:', error);
+      enqueueSnackbar('Failed to apply override', { variant: 'error' });
+    }
   };
 
   const handleSubmit = async () => {
@@ -100,6 +132,21 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             console.log('Validation result:', validation);
 
             if (!validation.isValid) {
+              // Check if the errors are quote-related and if override is not already set
+              const hasQuoteErrors = validation.errors.some(err => 
+                err.includes('QUOTE REQUIREMENTS:') || 
+                err.includes('quote') || 
+                err.includes('quotes')
+              );
+              
+              if (hasQuoteErrors && !pr.quoteRequirementOverride) {
+                // Show override dialog for quote requirements
+                setQuoteErrorMessage(validation.errors.join('\n\n'));
+                setShowQuoteOverrideDialog(true);
+                return;
+              }
+              
+              // For other errors or if override already exists, show regular error
               setError(validation.errors.join('\n\n')); // Add double newline for better separation
               return;
             }
@@ -450,6 +497,70 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             <Button onClick={handleClose}>Cancel</Button>
             <Button onClick={handleSubmit} variant="contained" color="primary">
               Confirm
+            </Button>
+          </DialogActions>
+        </Dialog>
+        
+        {/* Quote Requirement Override Dialog */}
+        <Dialog
+          open={showQuoteOverrideDialog}
+          onClose={() => {
+            setShowQuoteOverrideDialog(false);
+            setQuoteOverrideJustification('');
+          }}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle sx={{ bgcolor: 'warning.light' }}>
+            ⚠️ Quote Requirement Override Required
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
+                <strong>Validation Issue:</strong>
+                <br />
+                {quoteErrorMessage}
+              </Alert>
+              
+              <Typography variant="body2" sx={{ mb: 2 }}>
+                This PR does not meet the standard quotation requirements. If you need to proceed despite this,
+                you must provide a detailed justification for the override.
+              </Typography>
+              
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                <strong>Note:</strong> This override will be logged and visible in the PR audit trail.
+                Only authorized users (Admin, Procurement) should approve quote overrides.
+              </Typography>
+
+              <TextField
+                label="Justification for Quote Requirement Override"
+                multiline
+                rows={4}
+                fullWidth
+                value={quoteOverrideJustification}
+                onChange={(e) => setQuoteOverrideJustification(e.target.value)}
+                placeholder="Explain why this PR should be allowed to proceed despite not meeting the standard quote requirements (e.g., single source supplier, emergency procurement, time-sensitive requirement, vendor exclusivity)..."
+                required
+                sx={{ mt: 1 }}
+              />
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button
+              onClick={() => {
+                setShowQuoteOverrideDialog(false);
+                setQuoteOverrideJustification('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleQuoteOverrideConfirm}
+              variant="contained"
+              color="warning"
+              disabled={!quoteOverrideJustification.trim()}
+            >
+              Apply Override
             </Button>
           </DialogActions>
         </Dialog>

@@ -227,6 +227,15 @@ export interface PRRequest {
   ruleValidationOverrideBy?: string;
   /** Timestamp of override */
   ruleValidationOverrideAt?: string;
+
+  /** Quote Requirement Override (when quote requirements not met but override is granted) */
+  quoteRequirementOverride?: boolean;
+  /** Justification for overriding quote requirements */
+  quoteRequirementOverrideJustification?: string;
+  /** User who granted the override */
+  quoteRequirementOverrideBy?: string;
+  /** Timestamp of override */
+  quoteRequirementOverrideAt?: string;
   
   /** Delivery/Ship-to Address (if different from company address) */
   deliveryAddressDifferent?: boolean;

@@ -217,6 +217,12 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       ruleValidationOverrideJustification: data.ruleValidationOverrideJustification,
       ruleValidationOverrideBy: data.ruleValidationOverrideBy,
       ruleValidationOverrideAt: data.ruleValidationOverrideAt,
+
+      // Quote Requirement Override
+      quoteRequirementOverride: data.quoteRequirementOverride,
+      quoteRequirementOverrideJustification: data.quoteRequirementOverrideJustification,
+      quoteRequirementOverrideBy: data.quoteRequirementOverrideBy,
+      quoteRequirementOverrideAt: data.quoteRequirementOverrideAt,
       
       // PO Document Fields - Addresses
       deliveryAddressDifferent: data.deliveryAddressDifferent,

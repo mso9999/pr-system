@@ -2473,7 +2473,7 @@ export function PRView() {
       )}
 
       {/* Overrides & Exceptions Section */}
-      {(pr?.proformaOverride || pr?.popOverride || pr?.poDocumentOverride || pr?.finalPriceVarianceOverride || pr?.poLineItemDiscrepancyJustification || pr?.ruleValidationOverride) && (
+      {(pr?.proformaOverride || pr?.popOverride || pr?.poDocumentOverride || pr?.finalPriceVarianceOverride || pr?.poLineItemDiscrepancyJustification || pr?.ruleValidationOverride || pr?.quoteRequirementOverride) && (
         <Box sx={{ mb: 3 }}>
           <Accordion defaultExpanded={false}>
             <AccordionSummary
@@ -2492,7 +2492,8 @@ export function PRView() {
                   pr?.poDocumentOverride,
                   pr?.finalPriceVarianceOverride,
                   pr?.poLineItemDiscrepancyJustification,
-                  pr?.ruleValidationOverride
+                  pr?.ruleValidationOverride,
+                  pr?.quoteRequirementOverride
                 ].filter(Boolean).length})
               </Typography>
             </AccordionSummary>
@@ -2521,6 +2522,35 @@ export function PRView() {
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
                           Override applied on {new Date(pr.ruleValidationOverrideAt).toLocaleString()}
                           {pr.ruleValidationOverrideBy && ` by user ${pr.ruleValidationOverrideBy}`}
+                        </Typography>
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              )}
+              {pr.quoteRequirementOverride && (
+                <Grid item xs={12}>
+                  <Card variant="outlined">
+                    <CardContent>
+                      <Typography variant="subtitle2" color="warning.main" gutterBottom>
+                        📋 Quote Requirement Override
+                      </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        The standard quotation requirements were overridden for this PR. The number of quotes submitted 
+                        does not meet the normal criteria, but an exception was granted.
+                      </Typography>
+                      <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          <strong>Justification:</strong>
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5 }}>
+                          {pr.quoteRequirementOverrideJustification}
+                        </Typography>
+                      </Box>
+                      {pr.quoteRequirementOverrideAt && (
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                          Override applied on {new Date(pr.quoteRequirementOverrideAt).toLocaleString()}
+                          {pr.quoteRequirementOverrideBy && ` by user ${pr.quoteRequirementOverrideBy}`}
                         </Typography>
                       )}
                     </CardContent>
