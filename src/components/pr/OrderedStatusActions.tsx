@@ -327,10 +327,25 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
       }
 
       // Update PR to COMPLETED
+      // FIRST: Update status using updatePRStatus (handles status history properly)
+      const statusNotes = orderSatisfactory === 'yes' 
+        ? 'Order completed successfully' 
+        : `Order issues: ${issueNote}`;
+      
+      await prService.updatePRStatus(
+        pr.id,
+        PRStatus.COMPLETED,
+        statusNotes,
+        {
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name || currentUser.email
+        }
+      );
+
+      // SECOND: Update additional fields like completedAt
       await prService.updatePR(pr.id, {
-        status: PRStatus.COMPLETED,
         completedAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
         notes: orderSatisfactory === 'no' ? `Order issues: ${issueNote}` : pr.notes
       });
 
