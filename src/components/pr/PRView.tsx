@@ -1263,14 +1263,14 @@ export function PRView() {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3 }}>
             <Typography variant="h6" gutterBottom>
-              Basic Information
+              {t('pr.basicInformation')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Description"
+                  label={t('pr.description')}
                   value={isEditMode ? editedPR.description || pr?.description : pr?.description}
                   onChange={(e) => handleFieldChange('description', e.target.value)}
                   disabled={!isEditMode}
@@ -1280,11 +1280,11 @@ export function PRView() {
               </Grid>
               <Grid item xs={6}>
                 <FormControl fullWidth disabled={!isEditMode}>
-                  <InputLabel>Department</InputLabel>
+                  <InputLabel>{t('pr.department')}</InputLabel>
                   <Select
                     value={isEditMode ? (editedPR.department || pr?.department || '') : (pr?.department || '')}
                     onChange={(e) => handleFieldChange('department', e.target.value)}
-                    label="Department"
+                    label={t('pr.department')}
                     renderValue={(value) => {
                       const dept = departments.find(d => d.id === value);
                       return dept ? dept.name : value;
@@ -1300,11 +1300,11 @@ export function PRView() {
               </Grid>
               <Grid item xs={6}>
                 <FormControl fullWidth disabled={!isEditMode || !canEditFinancialFields}>
-                  <InputLabel>Project Category</InputLabel>
+                  <InputLabel>{t('pr.category')}</InputLabel>
                   <Select
                     value={isEditMode ? (editedPR.projectCategory || pr?.projectCategory || '') : (pr?.projectCategory || '')}
                     onChange={(e) => handleFieldChange('projectCategory', e.target.value)}
-                    label="Project Category"
+                    label={t('pr.category')}
                     renderValue={(value) => {
                       const category = projectCategories.find(c => c.id === value);
                       return category ? category.name : value;
@@ -1329,11 +1329,11 @@ export function PRView() {
               </Grid>
               <Grid item xs={6}>
                 <FormControl fullWidth disabled={!isEditMode}>
-                  <InputLabel>Site</InputLabel>
+                  <InputLabel>{t('pr.site')}</InputLabel>
                   <Select
                     value={isEditMode ? (editedPR.site || pr?.site || '') : (pr?.site || '')}
                     onChange={(e) => handleFieldChange('site', e.target.value)}
-                    label="Site"
+                    label={t('pr.site')}
                     renderValue={(value) => {
                       const site = sites.find(s => s.id === value);
                       return site ? site.name : value;
@@ -1349,11 +1349,11 @@ export function PRView() {
               </Grid>
               <Grid item xs={6}>
                 <FormControl fullWidth disabled={!isEditMode || !canEditFinancialFields}>
-                  <InputLabel>Expense Type</InputLabel>
+                  <InputLabel>{t('pr.expenseType')}</InputLabel>
                   <Select
                     value={isEditMode ? (editedPR.expenseType || pr?.expenseType || '') : (pr?.expenseType || '')}
                     onChange={(e) => handleFieldChange('expenseType', e.target.value)}
-                    label="Expense Type"
+                    label={t('pr.expenseType')}
                     renderValue={(value) => {
                       const expenseType = expenseTypes.find(t => t.id === value);
                       return expenseType ? expenseType.name : value;
@@ -1387,11 +1387,11 @@ export function PRView() {
                     
                     return isVehicleExpense ? (
                       <FormControl fullWidth disabled={!isEditMode}>
-                        <InputLabel>Vehicle</InputLabel>
+                        <InputLabel>{t('pr.vehicle')}</InputLabel>
                         <Select
                           value={isEditMode ? (editedPR.vehicle || pr?.vehicle || '') : (pr?.vehicle || '')}
                           onChange={(e) => handleFieldChange('vehicle', e.target.value)}
-                          label="Vehicle"
+                          label={t('pr.vehicle')}
                           renderValue={(value) => {
                             const vehicle = vehicles.find(v => v.id === value);
                             return vehicle ? (vehicle.registrationNumber || vehicle.name || vehicle.code) : value;
@@ -1413,11 +1413,11 @@ export function PRView() {
               )}
               <Grid item xs={6}>
                 <FormControl fullWidth disabled={!isEditMode || isLockedInApprovedStatus('preferredVendor')}>
-                  <InputLabel>Preferred Vendor</InputLabel>
+                  <InputLabel>{t('pr.preferredVendor')}</InputLabel>
                   <Select
                     value={isEditMode ? (editedPR.preferredVendor || pr?.preferredVendor || '') : (pr?.preferredVendor || '')}
                     onChange={(e) => handleFieldChange('preferredVendor', e.target.value)}
-                    label="Preferred Vendor"
+                    label={t('pr.preferredVendor')}
                     renderValue={(value) => {
                       const vendor = vendors.find(v => v.id === value);
                       return vendor ? vendor.name : value || '';
@@ -1439,7 +1439,7 @@ export function PRView() {
               <Grid item xs={6}>
                 <TextField
                   fullWidth
-                  label="Estimated Amount"
+                  label={t('pr.estimatedAmount')}
                   type="number"
                   value={isEditMode ? editedPR.estimatedAmount || pr?.estimatedAmount || '' : pr?.estimatedAmount || ''}
                   onChange={(e) => handleFieldChange('estimatedAmount', parseFloat(e.target.value))}
@@ -1464,7 +1464,7 @@ export function PRView() {
               <Grid item xs={6}>
                 <TextField
                   fullWidth
-                  label="Required Date"
+                  label={t('pr.requiredDate')}
                   type="date"
                   value={isEditMode ? editedPR.requiredDate || pr?.requiredDate || '' : pr?.requiredDate || ''}
                   onChange={(e) => handleFieldChange('requiredDate', e.target.value)}
@@ -1477,7 +1477,7 @@ export function PRView() {
               <Grid item xs={12}>
                 <TextField
                   fullWidth
-                  label="Comments"
+                  label={t('pr.comments')}
                   value={isEditMode ? editedPR.comments || pr?.comments : pr?.comments}
                   onChange={(e) => handleFieldChange('comments', e.target.value)}
                   disabled={!isEditMode}
@@ -1491,11 +1491,11 @@ export function PRView() {
                   disabled={!isEditMode || (!isProcurement && !isRequestor) || isLockedInApprovedStatus('approver')}
                   error={!!approverAmountError}
                 >
-                  <InputLabel>Approver</InputLabel>
+                  <InputLabel>{t('pr.approver')}</InputLabel>
                   <Select
                     value={selectedApprover || ''}
                     onChange={(e) => handleApproverChange(e.target.value)}
-                    label="Approver"
+                    label={t('pr.approver')}
                   >
                     <MenuItem value="">
                       <em>None</em>
@@ -1536,11 +1536,11 @@ export function PRView() {
                       fullWidth 
                       disabled={!isEditMode || (!isProcurement && !isRequestor) || isLockedInApprovedStatus('approver2')}
                     >
-                      <InputLabel>Second Approver (Required)</InputLabel>
+                      <InputLabel>{t('pr.secondApprover')}</InputLabel>
                       <Select
                         value={selectedApprover2 || ''}
                         onChange={(e) => handleApprover2Change(e.target.value)}
-                        label="Second Approver (Required)"
+                        label={t('pr.secondApprover')}
                       >
                         <MenuItem value="">
                           <em>None</em>

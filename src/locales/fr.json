@@ -99,6 +99,7 @@
     "vendor": "Fournisseur",
     "preferredVendor": "Fournisseur préféré",
     "selectedVendor": "Fournisseur sélectionné",
+    "vehicle": "Véhicule",
     "estimatedAmount": "Montant estimé",
     "finalPrice": "Prix final",
     "requiredDate": "Date requise",
