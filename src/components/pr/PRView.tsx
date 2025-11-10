@@ -1660,7 +1660,7 @@ export function PRView() {
                     if (isApproved && !isExpired) {
                       return (
                         <Chip 
-                          label="Approved" 
+                          label={t('pr.approved')} 
                           size="small" 
                           color="success"
                           sx={{ height: 20, fontSize: '0.7rem' }}
@@ -1669,7 +1669,7 @@ export function PRView() {
                     } else if (isApproved && isExpired) {
                       return (
                         <Chip 
-                          label="Approval Expired" 
+                          label={t('pr.approvalExpired')} 
                           size="small" 
                           color="warning"
                           sx={{ height: 20, fontSize: '0.7rem' }}
@@ -1678,7 +1678,7 @@ export function PRView() {
                     } else {
                       return (
                         <Chip 
-                          label="Not Approved" 
+                          label={t('pr.notApproved')} 
                           size="small" 
                           color="error"
                           sx={{ height: 20, fontSize: '0.7rem' }}
@@ -1702,7 +1702,7 @@ export function PRView() {
                 })()}
               </Grid>
               <Grid item xs={12}>
-                <Typography color="textSecondary">Current Approver</Typography>
+                <Typography color="textSecondary">{t('pr.currentApprover')}</Typography>
                 <div className="flex flex-wrap gap-2 mt-1">
                   {(() => {
                     // Check pr.approver first as it's the single source of truth
@@ -1719,7 +1719,7 @@ export function PRView() {
                     if (approvers.length === 0) {
                       return (
                         <Typography variant="body2" color="textSecondary">
-                          Loading approver information...
+                          {t('common.loading')}
                         </Typography>
                       );
                     }
@@ -1746,7 +1746,7 @@ export function PRView() {
                 </div>
               </Grid>
               <Grid item xs={12}>
-                <Typography color="textSecondary">Approval History</Typography>
+                <Typography color="textSecondary">{t('pr.approvalHistory')}</Typography>
                 <div className="flex flex-col gap-2 mt-1">
                   {pr?.approvalWorkflow?.approvalHistory?.length > 0 ? (
                     pr.approvalWorkflow.approvalHistory.map((history, index) => (
@@ -1756,7 +1756,7 @@ export function PRView() {
                             const approver = approvers.find(a => a.id === history.approverId);
                             return approver ? 
                               `${approver.name}${approver.department ? ` (${approver.department})` : ''}` : 
-                              'Loading approver...';
+                              t('common.loading');
                           })()}
                           color={history.approved ? "success" : "error"}
                           size="small"
@@ -1771,7 +1771,7 @@ export function PRView() {
                     ))
                   ) : (
                     <Typography variant="body2" color="textSecondary">
-                      No approval history
+                      {t('pr.noApprovalHistory')}
                     </Typography>
                   )}
                 </div>
@@ -1789,14 +1789,14 @@ export function PRView() {
         <Grid item xs={12}>
           <Paper sx={{ p: 2 }}>
             <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6">Line Items</Typography>
+              <Typography variant="h6">{t('pr.lineItems')}</Typography>
               {isEditMode && (
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={handleAddLineItem}
                 >
-                  Add Line Item
+                  {t('pr.addLineItem')}
                 </Button>
               )}
             </Box>
