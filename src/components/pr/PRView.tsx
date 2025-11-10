@@ -1578,12 +1578,12 @@ export function PRView() {
         <Grid item xs={12} md={6}>
           <Paper sx={{ p: 3, height: '100%' }}>
             <Typography variant="h6" gutterBottom>
-              Additional Information
+              {t('pr.additionalInformation')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
             <Grid container spacing={2}>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Created By</Typography>
+                <Typography color="textSecondary">{t('pr.createdBy')}</Typography>
                 <Typography>
                   {pr?.requestor?.firstName && pr?.requestor?.lastName 
                     ? `${pr.requestor.firstName} ${pr.requestor.lastName}`
@@ -1592,19 +1592,19 @@ export function PRView() {
                 </Typography>
               </Grid>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Created Date</Typography>
+                <Typography color="textSecondary">{t('pr.createdDate')}</Typography>
                 <Typography>
                   {pr?.createdAt ? new Date(pr.createdAt).toLocaleDateString() : 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Last Updated</Typography>
+                <Typography color="textSecondary">{t('pr.lastUpdated')}</Typography>
                 <Typography>
                   {pr?.updatedAt ? new Date(pr.updatedAt).toLocaleDateString() : 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Organization</Typography>
+                <Typography color="textSecondary">{t('pr.organization')}</Typography>
                 <Typography>{pr?.organization || 'N/A'}</Typography>
               </Grid>
               <Grid item xs={6}>
@@ -1616,7 +1616,7 @@ export function PRView() {
                   />
                 ) : (
                   <Box>
-                    <Typography color="textSecondary">Urgency</Typography>
+                    <Typography color="textSecondary">{t('pr.urgencyLevel')}</Typography>
                     <Chip
                       label={pr?.isUrgent || pr?.metrics?.isUrgent ? 'Urgent' : 'Normal'}
                       color={pr?.isUrgent || pr?.metrics?.isUrgent ? 'error' : 'default'}
@@ -1627,23 +1627,23 @@ export function PRView() {
                 )}
               </Grid>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Required Date</Typography>
+                <Typography color="textSecondary">{t('pr.requiredDate')}</Typography>
                 <Typography>
-                  {pr?.requiredDate ? new Date(pr.requiredDate).toLocaleDateString() : 'Not specified'}
+                  {pr?.requiredDate ? new Date(pr.requiredDate).toLocaleDateString() : t('pr.notSpecified')}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Estimated Amount</Typography>
+                <Typography color="textSecondary">{t('pr.estimatedAmount')}</Typography>
                 <Typography>
-                  {pr?.currency} {pr?.estimatedAmount?.toLocaleString() || 'Not specified'}
+                  {pr?.currency} {pr?.estimatedAmount?.toLocaleString() || t('pr.notSpecified')}
                 </Typography>
               </Grid>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Preferred Vendor</Typography>
+                <Typography color="textSecondary">{t('pr.preferredVendor')}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Typography>
                     {(() => {
-                      if (!pr?.preferredVendor) return 'Not specified';
+                      if (!pr?.preferredVendor) return t('pr.notSpecified');
                       const vendor = vendors.find(v => v.id === pr.preferredVendor);
                       return vendor ? vendor.name : pr.preferredVendor;
                     })()}
@@ -1805,12 +1805,12 @@ export function PRView() {
               <Table>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Description</TableCell>
-                    <TableCell align="right">Quantity</TableCell>
-                    <TableCell>UOM</TableCell>
-                    <TableCell>Notes</TableCell>
-                    <TableCell>Attachments</TableCell>
-                    <TableCell align="right">Actions</TableCell>
+                    <TableCell>{t('pr.description')}</TableCell>
+                    <TableCell align="right">{t('pr.quantity')}</TableCell>
+                    <TableCell>{t('pr.uom')}</TableCell>
+                    <TableCell>{t('pr.notes')}</TableCell>
+                    <TableCell>{t('pr.attachments')}</TableCell>
+                    <TableCell align="right">{t('pr.actions')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
