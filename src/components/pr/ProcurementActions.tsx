@@ -468,21 +468,21 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             color="primary"
             onClick={() => handleActionClick('approve')}
           >
-            Push to Approver
+            {t('pr.pushToApprover')}
           </Button>
           <Button
             variant="contained"
             color="error"
             onClick={() => handleActionClick('reject')}
           >
-            Reject
+            {t('pr.rejectPR')}
           </Button>
           <Button
             variant="contained"
             color="warning"
             onClick={() => handleActionClick('revise')}
           >
-            Revise & Resubmit
+            {t('pr.reviseAndResubmit')}
           </Button>
         </Box>
         <Dialog 
@@ -492,9 +492,9 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           fullWidth
         >
           <DialogTitle>
-            {selectedAction === 'approve' && 'Push to Approver'}
-            {selectedAction === 'reject' && 'Reject PR'}
-            {selectedAction === 'revise' && 'Request Revision'}
+            {selectedAction === 'approve' && t('pr.pushToApprover')}
+            {selectedAction === 'reject' && t('pr.rejectPR')}
+            {selectedAction === 'revise' && t('pr.revisionRequired')}
           </DialogTitle>
           <DialogContent>
             {error && (
@@ -504,7 +504,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             )}
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                {selectedAction === 'approve' && 'Add optional notes before pushing this PR to the approver. Note: For high-value PRs with multiple quotes, notes are REQUIRED if you selected a quote that is not the lowest.'}
+                {selectedAction === 'approve' && t('pr.addNotes')}
                 {selectedAction === 'reject' && 'Please provide a reason for rejecting this PR.'}
                 {selectedAction === 'revise' && 'Please specify what changes are needed for this PR.'}
               </Typography>
@@ -512,7 +512,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
                 autoFocus
                 multiline
                 rows={4}
-                label="Notes"
+                label={t('pr.notes')}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 required={selectedAction === 'reject' || selectedAction === 'revise'}
@@ -522,9 +522,9 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleClose}>Cancel</Button>
+            <Button onClick={handleClose}>{t('common.cancel')}</Button>
             <Button onClick={handleSubmit} variant="contained" color="primary">
-              Confirm
+              {t('common.confirm')}
             </Button>
           </DialogActions>
         </Dialog>
@@ -540,7 +540,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           fullWidth
         >
           <DialogTitle sx={{ bgcolor: 'warning.light' }}>
-            ⚠️ Quote Requirement Override Required
+            ⚠️ {t('pr.quoteRequirementOverrideTitle')}
           </DialogTitle>
           <DialogContent>
             <Box sx={{ mt: 2 }}>
@@ -551,8 +551,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               </Alert>
               
               <Typography variant="body2" sx={{ mb: 2 }}>
-                This PR does not meet the standard quotation requirements. If you need to proceed despite this,
-                you must provide a detailed justification for the override.
+                {t('pr.quoteRequirementOverrideDesc')}
               </Typography>
               
               <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
@@ -561,7 +560,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               </Typography>
 
               <TextField
-                label="Justification for Quote Requirement Override"
+                label={t('pr.justification')}
                 multiline
                 rows={4}
                 fullWidth
@@ -580,7 +579,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
                 setQuoteOverrideJustification('');
               }}
             >
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button
               onClick={handleQuoteOverrideConfirm}
