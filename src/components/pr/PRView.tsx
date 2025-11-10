@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useSnackbar } from "notistack";
+import { useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
 import { referenceDataService } from '@/services/referenceData';
 import {
@@ -435,6 +436,7 @@ const UOM_OPTIONS: UomOption[] = Object.entries(UOM_MAPPING).map(([code, label])
 }));
 
 export function PRView() {
+  const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
@@ -2389,7 +2391,7 @@ export function PRView() {
               }}
             >
               <Typography variant="h6">
-                Status History & Notes ({pr.statusHistory.length})
+                {t('pr.statusHistory')} ({pr.statusHistory.length})
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
@@ -2397,10 +2399,10 @@ export function PRView() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Date & Time</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Status</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>User</TableCell>
-                      <TableCell sx={{ fontWeight: 'bold' }}>Notes</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>{t('pr.dateTime')}</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>{t('pr.status')}</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>{t('pr.user')}</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>{t('pr.notes')}</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -2486,7 +2488,7 @@ export function PRView() {
               }}
             >
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                ⚠️ Overrides & Exceptions ({[
+                ⚠️ {t('pr.overridesExceptions')} ({[
                   pr?.proformaOverride,
                   pr?.popOverride,
                   pr?.poDocumentOverride,
@@ -2504,15 +2506,14 @@ export function PRView() {
                   <Card variant="outlined">
                     <CardContent>
                       <Typography variant="subtitle2" color="warning.main" gutterBottom>
-                        🔓 Rule Validation Override
+                        🔓 {t('pr.ruleValidationOverrideTitle')}
                       </Typography>
                       <Typography variant="body2" gutterBottom>
-                        The standard approval rules were overridden for this PR. The selected approver/amount combination 
-                        does not meet the normal criteria, but an exception was granted.
+                        {t('pr.ruleValidationOverrideDesc')}
                       </Typography>
                       <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          <strong>Justification:</strong>
+                          <strong>{t('pr.justification')}:</strong>
                         </Typography>
                         <Typography variant="body2" sx={{ mt: 0.5 }}>
                           {pr.ruleValidationOverrideJustification}
@@ -2520,8 +2521,8 @@ export function PRView() {
                       </Box>
                       {pr.ruleValidationOverrideAt && (
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                          Override applied on {new Date(pr.ruleValidationOverrideAt).toLocaleString()}
-                          {pr.ruleValidationOverrideBy && ` by user ${pr.ruleValidationOverrideBy}`}
+                          {t('pr.overrideApplied', { date: new Date(pr.ruleValidationOverrideAt).toLocaleString() })}
+                          {pr.ruleValidationOverrideBy && ` ${t('pr.overrideAppliedBy', { user: pr.ruleValidationOverrideBy })}`}
                         </Typography>
                       )}
                     </CardContent>
@@ -2533,15 +2534,14 @@ export function PRView() {
                   <Card variant="outlined">
                     <CardContent>
                       <Typography variant="subtitle2" color="warning.main" gutterBottom>
-                        📋 Quote Requirement Override
+                        📋 {t('pr.quoteRequirementOverrideTitle')}
                       </Typography>
                       <Typography variant="body2" gutterBottom>
-                        The standard quotation requirements were overridden for this PR. The number of quotes submitted 
-                        does not meet the normal criteria, but an exception was granted.
+                        {t('pr.quoteRequirementOverrideDesc')}
                       </Typography>
                       <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
                         <Typography variant="caption" color="text.secondary" display="block">
-                          <strong>Justification:</strong>
+                          <strong>{t('pr.justification')}:</strong>
                         </Typography>
                         <Typography variant="body2" sx={{ mt: 0.5 }}>
                           {pr.quoteRequirementOverrideJustification}
@@ -2549,8 +2549,8 @@ export function PRView() {
                       </Box>
                       {pr.quoteRequirementOverrideAt && (
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                          Override applied on {new Date(pr.quoteRequirementOverrideAt).toLocaleString()}
-                          {pr.quoteRequirementOverrideBy && ` by user ${pr.quoteRequirementOverrideBy}`}
+                          {t('pr.overrideApplied', { date: new Date(pr.quoteRequirementOverrideAt).toLocaleString() })}
+                          {pr.quoteRequirementOverrideBy && ` ${t('pr.overrideAppliedBy', { user: pr.quoteRequirementOverrideBy })}`}
                         </Typography>
                       )}
                     </CardContent>
