@@ -13,6 +13,7 @@ import { NewPRForm } from './components/pr/NewPRForm';
 import { PRView } from './components/pr/PRView';
 import { PRList } from './components/pr/PRList';
 import { VendorView } from './components/admin/VendorView';
+import { UserManual } from './components/help/UserManual';
 import { PrivateRoute } from './components/common/PrivateRoute';
 import { AdminRoute } from './components/common/AdminRoute';
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -97,6 +98,7 @@ function App() {
                   <Route path="/pr/list" element={<PRList />} />
                   <Route path="/pr/:id" element={<PRView />} />
                   <Route path="/pr/:id/edit" element={<PRView />} />
+                  <Route path="/help" element={<UserManual />} />
                   <Route path="/test-email" element={<TestEmail />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
                 </Route>

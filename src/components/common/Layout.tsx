@@ -27,7 +27,8 @@ import {
   List as ListIcon,
   Person,
   AdminPanelSettings,
-  FilterList
+  FilterList,
+  HelpOutline
 } from '@mui/icons-material';
 import { signOut } from '../../services/auth';
 import { clearUser } from '../../store/slices/authSlice';
@@ -131,6 +132,13 @@ export const Layout = () => {
             <ListIcon />
           </ListItemIcon>
           <ListItemText primary="PRs" />
+        </NavItem>
+        <Divider />
+        <NavItem onClick={() => navigate('/help')}>
+          <ListItemIcon>
+            <HelpOutline />
+          </ListItemIcon>
+          <ListItemText primary={t('nav.help')} />
         </NavItem>
         {hasAdminAccess && (
           <>
