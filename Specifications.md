@@ -537,62 +537,139 @@ Users assigned to the Asset Management department have special permissions:
   
 - **Purpose:** Ensures high-spend vendors undergo regular competitive evaluation
 
-#### Vendor Details Page
-- **Access:** Click vendor name from any PR/PO or from Admin Dashboard → Vendor Management
-- **Vendor Information Section:**
-  - Name
-  - Contact Information (email, phone, website)
-  - Approval Status (toggle - only enabled if requirements met)
-  - Approval Expiry Date (if approved)
-  - Approval Reason (auto/manual)
-  - Product/Service Categories
-  - Organization Assignments (if applicable)
-  - Date Added, Last Updated
-  - Added By (user)
-  
-- **Vendor Documents Section:**
-  - **Bank Letter Upload:**
-    - Upload/Replace bank letter document
-    - View/Download current bank letter
-    - Date uploaded, uploaded by (user)
-    - File types: PDF, JPG, PNG
-  - **Corporate Documents Upload:**
-    - Multiple document upload capability
-    - Document types: Articles of Incorporation, Business License, Tax Certificate, etc.
-    - Each document shows: filename, upload date, uploaded by
-    - View/Download individual documents
-    - Delete document capability (Procurement/Admin only)
-    - File types: PDF, JPG, PNG, DOCX
-  - **Document Access:** View-only for all users; edit/upload for Procurement, Finance/Admin, and Admin
-  
-- **Associated PRs/POs Section:**
-  - **List View:** All PRs/POs that reference this vendor
-  - **Columns:**
-    - PR/PO Number (clickable to view details)
-    - Organization
-    - Description
-    - Status
-    - Amount
-    - Created Date
-    - Requestor
-  - **Search/Filter:**
-    - Filter by Organization
-    - Filter by Status
-    - Filter by Date Range
-    - Search by PR/PO number or description
-  - **Sort Options:** Date, Amount, Status
-  - **Export:** Export vendor's PR/PO history to CSV
-  
-- **Performance Metrics (future enhancement):**
-  - Total PRs/POs
-  - Total Value
-  - Average Delivery Time
-  - Completion Rate
+#### Vendor View/Edit Page (Similar to PR View/Edit)
 
-- **Actions:**
-  - Edit Vendor (Procurement, Admin)
-  - Approve/Unapprove Vendor (Procurement, Admin - if requirements met)
-  - Deactivate Vendor (Admin only)
+**Component:** `VendorView.tsx` - Follows PR view/edit schema pattern
+
+**Access & Navigation:**
+- **Access From:** Admin Dashboard → Reference Data → Vendors table → Click any vendor row
+- **Routes:**
+  - View Mode: `/vendor/:vendorId`
+  - Edit Mode: `/vendor/:vendorId/edit`
+- **Permissions:**
+  - **View:** Superadmin, Procurement, Finance/Admin, Approvers (Level 1, 2, 3, 4)
+  - **Edit:** Superadmin, Procurement, Finance/Admin (Level 1, 3, 4)
+  - **Approvers (Level 2):** View-only access
+
+**View/Edit Mode Toggle:**
+- View Mode: Display all information read-only, "Edit" button visible to authorized users
+- Edit Mode: All fields editable via TextFields, "Save" and "Cancel" buttons
+- Click "Edit" → Navigate to `/vendor/{id}/edit`
+- Click "Save" → Validate, save to Firestore, navigate back to view mode
+- Click "Cancel" → Navigate back to `/vendor/{id}` view mode
+
+**Page Layout:**
+
+1. **Header Section:**
+   - Vendor Name (heading)
+   - Badges: Approval Status ("Approved"/"Not Approved"), High-Value indicator
+   - Buttons: "Back", "Edit" (view mode) or "Cancel", "Save" (edit mode)
+
+2. **Vendor Information Section** (Left Column):
+   - **Editable Fields:**
+     - Name * (required)
+     - Code
+     - Email
+     - Phone  
+     - Website
+     - Address (multiline)
+     - City, Country
+     - Products/Services (multiline)
+     - Notes (multiline)
+   - **View Mode:** Read-only Typography
+   - **Edit Mode:** TextField components with validation
+
+3. **Approval Status Section** (Right Column Top):
+   - Current approval status with expiry date
+   - Approval type: "3-Quote Auto-Approval", "Completed Order Auto-Approval", or "Manual Approval"
+   - Associated PO number (if auto-approved)
+   - Approval notes/justification
+   - Last completed order date
+   - High-Value Vendor alert with cumulative value
+   - **Actions (Edit Permission Only):**
+     - "Approve Vendor" button (if not approved) - opens dialog with justification field
+     - "De-Approve Vendor" button (if approved) - opens dialog, justification REQUIRED
+     - Manual approvals: 12-month duration
+
+4. **Company Documents Section** (Right Column Bottom):
+   - **Document Categories:**
+     - Incorporation Documents
+     - Tax Certificate
+     - Bank Letter
+     - Insurance
+     - License/Permit
+     - Other
+   - **Upload Interface (Edit Permission Only):**
+     - Category selector dropdown (select before upload)
+     - FileUploadManager component integration
+     - Accepted types: images, PDF, DOC, DOCX, XLS, XLSX
+     - Firebase Storage path: `vendors/{vendorId}/documents/`
+   - **Document Display:**
+     - Card-based list showing: name, category, upload date
+     - "View" button (opens in new tab)
+     - "Delete" button (edit permission only)
+   - **Document Data Model:**
+     ```typescript
+     interface VendorDocument {
+       id: string;
+       name: string;
+       url: string;
+       size: number;
+       type: string;
+       category: 'incorporation' | 'tax_certificate' | 'bank_letter' | 'insurance' | 'license' | 'other';
+       uploadedBy: string;
+       uploadedAt: string;
+       notes?: string;
+     }
+     ```
+
+5. **Associated PRs/POs Section** (Full Width):
+   - **Data Source:** `getPRsByVendor(vendorId)` service function
+   - **Display:** Table with all PRs where vendor is preferred vendor
+   - **Columns:**
+     - PR/PO Number (clickable → `/pr/{prId}`)
+     - Organization
+     - Description
+     - Status (chip)
+     - Amount (formatted currency)
+     - Created Date
+     - Requestor
+   - **Permissions:** All users with view access
+
+6. **Quote History Section** (Full Width):
+   - **Data Source:** `getQuotesByVendor(vendorId, vendorName)` service function
+   - **Display:** Table with all quotes from this vendor across all PRs
+   - **Matching Logic:** Matches by vendorId OR vendorName
+   - **Columns:**
+     - PR Number (clickable → `/pr/{prId}`)
+     - Organization
+     - PR Status (chip)
+     - Quote Amount (formatted currency)
+     - Currency
+     - Valid Until
+     - Notes
+   - **Permissions:** All users with view access
+
+**New Service Functions** (`src/services/pr.ts`):
+- `getPRsByVendor(vendorId)`: Queries PRs where `preferredVendor == vendorId`
+- `getQuotesByVendor(vendorId, vendorName)`: Fetches all PRs, filters quotes by vendor
+- Both functions return formatted data with proper timestamp conversions
+
+**Permission Matrix:**
+
+| Level | View | Edit Basic Info | Upload/Delete Docs | Approve/De-approve |
+|-------|------|-----------------|--------------------|--------------------|
+| Superadmin (1) | ✅ | ✅ | ✅ | ✅ |
+| Approver (2) | ✅ | ❌ | ❌ | ❌ |
+| Procurement (3) | ✅ | ✅ | ✅ | ✅ |
+| Finance/Admin (4) | ✅ | ✅ | ✅ | ✅ |
+| Requestor (5) | ❌ | ❌ | ❌ | ❌ |
+
+**Reference Data Table Integration:**
+- Vendor rows in Reference Data Management table are clickable
+- Hover effect and cursor: pointer for vendor rows
+- Click navigates to `/vendor/{vendorId}`
+- Edit/Delete icon buttons have `e.stopPropagation()` to prevent row click
   
 #### Global Vendor Access
 - Vendors are globally available across all organizations

@@ -177,26 +177,6 @@
                     <td>Count of PRs where requiredDate has passed and status not COMPLETED</td>
                     <td>Identify late deliveries</td>
                 </tr>
-                <tr>
-                    <td><strong>Quotes Required</strong></td>
-                    <td>Count of PRs in IN_QUEUE status awaiting quote validation</td>
-                    <td>Procurement workload</td>
-                </tr>
-                <tr>
-                    <td><strong>Adjudication Required</strong></td>
-                    <td>Count of PRs in PENDING_APPROVAL status</td>
-                    <td>Approver workload</td>
-                </tr>
-                <tr>
-                    <td><strong>Customs Required</strong></td>
-                    <td>Count of POs in ORDERED status with international vendors</td>
-                    <td>Customs/import tracking</td>
-                </tr>
-                <tr>
-                    <td><strong>Completion Rate</strong></td>
-                    <td>Percentage of COMPLETED PRs/POs vs total created (last 30 days)</td>
-                    <td>Success rate metric</td>
-                </tr>
             </table>
         </div>
 
@@ -303,7 +283,12 @@
                 <tr>
                     <td><strong>My PRs</strong></td>
                     <td>All users</td>
-                    <td>Filter dashboard to show only user's own PRs/POs (all statuses)</td>
+                    <td>Toggle filter: Shows PRs/POs where user is requestor or approver</td>
+                </tr>
+                <tr>
+                    <td><strong>PRs</strong></td>
+                    <td>All users</td>
+                    <td>Opens comprehensive PR/PO list view with advanced filtering, search, and table display</td>
                 </tr>
                 <tr>
                     <td><strong>Admin Dashboard</strong></td>
@@ -313,6 +298,91 @@
             </table>
             
             <p><strong>Note:</strong> The "MY ACTIONS" button is in the header (not sidebar) for personalized filtering to items requiring user's action.</p>
+        </div>
+
+        <div class="info-box" style="background-color: #fff3e0; border-left-color: #f57c00;">
+            <h3>PR List View (Table View)</h3>
+            <p><strong>Access:</strong> Click "PRs" in the sidebar navigation</p>
+            
+            <h4>Purpose:</h4>
+            <ul>
+                <li>Comprehensive table view of all PR/PO records user has access to</li>
+                <li>Advanced filtering and search capabilities</li>
+                <li>Multi-column sorting and pagination</li>
+                <li>Ideal for bulk review, analysis, and data export</li>
+            </ul>
+
+            <h4>Table Columns:</h4>
+            <table>
+                <tr>
+                    <th>Column</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td><strong>PR ID</strong></td>
+                    <td>Human-readable PR/PO number (e.g., 251028-0009-1PL-LS) - clickable to view details</td>
+                </tr>
+                <tr>
+                    <td><strong>Created Date</strong></td>
+                    <td>Date PR was initially created</td>
+                </tr>
+                <tr>
+                    <td><strong>Days Open</strong></td>
+                    <td>Number of days since creation (or until completion)</td>
+                </tr>
+                <tr>
+                    <td><strong>Requestor</strong></td>
+                    <td>User who created the PR</td>
+                </tr>
+                <tr>
+                    <td><strong>Department</strong></td>
+                    <td>Requesting department</td>
+                </tr>
+                <tr>
+                    <td><strong>Category</strong></td>
+                    <td>Project category</td>
+                </tr>
+                <tr>
+                    <td><strong>Status</strong></td>
+                    <td>Current status with color-coded chip</td>
+                </tr>
+                <tr>
+                    <td><strong>Total Amount</strong></td>
+                    <td>Estimated amount with currency</td>
+                </tr>
+                <tr>
+                    <td><strong>Actions</strong></td>
+                    <td>View button to open PR details</td>
+                </tr>
+            </table>
+
+            <h4>Filtering Options:</h4>
+            <ul>
+                <li><strong>Search:</strong> Search by PR Number (e.g., 251028-0009-1PL-LS), department, or project category</li>
+                <li><strong>Status Filter:</strong> Filter by specific status or "All Statuses"</li>
+                <li><strong>Time Period Filter:</strong>
+                    <ul>
+                        <li>All Time</li>
+                        <li>Last 7 Days</li>
+                        <li>Last 30 Days</li>
+                        <li>Last 90 Days</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h4>Features:</h4>
+            <ul>
+                <li><strong>Pagination:</strong> Configurable rows per page (10, 25, 50, 100)</li>
+                <li><strong>Respects "My PRs" Toggle:</strong> If enabled, only shows user's PRs/approvals</li>
+                <li><strong>Real-time Data:</strong> Fetches latest PR data on page load</li>
+                <li><strong>Clickable Rows:</strong> Click any PR to open detailed view</li>
+            </ul>
+
+            <h4>Difference from Dashboard:</h4>
+            <ul>
+                <li><strong>Dashboard:</strong> Status-focused view with quick actions and metrics</li>
+                <li><strong>PR List:</strong> Comprehensive table view with advanced filtering for analysis</li>
+            </ul>
         </div>
 
         <div class="info-box" style="background-color: #e1f5fe; border-left-color: #0277bd;">
@@ -714,9 +784,15 @@
             <h4>My PRs Sidebar Filter</h4>
             <ul>
                 <li><strong>Available To:</strong> All users</li>
-                <li><strong>Filter:</strong> Shows only PRs/POs created by logged-in user</li>
+                <li><strong>Filter:</strong> Shows PRs/POs where user is:
+                    <ul>
+                        <li>The requestor (created by user), OR</li>
+                        <li>Listed as first approver (approver field), OR</li>
+                        <li>Listed as second approver (approver2 field)</li>
+                    </ul>
+                </li>
                 <li><strong>All Statuses:</strong> Includes COMPLETED, CANCELED, REJECTED</li>
-                <li><strong>Full History:</strong> Complete lifecycle visibility for user's own requests</li>
+                <li><strong>Full History:</strong> Complete lifecycle visibility for user's requests and approvals</li>
                 <li><strong>Ordering:</strong> Same urgent-first, oldest-first ordering</li>
             </ul>
 

@@ -79,7 +79,7 @@ export const PRList = () => {
   const filteredPRs = userPRs.filter((pr) => {
     const matchesSearch = 
       searchTerm === '' ||
-      pr.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (pr.prNumber && pr.prNumber.toLowerCase().includes(searchTerm.toLowerCase())) ||
       pr.department.toLowerCase().includes(searchTerm.toLowerCase()) ||
       pr.projectCategory.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -214,7 +214,16 @@ export const PRList = () => {
                 
                 return (
                   <TableRow key={pr.id} hover>
-                    <TableCell>#{pr.id.slice(-6)}</TableCell>
+                    <TableCell 
+                      sx={{ 
+                        color: 'primary.main', 
+                        cursor: 'pointer',
+                        '&:hover': { textDecoration: 'underline' }
+                      }}
+                      onClick={() => navigate(`/pr/${pr.id}`)}
+                    >
+                      {pr.prNumber || `#${pr.id.slice(-6)}`}
+                    </TableCell>
                     <TableCell>
                       {format(
                         new Date(pr.createdAt),

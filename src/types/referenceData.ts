@@ -34,6 +34,9 @@ export interface ReferenceDataItem {
   // High-Value Vendor Classification
   isHighValue?: boolean;
   cumulativeOrderValue?: number;
+  
+  // Vendor Documents
+  documents?: VendorDocument[];
 
   // Organization specific fields
   /** Display name for the organization (e.g., '1PWR Lesotho') */
@@ -127,6 +130,22 @@ export const CODE_BASED_ID_TYPES = [
 ] as const;
 
 /**
+ * Vendor Document Interface
+ * Represents a document attached to a vendor
+ */
+export interface VendorDocument {
+  id: string;
+  name: string;
+  url: string;
+  size: number;
+  type: string;
+  category: 'incorporation' | 'tax_certificate' | 'bank_letter' | 'insurance' | 'license' | 'other';
+  uploadedBy: string;
+  uploadedAt: string;
+  notes?: string;
+}
+
+/**
  * Vendor Interface
  * Enhanced type for vendor-specific data with approval tracking
  */
@@ -159,7 +178,6 @@ export interface Vendor extends ReferenceDataItem {
   isHighValue?: boolean;
   cumulativeOrderValue?: number;
   
-  // Documents (will be added in later phases)
-  // bankLetter?: Attachment;
-  // corporateDocuments?: Attachment[];
+  // Documents
+  documents?: VendorDocument[];
 }

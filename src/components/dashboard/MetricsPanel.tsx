@@ -51,20 +51,12 @@ export const MetricsPanel = ({ prs }: MetricsPanelProps) => {
     });
     
     const overduePRs = prs.filter(pr => pr.metrics?.isOverdue).length;
-    const quotesRequired = prs.filter(pr => pr.metrics?.quotesRequired).length;
-    const adjudicationRequired = prs.filter(pr => pr.metrics?.adjudicationRequired).length;
-    const customsClearanceRequired = prs.filter(pr => pr.metrics?.customsClearanceRequired).length;
-    const avgCompletionRate = prs.reduce((acc, pr) => acc + (pr.metrics?.completionPercentage || 0), 0) / totalPRs || 0;
 
     return {
       totalPRs,
       urgentPRs,
       avgDaysOpen: Math.round(avgDaysOpen * 10) / 10,
-      overduePRs,
-      quotesRequired,
-      adjudicationRequired,
-      customsClearanceRequired,
-      completionRate: Math.round(avgCompletionRate)
+      overduePRs
     };
   };
 
@@ -98,10 +90,6 @@ export const MetricsPanel = ({ prs }: MetricsPanelProps) => {
         <MetricItem label={t('dashboard.urgent')} value={metrics.urgentPRs} />
         <MetricItem label={t('dashboard.avgDaysOpen')} value={metrics.avgDaysOpen} />
         <MetricItem label={t('dashboard.overdue')} value={metrics.overduePRs} />
-        <MetricItem label={t('pr.quotes')} value={metrics.quotesRequired} />
-        <MetricItem label={t('pr.adjudicationNotes')} value={metrics.adjudicationRequired} />
-        <MetricItem label={t('common.customsRequired')} value={metrics.customsClearanceRequired} />
-        <MetricItem label={t('common.completionRate')} value={`${metrics.completionRate}%`} />
       </Grid>
     </Paper>
   );

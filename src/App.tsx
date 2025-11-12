@@ -11,6 +11,8 @@ import { LoginPage } from './components/auth/LoginPage';
 import { Dashboard } from './components/dashboard/Dashboard';
 import { NewPRForm } from './components/pr/NewPRForm';
 import { PRView } from './components/pr/PRView';
+import { PRList } from './components/pr/PRList';
+import { VendorView } from './components/admin/VendorView';
 import { PrivateRoute } from './components/common/PrivateRoute';
 import { AdminRoute } from './components/common/AdminRoute';
 import { AdminDashboard } from './components/admin/AdminDashboard';
@@ -92,6 +94,7 @@ function App() {
                 <Route element={<Layout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/pr/new" element={<NewPRForm />} />
+                  <Route path="/pr/list" element={<PRList />} />
                   <Route path="/pr/:id" element={<PRView />} />
                   <Route path="/pr/:id/edit" element={<PRView />} />
                   <Route path="/test-email" element={<TestEmail />} />
@@ -101,6 +104,8 @@ function App() {
               <Route element={<AdminRoute />}>
                 <Route element={<Layout />}>
                   <Route path="/admin" element={<AdminDashboard />} />
+                  <Route path="/vendor/:vendorId" element={<VendorView />} />
+                  <Route path="/vendor/:vendorId/edit" element={<VendorView />} />
                 </Route>
               </Route>
               <Route path="*" element={<Navigate to="/" replace />} />

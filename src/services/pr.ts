@@ -17,6 +17,7 @@ import {
   limit,
   FieldValue,
   setDoc,
+  or,
 } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore'; 
 import { app, auth } from '@/config/firebase'; 
@@ -782,7 +783,8 @@ export async function createPR(
  * Fetches all PRs for a specific user, optionally filtered by organization.
  * @param userId - The ID of the user whose PRs to fetch.
  * @param organization - Optional organization name to filter by.
- * @param showOnlyMyPRs - If true, only show PRs where the user is the requestor.
+ * @param showOnlyMyPRs - If true, only show PRs where the user is the requestor, first approver, or second approver.
+ * @param forceServerFetch - If true, bypass Firestore cache and fetch from server.
  * @returns A promise that resolves with an array of PRs.
  */
 export async function getUserPRs(
@@ -802,24 +804,23 @@ export async function getUserPRs(
         const constraints: QueryConstraint[] = [];
 
         if (showOnlyMyPRs) {
-            constraints.push(where('requestorId', '==', userId));
+            // Show PRs where user is requestor OR listed as approver (approver or approver2)
+            constraints.push(
+                or(
+                    where('requestorId', '==', userId),
+                    where('approver', '==', userId),
+                    where('approver2', '==', userId)
+                )
+            );
+            // Add organization filter if provided
+            if (organization) {
+                constraints.push(where('organization', '==', organization));
+            }
         } else {
-            // If not only showing my PRs, maybe fetch all PRs the user can *see*?
-            // This might involve checking roles/permissions or if they are an approver.
-            // For now, let's assume it means all PRs in their org if org is provided,
-            // or all PRs if no org is provided (requires appropriate Firestore rules).
-            // If showing all PRs user can *act on* is needed, more complex logic is required.
-            console.warn('Fetching non-owned PRs - current logic might need refinement based on visibility rules.');
-            // Example: Fetching all PRs (adjust constraints based on actual requirements)
-             if (organization) {
-                 constraints.push(where('organization', '==', organization));
-             } 
-            // If no organization and not showOnlyMyPRs, fetch all? Might be too broad.
-            // Consider adding permission checks here or ensuring Firestore rules handle this.
-        }
-        
-        if (organization && constraints.length === 0) { // Add org filter if not added by showOnlyMyPRs logic
-           constraints.push(where('organization', '==', organization));
+            // Show all PRs in the organization that user has visibility to
+            if (organization) {
+                constraints.push(where('organization', '==', organization));
+            }
         }
 
         constraints.push(orderBy('createdAt', 'desc')); // Order by creation date
@@ -987,6 +988,130 @@ export async function deletePR(prId: string): Promise<void> {
   }
 }
 
+/**
+ * Get all PRs/POs associated with a specific vendor
+ * @param vendorId - The vendor ID to search for
+ * @returns Promise<PRRequest[]> - Array of PRs/POs associated with this vendor
+ */
+export async function getPRsByVendor(vendorId: string): Promise<PRRequest[]> {
+  console.log(`Fetching PRs for vendor: ${vendorId}`);
+  if (!vendorId) {
+    console.error('getPRsByVendor called without vendorId');
+    throw new Error('Vendor ID is required');
+  }
+
+  try {
+    const prCollectionRef = collection(db, PR_COLLECTION);
+    
+    // Query for PRs where vendor is either preferred vendor or selected vendor in a quote
+    const q = query(
+      prCollectionRef,
+      where('preferredVendor', '==', vendorId),
+      orderBy('createdAt', 'desc')
+    );
+
+    const querySnapshot = await getDocs(q);
+    const prs: PRRequest[] = [];
+
+    querySnapshot.forEach((docSnapshot) => {
+      const data = docSnapshot.data();
+      prs.push({
+        id: docSnapshot.id,
+        ...data,
+        createdAt: safeTimestampToISO(data.createdAt),
+        updatedAt: safeTimestampToISO(data.updatedAt),
+        requiredDate: safeTimestampToISO(data.requiredDate),
+        lastModifiedAt: safeTimestampToISO(data.lastModifiedAt),
+        history: (data.history || []).map((item: any): HistoryItem => ({
+          ...item,
+          timestamp: safeTimestampToISO(item.timestamp),
+        })),
+        statusHistory: (data.statusHistory || []).map((item: any): StatusHistoryItem => ({
+          ...item,
+          timestamp: safeTimestampToISO(item.timestamp),
+        })),
+        approvalWorkflow: data.approvalWorkflow ? {
+          ...data.approvalWorkflow,
+          lastUpdated: safeTimestampToISO(data.approvalWorkflow.lastUpdated),
+          approvalHistory: (data.approvalWorkflow.approvalHistory || []).map((item: any): ApprovalHistoryItem => ({
+            ...item,
+            timestamp: safeTimestampToISO(item.timestamp),
+          })),
+        } : undefined,
+      } as PRRequest);
+    });
+
+    console.log(`Found ${prs.length} PRs for vendor ${vendorId}`);
+    return prs;
+  } catch (error) {
+    console.error(`Failed to fetch PRs for vendor ${vendorId}:`, error);
+    throw new Error(`Failed to retrieve purchase requests: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Get all quotes associated with a specific vendor across all PRs
+ * @param vendorId - The vendor ID (can be vendor.id or vendor.name)
+ * @returns Promise<Array> - Array of quotes with PR context
+ */
+export async function getQuotesByVendor(vendorId: string, vendorName?: string): Promise<Array<{
+  prId: string;
+  prNumber: string;
+  quote: any;
+  prStatus: string;
+  organization: string;
+}>> {
+  console.log(`Fetching quotes for vendor: ${vendorId} / ${vendorName}`);
+  if (!vendorId && !vendorName) {
+    console.error('getQuotesByVendor called without vendorId or vendorName');
+    throw new Error('Vendor ID or name is required');
+  }
+
+  try {
+    const prCollectionRef = collection(db, PR_COLLECTION);
+    
+    // Get all PRs (we'll filter quotes in memory since Firestore doesn't support array-contains with nested fields well)
+    const q = query(prCollectionRef, orderBy('createdAt', 'desc'));
+    const querySnapshot = await getDocs(q);
+    
+    const vendorQuotes: Array<{
+      prId: string;
+      prNumber: string;
+      quote: any;
+      prStatus: string;
+      organization: string;
+    }> = [];
+
+    querySnapshot.forEach((docSnapshot) => {
+      const data = docSnapshot.data();
+      const quotes = data.quotes || [];
+      
+      // Filter quotes for this vendor
+      quotes.forEach((quote: any) => {
+        const matchesId = vendorId && (quote.vendorId === vendorId || quote.vendor === vendorId);
+        const matchesName = vendorName && quote.vendorName && 
+          quote.vendorName.toLowerCase() === vendorName.toLowerCase();
+        
+        if (matchesId || matchesName) {
+          vendorQuotes.push({
+            prId: docSnapshot.id,
+            prNumber: data.prNumber || docSnapshot.id,
+            quote: quote,
+            prStatus: data.status,
+            organization: data.organization,
+          });
+        }
+      });
+    });
+
+    console.log(`Found ${vendorQuotes.length} quotes for vendor ${vendorId}`);
+    return vendorQuotes;
+  } catch (error) {
+    console.error(`Failed to fetch quotes for vendor:`, error);
+    throw new Error(`Failed to retrieve quotes: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 // Aggregated service object for legacy compatibility
 export const prService = {
   getPR,
@@ -996,5 +1121,7 @@ export const prService = {
   createPR,
   getUserPRs,
   generatePRNumber,
-  deletePR
+  deletePR,
+  getPRsByVendor,
+  getQuotesByVendor,
 };

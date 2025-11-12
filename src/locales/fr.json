@@ -32,7 +32,21 @@
     "add": "Ajouter",
     "remove": "Retirer",
     "customsRequired": "Douane requise",
-    "completionRate": "Taux d'achèvement"
+    "completionRate": "Taux d'achèvement",
+    "name": "Nom",
+    "code": "Code",
+    "email": "E-mail",
+    "phone": "Téléphone",
+    "website": "Site Web",
+    "address": "Adresse",
+    "city": "Ville",
+    "country": "Pays",
+    "notes": "Notes",
+    "documents": "Documents",
+    "vendorInformation": "Informations sur le fournisseur",
+    "productsServices": "Produits/Services",
+    "approvalStatus": "Statut d'approbation",
+    "saving": "Enregistrement..."
   },
   "auth": {
     "login": "Connexion",

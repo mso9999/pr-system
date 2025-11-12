@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
+import { useNavigate } from "react-router-dom"
 import {
   Box,
   Button,
@@ -387,6 +388,7 @@ interface ReferenceDataManagementProps {
 
 export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementProps) {
   const { user } = useSelector((state: RootState) => state.auth);
+  const navigate = useNavigate();
 
   const [selectedType, setSelectedType] = useState<ReferenceDataType>('departments');
   const [items, setItems] = useState<ReferenceDataItem[]>([]);
@@ -986,11 +988,22 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     }
   };
 
+  const handleRowClick = (item: ReferenceDataItem) => {
+    if (selectedType === 'vendors') {
+      navigate(`/vendor/${item.id}`);
+    }
+  };
+
   const renderTableBody = () => {
     return (
       <TableBody>
         {filteredItems.map((item) => (
-          <TableRow key={item.id}>
+          <TableRow 
+            key={item.id}
+            hover={selectedType === 'vendors'}
+            sx={selectedType === 'vendors' ? { cursor: 'pointer' } : {}}
+            onClick={() => handleRowClick(item)}
+          >
             {getDisplayFields(selectedType).map((field) => (
               <TableCell key={field.name} sx={field.sx}>
                 {renderCellContent(item, field)}
@@ -998,10 +1011,20 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
             ))}
             {!isReadOnly && canEdit && (
               <TableCell sx={{ width: 120 }}>
-                <IconButton onClick={() => handleEdit(item)}>
+                <IconButton 
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent row click when clicking edit
+                    handleEdit(item);
+                  }}
+                >
                   <EditIcon />
                 </IconButton>
-                <IconButton onClick={() => handleDelete(item.id)}>
+                <IconButton 
+                  onClick={(e) => {
+                    e.stopPropagation(); // Prevent row click when clicking delete
+                    handleDelete(item.id);
+                  }}
+                >
                   <DeleteIcon />
                 </IconButton>
               </TableCell>

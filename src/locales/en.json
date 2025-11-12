@@ -32,7 +32,21 @@
     "add": "Add",
     "remove": "Remove",
     "customsRequired": "Customs Required",
-    "completionRate": "Completion Rate"
+    "completionRate": "Completion Rate",
+    "name": "Name",
+    "code": "Code",
+    "email": "Email",
+    "phone": "Phone",
+    "website": "Website",
+    "address": "Address",
+    "city": "City",
+    "country": "Country",
+    "notes": "Notes",
+    "documents": "Documents",
+    "vendorInformation": "Vendor Information",
+    "productsServices": "Products/Services",
+    "approvalStatus": "Approval Status",
+    "saving": "Saving..."
   },
   "auth": {
     "login": "Login",
