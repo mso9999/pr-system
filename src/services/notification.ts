@@ -225,6 +225,18 @@ export class NotificationService {
           console.warn('No requestor email found for REVISION_REQUIRED notification, sending to procurement');
           recipients = [procurementEmail];
         }
+      } else if (newStatus === PRStatus.APPROVED || 
+                 newStatus === PRStatus.ORDERED || 
+                 newStatus === PRStatus.COMPLETED || 
+                 newStatus === PRStatus.CANCELED) {
+        // For APPROVED and all subsequent statuses, include admin@1pwrafrica.com
+        recipients = [procurementEmail];
+        ccList.push('admin@1pwrafrica.com');
+        
+        const requestorEmail = pr.requestorEmail || pr.requestor?.email;
+        if (requestorEmail && requestorEmail !== user?.email) {
+          ccList.push(requestorEmail);
+        }
       } else if (newStatus === PRStatus.PENDING_APPROVAL) {
         // Send to approver(s) when approval is needed
         // Fetch approver email(s) from pr.approver and pr.approver2

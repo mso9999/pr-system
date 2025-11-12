@@ -113,13 +113,15 @@ export type ReferenceDataType =
   | 'organizations'
   | 'permissions'
   | 'vehicles'
-  | 'rules';
+  | 'rules'
+  | 'paymentTypes';
 
 // Types that don't depend on organization
 export const ORG_INDEPENDENT_TYPES = [
   'currencies',
   'uom',
-  'organizations'
+  'organizations',
+  'paymentTypes'
 ] as const;
 
 // Types that use code as ID
@@ -147,7 +149,7 @@ export interface VendorDocument {
 
 /**
  * Vendor Interface
- * Enhanced type for vendor-specific data with approval tracking
+ * Enhanced type for vendor-specific data with dual-authorization approval tracking
  */
 export interface Vendor extends ReferenceDataItem {
   // Core vendor fields
@@ -163,16 +165,33 @@ export interface Vendor extends ReferenceDataItem {
   productsServices?: string;
   active: boolean;
   
-  // Approval Status Tracking
-  isApproved: boolean;
-  approvalDate?: string;
+  // Dual-Authorization Approval System
+  // Vendor is only approved if BOTH flags are true
+  procurementApproved: boolean; // Set by Procurement or Superuser
+  financeApproved: boolean; // Set by Finance/Admin or Superuser
+  
+  // Computed approval status (both must be true)
+  isApproved: boolean; // Deprecated: Use procurementApproved && financeApproved
+  
+  // Approval Details
+  procurementApprovalDate?: string;
+  procurementApprovedBy?: string;
+  procurementApprovalNote?: string;
+  
+  financeApprovalDate?: string;
+  financeApprovedBy?: string;
+  financeApprovalNote?: string;
+  
   approvalExpiryDate?: string;
-  approvalReason?: 'auto_3quote' | 'auto_completed' | 'manual';
-  approvedBy?: string;
-  approvalNote?: string; // Justification or override reason
+  approvalReason?: 'auto_3quote' | 'auto_completed' | 'manual_procurement' | 'manual_finance' | 'manual_both';
   associatedPONumber?: string; // If auto-approved from order
   lastCompletedOrderDate?: string;
   last3QuoteProcessDate?: string;
+  
+  // Legacy fields (for backward compatibility)
+  approvalDate?: string;
+  approvedBy?: string;
+  approvalNote?: string;
   
   // High-Value Classification
   isHighValue?: boolean;

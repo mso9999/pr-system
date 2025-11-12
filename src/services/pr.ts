@@ -18,6 +18,7 @@ import {
   FieldValue,
   setDoc,
   or,
+  and,
 } from 'firebase/firestore';
 import { getFirestore } from 'firebase/firestore'; 
 import { app, auth } from '@/config/firebase'; 
@@ -119,10 +120,8 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
 
   try {
     const prDocRef = doc(db, PR_COLLECTION, prId);
-    // ALWAYS force server fetch by default to avoid cache issues with status updates
-    const docSnap = forceServerFetch 
-      ? await getDoc(prDocRef, { source: 'server' as any })
-      : await getDoc(prDocRef);
+    // Note: Firestore v9+ doesn't support source option in getDoc
+    const docSnap = await getDoc(prDocRef);
 
     if (!docSnap.exists()) {
       console.warn(`PR with ID ${prId} not found.`);
@@ -511,14 +510,10 @@ export async function rescindApprovals(
     
     // Create history entry for approval rescission
     const historyEntry: ApprovalHistoryItem = {
-      action: 'APPROVALS_RESCINDED',
-      actor: user || {
-        id: 'system',
-        email: 'system@1pwr.com',
-        name: 'System'
-      },
+      approverId: user?.id || 'system',
       timestamp: new Date().toISOString(),
-      notes: reason
+      approved: false,
+      notes: `Approvals rescinded: ${reason}`
     };
     
     // Clear all approval-related fields
@@ -805,16 +800,22 @@ export async function getUserPRs(
 
         if (showOnlyMyPRs) {
             // Show PRs where user is requestor OR listed as approver (approver or approver2)
-            constraints.push(
-                or(
-                    where('requestorId', '==', userId),
-                    where('approver', '==', userId),
-                    where('approver2', '==', userId)
-                )
+            const userFilter = or(
+                where('requestorId', '==', userId),
+                where('approver', '==', userId),
+                where('approver2', '==', userId)
             );
-            // Add organization filter if provided
+            
+            // If organization is provided, wrap both filters in an AND
             if (organization) {
-                constraints.push(where('organization', '==', organization));
+                constraints.push(
+                    and(
+                        userFilter,
+                        where('organization', '==', organization)
+                    ) as any
+                );
+            } else {
+                constraints.push(userFilter as any);
             }
         } else {
             // Show all PRs in the organization that user has visibility to

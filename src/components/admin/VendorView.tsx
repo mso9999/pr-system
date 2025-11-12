@@ -69,19 +69,25 @@ export const VendorView: React.FC = () => {
   const [saving, setSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
 
-  // Approval dialogs
-  const [approvalDialog, setApprovalDialog] = useState(false);
-  const [deApprovalDialog, setDeApprovalDialog] = useState(false);
-  const [justification, setJustification] = useState('');
+  // Dual Approval dialogs
+  const [procurementApprovalDialog, setProcurementApprovalDialog] = useState(false);
+  const [financeApprovalDialog, setFinanceApprovalDialog] = useState(false);
+  const [procurementDeApprovalDialog, setProcurementDeApprovalDialog] = useState(false);
+  const [financeDeApprovalDialog, setFinanceDeApprovalDialog] = useState(false);
+  const [procurementJustification, setProcurementJustification] = useState('');
+  const [financeJustification, setFinanceJustification] = useState('');
 
   // Document category for new uploads
   const [selectedDocCategory, setSelectedDocCategory] = useState<VendorDocument['category']>('other');
 
   // Permission checks
-  const canEdit = 
-    currentUser?.permissionLevel === 1 || // Superadmin
-    currentUser?.permissionLevel === 3 || // Procurement
-    currentUser?.permissionLevel === 4;   // Finance/Admin
+  const isSuperuser = currentUser?.permissionLevel === 1;
+  const isProcurement = currentUser?.permissionLevel === 3;
+  const isFinanceAdmin = currentUser?.permissionLevel === 4;
+  
+  const canEditProcurementApproval = isSuperuser || isProcurement;
+  const canEditFinanceApproval = isSuperuser || isFinanceAdmin;
+  const canEdit = canEditProcurementApproval || canEditFinanceApproval;
   
   const canView = 
     canEdit || 
@@ -233,13 +239,13 @@ export const VendorView: React.FC = () => {
     }
   };
 
-  const handleApprove = async () => {
+  const handleProcurementApprove = async () => {
     if (!vendor || !vendorId) return;
 
     const needsJustification = !vendor.lastCompletedOrderDate || !vendor.last3QuoteProcessDate;
 
-    if (needsJustification && !justification.trim()) {
-      enqueueSnackbar('Justification required for manual vendor approval', { variant: 'error' });
+    if (needsJustification && !procurementJustification.trim()) {
+      enqueueSnackbar('Justification required for manual procurement approval', { variant: 'error' });
       return;
     }
 
@@ -247,47 +253,126 @@ export const VendorView: React.FC = () => {
       const approvalExpiryDate = new Date();
       approvalExpiryDate.setMonth(approvalExpiryDate.getMonth() + 12);
 
-      await referenceDataAdminService.updateItem('vendors', vendorId, {
-        isApproved: true,
-        approvalDate: new Date().toISOString(),
-        approvalExpiryDate: approvalExpiryDate.toISOString(),
-        approvalReason: 'manual',
-        approvedBy: currentUser?.id,
-        approvalNote: justification || 'Manually approved',
-      });
+      const updates: any = {
+        procurementApproved: true,
+        procurementApprovalDate: new Date().toISOString(),
+        procurementApprovedBy: currentUser?.id,
+        procurementApprovalNote: procurementJustification || 'Manually approved by procurement',
+      };
 
-      enqueueSnackbar('Vendor approved successfully', { variant: 'success' });
-      setApprovalDialog(false);
-      setJustification('');
+      // Set expiry and approval reason if both will be approved
+      if (vendor.financeApproved || vendor.isApproved) {
+        updates.approvalExpiryDate = approvalExpiryDate.toISOString();
+        updates.isApproved = true;
+        updates.approvalReason = vendor.financeApproved ? 'manual_both' : 'manual_procurement';
+      }
+
+      await referenceDataAdminService.updateItem('vendors', vendorId, updates);
+
+      enqueueSnackbar('Procurement approval granted', { variant: 'success' });
+      setProcurementApprovalDialog(false);
+      setProcurementJustification('');
       await loadVendorData();
     } catch (error) {
-      console.error('Error approving vendor:', error);
+      console.error('Error approving vendor (procurement):', error);
       enqueueSnackbar('Failed to approve vendor', { variant: 'error' });
     }
   };
 
-  const handleDeApprove = async () => {
+  const handleFinanceApprove = async () => {
     if (!vendor || !vendorId) return;
 
-    if (!justification.trim()) {
+    const needsJustification = !vendor.lastCompletedOrderDate || !vendor.last3QuoteProcessDate;
+
+    if (needsJustification && !financeJustification.trim()) {
+      enqueueSnackbar('Justification required for manual finance approval', { variant: 'error' });
+      return;
+    }
+
+    try {
+      const approvalExpiryDate = new Date();
+      approvalExpiryDate.setMonth(approvalExpiryDate.getMonth() + 12);
+
+      const updates: any = {
+        financeApproved: true,
+        financeApprovalDate: new Date().toISOString(),
+        financeApprovedBy: currentUser?.id,
+        financeApprovalNote: financeJustification || 'Manually approved by finance',
+      };
+
+      // Set expiry and approval reason if both will be approved
+      if (vendor.procurementApproved || vendor.isApproved) {
+        updates.approvalExpiryDate = approvalExpiryDate.toISOString();
+        updates.isApproved = true;
+        updates.approvalReason = vendor.procurementApproved ? 'manual_both' : 'manual_finance';
+      }
+
+      await referenceDataAdminService.updateItem('vendors', vendorId, updates);
+
+      enqueueSnackbar('Finance approval granted', { variant: 'success' });
+      setFinanceApprovalDialog(false);
+      setFinanceJustification('');
+      await loadVendorData();
+    } catch (error) {
+      console.error('Error approving vendor (finance):', error);
+      enqueueSnackbar('Failed to approve vendor', { variant: 'error' });
+    }
+  };
+
+  const handleProcurementDeApprove = async () => {
+    if (!vendor || !vendorId) return;
+
+    if (!procurementJustification.trim()) {
       enqueueSnackbar('Justification required for de-approval', { variant: 'error' });
       return;
     }
 
     try {
-      await referenceDataAdminService.updateItem('vendors', vendorId, {
-        isApproved: false,
-        approvalDate: undefined,
-        approvalExpiryDate: undefined,
-        approvalNote: `De-approved: ${justification}`,
-      });
+      const updates: any = {
+        procurementApproved: false,
+        procurementApprovalDate: undefined,
+        procurementApprovedBy: undefined,
+        procurementApprovalNote: `De-approved: ${procurementJustification}`,
+        isApproved: false, // Vendor not approved if either flag is false
+      };
 
-      enqueueSnackbar('Vendor de-approved successfully', { variant: 'success' });
-      setDeApprovalDialog(false);
-      setJustification('');
+      await referenceDataAdminService.updateItem('vendors', vendorId, updates);
+
+      enqueueSnackbar('Procurement approval revoked', { variant: 'success' });
+      setProcurementDeApprovalDialog(false);
+      setProcurementJustification('');
       await loadVendorData();
     } catch (error) {
-      console.error('Error de-approving vendor:', error);
+      console.error('Error de-approving vendor (procurement):', error);
+      enqueueSnackbar('Failed to de-approve vendor', { variant: 'error' });
+    }
+  };
+
+  const handleFinanceDeApprove = async () => {
+    if (!vendor || !vendorId) return;
+
+    if (!financeJustification.trim()) {
+      enqueueSnackbar('Justification required for de-approval', { variant: 'error' });
+      return;
+    }
+
+    try {
+      const updates: any = {
+        financeApproved: false,
+        financeApprovalDate: undefined,
+        financeApprovedBy: undefined,
+        financeApprovalNote: `De-approved: ${financeJustification}`,
+        isApproved: false, // Vendor not approved if either flag is false
+      };
+
+      await referenceDataAdminService.updateItem('vendors', vendorId, updates);
+
+      enqueueSnackbar('Finance approval revoked', { variant: 'success' });
+      setFinanceDeApprovalDialog(false);
+      setFinanceJustification('');
+      await loadVendorData();
+    } catch (error) {
+      console.error('Error de-approving vendor (finance):', error);
       enqueueSnackbar('Failed to de-approve vendor', { variant: 'error' });
     }
   };
@@ -582,72 +667,150 @@ export const VendorView: React.FC = () => {
             <Divider sx={{ mb: 2 }} />
             
             <Box>
-              {vendor.isApproved ? (
-                <>
-                  <Alert severity="success" sx={{ mb: 2 }}>
-                    <Typography variant="body2" gutterBottom>
-                      Vendor is currently approved
+              {/* Overall Status */}
+              {((vendor.procurementApproved || vendor.isApproved) && (vendor.financeApproved || vendor.isApproved)) ? (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  <Typography variant="body2" gutterBottom>
+                    Vendor is fully approved (Procurement + Finance)
+                  </Typography>
+                  {vendor.approvalExpiryDate && (
+                    <Typography variant="caption">
+                      Expires: {new Date(vendor.approvalExpiryDate).toLocaleDateString()}
                     </Typography>
-                    {vendor.approvalExpiryDate && (
-                      <Typography variant="caption">
-                        Expires: {new Date(vendor.approvalExpiryDate).toLocaleDateString()}
+                  )}
+                </Alert>
+              ) : (
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  Vendor requires both Procurement and Finance approval
+                </Alert>
+              )}
+
+              {/* Procurement Approval Section */}
+              <Box mb={2} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Procurement Approval
+                  {(vendor.procurementApproved || vendor.isApproved) ? (
+                    <Chip label="Approved" color="success" size="small" icon={<ApprovedIcon />} />
+                  ) : (
+                    <Chip label="Pending" color="warning" size="small" />
+                  )}
+                </Typography>
+                
+                {(vendor.procurementApproved || vendor.isApproved) && (
+                  <>
+                    {vendor.procurementApprovalDate && (
+                      <Typography variant="caption" display="block">
+                        Approved: {new Date(vendor.procurementApprovalDate).toLocaleDateString()}
                       </Typography>
                     )}
-                  </Alert>
-                  
-                  {vendor.approvalReason && (
-                    <Box mb={2}>
-                      <Typography variant="caption" color="textSecondary">Approval Type</Typography>
-                      <Typography variant="body2">
-                        {vendor.approvalReason === 'auto_3quote' ? '3-Quote Process Auto-Approval' :
-                         vendor.approvalReason === 'auto_completed' ? 'Completed Order Auto-Approval' :
-                         'Manual Approval'}
+                    {vendor.procurementApprovalNote && (
+                      <Typography variant="caption" color="textSecondary" display="block">
+                        Note: {vendor.procurementApprovalNote}
                       </Typography>
-                    </Box>
-                  )}
-                  
-                  {vendor.associatedPONumber && (
-                    <Box mb={2}>
-                      <Typography variant="caption" color="textSecondary">Associated PO</Typography>
-                      <Typography variant="body2">{vendor.associatedPONumber}</Typography>
-                    </Box>
-                  )}
-                  
-                  {vendor.approvalNote && (
-                    <Box mb={2}>
-                      <Typography variant="caption" color="textSecondary">Notes</Typography>
-                      <Typography variant="body2">{vendor.approvalNote}</Typography>
-                    </Box>
-                  )}
+                    )}
+                  </>
+                )}
+                
+                {canEditProcurementApproval && (
+                  <Box mt={1}>
+                    {(vendor.procurementApproved || vendor.isApproved) ? (
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        onClick={() => setProcurementDeApprovalDialog(true)}
+                        fullWidth
+                      >
+                        Revoke Procurement Approval
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="contained"
+                        color="success"
+                        size="small"
+                        onClick={() => setProcurementApprovalDialog(true)}
+                        fullWidth
+                      >
+                        Grant Procurement Approval
+                      </Button>
+                    )}
+                  </Box>
+                )}
+              </Box>
 
-                  {canEdit && (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      onClick={() => setDeApprovalDialog(true)}
-                      fullWidth
-                    >
-                      De-Approve Vendor
-                    </Button>
+              {/* Finance Approval Section */}
+              <Box mb={2} sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  Finance Approval
+                  {(vendor.financeApproved || vendor.isApproved) ? (
+                    <Chip label="Approved" color="success" size="small" icon={<ApprovedIcon />} />
+                  ) : (
+                    <Chip label="Pending" color="warning" size="small" />
                   )}
-                </>
-              ) : (
-                <>
-                  <Alert severity="warning" sx={{ mb: 2 }}>
-                    Vendor is not currently approved
-                  </Alert>
-                  
-                  {canEdit && (
-                    <Button
-                      variant="contained"
-                      color="success"
-                      onClick={() => setApprovalDialog(true)}
-                      fullWidth
-                    >
-                      Approve Vendor
-                    </Button>
-                  )}
-                </>
+                </Typography>
+                
+                {(vendor.financeApproved || vendor.isApproved) && (
+                  <>
+                    {vendor.financeApprovalDate && (
+                      <Typography variant="caption" display="block">
+                        Approved: {new Date(vendor.financeApprovalDate).toLocaleDateString()}
+                      </Typography>
+                    )}
+                    {vendor.financeApprovalNote && (
+                      <Typography variant="caption" color="textSecondary" display="block">
+                        Note: {vendor.financeApprovalNote}
+                      </Typography>
+                    )}
+                  </>
+                )}
+                
+                {canEditFinanceApproval && (
+                  <Box mt={1}>
+                    {(vendor.financeApproved || vendor.isApproved) ? (
+                      <Button
+                        variant="outlined"
+                        color="error"
+                        size="small"
+                        onClick={() => setFinanceDeApprovalDialog(true)}
+                        fullWidth
+                      >
+                        Revoke Finance Approval
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="contained"
+                        color="success"
+                        size="small"
+                        onClick={() => setFinanceApprovalDialog(true)}
+                        fullWidth
+                      >
+                        Grant Finance Approval
+                      </Button>
+                    )}
+                  </Box>
+                )}
+              </Box>
+
+              {/* Additional Info */}
+              {vendor.approvalReason && (
+                <Box mb={2}>
+                  <Typography variant="caption" color="textSecondary">Approval Type</Typography>
+                  <Typography variant="body2">
+                    {vendor.approvalReason === 'auto_3quote' ? '3-Quote Process Auto-Approval' :
+                     vendor.approvalReason === 'auto_completed' ? 'Completed Order Auto-Approval' :
+                     vendor.approvalReason === 'manual_procurement' ? 'Manual Procurement Approval' :
+                     vendor.approvalReason === 'manual_finance' ? 'Manual Finance Approval' :
+                     vendor.approvalReason === 'manual_both' ? 'Manual Dual Approval' :
+                     'Manual Approval'}
+                  </Typography>
+                </Box>
+              )}
+
+              {vendor.associatedPONumber && (
+                <Box mb={2}>
+                  <Typography variant="caption" color="textSecondary">Associated PO</Typography>
+                  <Typography variant="body2">{vendor.associatedPONumber}</Typography>
+                </Box>
               )}
 
               {vendor.lastCompletedOrderDate && (
@@ -837,12 +1000,12 @@ export const VendorView: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Approve Vendor Dialog */}
-      <Dialog open={approvalDialog} onClose={() => setApprovalDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Approve Vendor</DialogTitle>
+      {/* Procurement Approval Dialog */}
+      <Dialog open={procurementApprovalDialog} onClose={() => setProcurementApprovalDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Grant Procurement Approval</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="textSecondary" paragraph>
-            Manually approve this vendor for 12 months
+            Grant procurement approval for this vendor. Vendor will be fully approved only after Finance approval is also granted.
           </Typography>
           
           <TextField
@@ -850,34 +1013,68 @@ export const VendorView: React.FC = () => {
             multiline
             rows={4}
             label="Justification"
-            value={justification}
-            onChange={(e) => setJustification(e.target.value)}
-            placeholder="Provide justification for manual approval..."
+            value={procurementJustification}
+            onChange={(e) => setProcurementJustification(e.target.value)}
+            placeholder="Provide justification for procurement approval..."
             helperText="Required if vendor doesn't have recent successful order history"
             sx={{ mt: 2 }}
           />
 
           <Alert severity="info" sx={{ mt: 2 }}>
             <Typography variant="caption">
-              Vendor will be approved for 12 months from today. Expiry will be tracked automatically.
+              Vendor will be approved for 12 months from today once both approvals are granted. Expiry will be tracked automatically.
             </Typography>
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setApprovalDialog(false)}>{t('common.cancel')}</Button>
-          <Button onClick={handleApprove} variant="contained" color="success">
-            Approve Vendor
+          <Button onClick={() => setProcurementApprovalDialog(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleProcurementApprove} variant="contained" color="success">
+            Grant Procurement Approval
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* De-Approve Vendor Dialog */}
-      <Dialog open={deApprovalDialog} onClose={() => setDeApprovalDialog(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>De-Approve Vendor</DialogTitle>
+      {/* Finance Approval Dialog */}
+      <Dialog open={financeApprovalDialog} onClose={() => setFinanceApprovalDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Grant Finance Approval</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="textSecondary" paragraph>
+            Grant finance approval for this vendor. Vendor will be fully approved only after Procurement approval is also granted.
+          </Typography>
+          
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Justification"
+            value={financeJustification}
+            onChange={(e) => setFinanceJustification(e.target.value)}
+            placeholder="Provide justification for finance approval..."
+            helperText="Required if vendor doesn't have recent successful order history"
+            sx={{ mt: 2 }}
+          />
+
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="caption">
+              Vendor will be approved for 12 months from today once both approvals are granted. Expiry will be tracked automatically.
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFinanceApprovalDialog(false)}>{t('common.cancel')}</Button>
+          <Button onClick={handleFinanceApprove} variant="contained" color="success">
+            Grant Finance Approval
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Procurement De-Approval Dialog */}
+      <Dialog open={procurementDeApprovalDialog} onClose={() => setProcurementDeApprovalDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Revoke Procurement Approval</DialogTitle>
         <DialogContent>
           <Alert severity="warning" sx={{ mb: 2 }}>
             <Typography variant="body2">
-              This will remove the vendor's approved status. Justification is REQUIRED.
+              This will revoke procurement approval and the vendor's fully approved status. Justification is REQUIRED.
             </Typography>
           </Alert>
           
@@ -886,8 +1083,8 @@ export const VendorView: React.FC = () => {
             multiline
             rows={4}
             label="Justification (Required)"
-            value={justification}
-            onChange={(e) => setJustification(e.target.value)}
+            value={procurementJustification}
+            onChange={(e) => setProcurementJustification(e.target.value)}
             placeholder="E.g., Quality issues, compliance problems, better alternatives available..."
             required
             sx={{ mt: 2 }}
@@ -900,14 +1097,55 @@ export const VendorView: React.FC = () => {
           </Alert>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setDeApprovalDialog(false)}>{t('common.cancel')}</Button>
+          <Button onClick={() => setProcurementDeApprovalDialog(false)}>{t('common.cancel')}</Button>
           <Button 
-            onClick={handleDeApprove} 
+            onClick={handleProcurementDeApprove} 
             variant="contained" 
             color="error"
-            disabled={!justification.trim()}
+            disabled={!procurementJustification.trim()}
           >
-            De-Approve Vendor
+            Revoke Procurement Approval
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Finance De-Approval Dialog */}
+      <Dialog open={financeDeApprovalDialog} onClose={() => setFinanceDeApprovalDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Revoke Finance Approval</DialogTitle>
+        <DialogContent>
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              This will revoke finance approval and the vendor's fully approved status. Justification is REQUIRED.
+            </Typography>
+          </Alert>
+          
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Justification (Required)"
+            value={financeJustification}
+            onChange={(e) => setFinanceJustification(e.target.value)}
+            placeholder="E.g., Quality issues, compliance problems, better alternatives available..."
+            required
+            sx={{ mt: 2 }}
+          />
+
+          <Alert severity="info" sx={{ mt: 2 }}>
+            <Typography variant="caption">
+              This action will be permanently recorded in the vendor's audit trail.
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setFinanceDeApprovalDialog(false)}>{t('common.cancel')}</Button>
+          <Button 
+            onClick={handleFinanceDeApprove} 
+            variant="contained" 
+            color="error"
+            disabled={!financeJustification.trim()}
+          >
+            Revoke Finance Approval
           </Button>
         </DialogActions>
       </Dialog>

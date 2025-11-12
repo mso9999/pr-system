@@ -29,7 +29,7 @@ class ReferenceDataService {
     return `${COLLECTION_PREFIX}${type}`;
   }
 
-  private generateId(type: string, code: string): string {
+  private generateId(type: string, code: string): string | null {
     if (['currencies', 'uom', 'organizations'].includes(type)) {
       return code.toLowerCase().replace(/[^a-z0-9]/g, '_');
     }
@@ -70,7 +70,7 @@ class ReferenceDataService {
         q = query(
           collectionRef, 
           where('organizationId', '==', normalizedOrgId)
-        );
+        ) as any; // Type workaround for Firestore query types
       }
 
       const querySnapshot = await getDocs(q);

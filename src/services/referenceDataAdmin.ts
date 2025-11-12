@@ -11,12 +11,19 @@ export class ReferenceDataAdminService {
     return `${COLLECTION_PREFIX}${type}`;
   }
 
-  async getItems(type: string): Promise<ReferenceDataItem[]> {
+  async getItems(type: string, organization?: string): Promise<ReferenceDataItem[]> {
     const collectionName = this.getCollectionName(type);
-    console.log(`Getting all items for type: ${type}`);
+    console.log(`Getting all items for type: ${type}, organization: ${organization}`);
 
     const collectionRef = collection(db, collectionName);
-    const snapshot = await getDocs(collectionRef);
+    let q = collectionRef as any;
+    
+    // Filter by organization if provided and type requires it
+    if (organization && !ORGANIZATION_INDEPENDENT_TYPES.includes(type as any)) {
+      q = query(collectionRef, where('organizationId', '==', this.standardizeOrgId(organization)));
+    }
+    
+    const snapshot = await getDocs(q);
 
     if (type === 'vehicles') {
       console.log('All vehicles:', snapshot.docs.map(doc => ({

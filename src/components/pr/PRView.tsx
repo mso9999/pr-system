@@ -81,6 +81,7 @@ import { CompletedStatusView } from './CompletedStatusView';
 import { ResurrectionActions } from './ResurrectionActions';
 import { UrgencyControl } from './UrgencyControl';
 import { StatusProgressStepper } from './StatusProgressStepper';
+import { ExternalApprovalBypass } from './ExternalApprovalBypass';
 
 interface EditablePRFields {
   department?: string;
@@ -94,6 +95,7 @@ interface EditablePRFields {
   requiredDate?: string;
   description?: string;
   approver?: string;
+  paymentType?: string;
 }
 
 interface FileUploadProps {
@@ -464,6 +466,7 @@ export function PRView() {
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string; type: string } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [departments, setDepartments] = useState<ReferenceDataItem[]>([]);
+  const [paymentTypes, setPaymentTypes] = useState<ReferenceDataItem[]>([]);
   const [projectCategories, setProjectCategories] = useState<ReferenceDataItem[]>([]);
   const [sites, setSites] = useState<ReferenceDataItem[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ReferenceDataItem[]>([]);
@@ -559,6 +562,7 @@ export function PRView() {
           vehicleList,
           vendorList,
           currencyList,
+          paymentTypeList,
           rulesList,
         ] = await Promise.all([
           referenceDataService.getDepartments(organization),
@@ -568,6 +572,7 @@ export function PRView() {
           referenceDataService.getItemsByType('vehicles', organization),
           referenceDataService.getItemsByType('vendors'),
           referenceDataService.getItemsByType('currencies'),
+          referenceDataService.getItemsByType('paymentTypes'),
           referenceDataService.getItemsByType('rules', organization),
         ]);
 
@@ -578,6 +583,7 @@ export function PRView() {
         setVehicles(vehicleList);
         setVendors(vendorList);
         setCurrencies(currencyList);
+        setPaymentTypes(paymentTypeList);
         setRules(rulesList);
       } catch (error) {
         console.error('Error loading reference data:', error);
@@ -1475,6 +1481,45 @@ export function PRView() {
                   }}
                 />
               </Grid>
+              
+              {/* Payment Type (available from PENDING_APPROVAL onwards) */}
+              {pr && (pr.status === PRStatus.PENDING_APPROVAL || 
+                      pr.status === PRStatus.APPROVED || 
+                      pr.status === PRStatus.ORDERED || 
+                      pr.status === PRStatus.COMPLETED || 
+                      pr.status === PRStatus.CANCELED) && (
+                <Grid item xs={6}>
+                  <FormControl 
+                    fullWidth 
+                    disabled={!isEditMode || (!isProcurement && pr.status !== PRStatus.PENDING_APPROVAL)}
+                  >
+                    <InputLabel>Payment Type</InputLabel>
+                    <Select
+                      value={isEditMode ? (editedPR.paymentType || pr?.paymentType || '') : (pr?.paymentType || '')}
+                      onChange={(e) => handleFieldChange('paymentType', e.target.value)}
+                      label="Payment Type"
+                      renderValue={(value) => {
+                        const paymentType = paymentTypes.find(pt => pt.id === value);
+                        return paymentType ? paymentType.name : value || '';
+                      }}
+                    >
+                      <MenuItem value="">
+                        <em>None</em>
+                      </MenuItem>
+                      {paymentTypes
+                        .filter(pt => pt.isActive !== false)
+                        .map((paymentType) => (
+                          <MenuItem key={paymentType.id} value={paymentType.id}>
+                            {paymentType.name}
+                          </MenuItem>
+                        ))}
+                    </Select>
+                    {!pr?.paymentType && (
+                      <FormHelperText>Please select payment type</FormHelperText>
+                    )}
+                  </FormControl>
+                </Grid>
+              )}
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -2324,6 +2369,15 @@ export function PRView() {
             onStatusChange={refreshPR}
           />
         </Box>
+      )}
+
+      {/* External Approval Bypass (Finance/Admin only) */}
+      {pr?.status === PRStatus.PENDING_APPROVAL && currentUser && (
+        <ExternalApprovalBypass
+          pr={pr}
+          currentUser={currentUser}
+          onStatusChange={refreshPR}
+        />
       )}
 
       {/* Approver Actions */}

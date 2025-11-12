@@ -327,11 +327,19 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
 
           vendorApprovalUpdates = {
             isApproved: true,
+            procurementApproved: true,
+            financeApproved: true,
+            procurementApprovalDate: new Date().toISOString(),
+            financeApprovalDate: new Date().toISOString(),
             approvalDate: new Date().toISOString(),
             approvalExpiryDate: approvalExpiryDate.toISOString(),
             approvalReason: was3QuoteProcess ? 'auto_3quote' : 'auto_completed',
             approvedBy: currentUser.id,
+            procurementApprovedBy: currentUser.id,
+            financeApprovedBy: currentUser.id,
             approvalNote: `Satisfactory order completion - PO ${pr.prNumber}`,
+            procurementApprovalNote: `Auto-approved via successful order completion - PO ${pr.prNumber}`,
+            financeApprovalNote: `Auto-approved via successful order completion - PO ${pr.prNumber}`,
             associatedPONumber: pr.prNumber,
             lastCompletedOrderDate: new Date().toISOString()
           };
@@ -350,11 +358,19 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
 
           vendorApprovalUpdates = {
             isApproved: true,
+            procurementApproved: true,
+            financeApproved: true,
+            procurementApprovalDate: new Date().toISOString(),
+            financeApprovalDate: new Date().toISOString(),
             approvalDate: new Date().toISOString(),
             approvalExpiryDate: approvalExpiryDate.toISOString(),
             approvalReason: 'manual',
             approvedBy: currentUser.id,
+            procurementApprovedBy: currentUser.id,
+            financeApprovedBy: currentUser.id,
             approvalNote: `Manual override despite issues: ${overrideJustification}`,
+            procurementApprovalNote: `Manual override despite issues: ${overrideJustification}`,
+            financeApprovalNote: `Manual override despite issues: ${overrideJustification}`,
             associatedPONumber: pr.prNumber,
             lastCompletedOrderDate: new Date().toISOString()
           };

@@ -133,6 +133,18 @@ export interface PRRequest {
   currency: string;
   /** Date by which items are needed */
   requiredDate: string;
+  /** Payment type (available from PENDING_APPROVAL onwards) */
+  paymentType?: string;
+  /** External approval bypass (used when approval happened externally) */
+  externalApprovalBypass?: boolean;
+  /** Justification for external approval bypass */
+  externalApprovalJustification?: string;
+  /** User who approved externally */
+  externalApprovalBy?: string;
+  /** Date of external approval */
+  externalApprovalDate?: string;
+  /** Approved budget document (for external approval bypass) */
+  externalApprovalDocument?: Attachment;
   /** Preferred vendor if any */
   preferredVendor?: string;
   /** Final selected vendor (set during APPROVED status) */
