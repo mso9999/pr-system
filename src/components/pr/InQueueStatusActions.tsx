@@ -16,6 +16,14 @@ import {
   ListItemIcon,
   ListItemText,
   Chip,
+  RadioGroup,
+  FormControlLabel,
+  Radio,
+  FormControl,
+  FormLabel,
+  LinearProgress,
+  Collapse,
+  IconButton,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import {
@@ -25,12 +33,20 @@ import {
   TableChart as ExcelIcon,
   InsertDriveFile as CSVIcon,
   Send as SendIcon,
+  ExpandMore as ExpandMoreIcon,
+  Link as LinkIcon,
+  Folder as FolderIcon,
 } from '@mui/icons-material';
 import { PRRequest, LineItem } from '@/types/pr';
 import { User } from '@/types/user';
 import { RFQDocument } from './RFQDocument';
 import { pdf } from '@react-pdf/renderer';
-import { downloadRFQTemplateExcel, downloadRFQTemplateCSV, parseRFQFile } from '@/utils/rfqTemplateUtils';
+import { 
+  downloadRFQTemplateExcel, 
+  downloadRFQTemplateCSV, 
+  parseRFQFile,
+  processLineItemFileLinks 
+} from '@/utils/rfqTemplateUtils';
 import { organizationService } from '@/services/organizationService';
 import { imageUrlToBase64ViaImage } from '@/utils/imageUtils';
 import { prService } from '@/services/pr';
@@ -52,6 +68,10 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [uploadingFile, setUploadingFile] = useState(false);
   const [parsedItems, setParsedItems] = useState<Partial<LineItem>[]>([]);
+  const [importMode, setImportMode] = useState<'overwrite' | 'append'>('overwrite');
+  const [processingLinks, setProcessingLinks] = useState(false);
+  const [linkProgress, setLinkProgress] = useState({ current: 0, total: 0, fileName: '' });
+  const [expanded, setExpanded] = useState(false); // Collapsed by default
 
   // Permission check - Procurement and Superadmin can generate RFQ
   const canGenerateRFQ = currentUser.permissionLevel === 1 || currentUser.permissionLevel === 3;
@@ -67,7 +87,7 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
       setGeneratingRFQ(true);
 
       // Fetch organization data
-      const orgData = await organizationService.getOrganization(pr.organization || '');
+      const orgData = await organizationService.getOrganizationById(pr.organization || '');
       
       // Convert logo to base64 if available
       let logoBase64: string | undefined;
@@ -159,29 +179,52 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
 
   const handleApplyLineItems = async () => {
     try {
+      setProcessingLinks(true);
+
+      // Process file links (download files from URLs if they're not folders)
+      const processedItems = await processLineItemFileLinks(
+        parsedItems,
+        (current, total, fileName) => {
+          setLinkProgress({ current, total, fileName });
+        }
+      );
+
       // Convert parsed items to full LineItem format
-      const lineItems: LineItem[] = parsedItems.map((item, index) => ({
+      const newLineItems: LineItem[] = processedItems.map((item) => ({
+        id: crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`,
         description: item.description || '',
         quantity: item.quantity || 1,
         uom: item.uom || 'UNIT',
         notes: item.notes || '',
         estimatedUnitPrice: item.estimatedUnitPrice,
         estimatedTotal: item.estimatedTotal,
-        attachments: [],
+        attachments: item.attachments || [],
+        fileLink: item.fileLink,
+        isFolder: item.isFolder,
       }));
+
+      // Determine final line items based on import mode
+      const finalLineItems = importMode === 'overwrite'
+        ? newLineItems
+        : [...(pr.lineItems || []), ...newLineItems];
 
       // Update PR with new line items
       await prService.updatePR(pr.id, {
-        lineItems,
+        lineItems: finalLineItems,
       });
 
-      enqueueSnackbar('Line items updated successfully', { variant: 'success' });
+      const action = importMode === 'overwrite' ? 'replaced' : 'added';
+      enqueueSnackbar(`Line items ${action} successfully`, { variant: 'success' });
       setUploadDialogOpen(false);
       setParsedItems([]);
+      setImportMode('overwrite');
       onStatusChange();
     } catch (error) {
       console.error('Error updating line items:', error);
       enqueueSnackbar('Failed to update line items', { variant: 'error' });
+    } finally {
+      setProcessingLinks(false);
+      setLinkProgress({ current: 0, total: 0, fileName: '' });
     }
   };
 
@@ -191,89 +234,127 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
 
   return (
     <>
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <RFQIcon />
-          Request for Quotation (RFQ)
-        </Typography>
-        <Divider sx={{ mb: 2 }} />
-
-        <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2" gutterBottom>
-            <strong>Generate RFQ from:</strong>
-          </Typography>
-          <Typography variant="body2" component="div">
-            • Line items entered directly in the PR system, OR
-          </Typography>
-          <Typography variant="body2" component="div">
-            • Line items uploaded from an Excel/CSV file (must match template format)
-          </Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            Download the template, fill it with your line items, then upload and apply before generating the RFQ.
-          </Typography>
-        </Alert>
-
-        <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
-          {/* Generate RFQ Button */}
-          <Button
-            variant="contained"
-            startIcon={<SendIcon />}
-            onClick={handleGenerateRFQ}
-            disabled={generatingRFQ}
+      <Paper 
+        sx={{ 
+          mb: 3,
+          overflow: 'hidden',
+          border: '1px solid',
+          borderColor: 'divider',
+        }}
+      >
+        {/* Collapsible Header */}
+        <Box
+          onClick={() => setExpanded(!expanded)}
+          sx={{
+            p: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            cursor: 'pointer',
+            bgcolor: expanded ? 'primary.50' : 'background.paper',
+            '&:hover': { bgcolor: 'action.hover' },
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <RFQIcon />
+            <Typography variant="h6">
+              Request for Quotation (RFQ)
+            </Typography>
+          </Box>
+          <IconButton
+            size="small"
+            sx={{
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.3s',
+            }}
           >
-            {generatingRFQ ? 'Generating...' : 'Generate RFQ'}
-          </Button>
-
-          {/* Download Template Button */}
-          <Button
-            variant="outlined"
-            startIcon={<DownloadIcon />}
-            onClick={(e) => setTemplateMenuAnchor(e.currentTarget)}
-          >
-            Download Template
-          </Button>
-
-          {/* Upload File Button */}
-          <Button
-            variant="outlined"
-            component="label"
-            startIcon={<UploadIcon />}
-            disabled={uploadingFile}
-          >
-            {uploadingFile ? 'Uploading...' : 'Upload Line Items'}
-            <input
-              type="file"
-              hidden
-              accept=".xlsx,.xls,.csv"
-              onChange={handleFileUpload}
-            />
-          </Button>
-        </Stack>
-
-        <Box sx={{ mt: 2 }}>
-          {!pr.lineItems || pr.lineItems.length === 0 ? (
-            <Alert severity="warning" icon={<UploadIcon />}>
-              <Typography variant="body2" fontWeight="bold" gutterBottom>
-                No line items yet
-              </Typography>
-              <Typography variant="body2">
-                To generate an RFQ, you must first add line items by either:
-              </Typography>
-              <Typography variant="body2" component="div" sx={{ ml: 2, mt: 0.5 }}>
-                1. Downloading the template, filling it, and uploading it, OR
-              </Typography>
-              <Typography variant="body2" component="div" sx={{ ml: 2 }}>
-                2. Adding line items manually in the PR form
-              </Typography>
-            </Alert>
-          ) : (
-            <Alert severity="success" sx={{ display: 'flex', alignItems: 'center' }}>
-              <Typography variant="body2">
-                ✓ Ready to generate RFQ with <strong>{pr.lineItems.length}</strong> line item{pr.lineItems.length !== 1 ? 's' : ''}
-              </Typography>
-            </Alert>
-          )}
+            <ExpandMoreIcon />
+          </IconButton>
         </Box>
+
+        {/* Collapsible Content */}
+        <Collapse in={expanded}>
+          <Box sx={{ p: 3, pt: 2 }}>
+            <Divider sx={{ mb: 2 }} />
+
+            <Alert severity="info" sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                <strong>Generate RFQ from:</strong>
+              </Typography>
+              <Typography variant="body2" component="div">
+                • Line items entered directly in the PR system, OR
+              </Typography>
+              <Typography variant="body2" component="div">
+                • Line items uploaded from an Excel/CSV file (must match template format)
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Download the template, fill it with your line items, then upload and apply before generating the RFQ.
+              </Typography>
+            </Alert>
+
+            <Stack direction="row" spacing={2} flexWrap="wrap" useFlexGap>
+              {/* Generate RFQ Button */}
+              <Button
+                variant="contained"
+                startIcon={<SendIcon />}
+                onClick={handleGenerateRFQ}
+                disabled={generatingRFQ}
+              >
+                {generatingRFQ ? 'Generating...' : 'Generate RFQ'}
+              </Button>
+
+              {/* Download Template Button */}
+              <Button
+                variant="outlined"
+                startIcon={<DownloadIcon />}
+                onClick={(e) => setTemplateMenuAnchor(e.currentTarget)}
+              >
+                Download Template
+              </Button>
+
+              {/* Upload File Button */}
+              <Button
+                variant="outlined"
+                component="label"
+                startIcon={<UploadIcon />}
+                disabled={uploadingFile}
+              >
+                {uploadingFile ? 'Uploading...' : 'Upload Line Items'}
+                <input
+                  type="file"
+                  hidden
+                  accept=".xlsx,.xls,.csv"
+                  onChange={handleFileUpload}
+                />
+              </Button>
+            </Stack>
+
+            <Box sx={{ mt: 2 }}>
+              {!pr.lineItems || pr.lineItems.length === 0 ? (
+                <Alert severity="warning" icon={<UploadIcon />}>
+                  <Typography variant="body2" fontWeight="bold" gutterBottom>
+                    No line items yet
+                  </Typography>
+                  <Typography variant="body2">
+                    To generate an RFQ, you must first add line items by either:
+                  </Typography>
+                  <Typography variant="body2" component="div" sx={{ ml: 2, mt: 0.5 }}>
+                    1. Downloading the template, filling it, and uploading it, OR
+                  </Typography>
+                  <Typography variant="body2" component="div" sx={{ ml: 2 }}>
+                    2. Adding line items manually in the PR form
+                  </Typography>
+                </Alert>
+              ) : (
+                <Alert severity="success" sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Typography variant="body2">
+                    ✓ Ready to generate RFQ with <strong>{pr.lineItems.length}</strong> line item{pr.lineItems.length !== 1 ? 's' : ''}
+                  </Typography>
+                </Alert>
+              )}
+            </Box>
+          </Box>
+        </Collapse>
       </Paper>
 
       {/* Template Download Menu */}
@@ -308,8 +389,45 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
         </DialogTitle>
         <DialogContent>
           <Alert severity="info" sx={{ mb: 2 }}>
-            The following {parsedItems.length} line items will be added to this PR. Review them before applying.
+            The following {parsedItems.length} line items will be {importMode === 'overwrite' ? 'replaced' : 'added'}. Review them before applying.
           </Alert>
+
+          {/* Import Mode Selection */}
+          <FormControl component="fieldset" sx={{ mb: 2 }}>
+            <FormLabel component="legend">Import Mode</FormLabel>
+            <RadioGroup
+              row
+              value={importMode}
+              onChange={(e) => setImportMode(e.target.value as 'overwrite' | 'append')}
+            >
+              <FormControlLabel
+                value="overwrite"
+                control={<Radio />}
+                label="Overwrite existing line items"
+              />
+              <FormControlLabel
+                value="append"
+                control={<Radio />}
+                label="Add to existing line items"
+              />
+            </RadioGroup>
+          </FormControl>
+
+          {/* Processing Progress */}
+          {processingLinks && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="body2" gutterBottom>
+                Downloading files from URLs... ({linkProgress.current} / {linkProgress.total})
+              </Typography>
+              <Typography variant="caption" color="text.secondary" gutterBottom>
+                {linkProgress.fileName}
+              </Typography>
+              <LinearProgress 
+                variant="determinate" 
+                value={linkProgress.total > 0 ? (linkProgress.current / linkProgress.total) * 100 : 0} 
+              />
+            </Box>
+          )}
 
           <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
             {parsedItems.map((item, index) => (
@@ -330,16 +448,34 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
                     Notes: {item.notes}
                   </Typography>
                 )}
+                {item.fileLink && (
+                  <Stack direction="row" spacing={0.5} alignItems="center" mt={0.5}>
+                    {item.isFolder ? <FolderIcon fontSize="small" color="primary" /> : <LinkIcon fontSize="small" color="primary" />}
+                    <Typography variant="caption" color="primary" sx={{ wordBreak: 'break-all' }}>
+                      {item.isFolder ? 'Folder: ' : 'File: '}{item.fileLink}
+                    </Typography>
+                  </Stack>
+                )}
+                {item.attachments && item.attachments.length > 0 && (
+                  <Typography variant="caption" color="success.main" display="block" mt={0.5}>
+                    ✓ {item.attachments.length} attachment(s) uploaded
+                  </Typography>
+                )}
               </Paper>
             ))}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setUploadDialogOpen(false)}>
+          <Button onClick={() => setUploadDialogOpen(false)} disabled={processingLinks}>
             Cancel
           </Button>
-          <Button onClick={handleApplyLineItems} variant="contained" color="primary">
-            Apply Line Items
+          <Button 
+            onClick={handleApplyLineItems} 
+            variant="contained" 
+            color="primary"
+            disabled={processingLinks}
+          >
+            {processingLinks ? 'Processing...' : importMode === 'overwrite' ? 'Overwrite Line Items' : 'Add Line Items'}
           </Button>
         </DialogActions>
       </Dialog>

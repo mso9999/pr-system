@@ -509,6 +509,14 @@ export interface LineItem {
   notes?: string;
   /** Supporting documents for the item */
   attachments: Attachment[];
+  /** Optional link to file or folder (for bulk imports) */
+  fileLink?: string;
+  /** Indicates if the link is to a folder (true) or file (false) */
+  isFolder?: boolean;
+  /** Estimated unit price for the item */
+  estimatedUnitPrice?: number;
+  /** Estimated total price for the item */
+  estimatedTotal?: number;
 }
 
 /**

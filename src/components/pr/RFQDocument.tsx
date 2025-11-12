@@ -86,10 +86,21 @@ const styles = StyleSheet.create({
     fontSize: 9,
   },
   col1: { width: '5%' },
-  col2: { width: '40%' },
-  col3: { width: '12%' },
-  col4: { width: '15%' },
-  col5: { width: '28%' },
+  col2: { width: '35%' },
+  col3: { width: '10%' },
+  col4: { width: '12%' },
+  col5: { width: '23%' },
+  col6: { width: '15%' },
+  fileLink: {
+    color: '#1976d2',
+    textDecoration: 'underline',
+    fontSize: 8,
+  },
+  attachmentItem: {
+    fontSize: 8,
+    marginTop: 2,
+    color: '#555',
+  },
   footer: {
     position: 'absolute',
     bottom: 30,
@@ -186,24 +197,46 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
             <View style={styles.tableHeader}>
               <Text style={styles.col1}>#</Text>
               <Text style={styles.col2}>Description</Text>
-              <Text style={styles.col3}>Quantity</Text>
+              <Text style={styles.col3}>Qty</Text>
               <Text style={styles.col4}>UOM</Text>
-              <Text style={styles.col5}>Notes/Specifications</Text>
+              <Text style={styles.col5}>Notes/Specs</Text>
+              <Text style={styles.col6}>Attachments</Text>
             </View>
 
             {/* Table Rows */}
-            {pr.lineItems?.map((item, index) => (
-              <View
-                key={index}
-                style={index % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
-              >
-                <Text style={styles.col1}>{index + 1}</Text>
-                <Text style={styles.col2}>{item.description}</Text>
-                <Text style={styles.col3}>{item.quantity}</Text>
-                <Text style={styles.col4}>{item.uom || 'UNIT'}</Text>
-                <Text style={styles.col5}>{item.notes || '-'}</Text>
-              </View>
-            ))}
+            {pr.lineItems?.map((item, index) => {
+              const hasAttachments = item.attachments && item.attachments.length > 0;
+              const hasFileLink = item.fileLink;
+              
+              return (
+                <View
+                  key={index}
+                  style={index % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
+                >
+                  <Text style={styles.col1}>{index + 1}</Text>
+                  <Text style={styles.col2}>{item.description}</Text>
+                  <Text style={styles.col3}>{item.quantity}</Text>
+                  <Text style={styles.col4}>{item.uom || 'UNIT'}</Text>
+                  <Text style={styles.col5}>{item.notes || '-'}</Text>
+                  <View style={styles.col6}>
+                    {hasAttachments && item.attachments.map((att, attIdx) => (
+                      <Text key={attIdx} style={styles.fileLink}>
+                        {att.name}
+                        {'\n'}
+                        <Text style={styles.attachmentItem}>{att.url}</Text>
+                      </Text>
+                    ))}
+                    {hasFileLink && (
+                      <Text style={styles.fileLink}>
+                        {item.isFolder ? '📁 Folder: ' : '🔗 File: '}
+                        {item.fileLink}
+                      </Text>
+                    )}
+                    {!hasAttachments && !hasFileLink && <Text>-</Text>}
+                  </View>
+                </View>
+              );
+            })}
           </View>
         </View>
 

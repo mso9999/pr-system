@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
-import { LineItem } from '@/types/pr';
+import { LineItem, Attachment } from '@/types/pr';
+import { StorageService } from '@/services/storage';
 
 /**
  * Download an Excel template for RFQ line items
@@ -13,6 +14,7 @@ export const downloadRFQTemplateExcel = (prNumber: string) => {
     'Notes',
     'Estimated Unit Price',
     'Estimated Total',
+    'File/Folder Link (Optional)',
   ];
 
   // Create sample data row
@@ -23,6 +25,7 @@ export const downloadRFQTemplateExcel = (prNumber: string) => {
     'Optional notes or specifications',
     '150',
     '15000',
+    'https://example.com/specs.pdf OR https://dropbox.com/folder/specs',
   ];
 
   // Create worksheet
@@ -37,6 +40,7 @@ export const downloadRFQTemplateExcel = (prNumber: string) => {
     { wch: 35 }, // Notes
     { wch: 18 }, // Estimated Unit Price
     { wch: 15 }, // Estimated Total
+    { wch: 50 }, // File/Folder Link
   ];
 
   // Create workbook and add worksheet
@@ -61,6 +65,7 @@ export const downloadRFQTemplateCSV = (prNumber: string) => {
     'Notes',
     'Estimated Unit Price',
     'Estimated Total',
+    'File/Folder Link (Optional)',
   ];
 
   const sampleData = [
@@ -70,6 +75,7 @@ export const downloadRFQTemplateCSV = (prNumber: string) => {
     'Optional notes or specifications',
     '150',
     '15000',
+    'https://example.com/specs.pdf OR https://dropbox.com/folder/specs',
   ];
 
   // Create CSV content
@@ -134,10 +140,20 @@ export const parseRFQFile = async (file: File): Promise<Partial<LineItem>[]> => 
           const notes = getField(['Notes', 'Specifications', 'Comments', 'Details']);
           const estimatedUnitPrice = parseFloat(getField(['Estimated Unit Price', 'Unit Price', 'Price', 'Cost'])) || undefined;
           const estimatedTotal = parseFloat(getField(['Estimated Total', 'Total', 'Total Price'])) || undefined;
+          const fileLink = getField(['File/Folder Link (Optional)', 'File Link', 'Link', 'Folder Link', 'File/Folder Link', 'URL']);
 
           if (!description) {
             throw new Error(`Row ${index + 2}: Description is required`);
           }
+
+          // Determine if link is to a folder (keep as link) or file (will be downloaded)
+          const isFolder = fileLink && (
+            fileLink.toLowerCase().includes('/folder/') ||
+            fileLink.toLowerCase().includes('/folders/') ||
+            fileLink.toLowerCase().includes('?dl=0') || // Dropbox folder indicator
+            fileLink.toLowerCase().endsWith('/') ||
+            !fileLink.match(/\.(pdf|doc|docx|xls|xlsx|jpg|jpeg|png|gif|txt|zip|rar)(\?|$)/i) // No file extension
+          );
 
           return {
             description,
@@ -147,6 +163,8 @@ export const parseRFQFile = async (file: File): Promise<Partial<LineItem>[]> => 
             estimatedUnitPrice,
             estimatedTotal: estimatedTotal || (estimatedUnitPrice ? estimatedUnitPrice * quantity : undefined),
             attachments: [],
+            fileLink: fileLink || undefined,
+            isFolder: fileLink ? isFolder : undefined,
           };
         });
 
@@ -166,5 +184,107 @@ export const parseRFQFile = async (file: File): Promise<Partial<LineItem>[]> => 
       reader.readAsArrayBuffer(file);
     }
   });
+};
+
+/**
+ * Download file from URL and upload to Firebase Storage
+ * Returns Attachment object with Firebase Storage URL
+ */
+export const downloadAndUploadFileFromUrl = async (
+  url: string,
+  lineItemDescription: string
+): Promise<Attachment | null> => {
+  try {
+    // Fetch the file from the URL
+    const response = await fetch(url, {
+      mode: 'cors',
+      credentials: 'omit',
+    });
+
+    if (!response.ok) {
+      console.warn(`Failed to download file from ${url}: ${response.status} ${response.statusText}`);
+      return null;
+    }
+
+    // Get the blob
+    const blob = await response.blob();
+
+    // Extract filename from URL or use a default
+    let filename = url.split('/').pop()?.split('?')[0] || 'attachment';
+    
+    // Clean the filename
+    filename = filename.replace(/[^a-z0-9._-]/gi, '_');
+    
+    // If no extension, try to infer from content type
+    if (!filename.includes('.')) {
+      const contentType = response.headers.get('content-type');
+      const ext = contentType?.split('/')[1]?.split(';')[0];
+      if (ext) {
+        filename += `.${ext}`;
+      }
+    }
+
+    // Create a File object
+    const file = new File([blob], filename, { type: blob.type });
+
+    // Upload to temp storage first
+    const tempUrl = await StorageService.uploadToTempStorage(
+      file,
+      `line-items/${Date.now()}-${filename}`
+    );
+
+    // Return attachment object
+    return {
+      name: filename,
+      url: tempUrl,
+      path: `temp/line-items/${Date.now()}-${filename}`,
+      uploadedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error(`Error downloading/uploading file from ${url}:`, error);
+    return null;
+  }
+};
+
+/**
+ * Process line items to download files from URLs
+ * For items with file links (not folders), downloads and converts to attachments
+ */
+export const processLineItemFileLinks = async (
+  lineItems: Partial<LineItem>[],
+  onProgress?: (current: number, total: number, fileName: string) => void
+): Promise<Partial<LineItem>[]> => {
+  const processedItems: Partial<LineItem>[] = [];
+
+  for (let i = 0; i < lineItems.length; i++) {
+    const item = lineItems[i];
+    const processedItem = { ...item };
+
+    if (item.fileLink && !item.isFolder) {
+      // It's a file link, attempt to download it
+      if (onProgress) {
+        onProgress(i + 1, lineItems.length, item.description || 'Unknown');
+      }
+
+      const attachment = await downloadAndUploadFileFromUrl(
+        item.fileLink,
+        item.description || ''
+      );
+
+      if (attachment) {
+        // Successfully downloaded, add to attachments
+        processedItem.attachments = [...(item.attachments || []), attachment];
+        // Keep the fileLink for reference, but mark as processed
+      } else {
+        // Failed to download, keep as link
+        console.warn(`Failed to download file for "${item.description}". Keeping as link.`);
+      }
+    }
+    // If it's a folder link or no link, just keep it as is
+
+    processedItems.push(processedItem);
+  }
+
+  return processedItems;
 };
 
