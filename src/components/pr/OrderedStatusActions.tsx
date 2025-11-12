@@ -309,9 +309,12 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
       // Process vendor approval based on response
       let vendorApprovalUpdates = {};
       
-      if (pr.selectedVendor) {
+      // Use selectedVendor if available, otherwise fall back to preferredVendor
+      const vendorId = pr.selectedVendor || pr.preferredVendor;
+      
+      if (vendorId) {
         const vendor = await referenceDataService.getItemsByType('vendors').then(vendors => 
-          vendors.find(v => v.id === pr.selectedVendor)
+          vendors.find(v => v.id === vendorId)
         );
 
         if (vendor && orderSatisfactory === 'yes') {
@@ -336,7 +339,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
           console.log(`Auto-approving vendor ${vendor.name} for ${approvalDuration} months (${was3QuoteProcess ? '3-quote process' : 'completed order'})`);
           
           // Update vendor in database
-          await referenceDataAdminService.updateItem('vendors', pr.selectedVendor, vendorApprovalUpdates);
+          await referenceDataAdminService.updateItem('vendors', vendorId, vendorApprovalUpdates);
           
           enqueueSnackbar(`Vendor "${vendor.name}" automatically approved for ${approvalDuration} months`, { variant: 'success' });
           
@@ -359,7 +362,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
           console.log(`Manually approving vendor ${vendor.name} for ${vendorManualDuration} months despite issues`);
           
           // Update vendor in database
-          await referenceDataAdminService.updateItem('vendors', pr.selectedVendor, vendorApprovalUpdates);
+          await referenceDataAdminService.updateItem('vendors', vendorId, vendorApprovalUpdates);
           
           enqueueSnackbar(`Vendor "${vendor.name}" manually approved for ${vendorManualDuration} months`, { variant: 'info' });
         }

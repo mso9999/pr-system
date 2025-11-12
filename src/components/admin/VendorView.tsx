@@ -719,12 +719,13 @@ export const VendorView: React.FC = () => {
                 </FormControl>
 
                 <FileUploadManager
-                  files={[]}
-                  onFilesChange={handleDocumentUpload}
-                  onFileDelete={() => {}}
-                  readOnly={false}
-                  acceptedFileTypes="image/*,.pdf,.doc,.docx,.xls,.xlsx"
                   label="Upload Documents"
+                  files={[]}
+                  onUpload={handleDocumentUpload}
+                  onDelete={async () => {}}
+                  readOnly={false}
+                  accept="image/*,.pdf,.doc,.docx,.xls,.xlsx"
+                  helperText="Select a category above before uploading"
                 />
               </Box>
             )}
