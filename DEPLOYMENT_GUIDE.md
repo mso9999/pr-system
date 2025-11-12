@@ -1,367 +1,298 @@
-# Deployment Guide - PR System v2.0
+# PR System Deployment Guide
 
-## 🚀 Pre-Deployment Checklist
+## Option 1: Firebase Hosting (Recommended)
 
-### 1. Backup Current System
-**CRITICAL: Do this FIRST before any deployment**
+### Prerequisites
+- Firebase CLI installed: `npm install -g firebase-tools`
+- Firebase project already exists (pr-system-4ea55)
 
+### One-Time Setup
 ```bash
-# In Firebase Console
-# Go to: Firestore Database > Import/Export > Export Data
-# Save to: gs://your-bucket/backups/pre-v2-deployment-YYYY-MM-DD
+# 1. Login to Firebase
+firebase login
+
+# 2. Initialize hosting (already configured via firebase.json)
+# Skip if firebase.json already exists
+
+# 3. Verify your project
+firebase projects:list
 ```
 
-✅ **Verify backup completed successfully**
+### Deploy to Production
 
-### 2. Code Review
-- [ ] All 18 phases committed to repository
-- [ ] No critical errors in TypeScript compilation
-- [ ] All new components have no linter errors
-- [ ] README.md updated with new features
-- [ ] TESTING_CHECKLIST.md created
-
-### 3. Environment Verification
-- [ ] Firebase project configured correctly
-- [ ] SendGrid API key available
-- [ ] Service account key present
-- [ ] Node.js and npm versions correct
-
----
-
-## 📦 Deployment Steps
-
-### Step 1: Database Migration
-
-**Environment**: Start with DEVELOPMENT
-
+#### Manual Deployment
 ```bash
-# Navigate to scripts directory
-cd scripts
-
-# Install dependencies if needed
-npm install
-
-# Run migration (DEVELOPMENT FIRST!)
-npx ts-node migrate-data-model-v2.ts
-```
-
-**Expected Output**:
-```
-📝 Migrating Purchase Requests...
-✅ PRs Migration Complete: X of Y updated
-
-🏢 Migrating Organizations...
-✅ Organizations Migration Complete: X of Y updated
-
-🏭 Migrating Vendors...
-✅ Vendors Migration Complete: X of Y updated
-
-📊 MIGRATION SUMMARY
-✅ No errors encountered
-```
-
-**Validation**:
-```bash
-# Check sample documents in Firestore Console
-# Verify new fields present:
-# - PRs: objectType, requiresDualApproval, approvalWorkflow enhanced
-# - Organizations: email fields, vendor approval durations
-# - Vendors: isApproved, approvalExpiryDate, etc.
-```
-
-### Step 2: Deploy Firebase Functions
-
-```bash
-# Navigate to functions directory
-cd functions
-
-# Install dependencies
-npm install
-
-# Build TypeScript
+# 1. Build the production app
 npm run build
 
-# Deploy functions
-firebase deploy --only functions
-```
+# 2. Test locally (optional)
+firebase serve
 
-**New Functions Deployed**:
-- `dailyVendorExpiryCheck` - Runs daily at 1:00 AM
-- `dailyReminders` - Runs daily at 8:00 AM
-- `urgentReminders` - Runs daily at 3:00 PM
-- `deliveryDelayCheck` - Runs daily at 9:00 AM
-
-**Verify Deployment**:
-```bash
-# Check Firebase Console > Functions
-# Verify all 4 new functions are deployed and scheduled
-```
-
-### Step 3: Configure SendGrid (if not already done)
-
-```bash
-# Set SendGrid API key
-firebase functions:config:set sendgrid.api_key="YOUR_SENDGRID_API_KEY"
-
-# Redeploy functions to pick up config
-firebase deploy --only functions
-```
-
-### Step 4: Deploy Frontend
-
-```bash
-# Return to project root
-cd ..
-
-# Install dependencies
-npm install
-
-# Build production bundle
-npm run build
-
-# Deploy to Firebase Hosting (if using)
-firebase deploy --only hosting
-
-# OR deploy to your hosting provider
-```
-
-### Step 5: Configure Organizations
-
-**In Production Admin Dashboard**:
-
-1. Navigate to: Admin Dashboard > Organization Settings
-2. For EACH organization, configure:
-   - ✅ Procurement Email (e.g., procurement@1pwrafrica.com)
-   - ✅ Asset Management Email (e.g., assets@1pwrafrica.com)
-   - ✅ Admin Email (e.g., admin@1pwrafrica.com)
-   - ✅ Vendor Approval Durations (defaults: 12, 6, 12 months)
-   - ✅ High-Value Vendor Rules (defaults: 10x multiplier, 24 months)
-   - ✅ Business Rules (Rule 1 & Rule 2 thresholds)
-
-3. Save and verify settings persist
-
----
-
-## ✅ Post-Deployment Verification
-
-### Immediate Checks (Within 1 hour)
-
-1. **Login Test**
-   ```
-   - [ ] Can log in as different user roles
-   - [ ] Dashboard loads correctly
-   - [ ] No console errors
-   ```
-
-2. **MY ACTIONS Button**
-   ```
-   - [ ] Appears for non-Procurement users
-   - [ ] Shows correct count
-   - [ ] Filters correctly by role
-   ```
-
-3. **Advanced Filters**
-   ```
-   - [ ] Filter panel opens
-   - [ ] Filters apply correctly
-   - [ ] Analytics display
-   - [ ] CSV export works
-   ```
-
-4. **Create Test PR**
-   ```
-   - [ ] Basic info validates
-   - [ ] Line items work
-   - [ ] Status transitions work
-   - [ ] Notifications sent
-   ```
-
-5. **Dual Approval Test** (if you have Rule 2 threshold configured)
-   ```
-   - [ ] Create PR above Rule 2 threshold
-   - [ ] Push to approver
-   - [ ] Verify both approvers notified
-   - [ ] First approver approves
-   - [ ] Second approver sees "1 of 2"
-   - [ ] Second approver approves
-   - [ ] Status moves to APPROVED
-   ```
-
-### Monitor for 24 Hours
-
-1. **Scheduled Functions**
-   ```
-   - [ ] Check Firebase Console > Functions > Logs
-   - [ ] Verify dailyVendorExpiryCheck ran at 1:00 AM
-   - [ ] Verify dailyReminders ran at 8:00 AM
-   - [ ] Verify urgentReminders ran at 3:00 PM
-   - [ ] Verify deliveryDelayCheck ran at 9:00 AM
-   ```
-
-2. **Email Notifications**
-   ```
-   - [ ] Daily reminders received
-   - [ ] Status change notifications work
-   - [ ] Email addresses from org config used
-   ```
-
-3. **Document Uploads**
-   ```
-   - [ ] Test proforma upload in APPROVED status
-   - [ ] Test PoP upload
-   - [ ] Test delivery docs in ORDERED
-   - [ ] Files stored correctly in Cloud Storage
-   ```
-
-4. **Vendor Approval**
-   ```
-   - [ ] Complete a test PO to COMPLETED
-   - [ ] Answer vendor performance question
-   - [ ] Verify vendor approved automatically
-   - [ ] Check expiry date calculated correctly
-   ```
-
----
-
-## 🔧 Troubleshooting
-
-### Issue: Migration Fails
-
-**Symptoms**: Error messages during migration  
-**Solution**:
-1. Check service account key has Firestore read/write permissions
-2. Verify Firebase project ID is correct
-3. Review error messages for specific field issues
-4. Restore from backup if necessary
-5. Contact development team
-
-### Issue: Scheduled Functions Not Running
-
-**Symptoms**: No logs in Firebase Console  
-**Solution**:
-1. Check function deployment: `firebase functions:list`
-2. Verify timezone settings in function code
-3. Check Cloud Scheduler in Google Cloud Console
-4. Review function logs for errors
-5. Redeploy: `firebase deploy --only functions`
-
-### Issue: MY ACTIONS Button Not Showing
-
-**Symptoms**: Button doesn't appear for users  
-**Solution**:
-1. Verify user has permissionLevel !== 3 (not Procurement)
-2. Check Redux state for myActionsFilter
-3. Clear browser cache
-4. Check console for JavaScript errors
-
-### Issue: Dual Approval Not Working
-
-**Symptoms**: Only one approver assigned  
-**Solution**:
-1. Verify PR amount is above Rule 2 threshold
-2. Check organization has Rule 2 configured
-3. Verify second approver (approver2) field is set
-4. Check requiresDualApproval flag
-
-### Issue: Document Uploads Failing
-
-**Symptoms**: Upload errors or files not saved  
-**Solution**:
-1. Check Firebase Storage rules
-2. Verify file size < 10MB
-3. Check allowed file types
-4. Review Storage service implementation
-5. Check Cloud Storage bucket permissions
-
-### Issue: Emails Not Sending
-
-**Symptoms**: No email notifications received  
-**Solution**:
-1. Verify SendGrid API key configured: `firebase functions:config:get`
-2. Check SendGrid dashboard for send logs
-3. Verify organization email addresses configured
-4. Check notificationLogs collection for errors
-5. Review function logs in Firebase Console
-
----
-
-## 🔄 Rollback Procedure
-
-If critical issues are encountered:
-
-### 1. Stop New Deployments
-```bash
-# Don't deploy any more changes until issue is resolved
-```
-
-### 2. Restore Database (if needed)
-```bash
-# In Firebase Console
-# Go to: Firestore Database > Import/Export > Import Data
-# Select: gs://your-bucket/backups/pre-v2-deployment-YYYY-MM-DD
-```
-
-### 3. Rollback Frontend
-```bash
-# Revert to previous version
-git revert HEAD
-git push origin main
-
-# Redeploy
-npm run build
+# 3. Deploy to Firebase Hosting
 firebase deploy --only hosting
 ```
 
-### 4. Rollback Functions
+#### Automated Deployment (GitHub Actions)
+1. Get Firebase service account key:
+   ```bash
+   firebase login:ci
+   ```
+   Copy the token provided
+
+2. Add secrets to GitHub repository:
+   - Go to: Settings → Secrets and variables → Actions
+   - Add these secrets:
+     - `FIREBASE_SERVICE_ACCOUNT`: The service account JSON
+     - `VITE_FIREBASE_API_KEY`: Your Firebase API key
+     - `VITE_FIREBASE_AUTH_DOMAIN`: pr-system-4ea55.firebaseapp.com
+     - `VITE_FIREBASE_PROJECT_ID`: pr-system-4ea55
+     - `VITE_FIREBASE_STORAGE_BUCKET`: pr-system-4ea55.firebasestorage.app
+     - `VITE_FIREBASE_APP_ID`: 1:562987209098:web:2f788d189f1c0867cb3873
+
+3. Push to main branch → automatic deployment
+
+### Your App URL
+After deployment: `https://pr-system-4ea55.web.app`
+Or custom domain: `https://pr-system-4ea55.firebaseapp.com`
+
+---
+
+## Option 2: InMotion Hosting
+
+### Prerequisites
+- cPanel access or FTP credentials
+- InMotion hosting plan
+
+### Build for Production
 ```bash
-# Navigate to functions
-cd functions
+# 1. Build the app
+npm run build
 
-# Checkout previous version
-git checkout <previous-commit-hash> -- src/
-
-# Redeploy
-firebase deploy --only functions
+# This creates a 'dist' folder with static files
 ```
 
-### 5. Document Issues
-- Create detailed incident report
-- Note what failed and when
-- Capture error logs
-- Plan fixes before re-attempting deployment
+### Deploy via cPanel File Manager
+1. Log into cPanel
+2. Navigate to File Manager
+3. Go to `public_html` (or your domain's directory)
+4. Upload all files from the `dist` folder
+5. Create `.htaccess` file (see below)
+
+### Deploy via FTP
+```bash
+# 1. Using FileZilla or similar FTP client
+# 2. Connect to your InMotion server
+# 3. Navigate to public_html
+# 4. Upload all files from dist/ folder
+# 5. Upload the .htaccess file
+```
+
+### Required .htaccess for SPA Routing
+Create this file in your public_html directory:
+
+```apache
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-l
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Enable GZIP compression
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript application/json
+</IfModule>
+
+# Browser caching
+<IfModule mod_expires.c>
+  ExpiresActive On
+  ExpiresByType image/jpg "access plus 1 year"
+  ExpiresByType image/jpeg "access plus 1 year"
+  ExpiresByType image/gif "access plus 1 year"
+  ExpiresByType image/png "access plus 1 year"
+  ExpiresByType image/svg+xml "access plus 1 year"
+  ExpiresByType text/css "access plus 1 month"
+  ExpiresByType application/javascript "access plus 1 month"
+  ExpiresByType application/pdf "access plus 1 month"
+</IfModule>
+
+# Security headers
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+```
+
+### Environment Variables for InMotion
+Since InMotion serves static files, your `.env` variables are baked into the build.
+
+⚠️ **Important**: Never commit `.env` to git. Your Firebase config is already in the code, which is okay since Firebase uses security rules, not secret keys.
+
+### Post-Deployment Checklist
+- [ ] Verify Firebase connection works
+- [ ] Test user login
+- [ ] Test PR creation
+- [ ] Test file uploads
+- [ ] Check that routing works (refresh on any page)
+- [ ] Verify mobile responsiveness
+- [ ] Test in different browsers
 
 ---
 
-## 📞 Support Contacts
+## Firebase Security (Production)
 
-**For Deployment Issues**:
-- Development Team Lead
-- Firebase Administrator
-- System Administrator
+### Update Firestore Rules for Production
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only authenticated users
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Check user permission level
+    function getUserPermission() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissionLevel;
+    }
+    
+    match /purchaseRequests/{prId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if getUserPermission() == 1; // Superadmin only
+    }
+    
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if request.auth.uid == userId || getUserPermission() == 1;
+    }
+    
+    match /referenceData/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if getUserPermission() in [1, 3, 4]; // Superadmin, Procurement, Finance
+    }
+  }
+}
+```
 
-**For Business Logic Questions**:
-- Reference: `Specifications.md`
-- Workflow Diagrams: `PR_WORKFLOW_FLOWCHART.md`
+### Update Storage Rules for Production
+```javascript
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null 
+                   && request.resource.size < 10 * 1024 * 1024 // 10MB max
+                   && request.resource.contentType.matches('image/.*|application/pdf|application/vnd.*');
+    }
+  }
+}
+```
 
 ---
 
-## ✨ Success Criteria
+## Monitoring & Maintenance
 
-Deployment is considered successful when:
+### Firebase Console
+- Monitor usage: https://console.firebase.google.com
+- Check Firestore usage
+- Monitor Storage usage
+- View Authentication users
 
-- ✅ All migration scripts complete without errors
-- ✅ All Firebase Functions deployed and scheduled
-- ✅ Organization configurations saved
-- ✅ All user roles can log in and see appropriate features
-- ✅ Test PR completes full lifecycle successfully
-- ✅ Scheduled functions execute on schedule (verify logs)
-- ✅ Email notifications sent correctly
-- ✅ No critical errors in logs for 24 hours
-- ✅ Performance remains acceptable (< 3s dashboard load)
+### Performance Monitoring (Optional)
+```bash
+# Add Firebase Performance Monitoring
+npm install firebase/performance
+
+# In your main.tsx, add:
+import { getPerformance } from 'firebase/performance';
+const perf = getPerformance(app);
+```
+
+### Analytics (Optional)
+```bash
+# Add Firebase Analytics
+npm install firebase/analytics
+
+# In your main.tsx, add:
+import { getAnalytics } from 'firebase/analytics';
+const analytics = getAnalytics(app);
+```
 
 ---
 
-**Document Version**: 1.0  
-**Last Updated**: October 12, 2025  
-**For**: PR System v2.0 Deployment
+## Troubleshooting
+
+### Build Errors
+```bash
+# Clear cache and rebuild
+rm -rf node_modules dist
+npm install
+npm run build
+```
+
+### Firebase Deployment Issues
+```bash
+# Logout and login again
+firebase logout
+firebase login
+
+# Verify project
+firebase use pr-system-4ea55
+```
+
+### InMotion 404 Errors
+- Verify .htaccess is present
+- Check mod_rewrite is enabled (contact InMotion support)
+- Verify all files uploaded correctly
+
+### Firebase Connection Errors
+- Check Firebase config in `.env`
+- Verify Firestore rules allow your operations
+- Check browser console for specific errors
+
+---
+
+## Custom Domain Setup
+
+### Firebase Hosting with Custom Domain
+1. Go to Firebase Console → Hosting
+2. Click "Add custom domain"
+3. Follow DNS setup instructions
+4. Wait for SSL certificate (automatic)
+
+### InMotion with Domain
+1. Domain should already point to InMotion
+2. Upload files to correct directory
+3. SSL via cPanel (Let's Encrypt free)
+
+---
+
+## Rollback Procedure
+
+### Firebase Hosting
+```bash
+# View deployment history
+firebase hosting:channel:list
+
+# Rollback to previous version
+firebase hosting:channel:deploy <channel-name>
+```
+
+### InMotion Hosting
+- Keep previous dist/ folder backed up
+- Re-upload previous version via FTP/cPanel
+
+---
+
+## Support Contacts
+- Firebase Support: https://firebase.google.com/support
+- InMotion Support: https://www.inmotionhosting.com/support
+- GitHub Repository: https://github.com/mso9999/pr-system
 
