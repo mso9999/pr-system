@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -53,6 +54,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
 }) => {
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   // State for document uploads
   const [uploadingProforma, setUploadingProforma] = useState(false);
@@ -687,6 +689,23 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     try {
       console.log('Moving PO to ORDERED status:', { prId: pr.id, prNumber: pr.prNumber });
       
+      // AUTO-GENERATE PO PDF if not already generated
+      // This ensures the PO document is available in all subsequent statuses
+      if (!pr.poIssueDate && !pr.poDocumentOverride) {
+        console.log('Auto-generating PO document during APPROVED -> ORDERED transition...');
+        try {
+          await autoGeneratePODocument();
+          console.log('PO document auto-generated successfully');
+        } catch (poError) {
+          console.error('Failed to auto-generate PO document:', poError);
+          enqueueSnackbar('Warning: Failed to auto-generate PO document, but continuing with status change', { 
+            variant: 'warning',
+            autoHideDuration: 6000 
+          });
+          // Don't block the status change if PO generation fails
+        }
+      }
+      
       // FIRST: Update status using updatePRStatus (doesn't strip status field)
       console.log('Updating status to ORDERED');
       await prService.updatePRStatus(
@@ -738,6 +757,105 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
       console.error('Error moving to ORDERED:', error);
       enqueueSnackbar('Failed to move PO to ORDERED status', { variant: 'error' });
     }
+  };
+
+  // Auto-generate PO document and save as file (called during APPROVED -> ORDERED transition)
+  const autoGeneratePODocument = async () => {
+    console.log('[Auto PO Generation] Starting automatic PO document generation...');
+    
+    // Fetch organization details
+    let orgId = pr.organization;
+    if (!orgId) {
+      throw new Error('Organization not found');
+    }
+    
+    // Normalize organization ID
+    const normalizedOrgId = orgId.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    console.log('[Auto PO Generation] Fetching organization details for:', { original: orgId, normalized: normalizedOrgId });
+    
+    const orgDetails = await organizationService.getOrganizationById(normalizedOrgId);
+    console.log('[Auto PO Generation] Organization details fetched:', orgDetails);
+    
+    if (!orgDetails) {
+      throw new Error('Failed to load organization details');
+    }
+    
+    // Fetch vendor details
+    let vendorData = null;
+    const vendorId = pr.selectedVendor || pr.preferredVendor;
+    if (vendorId) {
+      console.log('[Auto PO Generation] Fetching vendor details for:', vendorId);
+      vendorData = await referenceDataService.getVendorById(vendorId);
+      console.log('[Auto PO Generation] Vendor details fetched:', vendorData);
+    }
+    
+    // Fetch and convert logo to base64
+    let base64Logo = '';
+    try {
+      console.log('[Auto PO Generation] Fetching logo...');
+      const logoUrl = window.location.origin + '/logo.png';
+      
+      try {
+        base64Logo = await imageUrlToBase64(logoUrl);
+        console.log('[Auto PO Generation] Logo fetched successfully');
+      } catch (fetchError) {
+        console.warn('[Auto PO Generation] Fetch method failed, trying Image element method...', fetchError);
+        base64Logo = await imageUrlToBase64ViaImage(logoUrl);
+        console.log('[Auto PO Generation] Logo fetched via Image element method');
+      }
+    } catch (logoError) {
+      console.warn('[Auto PO Generation] Could not load logo, continuing without it:', logoError);
+    }
+    
+    // Update PR with PO issue date
+    const poIssueDate = new Date().toISOString();
+    await prService.updatePR(pr.id, {
+      poIssueDate,
+      updatedAt: new Date().toISOString()
+    });
+    
+    // Create PR data with PO issue date
+    const prWithPODate = { ...pr, poIssueDate };
+    
+    console.log('[Auto PO Generation] Creating PDF document...');
+    
+    // Generate the PDF
+    const doc = <PODocument pr={prWithPODate} organizationDetails={orgDetails} vendorDetails={vendorData} logoBase64={base64Logo} />;
+    const asPdf = pdf(doc);
+    const blob = await asPdf.toBlob();
+    
+    console.log('[Auto PO Generation] PDF generated, uploading to storage...');
+    
+    // Upload PDF as a file to storage
+    const fileName = `PO-${pr.prNumber}.pdf`;
+    const file = new File([blob], fileName, { type: 'application/pdf' });
+    
+    const uploadResult = await StorageService.uploadToTempStorage(file);
+    const uploadedFile: Attachment = {
+      id: crypto.randomUUID(),
+      name: fileName,
+      url: uploadResult.url,
+      path: uploadResult.path,
+      type: file.type,
+      size: file.size,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: {
+        id: currentUser.id,
+        email: currentUser.email,
+        name: currentUser.name || currentUser.email
+      }
+    };
+    
+    console.log('[Auto PO Generation] PDF uploaded successfully:', uploadedFile);
+    
+    // Save the uploaded PDF file reference to PR
+    await prService.updatePR(pr.id, {
+      poDocument: uploadedFile,
+      updatedAt: new Date().toISOString()
+    });
+    
+    console.log('[Auto PO Generation] PO document saved to PR');
+    enqueueSnackbar('PO document automatically generated and saved', { variant: 'success' });
   };
 
   // Handle final price variance override
@@ -1122,7 +1240,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                     disabled={generatingPO || loadingOrgDetails}
                     size="large"
                   >
-                    {loadingOrgDetails ? 'Loading...' : generatingPO ? 'Generating PO...' : 'Review & Generate PO Document'}
+                    {loadingOrgDetails ? 'Loading...' : generatingPO ? t('pr.generatingPO') : t('pr.generatePO')}
                   </Button>
 
                   {poDocRequired && (
@@ -1192,7 +1310,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
               startIcon={<CheckIcon />}
               onClick={() => setMoveToOrderedDialog(true)}
             >
-              Move to ORDERED Status
+              {t('pr.moveToOrdered')}
             </Button>
           </Grid>
         </Grid>
@@ -1200,60 +1318,60 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
 
       {/* Notify Finance Dialog */}
       <Dialog open={notifyDialog === 'finance'} onClose={() => setNotifyDialog(null)}>
-        <DialogTitle>Notify Finance Team</DialogTitle>
+        <DialogTitle>{t('pr.notifyFinanceTeam')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="textSecondary" paragraph>
-            Send notification to Finance team to execute payment
+            {t('pr.notifyFinanceDesc')}
           </Typography>
           <TextField
             fullWidth
             multiline
             rows={3}
-            label="Message (Optional)"
+            label={t('pr.messageOptional')}
             value={notifyMessage}
             onChange={(e) => setNotifyMessage(e.target.value)}
-            placeholder="Additional instructions or notes for Finance team..."
+            placeholder={t('pr.additionalInstructions')}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setNotifyDialog(null)}>Cancel</Button>
+          <Button onClick={() => setNotifyDialog(null)}>{t('common.cancel')}</Button>
           <Button onClick={handleNotifyFinance} variant="contained">
-            Send Notification
+            {t('pr.sendNotification')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Notify Procurement Dialog */}
       <Dialog open={notifyDialog === 'procurement'} onClose={() => setNotifyDialog(null)}>
-        <DialogTitle>Notify Procurement Team</DialogTitle>
+        <DialogTitle>{t('pr.notifyProcurementTeam')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="textSecondary" paragraph>
-            Send notification to Procurement team for file uploads
+            {t('pr.notifyProcurementDesc')}
           </Typography>
           <TextField
             fullWidth
             multiline
             rows={3}
-            label="Message (Optional)"
+            label={t('pr.messageOptional')}
             value={notifyMessage}
             onChange={(e) => setNotifyMessage(e.target.value)}
-            placeholder="Additional instructions or notes for Procurement team..."
+            placeholder={t('pr.additionalInstructions')}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setNotifyDialog(null)}>Cancel</Button>
+          <Button onClick={() => setNotifyDialog(null)}>{t('common.cancel')}</Button>
           <Button onClick={handleNotifyProcurement} variant="contained">
-            Send Notification
+            {t('pr.sendNotification')}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* Move to ORDERED Confirmation Dialog */}
       <Dialog open={moveToOrderedDialog} onClose={() => setMoveToOrderedDialog(false)}>
-        <DialogTitle>Move to ORDERED Status</DialogTitle>
+        <DialogTitle>{t('pr.moveToOrdered')}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" paragraph>
-            Please confirm all requirements are met:
+            {t('pr.confirmAllRequirements')}
           </Typography>
           <Stack spacing={1}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1264,7 +1382,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                 </>
               ) : (
                 <>
-                  <Typography variant="body2" color="error">❌ ETD not set</Typography>
+                  <Typography variant="body2" color="error">❌ {t('pr.etdNotSet')}</Typography>
                 </>
               )}
             </Box>
@@ -1275,12 +1393,12 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                     <CheckIcon color="success" fontSize="small" />
                     <Typography variant="body2">
                       Proforma: {normalizeAttachments(pr.proformaInvoice).length > 0 
-                        ? `${normalizeAttachments(pr.proformaInvoice).length} file(s)` 
-                        : 'Override Set'}
+                        ? `${normalizeAttachments(pr.proformaInvoice).length} ${t('pr.files')}` 
+                        : t('pr.overrideSet')}
                     </Typography>
                   </>
                 ) : (
-                  <Typography variant="body2" color="error">❌ Proforma not provided</Typography>
+                  <Typography variant="body2" color="error">❌ {t('pr.proformaNotProvided')}</Typography>
                 )}
               </Box>
             )}
@@ -1291,12 +1409,12 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                     <CheckIcon color="success" fontSize="small" />
                     <Typography variant="body2">
                       PoP: {normalizeAttachments(pr.proofOfPayment).length > 0 
-                        ? `${normalizeAttachments(pr.proofOfPayment).length} file(s)` 
-                        : 'Override Set'}
+                        ? `${normalizeAttachments(pr.proofOfPayment).length} ${t('pr.files')}` 
+                        : t('pr.overrideSet')}
                     </Typography>
                   </>
                 ) : (
-                  <Typography variant="body2" color="error">❌ PoP not provided</Typography>
+                  <Typography variant="body2" color="error">❌ {t('pr.popNotProvided')}</Typography>
                 )}
               </Box>
             )}
@@ -1306,20 +1424,20 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                   <>
                     <CheckIcon color="success" fontSize="small" />
                     <Typography variant="body2">
-                      PO Document: {pr.poIssueDate ? 'Generated' : 'Override Set'}
+                      PO Document: {pr.poIssueDate ? t('pr.generated') : t('pr.overrideSet')}
                     </Typography>
                   </>
                 ) : (
-                  <Typography variant="body2" color="error">❌ PO Document not provided (required for high-value PO)</Typography>
+                  <Typography variant="body2" color="error">❌ {t('pr.poDocNotProvided')}</Typography>
                 )}
               </Box>
             )}
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setMoveToOrderedDialog(false)}>Cancel</Button>
+          <Button onClick={() => setMoveToOrderedDialog(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleMoveToOrdered} variant="contained" color="success">
-            Confirm & Move to ORDERED
+            {t('pr.confirmMoveToOrdered')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -1335,48 +1453,45 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
         fullWidth
       >
         <DialogTitle sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
-          ⚠️ Final Price Variance Exceeds Threshold
+          ⚠️ {t('pr.priceVarianceTitle')}
         </DialogTitle>
         <DialogContent sx={{ mt: 2 }}>
           {finalPriceVarianceData && (
             <>
               <Alert severity="warning" sx={{ mb: 3 }}>
                 <Typography variant="body1" gutterBottom fontWeight="bold">
-                  Price Variance Detected
+                  {t('pr.priceVarianceDetected')}
                 </Typography>
                 <Typography variant="body2" paragraph>
-                  The final price differs significantly from the approved amount:
+                  {t('pr.priceVarianceDesc')}
                 </Typography>
                 <Box sx={{ pl: 2, mb: 2 }}>
                   <Typography variant="body2">
-                    • <strong>Approved Amount:</strong> {formatCurrency(finalPriceVarianceData.approvedAmount, pr.currency || 'LSL')}
+                    • <strong>{t('pr.approvedAmount')}:</strong> {formatCurrency(finalPriceVarianceData.approvedAmount, pr.currency || 'LSL')}
                   </Typography>
                   <Typography variant="body2">
-                    • <strong>Final Price:</strong> {formatCurrency(finalPriceVarianceData.finalPrice, pr.currency || 'LSL')}
+                    • <strong>{t('pr.finalPrice')}:</strong> {formatCurrency(finalPriceVarianceData.finalPrice, pr.currency || 'LSL')}
                   </Typography>
                   <Typography variant="body2" color={finalPriceVarianceData.variancePercentage > 0 ? 'error.main' : 'warning.main'} fontWeight="bold">
-                    • <strong>Variance:</strong> {finalPriceVarianceData.variancePercentage > 0 ? '+' : ''}{finalPriceVarianceData.variancePercentage.toFixed(2)}%
+                    • <strong>{t('pr.variance')}:</strong> {finalPriceVarianceData.variancePercentage > 0 ? '+' : ''}{finalPriceVarianceData.variancePercentage.toFixed(2)}%
                   </Typography>
                 </Box>
                 <Typography variant="body2">
-                  {finalPriceVarianceData.exceedsUpward && 
-                    `This exceeds the upward threshold of 5% (Rule 6).`}
-                  {finalPriceVarianceData.exceedsDownward && 
-                    `This exceeds the downward threshold of -20% (Rule 7).`}
+                  {finalPriceVarianceData.exceedsUpward && t('pr.exceedsUpwardThreshold')}
+                  {finalPriceVarianceData.exceedsDownward && t('pr.exceedsDownwardThreshold')}
                 </Typography>
               </Alert>
 
               <Typography variant="body2" paragraph>
-                To proceed with moving this PO to ORDERED status despite the price variance, you must provide a justification. 
-                This will be recorded in the audit trail and may require additional review.
+                {t('pr.priceVarianceJustificationRequired')}
               </Typography>
 
               <TextField
                 fullWidth
                 multiline
                 rows={4}
-                label="Justification for Price Variance Override"
-                placeholder="Explain why the final price differs significantly from the approved amount (e.g., currency fluctuation, additional requirements, supplier price changes, etc.)"
+                label={t('pr.justificationForPriceVariance')}
+                placeholder={t('pr.priceVariancePlaceholder')}
                 value={finalPriceVarianceJustification}
                 onChange={(e) => setFinalPriceVarianceJustification(e.target.value)}
                 required
@@ -1396,7 +1511,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
             }}
             variant="outlined"
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button 
             onClick={handleFinalPriceVarianceOverride}
@@ -1404,7 +1519,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
             color="warning"
             disabled={!finalPriceVarianceJustification.trim()}
           >
-            Proceed with Override
+            {t('pr.proceedWithOverride')}
           </Button>
         </DialogActions>
       </Dialog>

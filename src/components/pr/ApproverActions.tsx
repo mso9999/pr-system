@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -36,8 +37,12 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [selectedQuoteId, setSelectedQuoteId] = useState<string | null>(null);
+  const [showQuoteOverrideDialog, setShowQuoteOverrideDialog] = useState(false);
+  const [quoteOverrideJustification, setQuoteOverrideJustification] = useState('');
+  const [quoteErrorMessage, setQuoteErrorMessage] = useState('');
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   // Dual approval detection
   const isDualApproval = pr.requiresDualApproval || pr.approvalWorkflow?.requiresDualApproval;
@@ -253,7 +258,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
         setLoading(true);
         await prService.updatePRStatus(pr.id, newStatus, notes, currentUser);
         enqueueSnackbar(`PR status successfully updated to ${newStatus}`, { variant: 'success' });
-        onStatusChange(); // Trigger parent refresh
+        if (onStatusChange) onStatusChange(); // Trigger parent refresh
         return;
       } catch (error) {
         retryCount++;
@@ -270,6 +275,43 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  const handleQuoteOverrideConfirm = async () => {
+    if (!quoteOverrideJustification.trim()) {
+      enqueueSnackbar('Justification is required to override quote requirements', { variant: 'error' });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Save the override to the PR
+      await prService.updatePR(pr.id, {
+        quoteRequirementOverride: true,
+        quoteRequirementOverrideJustification: quoteOverrideJustification,
+        quoteRequirementOverrideBy: currentUser.id,
+        quoteRequirementOverrideAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+
+      enqueueSnackbar('Quote requirement override applied successfully', { variant: 'success' });
+      
+      // Close the override dialog
+      setShowQuoteOverrideDialog(false);
+      setQuoteOverrideJustification('');
+      setQuoteErrorMessage('');
+      
+      // Re-trigger the submit after override is saved
+      setTimeout(() => {
+        handleSubmit();
+      }, 500);
+    } catch (error) {
+      console.error('Error applying quote override:', error);
+      enqueueSnackbar('Failed to apply override', { variant: 'error' });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -380,10 +422,10 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
               await prService.updatePR(pr.id, {
                 approvalWorkflow: {
                   ...prData.approvalWorkflow,
-                  firstApproverSelectedQuoteId: firstQuoteId,
-                  secondApproverJustification: isSecondAppr ? approverNotes : prData.approvalWorkflow?.secondApproverJustification,
-                  firstApproverJustification: isFirstAppr ? approverNotes : prData.approvalWorkflow?.firstApproverJustification,
-                  secondApproverSelectedQuoteId: secondQuoteId,
+                  firstApproverSelectedQuoteId: firstQuoteId || undefined,
+                  secondApproverJustification: isSecondAppr ? approverNotes : prData.approvalWorkflow?.secondApproverJustification || undefined,
+                  firstApproverJustification: isFirstAppr ? approverNotes : prData.approvalWorkflow?.firstApproverJustification || undefined,
+                  secondApproverSelectedQuoteId: secondQuoteId || undefined,
                   quoteConflict: true, // Still in conflict
                   lastUpdated: new Date().toISOString()
                 },
@@ -433,9 +475,48 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
           console.log('Validation result for approval:', validation);
 
           if (!validation.isValid) {
-            console.error('Validation failed with errors:', validation.errors);
-            setError(validation.errors.join('\n\n'));
-            return;
+            // Check if errors are quote-related
+            const hasQuoteErrors = validation.errors.some(err => 
+              err.includes('QUOTE REQUIREMENTS:') || 
+              err.includes('quote') || 
+              err.includes('quotes')
+            );
+            
+            const hasNonQuoteErrors = validation.errors.some(err => 
+              !err.includes('QUOTE REQUIREMENTS:') && 
+              !err.includes('quote') && 
+              !err.includes('quotes') &&
+              err.trim() !== '' &&
+              err !== '•'
+            );
+            
+            // If quote override exists, filter out quote errors
+            if (hasQuoteErrors && prData.quoteRequirementOverride) {
+              console.log('Quote override exists, filtering out quote errors');
+              if (hasNonQuoteErrors) {
+                const nonQuoteErrors = validation.errors.filter(err => 
+                  !err.includes('QUOTE REQUIREMENTS:') && 
+                  !err.includes('quote') && 
+                  !err.includes('quotes') &&
+                  err.trim() !== '' &&
+                  err !== '•'
+                );
+                setError(nonQuoteErrors.join('\n\n'));
+                return;
+              }
+              console.log('Only quote errors present and override exists - proceeding');
+            } else if (hasQuoteErrors && !prData.quoteRequirementOverride) {
+              // Show quote override dialog
+              console.error('Validation failed with quote errors:', validation.errors);
+              setQuoteErrorMessage(validation.errors.join('\n\n'));
+              setShowQuoteOverrideDialog(true);
+              return;
+            } else {
+              // Non-quote errors
+              console.error('Validation failed with errors:', validation.errors);
+              setError(validation.errors.join('\n\n'));
+              return;
+            }
           }
 
           // Determine if this is dual approval
@@ -483,15 +564,15 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             // Update approval workflow
             const updatedWorkflow = {
               ...prData.approvalWorkflow,
-              currentApprover: prData.approver,
-              secondApprover: prData.approver2,
+              currentApprover: prData.approver || null,
+              secondApprover: prData.approver2 || null,
               requiresDualApproval: true,
               firstApprovalComplete: firstComplete,
-              firstApproverSelectedQuoteId: firstQuoteId,
-              firstApproverJustification: isFirstAppr ? approverNotes : prData.approvalWorkflow?.firstApproverJustification,
+              firstApproverSelectedQuoteId: firstQuoteId || undefined,
+              firstApproverJustification: isFirstAppr ? approverNotes : (prData.approvalWorkflow?.firstApproverJustification || undefined),
               secondApprovalComplete: secondComplete,
-              secondApproverSelectedQuoteId: secondQuoteId,
-              secondApproverJustification: isSecondAppr ? approverNotes : prData.approvalWorkflow?.secondApproverJustification,
+              secondApproverSelectedQuoteId: secondQuoteId || undefined,
+              secondApproverJustification: isSecondAppr ? approverNotes : (prData.approvalWorkflow?.secondApproverJustification || undefined),
               quoteConflict: quoteConflict || false,
               approvalHistory: [
                 ...(prData.approvalWorkflow?.approvalHistory || []),
@@ -781,7 +862,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             color="primary"
             onClick={() => handleActionClick('approve')}
           >
-            Approve
+            {t('pr.approvePR')}
           </Button>
         )}
         {actions.includes('reject') && (
@@ -790,7 +871,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             color="error"
             onClick={() => handleActionClick('reject')}
           >
-            Reject
+            {t('pr.rejectPR')}
           </Button>
         )}
         {actions.includes('revise') && (
@@ -799,7 +880,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             color="warning"
             onClick={() => handleActionClick('revise')}
           >
-            Revise & Resubmit
+            {t('pr.reviseAndResubmit')}
           </Button>
         )}
         {actions.includes('queue') && (
@@ -808,7 +889,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
             color="info"
             onClick={() => handleActionClick('queue')}
           >
-            Return to Queue
+            {t('pr.returnToQueue')}
           </Button>
         )}
       </Stack>
@@ -870,7 +951,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                       bgcolor: isSelected ? 'action.selected' : 'background.paper',
                       '&:hover': { bgcolor: 'action.hover' }
                     }}
-                    onClick={() => setSelectedQuoteId(quote.id)}
+                    onClick={() => setSelectedQuoteId(quote.id || null)}
                   >
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
                       <Box sx={{ flex: 1 }}>
@@ -969,9 +1050,72 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
+          <Button onClick={handleClose}>{t('common.cancel')}</Button>
           <Button onClick={handleSubmit} variant="contained" color="primary" disabled={loading}>
-            Submit
+            {t('common.submit')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Quote Requirement Override Dialog */}
+      <Dialog
+        open={showQuoteOverrideDialog}
+        onClose={() => {
+          setShowQuoteOverrideDialog(false);
+          setQuoteOverrideJustification('');
+          setQuoteErrorMessage('');
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle sx={{ bgcolor: 'warning.light' }}>
+          ⚠️ {t('pr.quoteRequirementOverrideTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <strong>{t('pr.validationIssue')}</strong>
+              <br />
+              <Typography variant="body2" component="div" sx={{ whiteSpace: 'pre-wrap', mt: 1 }}>
+                {quoteErrorMessage}
+              </Typography>
+            </Alert>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              {t('pr.quoteRequirementOverrideApproverDesc')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              {t('pr.ruleOverrideNote')}
+            </Typography>
+            <TextField
+              label={`${t('pr.justification')} *`}
+              multiline
+              rows={4}
+              fullWidth
+              value={quoteOverrideJustification}
+              onChange={(e) => setQuoteOverrideJustification(e.target.value)}
+              placeholder={t('pr.quoteOverridePlaceholder')}
+              required
+              sx={{ mt: 1 }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowQuoteOverrideDialog(false);
+              setQuoteOverrideJustification('');
+              setQuoteErrorMessage('');
+            }}
+          >
+            {t('common.cancel')}
+          </Button>
+          <Button
+            onClick={handleQuoteOverrideConfirm}
+            variant="contained"
+            color="warning"
+            disabled={!quoteOverrideJustification.trim() || loading}
+          >
+            {t('pr.applyOverride')}
           </Button>
         </DialogActions>
       </Dialog>

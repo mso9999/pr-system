@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Box,
   Button,
@@ -38,6 +39,7 @@ import {
   PhotoCamera as PhotoIcon,
 } from '@mui/icons-material';
 import { FileUploadManager } from '@/components/common/FileUploadManager';
+import { QuoteList } from './QuoteList';
 
 interface OrderedStatusActionsProps {
   pr: PRRequest;
@@ -52,6 +54,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
 }) => {
   const { enqueueSnackbar } = useSnackbar();
   const navigate = useNavigate();
+  const { t } = useTranslation();
   
   // State for document uploads
   const [uploadingDeliveryNote, setUploadingDeliveryNote] = useState(false);
@@ -65,6 +68,10 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
   const [issueNote, setIssueNote] = useState('');
   const [approveVendorDespiteIssues, setApproveVendorDespiteIssues] = useState(false);
   const [overrideJustification, setOverrideJustification] = useState('');
+  
+  // State for file preview
+  const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   // Permission checks
   const isProcurement = currentUser.permissionLevel === 3;
@@ -244,6 +251,23 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
     }
   };
 
+  // File preview handler
+  const handleFilePreview = (attachment: { name: string; url: string }) => {
+    setPreviewFile(attachment);
+    setPreviewOpen(true);
+  };
+
+  // Download handler
+  const handleDownloadQuoteAttachment = (attachment: { name: string; url: string }) => {
+    const link = document.createElement('a');
+    link.href = attachment.url;
+    link.download = attachment.name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    enqueueSnackbar('Downloading file...', { variant: 'info' });
+  };
+
   // Move to COMPLETED with Vendor Performance Question
   const handleMoveToCompleted = async () => {
     // Validate delivery documentation
@@ -276,7 +300,8 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
 
     try {
       // Fetch organization config for vendor approval durations
-      const orgConfig = await organizationService.getOrganizationById(pr.organization || currentUser.organization);
+      const orgId = pr.organization || currentUser.organization || '';
+      const orgConfig = await organizationService.getOrganizationById(orgId);
       const vendor3QuoteDuration = orgConfig?.vendorApproval3QuoteDuration || 12;
       const vendorCompletedDuration = orgConfig?.vendorApprovalCompletedDuration || 6;
       const vendorManualDuration = orgConfig?.vendorApprovalManualDuration || 12;
@@ -385,6 +410,83 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
 
   return (
     <Box>
+      {/* Previous Status Documents - Read Only */}
+      <Paper sx={{ p: 3, mb: 3, bgcolor: 'info.50' }}>
+        <Typography variant="h6" gutterBottom>
+          📋 {t('pr.previousDocuments')}
+        </Typography>
+        <Typography variant="body2" color="textSecondary" paragraph>
+          {t('pr.previousDocumentsDesc')}
+        </Typography>
+
+        <Grid container spacing={2}>
+          {/* Proforma Invoice */}
+          <Grid item xs={12} md={4}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              {t('pr.proformaInvoice')}
+            </Typography>
+            <FileUploadManager
+              label={t('pr.proformaInvoice')}
+              files={normalizeAttachments(pr.proformaInvoice)}
+              onUpload={async () => {}}
+              onDelete={async () => {}}
+              readOnly={true}
+              maxFiles={10}
+            />
+          </Grid>
+
+          {/* Proof of Payment */}
+          <Grid item xs={12} md={4}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              {t('pr.proofOfPayment')}
+            </Typography>
+            <FileUploadManager
+              label={t('pr.proofOfPayment')}
+              files={normalizeAttachments(pr.proofOfPayment)}
+              onUpload={async () => {}}
+              onDelete={async () => {}}
+              readOnly={true}
+              maxFiles={10}
+            />
+          </Grid>
+
+          {/* PO Document */}
+          <Grid item xs={12} md={4}>
+            <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+              {t('pr.poDocument')}
+            </Typography>
+            <FileUploadManager
+              label={t('pr.poDocument')}
+              files={normalizeAttachments(pr.poDocument)}
+              onUpload={async () => {}}
+              onDelete={async () => {}}
+              readOnly={true}
+              maxFiles={1}
+            />
+          </Grid>
+        </Grid>
+      </Paper>
+
+      {/* Quotes Section - Read Only */}
+      {pr.quotes && pr.quotes.length > 0 && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Typography variant="h6" gutterBottom>
+            💰 {t('pr.quotes')}
+          </Typography>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 3 }}>
+            {t('pr.quotesFromPreApprovedStages')}
+          </Typography>
+          <QuoteList
+            quotes={pr.quotes}
+            onEdit={() => {}} // Read-only, no edit
+            onDelete={() => {}} // Read-only, no delete
+            handleFilePreview={handleFilePreview}
+            handleDownloadQuoteAttachment={handleDownloadQuoteAttachment}
+            isEditing={false}
+          />
+        </Paper>
+      )}
+
       <Paper sx={{ p: 3, mb: 3, bgcolor: 'success.50' }}>
         <Typography variant="h6" gutterBottom>
           Delivery Documentation (ORDERED Status)
@@ -490,7 +592,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
               startIcon={<CheckIcon />}
               onClick={() => setCompletionDialog(true)}
             >
-              Move to COMPLETED Status
+              {t('pr.moveToCompleted')} Status
             </Button>
           </Grid>
         </Grid>
@@ -503,15 +605,15 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
         maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Complete Purchase Order</DialogTitle>
+        <DialogTitle>{t('pr.completePO')}</DialogTitle>
         <DialogContent>
           {/* Validation Check Display */}
           <Alert severity="info" sx={{ mb: 3 }}>
             <Typography variant="subtitle2" gutterBottom>
-              Delivery Documentation Status:
+              {t('pr.deliveryDocStatus')}
             </Typography>
-            {pr.deliveryNote && (
-              <Typography variant="body2">✓ Delivery Note: {pr.deliveryNote.name}</Typography>
+            {normalizeAttachments(pr.deliveryNote).length > 0 && (
+              <Typography variant="body2">✓ Delivery Note: {normalizeAttachments(pr.deliveryNote).length} file(s)</Typography>
             )}
             {pr.deliveryPhotos && pr.deliveryPhotos.length > 0 && (
               <Typography variant="body2">✓ Photos: {pr.deliveryPhotos.length} uploaded</Typography>
@@ -519,7 +621,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
             {pr.deliveryDocOverride && (
               <Typography variant="body2">✓ Override: {pr.deliveryDocOverrideJustification}</Typography>
             )}
-            {!pr.deliveryNote && (!pr.deliveryPhotos || pr.deliveryPhotos.length === 0) && !pr.deliveryDocOverride && (
+            {normalizeAttachments(pr.deliveryNote).length === 0 && (!pr.deliveryPhotos || pr.deliveryPhotos.length === 0) && !pr.deliveryDocOverride && (
               <Typography variant="body2" color="error">❌ No delivery documentation provided</Typography>
             )}
           </Alert>
@@ -530,11 +632,11 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
           <FormControl component="fieldset" fullWidth>
             <FormLabel component="legend">
               <Typography variant="h6" gutterBottom>
-                Vendor Performance Question *
+                {t('pr.vendorPerformanceQuestion')} *
               </Typography>
             </FormLabel>
             <Typography variant="body2" color="textSecondary" paragraph>
-              This helps manage vendor approval status automatically
+              {t('pr.vendorPerformanceRequired')}
             </Typography>
             
             <RadioGroup
@@ -554,9 +656,9 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
                 control={<Radio />}
                 label={
                   <Box>
-                    <Typography variant="body1">YES - Order closed without issues</Typography>
+                    <Typography variant="body1">{t('pr.orderClosedWithoutIssues')}</Typography>
                     <Typography variant="caption" color="textSecondary">
-                      Vendor will be automatically approved for future orders
+                      {t('pr.vendorAutoApprovedDesc')}
                     </Typography>
                   </Box>
                 }
@@ -566,9 +668,9 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
                 control={<Radio />}
                 label={
                   <Box>
-                    <Typography variant="body1">NO - Issues encountered during this order</Typography>
+                    <Typography variant="body1">{t('pr.issuesEncountered')}</Typography>
                     <Typography variant="caption" color="textSecondary">
-                      Vendor will remain non-approved unless you override
+                      {t('pr.vendorRemainNonApproved')}
                     </Typography>
                   </Box>
                 }
@@ -580,7 +682,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
           {orderSatisfactory === 'no' && (
             <Box sx={{ mt: 3, p: 2, bgcolor: 'error.50', borderRadius: 1 }}>
               <Typography variant="subtitle2" gutterBottom color="error">
-                Describe Issues Encountered *
+                {t('pr.describeIssues')} *
               </Typography>
               <TextField
                 fullWidth
@@ -588,7 +690,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
                 rows={3}
                 value={issueNote}
                 onChange={(e) => setIssueNote(e.target.value)}
-                placeholder="Describe quality issues, delivery problems, or other concerns..."
+                placeholder={t('pr.describeIssuesPlaceholder')}
                 sx={{ mb: 2, bgcolor: 'white' }}
               />
 
@@ -599,7 +701,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
                     onChange={(e) => setApproveVendorDespiteIssues(e.target.checked)}
                   />
                 }
-                label="Approve vendor despite issues (requires justification)"
+                label={t('pr.approveVendorDespiteIssues')}
               />
 
               {approveVendorDespiteIssues && (
@@ -607,10 +709,10 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
                   fullWidth
                   multiline
                   rows={2}
-                  label="Override Justification *"
+                  label={`${t('pr.overrideJustificationRequired')} *`}
                   value={overrideJustification}
                   onChange={(e) => setOverrideJustification(e.target.value)}
-                  placeholder="Explain why vendor should be approved despite the issues..."
+                  placeholder={t('pr.overrideJustificationPlaceholder')}
                   sx={{ mt: 2, bgcolor: 'white' }}
                 />
               )}
@@ -642,14 +744,43 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
           )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCompletionDialog(false)}>Cancel</Button>
+          <Button onClick={() => setCompletionDialog(false)}>{t('common.cancel')}</Button>
           <Button 
             onClick={handleMoveToCompleted} 
             variant="contained" 
             color="success"
             disabled={!orderSatisfactory}
           >
-            Complete PO
+            {t('pr.confirmCompletion')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* File Preview Dialog */}
+      <Dialog 
+        open={previewOpen} 
+        onClose={() => setPreviewOpen(false)}
+        maxWidth="lg"
+        fullWidth
+      >
+        <DialogTitle>{previewFile?.name}</DialogTitle>
+        <DialogContent>
+          {previewFile && (
+            previewFile.url.toLowerCase().endsWith('.pdf') ? (
+              <embed src={previewFile.url} type="application/pdf" width="100%" height="600px" />
+            ) : (
+              <img src={previewFile.url} alt={previewFile.name} style={{ width: '100%', height: 'auto' }} />
+            )
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPreviewOpen(false)}>{t('common.close')}</Button>
+          <Button 
+            variant="contained" 
+            startIcon={<DownloadIcon />}
+            onClick={() => previewFile && handleDownloadQuoteAttachment(previewFile)}
+          >
+            {t('common.download')}
           </Button>
         </DialogActions>
       </Dialog>

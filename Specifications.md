@@ -830,6 +830,96 @@ Users assigned to the Asset Management department have special permissions:
 - **deliveryDocOverrideJustification**: Justification note if delivery override is set
 - **poDocument**: System-generated PO document (created at APPROVED status)
 
+#### General Rule: Cross-Status Document Visibility
+**IMPORTANT:** All documents, quotes, and line item attachments uploaded in any status must remain accessible (view and download) in all subsequent statuses.
+
+**Implementation Requirements:**
+1. **Read-Only Access:** Documents, quotes, and line item attachments from previous statuses must be displayed in read-only mode
+2. **Comprehensive Display:** Include ALL relevant content from the workflow:
+   - **Line Item Attachments:** Files attached to line items during PR creation (specifications, pictures, quotes) - visible in ALL statuses
+   - **Pre-Approval Documents:** Quotes (with attachments) submitted during SUBMITTED, IN_QUEUE, or PENDING_APPROVAL stages
+   - **APPROVED Status Documents:** Proforma Invoice, Proof of Payment, PO Document (auto-generated)
+   - **ORDERED Status Documents:** Delivery Note, Delivery Photos
+3. **Status-Specific Sections:**
+   - When viewing a PR/PO in any status:
+     * Line Items table always displays all line item attachments with preview and download capabilities
+     * Delete buttons for line item attachments only appear in edit mode for DRAFT, SUBMITTED, or REVISION_REQUIRED statuses
+   - When viewing a PR/PO in ORDERED status:
+     * Display a "Quotes" section showing all quotes from pre-approved stages (read-only)
+     * Display a "Previous Status Documents" section showing all APPROVED status documents (read-only)
+   - When viewing a PR/PO in COMPLETED status:
+     * Display a "Quotes" section showing all quotes from pre-approved stages (read-only)
+     * Display ALL documents from ALL previous statuses (read-only)
+4. **Line Item Attachments:** Files uploaded to line items (quotes, specifications, pictures, etc.) are always accessible:
+   - Preview button available for all file types
+   - Download button available for all files
+   - Delete button only available in edit mode for early-stage statuses
+5. **Quote Attachments:** All quote attachments (uploaded during quote submission) must be viewable and downloadable in later statuses
+6. **Auto-Generated PO Document:** When a PR moves from APPROVED to ORDERED status:
+   - The PO PDF document must be automatically generated if not already created
+   - The generated PDF must be saved as a file attachment to the PR
+   - This ensures the PO document is accessible in all subsequent statuses (ORDERED, COMPLETED)
+7. **Download Capability:** Users must be able to download any document from any previous status
+8. **No Edit/Delete:** Previous status documents are read-only (cannot be edited or deleted from later statuses)
+
+**User Experience:**
+- Clear visual separation between current status documents (editable) and previous status documents (read-only)
+- Intuitive labeling: "Previous Status Documents", "APPROVED Status Documents", etc.
+- Consistent FileUploadManager component usage with `readOnly={true}` prop for historical documents
+
+### Notes & Justifications Visibility
+
+**Requirement:** All notes, justifications, and comments submitted at any stage of the PR/PO workflow must be permanently accessible from the PR/PO view, without redundancy.
+
+**Implementation:**
+
+1. **Status History & Notes** (Master Record - Single Source of Truth):
+   - **Location:** Expandable accordion section below main content (default expanded)
+   - **Content:** Comprehensive table showing ALL status changes with complete details
+   - **Columns:** DateTime, Status, User, and **Notes**
+   - **Notes Include:** 
+     - Approval notes and rejection reasons from approvers
+     - Revision request explanations
+     - Resubmission comments
+     - Procurement notes
+     - Completion notes
+     - Any status transition comments
+   - **Format:** Pre-wrap text support for formatted content
+   - **Sort:** Most recent first
+   - **Purpose:** Single comprehensive record of all workflow activity and notes
+
+2. **Approval History Summary** (Quick Reference):
+   - **Location:** "Additional Information" section (always visible)
+   - **Content:** Quick summary showing who approved/rejected and when
+   - **Display:** Compact chips with approver name, timestamp, and action
+   - **Notes:** NOT displayed here - users directed to "Status History & Notes" section
+   - **Helper Text:** "See 'Status History & Notes' section below for detailed notes"
+   - **Purpose:** Quick visual summary of approval chain without redundancy
+
+3. **Approver Justifications** (3-Quote Scenario):
+   - **Location:** "Additional Information" section (only when applicable)
+   - **Content:** Special justifications for 3-quote scenarios
+     - First Approver's justification with selected quote details
+     - Second Approver's justification with selected quote details
+   - **Display:** Colored boxes (info.50 for first approver, success.50 for second approver)
+   - **Only appears when:** Justifications exist (3-quote approval scenario)
+   - **Purpose:** These are NOT captured in status history, so displayed separately
+
+**Data Fields Captured:**
+- `StatusHistoryItem.notes`: All notes from any status change (PRIMARY SOURCE)
+- `ApprovalHistoryItem.notes`: Approval step notes (also in status history)
+- `firstApproverJustification`: First approver's 3-quote justification (NOT in status history)
+- `secondApproverJustification`: Second approver's 3-quote justification (NOT in status history)
+- `WorkflowHistoryItem.notes`: Legacy workflow notes
+
+**Information Architecture:**
+- **No Redundancy:** Approval notes displayed ONLY in Status History & Notes section
+- **Single Source:** Status History & Notes is the comprehensive record
+- **Special Cases:** Only 3-quote justifications displayed separately (unique data not in status history)
+- **User Guidance:** Clear signposting directs users to the right section
+
+**Purpose:** Ensures complete audit trail without information duplication, making it easy for users to find all historical notes in one place.
+
 ### Supplier Data Fields (for non-approved vendors)
 - **supplierName**: Manually entered supplier name (if not using approved vendor)
 - **supplierContact**: Contact information object containing:

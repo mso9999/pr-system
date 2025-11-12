@@ -80,6 +80,7 @@ import { OrderedStatusActions } from './OrderedStatusActions';
 import { CompletedStatusView } from './CompletedStatusView';
 import { ResurrectionActions } from './ResurrectionActions';
 import { UrgencyControl } from './UrgencyControl';
+import { StatusProgressStepper } from './StatusProgressStepper';
 
 interface EditablePRFields {
   department?: string;
@@ -1748,7 +1749,7 @@ export function PRView() {
               <Grid item xs={12}>
                 <Typography color="textSecondary">{t('pr.approvalHistory')}</Typography>
                 <div className="flex flex-col gap-2 mt-1">
-                  {pr?.approvalWorkflow?.approvalHistory?.length > 0 ? (
+                  {pr?.approvalWorkflow?.approvalHistory && pr.approvalWorkflow.approvalHistory.length > 0 ? (
                     pr.approvalWorkflow.approvalHistory.map((history, index) => (
                       <div key={index} className="flex items-center gap-2">
                         <Chip
@@ -1765,7 +1766,7 @@ export function PRView() {
                           {new Date(history.timestamp).toLocaleString()}
                         </Typography>
                         <Typography variant="body2">
-                          {history.toStatus || history.step}
+                          {history.approved ? 'Approved' : 'Rejected'}
                         </Typography>
                       </div>
                     ))
@@ -1775,7 +1776,55 @@ export function PRView() {
                     </Typography>
                   )}
                 </div>
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1, fontStyle: 'italic' }}>
+                  ℹ️ {t('pr.seeStatusHistoryForNotes')}
+                </Typography>
               </Grid>
+              
+              {/* Approver Justifications (3-Quote Scenario) */}
+              {(pr?.approvalWorkflow?.firstApproverJustification || pr?.approvalWorkflow?.secondApproverJustification) && (
+                <Grid item xs={12}>
+                  <Typography color="textSecondary">{t('pr.approverJustifications')}</Typography>
+                  <Box sx={{ mt: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {pr.approvalWorkflow.firstApproverJustification && (
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'info.50' }}>
+                        <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                          First Approver Justification:
+                        </Typography>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                          {pr.approvalWorkflow.firstApproverJustification}
+                        </Typography>
+                        {pr.approvalWorkflow.firstApproverSelectedQuoteId && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                            Selected Quote: {(() => {
+                              const quote = pr.quotes?.find(q => q.id === pr.approvalWorkflow?.firstApproverSelectedQuoteId);
+                              return quote ? `${quote.vendorName} - ${formatCurrency(quote.amount, quote.currency)}` : 'Unknown';
+                            })()}
+                          </Typography>
+                        )}
+                      </Paper>
+                    )}
+                    {pr.approvalWorkflow.secondApproverJustification && (
+                      <Paper variant="outlined" sx={{ p: 2, bgcolor: 'success.50' }}>
+                        <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                          Second Approver Justification:
+                        </Typography>
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                          {pr.approvalWorkflow.secondApproverJustification}
+                        </Typography>
+                        {pr.approvalWorkflow.secondApproverSelectedQuoteId && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
+                            Selected Quote: {(() => {
+                              const quote = pr.quotes?.find(q => q.id === pr.approvalWorkflow?.secondApproverSelectedQuoteId);
+                              return quote ? `${quote.vendorName} - ${formatCurrency(quote.amount, quote.currency)}` : 'Unknown';
+                            })()}
+                          </Typography>
+                        )}
+                      </Paper>
+                    )}
+                  </Box>
+                </Grid>
+              )}
             </Grid>
           </Paper>
         </Grid>
@@ -2005,7 +2054,7 @@ export function PRView() {
     return (
       <Grid container spacing={2}>
         <Grid item xs={12}>
-          <Typography variant="h6">Quotes</Typography>
+          <Typography variant="h6">{t('pr.quotes')}</Typography>
           <QuotesStep
             formState={pr || { quotes: [] }}
             setFormState={(newState) => {
@@ -2259,6 +2308,11 @@ export function PRView() {
         </Box>
       </Box>
 
+      {/* Status Progress Stepper */}
+      {pr && pr.status !== PRStatus.DRAFT && (
+        <StatusProgressStepper pr={pr} />
+      )}
+
       {/* Procurement Actions */}
       {canProcessPR && (
         <Box sx={{ mb: 3 }}>
@@ -2377,10 +2431,10 @@ export function PRView() {
         </Box>
       )}
 
-      {/* Status History Notes */}
+      {/* Status History & Notes */}
       {pr?.statusHistory && pr.statusHistory.length > 0 && (
         <Box sx={{ mb: 3 }}>
-          <Accordion defaultExpanded={false}>
+          <Accordion defaultExpanded={true}>
             <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
               aria-controls="status-history-content"
@@ -2683,9 +2737,15 @@ export function PRView() {
           </>
         ) : (
           <>
-            {renderBasicInformation()}
-            {renderLineItems()}
-            {renderQuotes()}
+            <Box sx={{ mb: 4 }}>
+              {renderBasicInformation()}
+            </Box>
+            <Box sx={{ mb: 4 }}>
+              {renderLineItems()}
+            </Box>
+            <Box sx={{ mb: 4 }}>
+              {renderQuotes()}
+            </Box>
           </>
         )}
       </Box>
@@ -2739,19 +2799,19 @@ export function PRView() {
         aria-labelledby="exit-edit-mode-dialog-title"
       >
         <DialogTitle id="exit-edit-mode-dialog-title">
-          Unsaved Changes
+          {t('pr.unsavedChangesTitle')}
         </DialogTitle>
         <DialogContent>
           <DialogContentText>
-            You have unsaved changes. Are you sure you want to exit edit mode? All changes will be lost.
+            {t('pr.unsavedChangesDesc')}
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={cancelExitEditMode} color="primary">
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button onClick={confirmExitEditMode} color="error">
-            Exit Without Saving
+            {t('pr.exitWithoutSaving')}
           </Button>
         </DialogActions>
       </Dialog>
@@ -2772,34 +2832,32 @@ export function PRView() {
         fullWidth
       >
         <DialogTitle sx={{ bgcolor: 'warning.light' }}>
-          ⚠️ Rule Validation Override Required
+          ⚠️ {t('pr.ruleOverrideRequired')}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
             <Alert severity="error" sx={{ mb: 2 }}>
-              <strong>Validation Issue:</strong>
+              <strong>{t('pr.validationIssue')}</strong>
               <br />
               {approverAmountError}
             </Alert>
             
             <Typography variant="body2" sx={{ mb: 2 }}>
-              This PR does not meet the standard approval rules. If you need to proceed despite this,
-              you must provide a detailed justification for the override.
+              {t('pr.ruleOverrideDesc')}
             </Typography>
             
             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              <strong>Note:</strong> This override will be logged and visible in the PR audit trail.
-              Only authorized users (Admin, Procurement) should approve overrides.
+              {t('pr.ruleOverrideNote')}
             </Typography>
 
             <TextField
-              label="Justification for Rule Override"
+              label={`${t('pr.justification')} *`}
               multiline
               rows={4}
               fullWidth
               value={ruleOverrideJustification}
               onChange={(e) => setRuleOverrideJustification(e.target.value)}
-              placeholder="Explain why this PR should be allowed to proceed despite not meeting the standard approval rules..."
+              placeholder={t('pr.ruleOverridePlaceholder')}
               required
               sx={{ mt: 1 }}
             />
@@ -2812,7 +2870,7 @@ export function PRView() {
               setRuleOverrideJustification('');
             }}
           >
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button
             onClick={handleRuleOverrideConfirm}
@@ -2820,7 +2878,7 @@ export function PRView() {
             color="warning"
             disabled={!ruleOverrideJustification.trim()}
           >
-            Apply Override
+            {t('pr.applyOverride')}
           </Button>
         </DialogActions>
       </Dialog>
