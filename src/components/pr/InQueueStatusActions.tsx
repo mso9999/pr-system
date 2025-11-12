@@ -57,6 +57,12 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
   const canGenerateRFQ = currentUser.permissionLevel === 1 || currentUser.permissionLevel === 3;
 
   const handleGenerateRFQ = async () => {
+    // Validate that we have line items
+    if (!pr.lineItems || pr.lineItems.length === 0) {
+      enqueueSnackbar('Please add line items before generating RFQ', { variant: 'warning' });
+      return;
+    }
+
     try {
       setGeneratingRFQ(true);
 
@@ -193,8 +199,17 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
         <Divider sx={{ mb: 2 }} />
 
         <Alert severity="info" sx={{ mb: 2 }}>
-          <Typography variant="body2">
-            Generate an RFQ document to send to vendors. You can also download a template or upload an Excel/CSV file to populate line items.
+          <Typography variant="body2" gutterBottom>
+            <strong>Generate RFQ from:</strong>
+          </Typography>
+          <Typography variant="body2" component="div">
+            • Line items entered directly in the PR system, OR
+          </Typography>
+          <Typography variant="body2" component="div">
+            • Line items uploaded from an Excel/CSV file (must match template format)
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 1 }}>
+            Download the template, fill it with your line items, then upload and apply before generating the RFQ.
           </Typography>
         </Alert>
 
@@ -204,7 +219,7 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
             variant="contained"
             startIcon={<SendIcon />}
             onClick={handleGenerateRFQ}
-            disabled={generatingRFQ || !pr.lineItems || pr.lineItems.length === 0}
+            disabled={generatingRFQ}
           >
             {generatingRFQ ? 'Generating...' : 'Generate RFQ'}
           </Button>
@@ -235,17 +250,30 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
           </Button>
         </Stack>
 
-        {!pr.lineItems || pr.lineItems.length === 0 ? (
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            Please add line items to this PR before generating an RFQ.
-          </Alert>
-        ) : (
-          <Box sx={{ mt: 2 }}>
-            <Typography variant="caption" color="text.secondary">
-              Current line items: {pr.lineItems.length}
-            </Typography>
-          </Box>
-        )}
+        <Box sx={{ mt: 2 }}>
+          {!pr.lineItems || pr.lineItems.length === 0 ? (
+            <Alert severity="warning" icon={<UploadIcon />}>
+              <Typography variant="body2" fontWeight="bold" gutterBottom>
+                No line items yet
+              </Typography>
+              <Typography variant="body2">
+                To generate an RFQ, you must first add line items by either:
+              </Typography>
+              <Typography variant="body2" component="div" sx={{ ml: 2, mt: 0.5 }}>
+                1. Downloading the template, filling it, and uploading it, OR
+              </Typography>
+              <Typography variant="body2" component="div" sx={{ ml: 2 }}>
+                2. Adding line items manually in the PR form
+              </Typography>
+            </Alert>
+          ) : (
+            <Alert severity="success" sx={{ display: 'flex', alignItems: 'center' }}>
+              <Typography variant="body2">
+                ✓ Ready to generate RFQ with <strong>{pr.lineItems.length}</strong> line item{pr.lineItems.length !== 1 ? 's' : ''}
+              </Typography>
+            </Alert>
+          )}
+        </Box>
       </Paper>
 
       {/* Template Download Menu */}
