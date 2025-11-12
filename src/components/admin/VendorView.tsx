@@ -50,17 +50,9 @@ import { referenceDataAdminService } from '@/services/referenceDataAdmin';
 import { prService } from '@/services/pr';
 import { StorageService } from '@/services/storage';
 import { ReferenceDataItem, VendorDocument } from '@/types/referenceData';
-import { PRRequest, Quote } from '@/types/pr';
+import { PRWithVendorRelationship } from '@/services/pr';
 import { FileUploadManager } from '@/components/common/FileUploadManager';
 import { formatCurrency } from '@/utils/formatters';
-
-interface VendorQuoteWithContext {
-  prId: string;
-  prNumber: string;
-  quote: Quote;
-  prStatus: string;
-  organization: string;
-}
 
 export const VendorView: React.FC = () => {
   const { vendorId } = useParams<{ vendorId: string }>();
@@ -72,8 +64,7 @@ export const VendorView: React.FC = () => {
 
   const [vendor, setVendor] = useState<ReferenceDataItem | null>(null);
   const [editedVendor, setEditedVendor] = useState<Partial<ReferenceDataItem>>({});
-  const [associatedPRs, setAssociatedPRs] = useState<PRRequest[]>([]);
-  const [associatedQuotes, setAssociatedQuotes] = useState<VendorQuoteWithContext[]>([]);
+  const [associatedPRs, setAssociatedPRs] = useState<PRWithVendorRelationship[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -121,20 +112,12 @@ export const VendorView: React.FC = () => {
         setVendor(vendorData);
         setEditedVendor(vendorData);
         
-        // Load associated PRs/POs
+        // Load associated PRs/POs (includes all relationships: preferred, selected, quotes)
         try {
-          const prs = await prService.getPRsByVendor(vendorId);
+          const prs = await prService.getPRsByVendor(vendorId, vendorData.name);
           setAssociatedPRs(prs);
         } catch (error) {
           console.error('Error loading associated PRs:', error);
-        }
-
-        // Load associated quotes
-        try {
-          const quotes = await prService.getQuotesByVendor(vendorId, vendorData.name);
-          setAssociatedQuotes(quotes);
-        } catch (error) {
-          console.error('Error loading associated quotes:', error);
         }
       }
     } catch (error) {
@@ -794,6 +777,7 @@ export const VendorView: React.FC = () => {
                       <TableCell>Organization</TableCell>
                       <TableCell>Description</TableCell>
                       <TableCell>Status</TableCell>
+                      <TableCell>Vendor Relationship</TableCell>
                       <TableCell align="right">Amount</TableCell>
                       <TableCell>Created Date</TableCell>
                       <TableCell>Requestor</TableCell>
@@ -813,6 +797,23 @@ export const VendorView: React.FC = () => {
                         <TableCell>
                           <Chip label={pr.status} size="small" />
                         </TableCell>
+                        <TableCell>
+                          <Box display="flex" gap={0.5} flexWrap="wrap">
+                            {pr.vendorRelationship.map((rel, idx) => (
+                              <Chip
+                                key={idx}
+                                label={rel}
+                                size="small"
+                                color={
+                                  rel === 'Selected Vendor' ? 'success' :
+                                  rel === 'Preferred Vendor' ? 'primary' :
+                                  'default'
+                                }
+                                variant="outlined"
+                              />
+                            ))}
+                          </Box>
+                        </TableCell>
                         <TableCell align="right">
                           {formatCurrency(pr.estimatedAmount || 0, pr.currency || 'USD')}
                         </TableCell>
@@ -830,62 +831,6 @@ export const VendorView: React.FC = () => {
             ) : (
               <Typography variant="body2" color="textSecondary">
                 No associated PRs/POs found for this vendor
-              </Typography>
-            )}
-          </Paper>
-        </Grid>
-
-        {/* Associated Quotes Section */}
-        <Grid item xs={12}>
-          <Paper sx={{ p: 3 }}>
-            <Typography variant="h6" gutterBottom>
-              Quote History
-            </Typography>
-            <Divider sx={{ mb: 2 }} />
-            
-            {associatedQuotes.length > 0 ? (
-              <TableContainer>
-                <Table>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>PR Number</TableCell>
-                      <TableCell>Organization</TableCell>
-                      <TableCell>PR Status</TableCell>
-                      <TableCell align="right">Quote Amount</TableCell>
-                      <TableCell>Currency</TableCell>
-                      <TableCell>Valid Until</TableCell>
-                      <TableCell>Notes</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {associatedQuotes.map((item, index) => (
-                      <TableRow 
-                        key={`${item.prId}-${index}`} 
-                        hover 
-                        sx={{ cursor: 'pointer' }}
-                        onClick={() => navigate(`/pr/${item.prId}`)}
-                      >
-                        <TableCell>{item.prNumber}</TableCell>
-                        <TableCell>{item.organization}</TableCell>
-                        <TableCell>
-                          <Chip label={item.prStatus} size="small" />
-                        </TableCell>
-                        <TableCell align="right">
-                          {item.quote.amount ? formatCurrency(item.quote.amount, item.quote.currency || 'USD') : 'N/A'}
-                        </TableCell>
-                        <TableCell>{item.quote.currency || 'N/A'}</TableCell>
-                        <TableCell>
-                          {item.quote.validUntil ? new Date(item.quote.validUntil).toLocaleDateString() : 'N/A'}
-                        </TableCell>
-                        <TableCell>{item.quote.notes || '-'}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            ) : (
-              <Typography variant="body2" color="textSecondary">
-                No quotes found for this vendor
               </Typography>
             )}
           </Paper>

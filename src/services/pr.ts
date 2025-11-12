@@ -988,12 +988,22 @@ export async function deletePR(prId: string): Promise<void> {
   }
 }
 
+export interface PRWithVendorRelationship extends PRRequest {
+  vendorRelationship: string[];
+}
+
 /**
- * Get all PRs/POs associated with a specific vendor
+ * Get all PRs/POs associated with a specific vendor, including relationship type
+ * A vendor is associated with a PR if they are:
+ * - The preferred vendor
+ * - The selected vendor
+ * - Submitted a quote (even if not selected)
+ * 
  * @param vendorId - The vendor ID to search for
- * @returns Promise<PRRequest[]> - Array of PRs/POs associated with this vendor
+ * @param vendorName - Optional vendor name for quote matching
+ * @returns Promise<PRWithVendorRelationship[]> - Array of PRs with vendor relationship info
  */
-export async function getPRsByVendor(vendorId: string): Promise<PRRequest[]> {
+export async function getPRsByVendor(vendorId: string, vendorName?: string): Promise<PRWithVendorRelationship[]> {
   console.log(`Fetching PRs for vendor: ${vendorId}`);
   if (!vendorId) {
     console.error('getPRsByVendor called without vendorId');
@@ -1003,9 +1013,33 @@ export async function getPRsByVendor(vendorId: string): Promise<PRRequest[]> {
   try {
     const prCollectionRef = collection(db, PR_COLLECTION);
     
-    // Firestore doesn't support OR queries on different fields with orderBy easily
-    // So we'll run two queries and merge results, removing duplicates
-    const prMap = new Map<string, PRRequest>();
+    // Map to store PRs with their relationship types
+    const prMap = new Map<string, { pr: PRRequest; relationships: Set<string> }>();
+    
+    const convertPR = (data: any, docId: string): PRRequest => ({
+      id: docId,
+      ...data,
+      createdAt: safeTimestampToISO(data.createdAt),
+      updatedAt: safeTimestampToISO(data.updatedAt),
+      requiredDate: safeTimestampToISO(data.requiredDate),
+      lastModifiedAt: safeTimestampToISO(data.lastModifiedAt),
+      history: (data.history || []).map((item: any): HistoryItem => ({
+        ...item,
+        timestamp: safeTimestampToISO(item.timestamp),
+      })),
+      statusHistory: (data.statusHistory || []).map((item: any): StatusHistoryItem => ({
+        ...item,
+        timestamp: safeTimestampToISO(item.timestamp),
+      })),
+      approvalWorkflow: data.approvalWorkflow ? {
+        ...data.approvalWorkflow,
+        lastUpdated: safeTimestampToISO(data.approvalWorkflow.lastUpdated),
+        approvalHistory: (data.approvalWorkflow.approvalHistory || []).map((item: any): ApprovalHistoryItem => ({
+          ...item,
+          timestamp: safeTimestampToISO(item.timestamp),
+        })),
+      } : undefined,
+    } as PRRequest);
     
     // Query 1: PRs where vendor is preferred vendor
     try {
@@ -1018,30 +1052,12 @@ export async function getPRsByVendor(vendorId: string): Promise<PRRequest[]> {
       
       snapshot1.forEach((docSnapshot) => {
         const data = docSnapshot.data();
-        prMap.set(docSnapshot.id, {
-          id: docSnapshot.id,
-          ...data,
-          createdAt: safeTimestampToISO(data.createdAt),
-          updatedAt: safeTimestampToISO(data.updatedAt),
-          requiredDate: safeTimestampToISO(data.requiredDate),
-          lastModifiedAt: safeTimestampToISO(data.lastModifiedAt),
-          history: (data.history || []).map((item: any): HistoryItem => ({
-            ...item,
-            timestamp: safeTimestampToISO(item.timestamp),
-          })),
-          statusHistory: (data.statusHistory || []).map((item: any): StatusHistoryItem => ({
-            ...item,
-            timestamp: safeTimestampToISO(item.timestamp),
-          })),
-          approvalWorkflow: data.approvalWorkflow ? {
-            ...data.approvalWorkflow,
-            lastUpdated: safeTimestampToISO(data.approvalWorkflow.lastUpdated),
-            approvalHistory: (data.approvalWorkflow.approvalHistory || []).map((item: any): ApprovalHistoryItem => ({
-              ...item,
-              timestamp: safeTimestampToISO(item.timestamp),
-            })),
-          } : undefined,
-        } as PRRequest);
+        const pr = convertPR(data, docSnapshot.id);
+        
+        if (!prMap.has(docSnapshot.id)) {
+          prMap.set(docSnapshot.id, { pr, relationships: new Set() });
+        }
+        prMap.get(docSnapshot.id)!.relationships.add('Preferred Vendor');
       });
     } catch (error) {
       console.error('Error querying preferredVendor:', error);
@@ -1057,45 +1073,64 @@ export async function getPRsByVendor(vendorId: string): Promise<PRRequest[]> {
       const snapshot2 = await getDocs(q2);
       
       snapshot2.forEach((docSnapshot) => {
-        if (!prMap.has(docSnapshot.id)) { // Avoid duplicates
-          const data = docSnapshot.data();
-          prMap.set(docSnapshot.id, {
-            id: docSnapshot.id,
-            ...data,
-            createdAt: safeTimestampToISO(data.createdAt),
-            updatedAt: safeTimestampToISO(data.updatedAt),
-            requiredDate: safeTimestampToISO(data.requiredDate),
-            lastModifiedAt: safeTimestampToISO(data.lastModifiedAt),
-            history: (data.history || []).map((item: any): HistoryItem => ({
-              ...item,
-              timestamp: safeTimestampToISO(item.timestamp),
-            })),
-            statusHistory: (data.statusHistory || []).map((item: any): StatusHistoryItem => ({
-              ...item,
-              timestamp: safeTimestampToISO(item.timestamp),
-            })),
-            approvalWorkflow: data.approvalWorkflow ? {
-              ...data.approvalWorkflow,
-              lastUpdated: safeTimestampToISO(data.approvalWorkflow.lastUpdated),
-              approvalHistory: (data.approvalWorkflow.approvalHistory || []).map((item: any): ApprovalHistoryItem => ({
-                ...item,
-                timestamp: safeTimestampToISO(item.timestamp),
-              })),
-            } : undefined,
-          } as PRRequest);
+        const data = docSnapshot.data();
+        
+        if (!prMap.has(docSnapshot.id)) {
+          const pr = convertPR(data, docSnapshot.id);
+          prMap.set(docSnapshot.id, { pr, relationships: new Set() });
         }
+        prMap.get(docSnapshot.id)!.relationships.add('Selected Vendor');
       });
     } catch (error) {
       console.error('Error querying selectedVendor:', error);
     }
+    
+    // Query 3: Get all PRs and check for quotes from this vendor
+    try {
+      const q3 = query(prCollectionRef, orderBy('createdAt', 'desc'));
+      const snapshot3 = await getDocs(q3);
+      
+      snapshot3.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        const quotes = data.quotes || [];
+        
+        // Check if any quote is from this vendor
+        const hasQuote = quotes.some((quote: any) => {
+          const matchesId = quote.vendorId === vendorId || quote.vendor === vendorId;
+          const matchesName = vendorName && quote.vendorName && 
+            quote.vendorName.toLowerCase() === vendorName.toLowerCase();
+          return matchesId || matchesName;
+        });
+        
+        if (hasQuote) {
+          if (!prMap.has(docSnapshot.id)) {
+            const pr = convertPR(data, docSnapshot.id);
+            prMap.set(docSnapshot.id, { pr, relationships: new Set() });
+          }
+          prMap.get(docSnapshot.id)!.relationships.add('Quote Submitted');
+        }
+      });
+    } catch (error) {
+      console.error('Error querying for quotes:', error);
+    }
 
-    // Convert map to array and sort by creation date
-    const prs = Array.from(prMap.values()).sort((a, b) => {
+    // Convert map to array with relationship info
+    const prsWithRelationships: PRWithVendorRelationship[] = Array.from(prMap.values()).map(({ pr, relationships }) => ({
+      ...pr,
+      vendorRelationship: Array.from(relationships).sort((a, b) => {
+        // Sort order: Selected Vendor, Preferred Vendor, Quote Submitted
+        const order = { 'Selected Vendor': 0, 'Preferred Vendor': 1, 'Quote Submitted': 2 };
+        return (order[a as keyof typeof order] || 3) - (order[b as keyof typeof order] || 3);
+      })
+    }));
+    
+    // Sort by creation date
+    prsWithRelationships.sort((a, b) => {
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
 
-    console.log(`Found ${prs.length} PRs for vendor ${vendorId} (preferredVendor or selectedVendor)`);
-    return prs;
+    console.log(`Found ${prsWithRelationships.length} PRs for vendor ${vendorId} (all relationships)`);
+    return prsWithRelationships;
   } catch (error) {
     console.error(`Failed to fetch PRs for vendor ${vendorId}:`, error);
     throw new Error(`Failed to retrieve purchase requests: ${error instanceof Error ? error.message : String(error)}`);

@@ -72,7 +72,21 @@
   - **Organization:** Multi-select dropdown (users with multiple orgs can filter across them)
   - **Requestor:** Dropdown or type-ahead search of all users
   - **Approver:** Dropdown or type-ahead search of approvers (Level 1, 2, 4, 6)
-  - **Vendor:** Dropdown or type-ahead search of all vendors (approved and non-approved)
+  - **Vendor Search:** 
+    - Free text search field for vendor name or ID
+    - Searches across ALL vendor associations:
+      - **Preferred Vendor:** Vendor selected at PR creation
+      - **Selected Vendor:** Vendor chosen for final order/transaction
+      - **Quoted Vendors:** ANY vendor who submitted a quote (even if not selected)
+    - Helper text: "Searches in preferred, selected, and quoted vendors"
+    - Real-time filtering as user types
+  - **Vendor Relationship Filter:**
+    - Dropdown with options:
+      - **All Relationships** (default): Shows all PRs with matching vendor
+      - **Transacted (Preferred/Selected)**: Only PRs where vendor was preferred or selected
+      - **Quoted Only (Not Selected)**: Only PRs where vendor quoted but was NOT selected
+    - Disabled when no vendor search term entered
+    - Works in conjunction with Vendor Search field
   - **Department:** Dropdown or type-ahead search of all departments
   - **Site:** Dropdown or type-ahead search of all sites
   - **Vehicle:** Dropdown or type-ahead search of all vehicles
@@ -624,36 +638,40 @@ Users assigned to the Asset Management department have special permissions:
      ```
 
 5. **Associated PRs/POs Section** (Full Width):
-   - **Data Source:** `getPRsByVendor(vendorId)` service function
-   - **Display:** Table with all PRs where vendor is preferred vendor
+   - **Purpose:** Shows ALL PRs/POs where vendor has ANY relationship
+   - **Data Source:** `getPRsByVendor(vendorId, vendorName)` service function
+   - **Association Criteria:** Vendor is associated if they are:
+     - The preferred vendor (selected at PR creation)
+     - The selected vendor (chosen for order fulfillment)
+     - Submitted a quote (even if not selected)
+   - **Display:** Table with vendor relationship clearly indicated
    - **Columns:**
      - PR/PO Number (clickable → `/pr/{prId}`)
      - Organization
      - Description
-     - Status (chip)
+     - Status (chip with color)
+     - **Vendor Relationship** (chips showing all relationships):
+       - "Selected Vendor" (green chip) - Vendor was chosen for this order
+       - "Preferred Vendor" (blue chip) - Vendor was pre-selected at PR creation
+       - "Quote Submitted" (grey chip) - Vendor submitted a quote (may not have been selected)
+       - Multiple chips shown if vendor has multiple relationships to same PR
      - Amount (formatted currency)
      - Created Date
      - Requestor
-   - **Permissions:** All users with view access
+   - **Row Behavior:** Click any row to navigate to full PR details (including all quotes)
+   - **Empty State:** "No associated PRs/POs found for this vendor"
+   - **Permissions:** All users with view access can see this section
 
-6. **Quote History Section** (Full Width):
-   - **Data Source:** `getQuotesByVendor(vendorId, vendorName)` service function
-   - **Display:** Table with all quotes from this vendor across all PRs
-   - **Matching Logic:** Matches by vendorId OR vendorName
-   - **Columns:**
-     - PR Number (clickable → `/pr/{prId}`)
-     - Organization
-     - PR Status (chip)
-     - Quote Amount (formatted currency)
-     - Currency
-     - Valid Until
-     - Notes
-   - **Permissions:** All users with view access
-
-**New Service Functions** (`src/services/pr.ts`):
-- `getPRsByVendor(vendorId)`: Queries PRs where `preferredVendor == vendorId`
-- `getQuotesByVendor(vendorId, vendorName)`: Fetches all PRs, filters quotes by vendor
-- Both functions return formatted data with proper timestamp conversions
+**Enhanced Service Function** (`src/services/pr.ts`):
+- **`getPRsByVendor(vendorId, vendorName): Promise<PRWithVendorRelationship[]>`**
+  - Returns interface: `PRWithVendorRelationship extends PRRequest { vendorRelationship: string[] }`
+  - Performs three queries and merges results:
+    1. Query PRs where `preferredVendor == vendorId`
+    2. Query PRs where `selectedVendor == vendorId`
+    3. Query all PRs and filter for those with quotes from this vendor (by vendorId or vendorName)
+  - Removes duplicates and attaches relationship types to each PR
+  - Sorted by creation date (descending)
+  - Relationship types ordered: Selected Vendor → Preferred Vendor → Quote Submitted
 
 **Permission Matrix:**
 
