@@ -82,6 +82,7 @@ import { ResurrectionActions } from './ResurrectionActions';
 import { UrgencyControl } from './UrgencyControl';
 import { StatusProgressStepper } from './StatusProgressStepper';
 import { ExternalApprovalBypass } from './ExternalApprovalBypass';
+import { InQueueStatusActions } from './InQueueStatusActions';
 
 interface EditablePRFields {
   department?: string;
@@ -2365,6 +2366,17 @@ export function PRView() {
             prId={pr?.id}
             currentStatus={pr?.status}
             requestorEmail={pr?.requestorEmail}
+            currentUser={currentUser}
+            onStatusChange={refreshPR}
+          />
+        </Box>
+      )}
+
+      {/* IN_QUEUE Status Actions (Generate RFQ) */}
+      {pr?.status === PRStatus.IN_QUEUE && currentUser && (
+        <Box sx={{ mb: 3 }}>
+          <InQueueStatusActions
+            pr={pr}
             currentUser={currentUser}
             onStatusChange={refreshPR}
           />

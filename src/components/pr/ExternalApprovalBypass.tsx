@@ -181,9 +181,8 @@ export const ExternalApprovalBypass: React.FC<ExternalApprovalBypassProps> = ({
         ? `External Approval Bypass (Document: ${uploadedDocument.name})${justification.trim() ? `: ${justification.trim()}` : ''}`
         : `External Approval Bypass: ${justification.trim()}`;
 
-      // Update PR with external approval bypass information and change status to APPROVED
+      // Update PR with external approval bypass information (but not status yet)
       await prService.updatePR(pr.id, {
-        status: PRStatus.APPROVED,
         externalApprovalBypass: true,
         externalApprovalJustification: justification.trim() || `Approved budget document uploaded: ${uploadedDocument?.name}`,
         externalApprovalBy: currentUser.id,
@@ -209,6 +208,14 @@ export const ExternalApprovalBypass: React.FC<ExternalApprovalBypassProps> = ({
           ],
         },
       });
+
+      // Now update the status using updatePRStatus (required for status changes)
+      await prService.updatePRStatus(
+        pr.id,
+        PRStatus.APPROVED,
+        currentUser,
+        `External approval bypass: ${bypassNote}`
+      );
 
       enqueueSnackbar('PR approved via external approval bypass', { variant: 'success' });
       

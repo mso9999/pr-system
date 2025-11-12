@@ -1,0 +1,233 @@
+import React from 'react';
+import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
+import { PRRequest } from '@/types/pr';
+
+interface RFQDocumentProps {
+  pr: PRRequest;
+  orgLogo?: string;
+  orgName: string;
+  orgAddress?: string;
+}
+
+const styles = StyleSheet.create({
+  page: {
+    padding: 40,
+    fontSize: 10,
+    fontFamily: 'Helvetica',
+  },
+  header: {
+    marginBottom: 20,
+    borderBottom: '2 solid #333',
+    paddingBottom: 10,
+  },
+  logo: {
+    width: 120,
+    height: 60,
+    objectFit: 'contain',
+    marginBottom: 10,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#1976d2',
+  },
+  subtitle: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 3,
+  },
+  section: {
+    marginBottom: 15,
+  },
+  sectionTitle: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    marginBottom: 8,
+    color: '#333',
+    borderBottom: '1 solid #ddd',
+    paddingBottom: 3,
+  },
+  row: {
+    flexDirection: 'row',
+    marginBottom: 5,
+  },
+  label: {
+    width: '30%',
+    fontWeight: 'bold',
+    color: '#555',
+  },
+  value: {
+    width: '70%',
+    color: '#333',
+  },
+  table: {
+    marginTop: 10,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#1976d2',
+    color: 'white',
+    padding: 8,
+    fontWeight: 'bold',
+    fontSize: 9,
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottom: '1 solid #ddd',
+    padding: 8,
+    fontSize: 9,
+  },
+  tableRowAlt: {
+    flexDirection: 'row',
+    borderBottom: '1 solid #ddd',
+    padding: 8,
+    backgroundColor: '#f5f5f5',
+    fontSize: 9,
+  },
+  col1: { width: '5%' },
+  col2: { width: '40%' },
+  col3: { width: '12%' },
+  col4: { width: '15%' },
+  col5: { width: '28%' },
+  footer: {
+    position: 'absolute',
+    bottom: 30,
+    left: 40,
+    right: 40,
+    borderTop: '1 solid #ddd',
+    paddingTop: 10,
+    fontSize: 8,
+    color: '#666',
+  },
+  instructions: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: '#fff3cd',
+    borderLeft: '3 solid #ffc107',
+  },
+  instructionsTitle: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    marginBottom: 5,
+    color: '#856404',
+  },
+  instructionsText: {
+    fontSize: 9,
+    lineHeight: 1.4,
+    color: '#856404',
+  },
+});
+
+export const RFQDocument: React.FC<RFQDocumentProps> = ({
+  pr,
+  orgLogo,
+  orgName,
+  orgAddress,
+}) => {
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    });
+  };
+
+  return (
+    <Document>
+      <Page size="A4" style={styles.page}>
+        {/* Header */}
+        <View style={styles.header}>
+          {orgLogo && <Image src={orgLogo} style={styles.logo} />}
+          <Text style={styles.title}>REQUEST FOR QUOTATION</Text>
+          <Text style={styles.subtitle}>{orgName}</Text>
+          {orgAddress && <Text style={styles.subtitle}>{orgAddress}</Text>}
+        </View>
+
+        {/* RFQ Information */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>RFQ Information</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>RFQ Number:</Text>
+            <Text style={styles.value}>{pr.prNumber}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Issue Date:</Text>
+            <Text style={styles.value}>{formatDate(pr.createdAt)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Response Deadline:</Text>
+            <Text style={styles.value}>{formatDate(pr.requiredDate)}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Department:</Text>
+            <Text style={styles.value}>{pr.department || 'N/A'}</Text>
+          </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Project Category:</Text>
+            <Text style={styles.value}>{pr.projectCategory || 'N/A'}</Text>
+          </View>
+        </View>
+
+        {/* Project Description */}
+        {pr.description && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Project Description</Text>
+            <Text style={styles.value}>{pr.description}</Text>
+          </View>
+        )}
+
+        {/* Line Items Table */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Items Requested</Text>
+          <View style={styles.table}>
+            {/* Table Header */}
+            <View style={styles.tableHeader}>
+              <Text style={styles.col1}>#</Text>
+              <Text style={styles.col2}>Description</Text>
+              <Text style={styles.col3}>Quantity</Text>
+              <Text style={styles.col4}>UOM</Text>
+              <Text style={styles.col5}>Notes/Specifications</Text>
+            </View>
+
+            {/* Table Rows */}
+            {pr.lineItems?.map((item, index) => (
+              <View
+                key={index}
+                style={index % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
+              >
+                <Text style={styles.col1}>{index + 1}</Text>
+                <Text style={styles.col2}>{item.description}</Text>
+                <Text style={styles.col3}>{item.quantity}</Text>
+                <Text style={styles.col4}>{item.uom || 'UNIT'}</Text>
+                <Text style={styles.col5}>{item.notes || '-'}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Quote Submission Instructions */}
+        <View style={styles.instructions}>
+          <Text style={styles.instructionsTitle}>Quote Submission Instructions:</Text>
+          <Text style={styles.instructionsText}>
+            1. Please provide detailed pricing for each line item{'\n'}
+            2. Include unit price and total price for each item{'\n'}
+            3. Specify delivery timeframe and payment terms{'\n'}
+            4. Submit your quote by the response deadline above{'\n'}
+            5. Contact information: {pr.requestorEmail || 'See PR system'}
+          </Text>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer}>
+          <Text>
+            This is an official Request for Quotation from {orgName}. Please treat this document as confidential.
+          </Text>
+          <Text>Generated on {new Date().toLocaleDateString()} | RFQ #{pr.prNumber}</Text>
+        </View>
+      </Page>
+    </Document>
+  );
+};
+
