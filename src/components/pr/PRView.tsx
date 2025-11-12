@@ -2488,7 +2488,7 @@ export function PRView() {
       {/* Status History & Notes */}
       {pr?.statusHistory && pr.statusHistory.length > 0 && (
         <Box sx={{ mb: 3 }}>
-          <Accordion defaultExpanded={true}>
+          <Accordion defaultExpanded={false}>
             <AccordionSummary
               expandIcon={<ExpandMoreIcon />}
               aria-controls="status-history-content"

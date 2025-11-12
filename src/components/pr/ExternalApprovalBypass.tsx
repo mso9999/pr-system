@@ -16,6 +16,7 @@ import {
   IconButton,
   Chip,
   Stack,
+  Collapse,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { 
@@ -24,6 +25,7 @@ import {
   CloudUpload as UploadIcon,
   AttachFile as AttachFileIcon,
   Delete as DeleteIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material';
 import { PRRequest, PRStatus, Attachment } from '@/types/pr';
 import { User } from '@/types/user';
@@ -42,6 +44,7 @@ export const ExternalApprovalBypass: React.FC<ExternalApprovalBypassProps> = ({
   currentUser,
   onStatusChange,
 }) => {
+  const [expanded, setExpanded] = useState(false);
   const [bypassEnabled, setBypassEnabled] = useState(false);
   const [justification, setJustification] = useState('');
   const [loading, setLoading] = useState(false);
@@ -244,21 +247,44 @@ export const ExternalApprovalBypass: React.FC<ExternalApprovalBypassProps> = ({
     <>
       <Paper 
         sx={{ 
-          p: 3, 
           mb: 3, 
           border: '2px solid',
           borderColor: bypassEnabled ? 'warning.main' : 'divider',
-          bgcolor: bypassEnabled ? 'warning.50' : 'background.paper'
+          bgcolor: bypassEnabled ? 'warning.50' : 'background.paper',
+          overflow: 'hidden'
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <WarningIcon sx={{ mr: 1, color: 'warning.main' }} />
-          <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
-            External Approval Bypass
-          </Typography>
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            p: 2,
+            cursor: 'pointer',
+            '&:hover': { bgcolor: 'action.hover' }
+          }}
+          onClick={() => setExpanded(!expanded)}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <WarningIcon sx={{ mr: 1, color: 'warning.main' }} />
+            <Typography variant="h6" sx={{ fontWeight: 'bold' }}>
+              External Approval Bypass
+            </Typography>
+          </Box>
+          <IconButton
+            size="small"
+            sx={{
+              transform: expanded ? 'rotate(180deg)' : 'rotate(0deg)',
+              transition: 'transform 0.3s',
+            }}
+          >
+            <ExpandMoreIcon />
+          </IconButton>
         </Box>
 
-        <Divider sx={{ mb: 2 }} />
+        <Collapse in={expanded}>
+          <Box sx={{ p: 3, pt: 0 }}>
+            <Divider sx={{ mb: 2 }} />
 
         <Alert severity="info" sx={{ mb: 2 }}>
           <Typography variant="body2">
@@ -393,6 +419,8 @@ export const ExternalApprovalBypass: React.FC<ExternalApprovalBypassProps> = ({
             ✓ Available to Finance Admin and Superusers only
           </Typography>
         )}
+          </Box>
+        </Collapse>
       </Paper>
 
       {/* Confirmation Dialog */}
@@ -476,4 +504,5 @@ export const ExternalApprovalBypass: React.FC<ExternalApprovalBypassProps> = ({
     </>
   );
 };
+
 
