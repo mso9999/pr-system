@@ -17,6 +17,17 @@ export const downloadRFQTemplateExcel = (prNumber: string) => {
     'File/Folder Link (Optional)',
   ];
 
+  // Create instruction row
+  const instructionRow = [
+    '⬇️ INSTRUCTIONS: Delete this row and the example below before uploading, OR leave them - they will be automatically skipped during import ⬇️',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+  ];
+
   // Create sample data row
   const sampleData = [
     'Example: Steel pipes 2 inch diameter',
@@ -29,8 +40,16 @@ export const downloadRFQTemplateExcel = (prNumber: string) => {
   ];
 
   // Create worksheet
-  const wsData = [headers, sampleData];
+  const wsData = [headers, instructionRow, sampleData];
   const ws = XLSX.utils.aoa_to_sheet(wsData);
+  
+  // Style the instruction row (bold, background color if possible)
+  if (ws['A2']) {
+    ws['A2'].s = {
+      font: { bold: true, color: { rgb: '0066CC' } },
+      fill: { fgColor: { rgb: 'E3F2FD' } },
+    };
+  }
 
   // Set column widths
   ws['!cols'] = [
@@ -68,6 +87,16 @@ export const downloadRFQTemplateCSV = (prNumber: string) => {
     'File/Folder Link (Optional)',
   ];
 
+  const instructionRow = [
+    '⬇️ INSTRUCTIONS: Delete this row and the example below before uploading, OR leave them - they will be automatically skipped during import ⬇️',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+  ];
+
   const sampleData = [
     'Example: Steel pipes 2 inch diameter',
     '100',
@@ -81,6 +110,7 @@ export const downloadRFQTemplateCSV = (prNumber: string) => {
   // Create CSV content
   const csvContent = [
     headers.join(','),
+    instructionRow.map(cell => `"${cell}"`).join(','),
     sampleData.map(cell => `"${cell}"`).join(','),
   ].join('\n');
 
@@ -135,16 +165,21 @@ export const parseRFQFile = async (file: File): Promise<Partial<LineItem>[]> => 
           };
 
           const description = getField(['Description', 'Item Description', 'Item', 'Product']);
+          
+          // Skip instruction rows and example rows
+          if (!description || 
+              description.toLowerCase().includes('instructions:') ||
+              description.toLowerCase().includes('delete this row') ||
+              description.toLowerCase().startsWith('example:')) {
+            return null; // Will be filtered out
+          }
+
           const quantity = parseFloat(getField(['Quantity', 'Qty', 'Amount'])) || 1;
           const uom = getField(['Unit of Measure (UOM)', 'UOM', 'Unit', 'Unit of Measure']);
           const notes = getField(['Notes', 'Specifications', 'Comments', 'Details']);
           const estimatedUnitPrice = parseFloat(getField(['Estimated Unit Price', 'Unit Price', 'Price', 'Cost'])) || undefined;
           const estimatedTotal = parseFloat(getField(['Estimated Total', 'Total', 'Total Price'])) || undefined;
           const fileLink = getField(['File/Folder Link (Optional)', 'File Link', 'Link', 'Folder Link', 'File/Folder Link', 'URL']);
-
-          if (!description) {
-            throw new Error(`Row ${index + 2}: Description is required`);
-          }
 
           // Determine if link is to a folder (keep as link) or file (will be downloaded)
           const isFolder = fileLink && (
@@ -166,9 +201,9 @@ export const parseRFQFile = async (file: File): Promise<Partial<LineItem>[]> => 
             fileLink: fileLink || undefined,
             isFolder: fileLink ? isFolder : undefined,
           };
-        });
+        }).filter(item => item !== null); // Remove skipped rows
 
-        resolve(lineItems);
+        resolve(lineItems as Partial<LineItem>[]);
       } catch (error) {
         reject(error);
       }

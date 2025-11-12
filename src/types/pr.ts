@@ -135,6 +135,8 @@ export interface PRRequest {
   requiredDate: string;
   /** Payment type (available from PENDING_APPROVAL onwards) */
   paymentType?: string;
+  /** Incoterms for delivery (e.g., CIF, FOB, FCA, DDP, EXW) */
+  incoterms?: string;
   /** External approval bypass (used when approval happened externally) */
   externalApprovalBypass?: boolean;
   /** Justification for external approval bypass */

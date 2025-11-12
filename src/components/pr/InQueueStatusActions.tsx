@@ -104,8 +104,11 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
         <RFQDocument
           pr={pr}
           orgLogo={logoBase64}
-          orgName={orgData?.name || pr.organization || 'Organization'}
-          orgAddress={orgData?.address}
+          organization={orgData || { 
+            id: pr.organization || '',
+            name: pr.organization || 'Organization',
+            active: true
+          }}
         />
       );
 

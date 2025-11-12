@@ -493,6 +493,7 @@ export function PRView() {
   const [approverAmountError, setApproverAmountError] = React.useState<string | null>(null);
   const [showRuleOverrideDialog, setShowRuleOverrideDialog] = React.useState(false);
   const [ruleOverrideJustification, setRuleOverrideJustification] = React.useState('');
+  const [currentTime, setCurrentTime] = React.useState(Date.now());
 
   // Fetch PR data
   const fetchPR = async () => {
@@ -628,6 +629,15 @@ export function PRView() {
       setLineItems(itemsWithIds);
     }
   }, [pr?.lineItems]);
+
+  // Update current time every minute for elapsed time clock
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentTime(Date.now());
+    }, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (!pr?.organization) {
@@ -1642,6 +1652,20 @@ export function PRView() {
                 <Typography color="textSecondary">{t('pr.createdDate')}</Typography>
                 <Typography>
                   {pr?.createdAt ? new Date(pr.createdAt).toLocaleDateString() : 'N/A'}
+                </Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography color="textSecondary">Time Since Submitted</Typography>
+                <Typography sx={{ fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 'bold', color: 'primary.main' }}>
+                  {pr?.createdAt ? (() => {
+                    const now = currentTime;
+                    const created = new Date(pr.createdAt);
+                    const diff = now - created.getTime();
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    return `${String(days).padStart(2, '0')}_${String(hours).padStart(2, '0')}_${String(minutes).padStart(2, '0')}`;
+                  })() : 'N/A'}
                 </Typography>
               </Grid>
               <Grid item xs={6}>

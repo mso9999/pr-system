@@ -1,12 +1,12 @@
 import React from 'react';
 import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/renderer';
 import { PRRequest } from '@/types/pr';
+import { Organization } from '@/types/organization';
 
 interface RFQDocumentProps {
   pr: PRRequest;
   orgLogo?: string;
-  orgName: string;
-  orgAddress?: string;
+  organization: Organization;
 }
 
 const styles = StyleSheet.create({
@@ -133,8 +133,7 @@ const styles = StyleSheet.create({
 export const RFQDocument: React.FC<RFQDocumentProps> = ({
   pr,
   orgLogo,
-  orgName,
-  orgAddress,
+  organization,
 }) => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -145,6 +144,20 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
     });
   };
 
+  // Format company address
+  const getCompanyAddress = () => {
+    const addr = organization.companyAddress;
+    if (!addr) return 'N/A';
+    const parts = [
+      addr.street,
+      addr.city,
+      addr.state,
+      addr.postalCode,
+      addr.country,
+    ].filter(Boolean);
+    return parts.join(', ');
+  };
+
   return (
     <Document>
       <Page size="A4" style={styles.page}>
@@ -152,8 +165,14 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
         <View style={styles.header}>
           {orgLogo && <Image src={orgLogo} style={styles.logo} />}
           <Text style={styles.title}>REQUEST FOR QUOTATION</Text>
-          <Text style={styles.subtitle}>{orgName}</Text>
-          {orgAddress && <Text style={styles.subtitle}>{orgAddress}</Text>}
+          <Text style={styles.subtitle}>{organization.companyLegalName || organization.name}</Text>
+          <Text style={styles.subtitle}>{getCompanyAddress()}</Text>
+          {organization.companyPhone && (
+            <Text style={styles.subtitle}>Tel: {organization.companyPhone}</Text>
+          )}
+          {organization.companyWebsite && (
+            <Text style={styles.subtitle}>Web: {organization.companyWebsite}</Text>
+          )}
         </View>
 
         {/* RFQ Information */}
@@ -171,6 +190,16 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
             <Text style={styles.label}>Response Deadline:</Text>
             <Text style={styles.value}>{formatDate(pr.requiredDate)}</Text>
           </View>
+          <View style={styles.row}>
+            <Text style={styles.label}>Expected Delivery Date:</Text>
+            <Text style={styles.value}>{formatDate(pr.requiredDate)}</Text>
+          </View>
+          {pr.incoterms && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Incoterms:</Text>
+              <Text style={styles.value}>{pr.incoterms}</Text>
+            </View>
+          )}
           <View style={styles.row}>
             <Text style={styles.label}>Department:</Text>
             <Text style={styles.value}>{pr.department || 'N/A'}</Text>
@@ -247,15 +276,20 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
             1. Please provide detailed pricing for each line item{'\n'}
             2. Include unit price and total price for each item{'\n'}
             3. Specify delivery timeframe and payment terms{'\n'}
-            4. Submit your quote by the response deadline above{'\n'}
-            5. Contact information: {pr.requestorEmail || 'See PR system'}
+            4. Confirm your ability to meet the expected delivery date{'\n'}
+            5. State your delivery terms (Incoterms) if different from specified{'\n'}
+            6. Submit your quote by the response deadline above{'\n'}
+            {'\n'}
+            <Text style={{ fontWeight: 'bold' }}>Contact Information (Procurement):</Text>{'\n'}
+            {organization.procurementEmail ? `Email: ${organization.procurementEmail}` : 'Email: See company contact'}
+            {organization.companyPhone && `{'\n'}Phone: ${organization.companyPhone}`}
           </Text>
         </View>
 
         {/* Footer */}
         <View style={styles.footer}>
           <Text>
-            This is an official Request for Quotation from {orgName}. Please treat this document as confidential.
+            This is an official Request for Quotation from {organization.companyLegalName || organization.name}. Please treat this document as confidential.
           </Text>
           <Text>Generated on {new Date().toLocaleDateString()} | RFQ #{pr.prNumber}</Text>
         </View>
