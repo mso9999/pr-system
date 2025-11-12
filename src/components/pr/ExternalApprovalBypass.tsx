@@ -207,21 +207,27 @@ export const ExternalApprovalBypass: React.FC<ExternalApprovalBypassProps> = ({
         },
       });
 
-      // Send notification about the status change
+      enqueueSnackbar('PR approved via external approval bypass', { variant: 'success' });
+      
+      // Send notification about the status change (non-blocking)
+      // We do this after the success message because Firestore may have eventual consistency delays
       const notificationNote = uploadedDocument
         ? `External approval bypass with budget document: ${uploadedDocument.name}${justification.trim() ? ` - ${justification.trim()}` : ''}`
         : `External approval bypass: ${justification.trim()}`;
 
-      await notificationService.sendStatusChangeNotification(
+      // Send notification asynchronously without blocking the UI
+      notificationService.sendStatusChangeNotification(
         pr.id,
         pr.prNumber,
         PRStatus.PENDING_APPROVAL,
         PRStatus.APPROVED,
         currentUser,
         notificationNote
-      );
+      ).catch((notifError) => {
+        console.warn('Notification failed (non-critical):', notifError);
+        // Don't show error to user - the PR was successfully updated
+      });
 
-      enqueueSnackbar('PR approved via external approval bypass', { variant: 'success' });
       onStatusChange();
     } catch (error) {
       console.error('Error processing external approval bypass:', error);
