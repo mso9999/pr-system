@@ -234,31 +234,37 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
 
             {/* Table Rows */}
             {pr.lineItems?.map((item, index) => {
-              const hasAttachments = item.attachments && item.attachments.length > 0;
-              const hasFileLink = item.fileLink;
+              const hasAttachments = item.attachments && Array.isArray(item.attachments) && item.attachments.length > 0;
+              const hasFileLink = item.fileLink && typeof item.fileLink === 'string';
               
               return (
                 <View
                   key={index}
                   style={index % 2 === 0 ? styles.tableRow : styles.tableRowAlt}
                 >
-                  <Text style={styles.col1}>{index + 1}</Text>
-                  <Text style={styles.col2}>{item.description}</Text>
-                  <Text style={styles.col3}>{item.quantity}</Text>
-                  <Text style={styles.col4}>{item.uom || 'UNIT'}</Text>
-                  <Text style={styles.col5}>{item.notes || '-'}</Text>
+                  <Text style={styles.col1}>{String(index + 1)}</Text>
+                  <Text style={styles.col2}>{String(item.description || '')}</Text>
+                  <Text style={styles.col3}>{String(item.quantity || '')}</Text>
+                  <Text style={styles.col4}>{String(item.uom || 'UNIT')}</Text>
+                  <Text style={styles.col5}>{String(item.notes || '-')}</Text>
                   <View style={styles.col6}>
-                    {hasAttachments && item.attachments.map((att, attIdx) => (
-                      <Text key={attIdx} style={styles.fileLink}>
-                        {att.name}
-                        {'\n'}
-                        <Text style={styles.attachmentItem}>{att.url}</Text>
-                      </Text>
-                    ))}
+                    {hasAttachments && item.attachments.map((att, attIdx) => {
+                      // Ensure att is an object with name and url properties
+                      if (!att || typeof att !== 'object') return null;
+                      const attName = String(att.name || 'Attachment');
+                      const attUrl = String(att.url || '');
+                      return (
+                        <Text key={attIdx} style={styles.fileLink}>
+                          {attName}
+                          {'\n'}
+                          <Text style={styles.attachmentItem}>{attUrl}</Text>
+                        </Text>
+                      );
+                    })}
                     {hasFileLink && (
                       <Text style={styles.fileLink}>
-                        {item.isFolder ? '📁 Folder: ' : '🔗 File: '}
-                        {item.fileLink}
+                        {item.isFolder ? 'Folder: ' : 'File: '}
+                        {String(item.fileLink)}
                       </Text>
                     )}
                     {!hasAttachments && !hasFileLink && <Text>-</Text>}
