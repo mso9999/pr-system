@@ -680,6 +680,95 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
+              <Typography variant="h6">✨ Generating RFQs (Request for Quotation)</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="body2" paragraph>
+                Generate professional RFQ PDFs to send to vendors when PR is in <Chip label="IN_QUEUE" size="small" color="warning" /> status.
+              </Typography>
+              
+              <Alert severity="success" icon={<DownloadIcon />} sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" gutterBottom><strong>Two Ways to Add Line Items:</strong></Typography>
+                <Typography variant="body2">• Manual Entry - Best for small orders (1-5 items)</Typography>
+                <Typography variant="body2">• Bulk Upload (CSV/Excel) - Best for large orders (dozens/hundreds of items)</Typography>
+              </Alert>
+
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}><strong>Bulk Upload Process:</strong></Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText 
+                    primary="1. Download Template" 
+                    secondary="Click 'Download Template' → Choose Excel (.xlsx) or CSV format"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="2. Fill Template"
+                    secondary="Columns: Description, Quantity, UOM, Notes, Est. Price, File/Folder Link (optional)"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="3. Add File Links (Optional)"
+                    secondary="Paste Dropbox/Google Drive/OneDrive 'Copy Link' URLs - System auto-converts them!"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="4. Upload File"
+                    secondary="Click 'Upload Line Items' → Select your filled template"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="5. Choose Mode"
+                    secondary="Overwrite (replace all) OR Add (append to existing)"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="6. Apply & Generate"
+                    secondary="Click 'Apply' → Then 'Generate RFQ' → Professional PDF downloads"
+                  />
+                </ListItem>
+              </List>
+
+              <Alert severity="info" icon={<SearchIcon />} sx={{ mt: 2 }}>
+                <Typography variant="subtitle2" gutterBottom><strong>🔗 Automatic URL Conversion:</strong></Typography>
+                <Typography variant="body2">Dropbox: www.dropbox.com → dl.dropboxusercontent.com ✓</Typography>
+                <Typography variant="body2">Google Drive: drive.google.com/file/d/ID/view → direct download ✓</Typography>
+                <Typography variant="body2">OneDrive: Adds download parameter automatically ✓</Typography>
+                <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
+                  Just paste "Copy Link" URLs - no manual conversion needed!
+                </Typography>
+              </Alert>
+
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}><strong>Troubleshooting:</strong></Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText 
+                    primary="File download fails?" 
+                    secondary="Ensure files don't require login. Links are preserved as clickable URLs if download fails."
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="UOM invalid?" 
+                    secondary="Use standard UOMs from Reference Data (M, KG, UNIT, L, etc.)"
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText 
+                    primary="Template parsing error?" 
+                    secondary="Don't change column headers. Instruction/example rows are auto-skipped."
+                  />
+                </ListItem>
+              </List>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandIcon />}>
               <Typography variant="h6">Managing Vendors</Typography>
             </AccordionSummary>
             <AccordionDetails>
