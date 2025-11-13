@@ -146,7 +146,7 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
 
   // Format company address
   const getCompanyAddress = () => {
-    const addr = organization.companyAddress;
+    const addr = organization?.companyAddress;
     if (!addr) return 'N/A';
     const parts = [
       addr.street,
@@ -155,7 +155,7 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
       addr.postalCode,
       addr.country,
     ].filter(Boolean);
-    return parts.join(', ');
+    return parts.length > 0 ? parts.join(', ') : 'N/A';
   };
 
   return (
@@ -282,7 +282,7 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
             {'\n'}
             <Text style={{ fontWeight: 'bold' }}>Contact Information (Procurement):</Text>{'\n'}
             {organization.procurementEmail ? `Email: ${organization.procurementEmail}` : 'Email: See company contact'}
-            {organization.companyPhone && `{'\n'}Phone: ${organization.companyPhone}`}
+            {organization.companyPhone && `\nPhone: ${organization.companyPhone}`}
           </Text>
         </View>
 

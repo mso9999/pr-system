@@ -139,9 +139,21 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
         companyLegalName: pr.organization || 'Organization',
         companyPhone: '',
         companyWebsite: '',
+        companyAddress: {
+          street: '',
+          city: '',
+          state: '',
+          postalCode: '',
+          country: ''
+        },
         procurementEmail: '',
         baseCurrency: pr.currency || 'LSL',
-        allowedCurrencies: [pr.currency || 'LSL']
+        allowedCurrencies: [pr.currency || 'LSL'],
+        vendorApproval3QuoteDuration: 12,
+        vendorApprovalCompletedDuration: 6,
+        vendorApprovalManualDuration: 12,
+        highValueVendorMultiplier: 10,
+        highValueVendorMaxDuration: 24
       };
       
       console.log('📋 Using organization data:', {
@@ -160,11 +172,28 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
       );
 
       console.log('🔄 Step 4: Generating PDF blob...');
-      const blob = await pdf(rfqDoc).toBlob();
-      console.log('✓ PDF blob created:', {
-        size: blob.size,
-        type: blob.type
-      });
+      let blob;
+      try {
+        blob = await pdf(rfqDoc).toBlob();
+        console.log('✓ PDF blob created:', {
+          size: blob.size,
+          type: blob.type
+        });
+      } catch (pdfError) {
+        console.error('❌ PDF Generation Error:', {
+          error: pdfError,
+          message: pdfError instanceof Error ? pdfError.message : String(pdfError),
+          stack: pdfError instanceof Error ? pdfError.stack : undefined,
+          rfqDocType: typeof rfqDoc,
+          organizationData: {
+            id: organizationData.id,
+            name: organizationData.name,
+            companyLegalName: organizationData.companyLegalName,
+            hasAllFields: !!(organizationData.companyPhone && organizationData.companyWebsite)
+          }
+        });
+        throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`);
+      }
       
       console.log('💾 Step 5: Triggering download...');
       // Download the PDF
