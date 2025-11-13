@@ -44,6 +44,30 @@ export class OrganizationService {
     }
   }
 
+  async getOrganizationByName(name: string): Promise<Organization | null> {
+    try {
+      // First try direct lookup by name field
+      const collectionRef = collection(db, COLLECTION_NAME)
+      const q = query(collectionRef, where("name", "==", name))
+      const snapshot = await getDocs(q)
+      
+      if (!snapshot.empty) {
+        const doc = snapshot.docs[0]
+        return {
+          id: doc.id,
+          ...doc.data()
+        } as Organization
+      }
+      
+      // If not found, try normalized ID lookup (for backward compatibility)
+      const normalizedId = name.toLowerCase().replace(/[^a-z0-9]/g, '_')
+      return await this.getOrganizationById(normalizedId)
+    } catch (error) {
+      console.error('Error fetching organization by name:', error)
+      return null
+    }
+  }
+
   async updateOrganization(id: string, data: Partial<Organization>): Promise<void> {
     try {
       const docRef = doc(db, COLLECTION_NAME, id)

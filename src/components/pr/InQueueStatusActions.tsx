@@ -93,14 +93,25 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
 
     try {
       setGeneratingRFQ(true);
-      console.log('📦 Step 1: Fetching organization data...');
+      console.log('📦 Step 1: Fetching organization data...', {
+        prOrganization: pr.organization,
+        type: typeof pr.organization
+      });
 
-      // Fetch organization data
-      const orgData = await organizationService.getOrganizationById(pr.organization || '');
+      // Fetch organization data - try by name first (as PRs store organization names)
+      let orgData = await organizationService.getOrganizationByName(pr.organization || '');
+      
+      // Fallback: try by ID if name lookup failed
+      if (!orgData) {
+        console.log('⚠️ Organization not found by name, trying ID lookup...');
+        orgData = await organizationService.getOrganizationById(pr.organization || '');
+      }
+      
       console.log('✓ Organization data loaded:', {
         id: orgData?.id,
         name: orgData?.name,
-        hasLogo: !!orgData?.logoUrl
+        hasLogo: !!orgData?.logoUrl,
+        found: !!orgData
       });
       
       // Convert logo to base64 if available
@@ -118,16 +129,33 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
       }
 
       console.log('📄 Step 3: Creating RFQ document component...');
+      
+      // If organization data not found, create fallback with PR's organization name
+      const organizationData = orgData || { 
+        id: pr.organization || '',
+        name: pr.organization || 'Organization',
+        active: true,
+        // Add minimal required fields for RFQ
+        companyLegalName: pr.organization || 'Organization',
+        companyPhone: '',
+        companyWebsite: '',
+        procurementEmail: '',
+        baseCurrency: pr.currency || 'LSL',
+        allowedCurrencies: [pr.currency || 'LSL']
+      };
+      
+      console.log('📋 Using organization data:', {
+        id: organizationData.id,
+        name: organizationData.name,
+        companyLegalName: organizationData.companyLegalName
+      });
+      
       // Generate PDF
       const rfqDoc = (
         <RFQDocument
           pr={pr}
           orgLogo={logoBase64}
-          organization={orgData || { 
-            id: pr.organization || '',
-            name: pr.organization || 'Organization',
-            active: true
-          }}
+          organization={organizationData}
         />
       );
 
