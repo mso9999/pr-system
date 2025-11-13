@@ -240,7 +240,20 @@ export const downloadAndUploadFileFromUrl = async (
       console.error(`❌ Failed to download file from ${url}:`, {
         status: response.status,
         statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
+        contentType: response.headers.get('content-type'),
+        url: response.url,
+        redirected: response.redirected
+      });
+      return null;
+    }
+    
+    // Check if we got HTML instead of a file (common with Dropbox, Google Drive, etc.)
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('text/html')) {
+      console.error(`❌ Received HTML instead of file from ${url}. This usually means:`, {
+        issue: 'The URL points to a web page preview, not a direct download link',
+        solution: 'Use direct download URLs or upload files directly to the system',
+        contentType: contentType
       });
       return null;
     }

@@ -72,13 +72,16 @@ export const LineItemsStep: React.FC<LineItemsStepProps> = ({
   React.useEffect(() => {
     const loadUomOptions = async () => {
       try {
+        console.log('📏 Loading UOM options from reference data...');
         const uomData = await referenceDataService.getItemsByType('uom');
+        console.log(`📏 Loaded ${uomData.length} UOM items from reference data:`, uomData);
         const options = uomData
           .filter(item => item.active)
           .map(item => item.code || '');
+        console.log(`📏 Filtered to ${options.length} active UOM options:`, options);
         setUomOptions(options);
       } catch (error) {
-        console.error('Error loading UOM options:', error);
+        console.error('❌ Error loading UOM options:', error);
       }
     };
     loadUomOptions();
