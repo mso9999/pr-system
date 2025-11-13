@@ -101,6 +101,8 @@ Fill in these required fields:
 - **Mark as Urgent** (checkbox): Check if this is urgent
 
 #### Step 3: Add Line Items
+
+**Option A: Add Manually (Small Orders)**
 Add each item you're purchasing:
 1. Click **"Add Line Item"**
 2. Fill in:
@@ -111,6 +113,15 @@ Add each item you're purchasing:
    - Notes (optional)
 3. Add more items as needed
 4. The total amount calculates automatically
+
+**Option B: Bulk Upload via CSV/Excel (Large Orders)** ✨
+For orders with many items:
+1. After your PR is created and in **IN_QUEUE** status
+2. Procurement can use the **RFQ Generation** feature
+3. Download template → Fill with items → Upload
+4. See the **Procurement Guide > Generating RFQs** section for detailed instructions
+
+*Note: Bulk upload is typically handled by Procurement, but understanding the process helps you prepare better specifications.*
 
 #### Step 4: Upload Supporting Documents
 - Click **"Upload Documents"** or drag & drop files
@@ -378,6 +389,216 @@ If you can't get 3 quotes (vendor monopoly, time constraints):
 2. Consider: price, quality, delivery time, vendor reliability
 3. Click **"Mark as Preferred"** on the best quote
 4. Optional: Add notes explaining your selection
+
+### Generating RFQs (Request for Quotation)
+
+When a PR is in **IN_QUEUE** status, you can generate professional RFQ documents to send to potential vendors.
+
+#### Understanding the RFQ Feature
+
+The RFQ generator creates a standardized PDF document containing:
+- Your company information and logo
+- RFQ number (same as PR number)
+- Detailed line items with specifications
+- Expected delivery dates and terms
+- Contact information for quote submission
+
+#### Two Ways to Build Line Items
+
+**Option 1: Manual Entry**
+- Add line items one by one through the PR form
+- Best for small purchases (1-5 items)
+- Full control over each item
+
+**Option 2: Bulk Upload via CSV/Excel** ✨
+- Upload dozens or hundreds of items at once
+- Best for large purchases or repeat orders
+- Supports file attachments via URLs
+- Faster and less error-prone
+
+#### Bulk Upload Process
+
+##### Step 1: Download the Template
+
+1. Open a PR in **IN_QUEUE** status
+2. Expand **"Request for Quotation (RFQ)"** section
+3. Click **"Download Template"** button
+4. Choose format:
+   - **Excel Template (.xlsx)** - Recommended
+   - **CSV Template (.csv)** - For compatibility
+
+##### Step 2: Fill in the Template
+
+The template includes these columns:
+
+| Column | Description | Required | Example |
+|--------|-------------|----------|---------|
+| **Description** | Item description | ✅ Yes | "Steel pipes 2 inch diameter" |
+| **Quantity** | How many units | ✅ Yes | 100 |
+| **Unit of Measure (UOM)** | Unit type | ✅ Yes | "M" (meters) |
+| **Notes** | Specifications/details | ⚪ Optional | "Schedule 40, galvanized" |
+| **Estimated Unit Price** | Price per unit | ⚪ Optional | 150 |
+| **Estimated Total** | Total for line | ⚪ Optional | 15000 |
+| **File/Folder Link** | Link to specs/drawings | ⚪ Optional | Dropbox/Google Drive URL |
+
+**Template Instructions:**
+- The template includes an instruction row and example - you can delete them OR leave them (they'll be automatically skipped)
+- Fill in your actual line items starting from row 3 (or row 4 if you keep the example)
+- Don't change the column headers
+- Save the file
+
+##### Step 3: File Links - Automatic URL Conversion ✨
+
+**NEW FEATURE:** The system automatically converts cloud storage sharing links to direct downloads!
+
+**How to Use:**
+1. In **Dropbox, Google Drive, or OneDrive**, click "Share" or "Copy Link"
+2. Paste the URL directly into the **"File/Folder Link"** column
+3. The system will automatically:
+   - ✅ Detect the cloud storage provider
+   - ✅ Convert sharing URLs to direct download URLs
+   - ✅ Download the files and upload to secure storage
+   - ✅ Preserve folder links as clickable references
+
+**Supported Services:**
+
+| Service | What You Paste | What Happens |
+|---------|---------------|--------------|
+| **Dropbox** | `www.dropbox.com/.../file.pdf?dl=0` | Auto-converted and downloaded ✓ |
+| **Google Drive** | `drive.google.com/file/d/ID/view` | Auto-converted and downloaded ✓ |
+| **OneDrive** | `1drv.ms/...` or `onedrive.live.com/...` | Auto-converted and downloaded ✓ |
+| **Folder Links** | Any folder URL | Kept as clickable link (not downloaded) |
+
+**Example File Links:**
+```
+Dropbox: https://www.dropbox.com/scl/fi/xyz123/specs.pdf?rlkey=abc&dl=0
+Google Drive: https://drive.google.com/file/d/1a2b3c4d5e/view?usp=sharing
+OneDrive: https://1drv.ms/w/s!Xyz123
+Folder: https://www.dropbox.com/sh/folder123/xyz
+```
+
+**Tips for File Links:**
+- ✅ Use the "Copy Link" button from Dropbox/Google Drive/OneDrive
+- ✅ Paste URLs exactly as copied - no manual editing needed
+- ✅ Ensure files are accessible (not requiring login for external viewers)
+- ✅ Use folder links when you have multiple related files
+
+##### Step 4: Upload Your File
+
+1. Back in the PR system, click **"Upload Line Items"** button
+2. Select your filled template (Excel or CSV)
+3. System will parse and validate the file
+4. You'll see a preview of all items to be imported
+
+##### Step 5: Review and Choose Import Mode
+
+A dialog appears showing:
+- **All parsed line items** with quantities, UOMs, notes
+- **File links** (with icons showing files 🔗 vs folders 📁)
+- **Download progress** if files are being downloaded from URLs
+
+**Choose Import Mode:**
+
+**Option A: Overwrite Existing**
+- Replaces all current line items with uploaded ones
+- Use when: Starting fresh or fixing mistakes
+
+**Option B: Add to Existing**
+- Appends new items to current line items
+- Use when: Adding more items to an existing list
+
+##### Step 6: Apply Changes
+
+1. Select your import mode (Overwrite or Add)
+2. Click **"Overwrite Line Items"** or **"Add Line Items"**
+3. System processes:
+   - ✅ Parses all line items
+   - ✅ Downloads files from URLs (if applicable)
+   - ✅ Uploads files to secure storage
+   - ✅ Updates PR with new line items
+4. Success message appears
+5. Line items now visible in PR
+
+**What You'll See in Console (for troubleshooting):**
+```
+📏 Loading UOM options from reference data...
+⬇️ Attempting to download file for "Item 1" from: [URL]
+🔄 Converted URL: { original: "www.dropbox.com/...", converted: "dl.dropboxusercontent.com/..." }
+✓ Downloaded and attached file for "Item 1"
+📎 Processed 16 line items with 12 having attachments
+💾 Saving 16 line items to PR
+```
+
+#### Generating the RFQ PDF
+
+Once line items are ready (via manual entry OR bulk upload):
+
+1. Expand **"Request for Quotation (RFQ)"** section
+2. Verify line items are complete
+3. Click **"Generate RFQ"** button
+4. System creates professional PDF with:
+   - Company header and logo
+   - RFQ number and dates
+   - Complete line item table with:
+     - Item descriptions
+     - Quantities and UOM
+     - Notes/specifications
+     - Links to attached files
+     - Folder links (if applicable)
+   - Expected delivery date and Incoterms
+   - Submission instructions
+   - Procurement contact information
+5. PDF downloads automatically
+6. Send to vendors via email
+
+**RFQ PDF Includes:**
+- ✅ All line item details
+- ✅ Downloadable file links (for uploaded attachments)
+- ✅ Clickable folder links (for reference materials)
+- ✅ Professional formatting with your company branding
+- ✅ Standard terms and conditions
+
+#### Tips for RFQ Generation
+
+✅ **DO:**
+- Use bulk upload for large item lists (saves time!)
+- Include detailed specifications in notes
+- Attach technical drawings and specifications via file links
+- Use folder links for large collections of related files
+- Download template first - don't create from scratch
+- Review the preview before applying changes
+- Keep template files for future use
+
+❌ **DON'T:**
+- Change template column headers
+- Mix different file formats in one upload
+- Use file links that require authentication/login
+- Forget to specify UOM for each item
+- Upload without reviewing the preview first
+
+#### Troubleshooting Bulk Upload
+
+**"Failed to download file" errors:**
+- ✓ File links need to be publicly accessible (no login required)
+- ✓ Use "Copy Link" from cloud storage, not browser address bar
+- ✓ Links will be preserved as clickable URLs if download fails
+- ✓ Check browser console for detailed error messages
+
+**UOM not found:**
+- ✓ Use standard UOMs from the reference data (M, KG, UNIT, etc.)
+- ✓ Contact admin to add new UOMs if needed
+
+**Template parsing errors:**
+- ✓ Don't change column headers
+- ✓ Ensure quantity is a number
+- ✓ Check for special characters in descriptions
+- ✓ Save as .xlsx or .csv (not .xls)
+
+**File not uploading:**
+- ✓ Max file size: 50MB
+- ✓ Supported formats: .xlsx, .xls, .csv
+- ✓ Close file in Excel before uploading
+- ✓ Check for corrupted file
 
 ### Moving to Approval
 
@@ -984,6 +1205,53 @@ To change language:
 - **Solution**: Check that you have appropriate software to view file type
 - **Solution**: Try a different browser
 
+### RFQ Generation Issues
+
+**Problem**: "Generate RFQ" button disabled or not working
+- **Solution**: Ensure PR status is IN_QUEUE
+- **Solution**: Add at least one line item first
+- **Solution**: Check that you have Procurement (Level 3) or Superadmin (Level 1) permissions
+- **Solution**: Refresh the page
+
+**Problem**: File upload fails when uploading line items
+- **Solution**: Check file format (.xlsx, .xls, or .csv only)
+- **Solution**: Verify file size is under 50MB
+- **Solution**: Close the file in Excel before uploading
+- **Solution**: Don't change the template column headers
+- **Solution**: Ensure Quantity is a number (not text)
+
+**Problem**: "Failed to download file" errors for file links
+- **Solution**: Use "Copy Link" from Dropbox/Google Drive/OneDrive (system auto-converts)
+- **Solution**: Ensure files don't require login/authentication to access
+- **Solution**: Check browser console (F12) for detailed error messages
+- **Solution**: Links will be preserved as clickable URLs even if download fails
+- **Solution**: Alternative: Upload files directly using "Attach Files" button
+
+**Problem**: UOM not found or invalid
+- **Solution**: Use standard UOMs from Reference Data (M, KG, UNIT, L, etc.)
+- **Solution**: Check for typos in UOM field
+- **Solution**: Contact admin to add new UOMs to reference data
+- **Solution**: Don't leave UOM blank
+
+**Problem**: Template parsing errors
+- **Solution**: Ensure column headers exactly match the template
+- **Solution**: Check for special characters in Description field
+- **Solution**: Verify Quantity and price fields contain only numbers
+- **Solution**: Save as .xlsx or .csv (not old .xls format)
+- **Solution**: Delete or ignore the instruction/example rows (they're auto-skipped)
+
+**Problem**: RFQ PDF not generating or incomplete
+- **Solution**: Verify all line items have required fields (Description, Quantity, UOM)
+- **Solution**: Check that organization logo is uploaded in Settings
+- **Solution**: Wait a few seconds and try again (large RFQs take time)
+- **Solution**: Check browser console for errors
+
+**Problem**: File links not appearing in RFQ
+- **Solution**: Verify links were included in the CSV upload
+- **Solution**: Check that files were successfully downloaded (see console logs)
+- **Solution**: Folder links should appear with folder icon 📁
+- **Solution**: File attachments should appear with file names
+
 ### Getting Help
 
 **Contact Support**:
@@ -1073,6 +1341,33 @@ A: Contact vendors to extend validity. Update expiration dates in system.
 
 **Q: How do I handle vendor performance issues?**
 A: Document issues when closing completed orders. This affects vendor approval status.
+
+**Q: How do I generate an RFQ?**
+A: Open PR in IN_QUEUE status → Expand "Request for Quotation" section → Add line items (manual or bulk upload) → Click "Generate RFQ". A professional PDF will download.
+
+**Q: Can I upload many line items at once?**
+A: Yes! Click "Download Template" → Fill Excel/CSV → Upload. Perfect for large orders with dozens/hundreds of items.
+
+**Q: Can I include file links in bulk uploads?**
+A: Yes! Paste Dropbox, Google Drive, or OneDrive "Copy Link" URLs in the "File/Folder Link" column. System auto-converts and downloads files.
+
+**Q: What if file downloads fail from URLs?**
+A: Links are preserved as clickable URLs in the RFQ. Vendors can still access them (if they have permissions). Use direct file uploads for critical files.
+
+**Q: Should I overwrite or add line items?**
+A: **Overwrite** = Replace all existing items. **Add** = Append to existing items. Choose based on whether you're starting fresh or adding more.
+
+**Q: Can requestors use bulk upload?**
+A: The feature is in IN_QUEUE status, so typically handled by Procurement. But requestors can provide filled templates to Procurement for upload.
+
+**Q: What UOMs are available?**
+A: Check Reference Data > UOM for the full list (M, KG, UNIT, L, etc.). Contact admin to add new UOMs if needed.
+
+**Q: Does the RFQ include my company branding?**
+A: Yes! RFQ PDFs include your company logo, legal name, address, and contact info automatically.
+
+**Q: Can I edit the RFQ after generating?**
+A: The PDF is static. To make changes: update line items in the PR → regenerate RFQ → new PDF created.
 
 ### Finance Questions
 
