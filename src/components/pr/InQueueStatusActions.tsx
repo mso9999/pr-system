@@ -24,6 +24,10 @@ import {
   LinearProgress,
   Collapse,
   IconButton,
+  TextField,
+  Select,
+  InputLabel,
+  Grid,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import {
@@ -72,6 +76,19 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
   const [processingLinks, setProcessingLinks] = useState(false);
   const [linkProgress, setLinkProgress] = useState({ current: 0, total: 0, fileName: '' });
   const [expanded, setExpanded] = useState(false); // Collapsed by default
+  const [rfqDialogOpen, setRfqDialogOpen] = useState(false);
+  const [rfqData, setRfqData] = useState({
+    responseDeadline: pr.requiredDate || '',
+    expectedDeliveryDate: pr.requiredDate || '',
+    deliveryAddress: '',
+    deliveryCity: '',
+    deliveryCountry: '',
+    incoterms: 'EXW',
+    contactPerson: '',
+    contactEmail: '',
+    contactPhone: '',
+    specialInstructions: ''
+  });
 
   // Permission check - Procurement and Superadmin can generate RFQ
   const canGenerateRFQ = currentUser.permissionLevel === 1 || currentUser.permissionLevel === 3;
@@ -416,10 +433,10 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
               <Button
                 variant="contained"
                 startIcon={<SendIcon />}
-                onClick={handleGenerateRFQ}
+                onClick={() => setRfqDialogOpen(true)}
                 disabled={generatingRFQ}
               >
-                {generatingRFQ ? 'Generating...' : 'Generate RFQ'}
+                Generate RFQ
               </Button>
 
               {/* Download Template Button */}
