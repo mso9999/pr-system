@@ -20,7 +20,8 @@ export const REFERENCE_DATA_TYPES = {
   uom: 'uom',
   organizations: 'organizations',
   permissions: 'permissions',
-  rules: 'rules'
+  rules: 'rules',
+  paymentTypes: 'paymentTypes'
 } as const;
 
 export const PERMISSION_NAMES = {
@@ -68,7 +69,7 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
   },
   [REFERENCE_DATA_TYPES.uom]: {
     canEdit: false,
-    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN]],
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.PROC]],
   },
   [REFERENCE_DATA_TYPES.organizations]: {
     canEdit: false,
@@ -79,6 +80,10 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
     editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN]],
   },
   [REFERENCE_DATA_TYPES.rules]: {
+    canEdit: false,
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER]],
+  },
+  [REFERENCE_DATA_TYPES.paymentTypes]: {
     canEdit: false,
     editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER]],
   },

@@ -54,12 +54,13 @@ const REFERENCE_DATA_TYPE_LABELS = {
   uom: "Units of Measure",
   organizations: "Organizations",
   permissions: "Permissions",
-  rules: "Rules"
+  rules: "Rules",
+  paymentTypes: "Payment Types"
 } as const
 
 type ReferenceDataType = keyof typeof REFERENCE_DATA_TYPE_LABELS
 
-const CODE_BASED_ID_TYPES = ['currencies', 'uom', 'organizations'] as const;
+const CODE_BASED_ID_TYPES = ['currencies', 'uom', 'organizations', 'paymentTypes'] as const;
 
 const SEED_DATA = {
   departments: [
@@ -176,6 +177,43 @@ const SEED_DATA = {
       level: 5,
       actions: ['create', 'read'],
       scope: ['pr'],
+      active: true
+    }
+  ],
+  paymentTypes: [
+    {
+      id: 'cash',
+      code: 'CASH',
+      name: 'Cash',
+      description: 'Cash payment',
+      active: true
+    },
+    {
+      id: 'eft',
+      code: 'EFT',
+      name: 'Electronic Funds Transfer',
+      description: 'Bank transfer or EFT payment',
+      active: true
+    },
+    {
+      id: 'cheque',
+      code: 'CHEQUE',
+      name: 'Cheque',
+      description: 'Payment by cheque',
+      active: true
+    },
+    {
+      id: 'credit_card',
+      code: 'CC',
+      name: 'Credit Card',
+      description: 'Credit card payment',
+      active: true
+    },
+    {
+      id: 'wire',
+      code: 'WIRE',
+      name: 'Wire Transfer',
+      description: 'International wire transfer',
       active: true
     }
   ]
