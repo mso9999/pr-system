@@ -77,28 +77,47 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
   const canGenerateRFQ = currentUser.permissionLevel === 1 || currentUser.permissionLevel === 3;
 
   const handleGenerateRFQ = async () => {
+    console.log('🎯 RFQ Generation started', {
+      prNumber: pr.prNumber,
+      prId: pr.id,
+      lineItemCount: pr.lineItems?.length || 0,
+      organization: pr.organization
+    });
+
     // Validate that we have line items
     if (!pr.lineItems || pr.lineItems.length === 0) {
+      console.warn('⚠️ RFQ Generation failed: No line items');
       enqueueSnackbar('Please add line items before generating RFQ', { variant: 'warning' });
       return;
     }
 
     try {
       setGeneratingRFQ(true);
+      console.log('📦 Step 1: Fetching organization data...');
 
       // Fetch organization data
       const orgData = await organizationService.getOrganizationById(pr.organization || '');
+      console.log('✓ Organization data loaded:', {
+        id: orgData?.id,
+        name: orgData?.name,
+        hasLogo: !!orgData?.logoUrl
+      });
       
       // Convert logo to base64 if available
       let logoBase64: string | undefined;
       if (orgData?.logoUrl) {
         try {
+          console.log('🖼️ Step 2: Converting logo to base64...');
           logoBase64 = await imageUrlToBase64ViaImage(orgData.logoUrl);
+          console.log('✓ Logo converted successfully');
         } catch (error) {
-          console.warn('Failed to load organization logo:', error);
+          console.warn('⚠️ Failed to load organization logo:', error);
         }
+      } else {
+        console.log('ℹ️ No logo URL provided, skipping logo conversion');
       }
 
+      console.log('📄 Step 3: Creating RFQ document component...');
       // Generate PDF
       const rfqDoc = (
         <RFQDocument
@@ -112,8 +131,14 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
         />
       );
 
+      console.log('🔄 Step 4: Generating PDF blob...');
       const blob = await pdf(rfqDoc).toBlob();
+      console.log('✓ PDF blob created:', {
+        size: blob.size,
+        type: blob.type
+      });
       
+      console.log('💾 Step 5: Triggering download...');
       // Download the PDF
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
@@ -124,10 +149,17 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
 
+      console.log('✅ RFQ generated and downloaded successfully');
       enqueueSnackbar('RFQ generated and downloaded successfully', { variant: 'success' });
     } catch (error) {
-      console.error('Error generating RFQ:', error);
-      enqueueSnackbar('Failed to generate RFQ', { variant: 'error' });
+      console.error('❌ Error generating RFQ:', {
+        error: error,
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        prNumber: pr.prNumber,
+        organization: pr.organization
+      });
+      enqueueSnackbar(`Failed to generate RFQ: ${error instanceof Error ? error.message : 'Unknown error'}`, { variant: 'error' });
     } finally {
       setGeneratingRFQ(false);
     }

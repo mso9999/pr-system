@@ -312,9 +312,10 @@ const FilePreviewDialog: React.FC<{
       case 'pdf':
         return (
           <Box height="70vh" width="100%">
-            <iframe
-              src={`${file.url}#view=FitH`}
-              style={{ width: '100%', height: '100%', border: 'none' }}
+            <embed
+              src={file.url}
+              type="application/pdf"
+              style={{ width: '100%', height: '100%' }}
               title="PDF Preview"
             />
           </Box>
@@ -587,6 +588,11 @@ export function PRView() {
         setCurrencies(currencyList);
         setPaymentTypes(paymentTypeList);
         setRules(rulesList);
+        
+        console.log('💳 Payment Types loaded from reference data:', {
+          count: paymentTypeList.length,
+          items: paymentTypeList.map(pt => ({ id: pt.id, name: pt.name, code: pt.code, active: pt.isActive }))
+        });
       } catch (error) {
         console.error('Error loading reference data:', error);
         enqueueSnackbar('Error loading reference data', { variant: 'error' });
