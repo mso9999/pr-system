@@ -262,17 +262,22 @@ export const downloadAndUploadFileFromUrl = async (
     // Create a File object
     const file = new File([blob], filename, { type: blob.type });
 
+    // Generate unique filename with timestamp
+    const timestamp = Date.now();
+    const uniqueFilename = `${timestamp}-${filename}`;
+    const storagePath = `line-items/${uniqueFilename}`;
+
     // Upload to temp storage first
     const tempUrl = await StorageService.uploadToTempStorage(
       file,
-      `line-items/${Date.now()}-${filename}`
+      storagePath
     );
 
     // Return attachment object
     return {
       name: filename,
       url: tempUrl,
-      path: `temp/line-items/${Date.now()}-${filename}`,
+      path: `temp/${storagePath}`,
       uploadedAt: new Date().toISOString(),
     };
   } catch (error) {
@@ -309,17 +314,24 @@ export const processLineItemFileLinks = async (
       if (attachment) {
         // Successfully downloaded, add to attachments
         processedItem.attachments = [...(item.attachments || []), attachment];
+        console.log(`✓ Downloaded and attached file for "${item.description}":`, {
+          fileName: attachment.name,
+          url: attachment.url,
+          path: attachment.path
+        });
         // Keep the fileLink for reference, but mark as processed
       } else {
         // Failed to download, keep as link
-        console.warn(`Failed to download file for "${item.description}". Keeping as link.`);
+        console.warn(`✗ Failed to download file for "${item.description}". Keeping as link.`);
       }
+    } else if (item.fileLink && item.isFolder) {
+      console.log(`📁 Folder link preserved for "${item.description}": ${item.fileLink}`);
     }
-    // If it's a folder link or no link, just keep it as is
 
     processedItems.push(processedItem);
   }
 
+  console.log(`📎 Processed ${processedItems.length} line items with ${processedItems.filter(i => i.attachments && i.attachments.length > 0).length} having attachments`);
   return processedItems;
 };
 

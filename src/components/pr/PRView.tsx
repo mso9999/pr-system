@@ -626,6 +626,20 @@ export function PRView() {
         id: item.id || crypto.randomUUID(),
         unitPrice: item.unitPrice || 0
       }));
+      
+      // Log line items with attachment info for debugging
+      console.log(`📋 Loaded ${itemsWithIds.length} line items for PR ${pr.id}:`, {
+        itemsWithAttachments: itemsWithIds.filter(i => i.attachments && i.attachments.length > 0).length,
+        itemsWithFileLinks: itemsWithIds.filter(i => i.fileLink).length,
+        sampleItemWithAttachments: itemsWithIds.find(i => i.attachments && i.attachments.length > 0),
+        allItems: itemsWithIds.map(i => ({
+          description: i.description,
+          attachmentCount: i.attachments?.length || 0,
+          fileLink: i.fileLink,
+          isFolder: i.isFolder
+        }))
+      });
+      
       setLineItems(itemsWithIds);
     }
   }, [pr?.lineItems]);

@@ -211,6 +211,13 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
         ? newLineItems
         : [...(pr.lineItems || []), ...newLineItems];
 
+      // Log what we're about to save
+      console.log(`💾 Saving ${finalLineItems.length} line items to PR ${pr.id}:`, {
+        itemsWithAttachments: finalLineItems.filter(i => i.attachments && i.attachments.length > 0).length,
+        itemsWithFileLinks: finalLineItems.filter(i => i.fileLink).length,
+        sampleItem: finalLineItems[0]
+      });
+
       // Update PR with new line items
       await prService.updatePR(pr.id, {
         lineItems: finalLineItems,
