@@ -131,22 +131,18 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
       console.log('✓ Organization data loaded:', {
         id: orgData?.id,
         name: orgData?.name,
-        hasLogo: !!orgData?.logoUrl,
         found: !!orgData
       });
       
-      // Convert logo to base64 if available
+      // Use the same hardcoded 1PWR Africa logo that the application uses
+      console.log('🖼️ Step 2: Converting 1PWR Africa logo to base64...');
+      const LOGO_URL = 'https://1pwrafrica.com/wp-content/uploads/2018/11/logo.png';
       let logoBase64: string | undefined;
-      if (orgData?.logoUrl) {
-        try {
-          console.log('🖼️ Step 2: Converting logo to base64...');
-          logoBase64 = await imageUrlToBase64ViaImage(orgData.logoUrl);
-          console.log('✓ Logo converted successfully');
-        } catch (error) {
-          console.warn('⚠️ Failed to load organization logo:', error);
-        }
-      } else {
-        console.log('ℹ️ No logo URL provided, skipping logo conversion');
+      try {
+        logoBase64 = await imageUrlToBase64ViaImage(LOGO_URL);
+        console.log('✓ Logo converted successfully');
+      } catch (error) {
+        console.warn('⚠️ Failed to load 1PWR Africa logo:', error);
       }
 
       console.log('📄 Step 3: Creating RFQ document component...');
