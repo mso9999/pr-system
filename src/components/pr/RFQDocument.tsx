@@ -3,10 +3,24 @@ import { Document, Page, Text, View, StyleSheet, Image } from '@react-pdf/render
 import { PRRequest } from '@/types/pr';
 import { Organization } from '@/types/organization';
 
+interface RFQCustomData {
+  responseDeadline: string;
+  expectedDeliveryDate: string;
+  deliveryAddress: string;
+  deliveryCity: string;
+  deliveryCountry: string;
+  incoterms: string;
+  contactPerson: string;
+  contactEmail: string;
+  contactPhone: string;
+  specialInstructions: string;
+}
+
 interface RFQDocumentProps {
   pr: PRRequest;
   orgLogo?: string;
   organization: Organization;
+  customData: RFQCustomData;
 }
 
 const styles = StyleSheet.create({
@@ -134,6 +148,7 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
   pr,
   orgLogo,
   organization,
+  customData,
 }) => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -188,18 +203,16 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Response Deadline:</Text>
-            <Text style={styles.value}>{formatDate(pr.requiredDate)}</Text>
+            <Text style={styles.value}>{formatDate(customData.responseDeadline || pr.requiredDate)}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Expected Delivery Date:</Text>
-            <Text style={styles.value}>{formatDate(pr.requiredDate)}</Text>
+            <Text style={styles.value}>{formatDate(customData.expectedDeliveryDate || pr.requiredDate)}</Text>
           </View>
-          {pr.incoterms && (
-            <View style={styles.row}>
-              <Text style={styles.label}>Incoterms:</Text>
-              <Text style={styles.value}>{pr.incoterms}</Text>
-            </View>
-          )}
+          <View style={styles.row}>
+            <Text style={styles.label}>Incoterms:</Text>
+            <Text style={styles.value}>{customData.incoterms || pr.incoterms || 'EXW'}</Text>
+          </View>
           <View style={styles.row}>
             <Text style={styles.label}>Department:</Text>
             <Text style={styles.value}>{pr.department || 'N/A'}</Text>
@@ -208,6 +221,27 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
             <Text style={styles.label}>Project Category:</Text>
             <Text style={styles.value}>{pr.projectCategory || 'N/A'}</Text>
           </View>
+        </View>
+
+        {/* Delivery Information */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Delivery Information</Text>
+          <View style={styles.row}>
+            <Text style={styles.label}>Delivery Address:</Text>
+            <Text style={styles.value}>{customData.deliveryAddress || 'To be confirmed'}</Text>
+          </View>
+          {customData.deliveryCity && (
+            <View style={styles.row}>
+              <Text style={styles.label}>City:</Text>
+              <Text style={styles.value}>{customData.deliveryCity}</Text>
+            </View>
+          )}
+          {customData.deliveryCountry && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Country:</Text>
+              <Text style={styles.value}>{customData.deliveryCountry}</Text>
+            </View>
+          )}
         </View>
 
         {/* Project Description */}
@@ -275,6 +309,43 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
           </View>
         </View>
 
+        {/* Contact Information */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Procurement Contact</Text>
+          {customData.contactPerson && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Contact Person:</Text>
+              <Text style={styles.value}>{customData.contactPerson}</Text>
+            </View>
+          )}
+          {customData.contactEmail && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Email:</Text>
+              <Text style={styles.value}>{customData.contactEmail}</Text>
+            </View>
+          )}
+          {customData.contactPhone && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Phone:</Text>
+              <Text style={styles.value}>{customData.contactPhone}</Text>
+            </View>
+          )}
+          {!customData.contactPerson && !customData.contactEmail && !customData.contactPhone && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Email:</Text>
+              <Text style={styles.value}>{organization.procurementEmail || 'Contact via company email'}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* Special Instructions */}
+        {customData.specialInstructions && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Special Instructions & Requirements</Text>
+            <Text style={styles.value}>{customData.specialInstructions}</Text>
+          </View>
+        )}
+
         {/* Quote Submission Instructions */}
         <View style={styles.instructions}>
           <Text style={styles.instructionsTitle}>Quote Submission Instructions:</Text>
@@ -282,13 +353,10 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
             1. Please provide detailed pricing for each line item{'\n'}
             2. Include unit price and total price for each item{'\n'}
             3. Specify delivery timeframe and payment terms{'\n'}
-            4. Confirm your ability to meet the expected delivery date{'\n'}
-            5. State your delivery terms (Incoterms) if different from specified{'\n'}
-            6. Submit your quote by the response deadline above{'\n'}
-            {'\n'}
-            <Text style={{ fontWeight: 'bold' }}>Contact Information (Procurement):</Text>{'\n'}
-            {organization.procurementEmail ? `Email: ${organization.procurementEmail}` : 'Email: See company contact'}
-            {organization.companyPhone && `\nPhone: ${organization.companyPhone}`}
+            4. Confirm your ability to meet the expected delivery date and delivery terms ({customData.incoterms || 'EXW'}){'\n'}
+            5. Include all applicable taxes and fees{'\n'}
+            6. State your quote validity period{'\n'}
+            7. Submit quotes by the response deadline: {formatDate(customData.responseDeadline || pr.requiredDate)}
           </Text>
         </View>
 

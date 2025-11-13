@@ -98,8 +98,12 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
       prNumber: pr.prNumber,
       prId: pr.id,
       lineItemCount: pr.lineItems?.length || 0,
-      organization: pr.organization
+      organization: pr.organization,
+      customData: rfqData
     });
+
+    // Close the dialog
+    setRfqDialogOpen(false);
 
     // Validate that we have line items
     if (!pr.lineItems || pr.lineItems.length === 0) {
@@ -185,6 +189,7 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
           pr={pr}
           orgLogo={logoBase64}
           organization={organizationData}
+          customData={rfqData}
         />
       );
 
@@ -612,6 +617,160 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
             disabled={processingLinks}
           >
             {processingLinks ? 'Processing...' : importMode === 'overwrite' ? 'Overwrite Line Items' : 'Add Line Items'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* RFQ Customization Dialog */}
+      <Dialog 
+        open={rfqDialogOpen} 
+        onClose={() => setRfqDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>Customize RFQ Details</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <Alert severity="info">
+                  Review and customize the RFQ details before generation. These fields will be included in the PDF document.
+                </Alert>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Response Deadline"
+                  type="date"
+                  value={rfqData.responseDeadline}
+                  onChange={(e) => setRfqData({ ...rfqData, responseDeadline: e.target.value })}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Deadline for vendors to submit quotes"
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Expected Delivery Date"
+                  type="date"
+                  value={rfqData.expectedDeliveryDate}
+                  onChange={(e) => setRfqData({ ...rfqData, expectedDeliveryDate: e.target.value })}
+                  fullWidth
+                  InputLabelProps={{ shrink: true }}
+                  helperText="When goods/services are needed"
+                />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <TextField
+                  label="Delivery Address"
+                  value={rfqData.deliveryAddress}
+                  onChange={(e) => setRfqData({ ...rfqData, deliveryAddress: e.target.value })}
+                  fullWidth
+                  placeholder="Street address"
+                  helperText="Full delivery street address"
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Delivery City"
+                  value={rfqData.deliveryCity}
+                  onChange={(e) => setRfqData({ ...rfqData, deliveryCity: e.target.value })}
+                  fullWidth
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Delivery Country"
+                  value={rfqData.deliveryCountry}
+                  onChange={(e) => setRfqData({ ...rfqData, deliveryCountry: e.target.value })}
+                  fullWidth
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <FormControl fullWidth>
+                  <InputLabel>Incoterms</InputLabel>
+                  <Select
+                    value={rfqData.incoterms}
+                    label="Incoterms"
+                    onChange={(e) => setRfqData({ ...rfqData, incoterms: e.target.value })}
+                  >
+                    <MenuItem value="EXW">EXW - Ex Works</MenuItem>
+                    <MenuItem value="FCA">FCA - Free Carrier</MenuItem>
+                    <MenuItem value="CPT">CPT - Carriage Paid To</MenuItem>
+                    <MenuItem value="CIP">CIP - Carriage and Insurance Paid To</MenuItem>
+                    <MenuItem value="DAP">DAP - Delivered At Place</MenuItem>
+                    <MenuItem value="DPU">DPU - Delivered at Place Unloaded</MenuItem>
+                    <MenuItem value="DDP">DDP - Delivered Duty Paid</MenuItem>
+                    <MenuItem value="FAS">FAS - Free Alongside Ship</MenuItem>
+                    <MenuItem value="FOB">FOB - Free On Board</MenuItem>
+                    <MenuItem value="CFR">CFR - Cost and Freight</MenuItem>
+                    <MenuItem value="CIF">CIF - Cost, Insurance and Freight</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Contact Person"
+                  value={rfqData.contactPerson}
+                  onChange={(e) => setRfqData({ ...rfqData, contactPerson: e.target.value })}
+                  fullWidth
+                  placeholder="Procurement officer name"
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Contact Email"
+                  type="email"
+                  value={rfqData.contactEmail}
+                  onChange={(e) => setRfqData({ ...rfqData, contactEmail: e.target.value })}
+                  fullWidth
+                  placeholder="procurement@company.com"
+                />
+              </Grid>
+              
+              <Grid item xs={12} md={6}>
+                <TextField
+                  label="Contact Phone"
+                  value={rfqData.contactPhone}
+                  onChange={(e) => setRfqData({ ...rfqData, contactPhone: e.target.value })}
+                  fullWidth
+                  placeholder="+266 XXXX XXXX"
+                />
+              </Grid>
+              
+              <Grid item xs={12}>
+                <TextField
+                  label="Special Instructions"
+                  value={rfqData.specialInstructions}
+                  onChange={(e) => setRfqData({ ...rfqData, specialInstructions: e.target.value })}
+                  fullWidth
+                  multiline
+                  rows={3}
+                  placeholder="Any additional requirements, quality standards, or special instructions..."
+                  helperText="Optional: Add any special requirements or instructions for vendors"
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRfqDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleGenerateRFQ} 
+            variant="contained"
+            disabled={generatingRFQ}
+            startIcon={<SendIcon />}
+          >
+            {generatingRFQ ? 'Generating...' : 'Generate RFQ PDF'}
           </Button>
         </DialogActions>
       </Dialog>
