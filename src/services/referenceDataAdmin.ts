@@ -3,8 +3,8 @@ import { db } from "@/config/firebase"
 import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, where, writeBatch, setDoc, getDoc, deleteField, or } from "firebase/firestore"
 
 const COLLECTION_PREFIX = "referenceData_"
-const CODE_BASED_ID_TYPES = ['currencies', 'uom', 'organizations'] as const;
-const ORGANIZATION_INDEPENDENT_TYPES = ['currencies', 'uom', 'organizations', 'vendors', 'permissions'] as const;
+const CODE_BASED_ID_TYPES = ['currencies', 'uom', 'organizations', 'paymentTypes'] as const;
+const ORGANIZATION_INDEPENDENT_TYPES = ['currencies', 'uom', 'organizations', 'vendors', 'permissions', 'paymentTypes'] as const;
 
 export class ReferenceDataAdminService {
   private getCollectionName(type: string): string {
