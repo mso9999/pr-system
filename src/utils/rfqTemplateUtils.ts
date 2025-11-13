@@ -237,7 +237,11 @@ export const downloadAndUploadFileFromUrl = async (
     });
 
     if (!response.ok) {
-      console.warn(`Failed to download file from ${url}: ${response.status} ${response.statusText}`);
+      console.error(`❌ Failed to download file from ${url}:`, {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
       return null;
     }
 
@@ -281,7 +285,11 @@ export const downloadAndUploadFileFromUrl = async (
       uploadedAt: new Date().toISOString(),
     };
   } catch (error) {
-    console.error(`Error downloading/uploading file from ${url}:`, error);
+    console.error(`❌ Error downloading/uploading file from ${url}:`, {
+      error: error instanceof Error ? error.message : String(error),
+      errorType: error instanceof Error ? error.name : typeof error,
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return null;
   }
 };
@@ -302,6 +310,8 @@ export const processLineItemFileLinks = async (
 
     if (item.fileLink && !item.isFolder) {
       // It's a file link, attempt to download it
+      console.log(`⬇️ Attempting to download file for "${item.description}" from: ${item.fileLink}`);
+      
       if (onProgress) {
         onProgress(i + 1, lineItems.length, item.description || 'Unknown');
       }

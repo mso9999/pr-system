@@ -39,6 +39,8 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import DownloadIcon from '@mui/icons-material/Download';
 import VisibilityIcon from '@mui/icons-material/Visibility';
+import LinkIcon from '@mui/icons-material/Link';
+import FolderIcon from '@mui/icons-material/Folder';
 import { FormState } from '../NewPRForm';
 import { StorageService } from '../../../services/storage';
 import { Attachment } from '../../../types/pr';
@@ -279,27 +281,30 @@ export const LineItemsStep: React.FC<LineItemsStepProps> = ({
                       />
                     </TableCell>
                     <TableCell>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <input
-                          type="file"
-                          id={`file-upload-${index}`}
-                          style={{ display: 'none' }}
-                          onChange={(e) => handleFileUpload(e, index)}
-                          multiple
-                        />
-                        <label htmlFor={`file-upload-${index}`}>
-                          <Button
-                            component="span"
-                            startIcon={<AttachFileIcon />}
-                            size="small"
-                            variant="outlined"
-                          >
-                            Attach Files
-                          </Button>
-                        </label>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <input
+                            type="file"
+                            id={`file-upload-${index}`}
+                            style={{ display: 'none' }}
+                            onChange={(e) => handleFileUpload(e, index)}
+                            multiple
+                          />
+                          <label htmlFor={`file-upload-${index}`}>
+                            <Button
+                              component="span"
+                              startIcon={<AttachFileIcon />}
+                              size="small"
+                              variant="outlined"
+                            >
+                              Attach Files
+                            </Button>
+                          </label>
+                        </Box>
                         {item.attachments?.map((file, fileIndex) => (
-                          <Box key={fileIndex} sx={{ display: 'flex', alignItems: 'center' }}>
-                            <Typography variant="body2" sx={{ ml: 1 }}>
+                          <Box key={fileIndex} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <AttachFileIcon fontSize="small" color="primary" />
+                            <Typography variant="body2" sx={{ flex: 1 }}>
                               {file.name}
                             </Typography>
                             <IconButton
@@ -310,6 +315,33 @@ export const LineItemsStep: React.FC<LineItemsStepProps> = ({
                             </IconButton>
                           </Box>
                         ))}
+                        {(item as any).fileLink && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                            {(item as any).isFolder ? (
+                              <FolderIcon fontSize="small" color="info" />
+                            ) : (
+                              <LinkIcon fontSize="small" color="info" />
+                            )}
+                            <Tooltip title={(item as any).fileLink}>
+                              <Typography 
+                                variant="caption" 
+                                color="info.main"
+                                sx={{ 
+                                  flex: 1, 
+                                  overflow: 'hidden', 
+                                  textOverflow: 'ellipsis', 
+                                  whiteSpace: 'nowrap',
+                                  cursor: 'pointer',
+                                  textDecoration: 'underline'
+                                }}
+                                onClick={() => window.open((item as any).fileLink, '_blank')}
+                              >
+                                {(item as any).isFolder ? 'Folder: ' : 'Link: '}
+                                {(item as any).fileLink}
+                              </Typography>
+                            </Tooltip>
+                          </Box>
+                        )}
                       </Box>
                     </TableCell>
                     <TableCell align="right">
