@@ -3,6 +3,56 @@ import { LineItem, Attachment } from '@/types/pr';
 import { StorageService } from '@/services/storage';
 
 /**
+ * Convert sharing URLs from cloud storage providers to direct download URLs
+ */
+export const convertToDirectDownloadUrl = (url: string): string => {
+  if (!url) return url;
+
+  let convertedUrl = url;
+  let wasConverted = false;
+
+  // Dropbox: www.dropbox.com → dl.dropboxusercontent.com, ensure dl=1
+  if (url.includes('dropbox.com')) {
+    convertedUrl = url.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
+    convertedUrl = convertedUrl.replace(/[?&]dl=\d+/, ''); // Remove existing dl parameter
+    const separator = convertedUrl.includes('?') ? '&' : '?';
+    if (!convertedUrl.includes('dl=')) {
+      convertedUrl += `${separator}dl=1`;
+    }
+    wasConverted = true;
+  }
+  
+  // Google Drive: Convert sharing links to direct download
+  // From: https://drive.google.com/file/d/FILE_ID/view?usp=sharing
+  // To: https://drive.google.com/uc?export=download&id=FILE_ID
+  else if (url.includes('drive.google.com/file/d/')) {
+    const fileIdMatch = url.match(/\/file\/d\/([^\/\?]+)/);
+    if (fileIdMatch && fileIdMatch[1]) {
+      convertedUrl = `https://drive.google.com/uc?export=download&id=${fileIdMatch[1]}`;
+      wasConverted = true;
+    }
+  }
+  
+  // OneDrive: Add download=1 parameter
+  else if (url.includes('1drv.ms') || url.includes('onedrive.live.com')) {
+    const separator = url.includes('?') ? '&' : '?';
+    if (!url.includes('download=')) {
+      convertedUrl = `${url}${separator}download=1`;
+      wasConverted = true;
+    }
+  }
+
+  if (wasConverted) {
+    console.log(`🔄 Converted URL:`, {
+      original: url,
+      converted: convertedUrl
+    });
+  }
+
+  return convertedUrl;
+};
+
+/**
  * Download an Excel template for RFQ line items
  */
 export const downloadRFQTemplateExcel = (prNumber: string) => {
@@ -179,7 +229,12 @@ export const parseRFQFile = async (file: File): Promise<Partial<LineItem>[]> => 
           const notes = getField(['Notes', 'Specifications', 'Comments', 'Details']);
           const estimatedUnitPrice = parseFloat(getField(['Estimated Unit Price', 'Unit Price', 'Price', 'Cost'])) || undefined;
           const estimatedTotal = parseFloat(getField(['Estimated Total', 'Total', 'Total Price'])) || undefined;
-          const fileLink = getField(['File/Folder Link (Optional)', 'File Link', 'Link', 'Folder Link', 'File/Folder Link', 'URL']);
+          let fileLink = getField(['File/Folder Link (Optional)', 'File Link', 'Link', 'Folder Link', 'File/Folder Link', 'URL']);
+          
+          // Auto-convert cloud storage sharing URLs to direct download URLs
+          if (fileLink) {
+            fileLink = convertToDirectDownloadUrl(fileLink);
+          }
 
           // Determine if link is to a folder (keep as link) or file (will be downloaded)
           const isFolder = fileLink && (

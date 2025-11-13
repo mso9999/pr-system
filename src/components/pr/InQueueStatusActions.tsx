@@ -301,24 +301,24 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
                 Download the template, fill it with your line items, then upload and apply before generating the RFQ.
               </Typography>
             </Alert>
-            <Alert severity="warning" sx={{ mb: 2 }}>
+            <Alert severity="info" icon={<LinkIcon />} sx={{ mb: 2 }}>
               <Typography variant="body2" gutterBottom>
-                <strong>⚠️ File Links:</strong>
+                <strong>🔗 File Links - Auto-Conversion:</strong>
               </Typography>
               <Typography variant="body2">
-                If your CSV includes file/folder links, the system will attempt to download them automatically. However, downloads may fail if:
+                If your CSV includes file links, the system will:
               </Typography>
               <Typography variant="body2" component="div" sx={{ ml: 2, mt: 0.5 }}>
-                • The files require authentication (login/password)
+                • <strong>Automatically convert</strong> Dropbox, Google Drive, and OneDrive sharing links to direct downloads
               </Typography>
               <Typography variant="body2" component="div" sx={{ ml: 2 }}>
-                • The server blocks cross-origin requests (CORS)
+                • <strong>Download files</strong> and upload them to secure storage
               </Typography>
               <Typography variant="body2" component="div" sx={{ ml: 2 }}>
-                • The URLs are invalid or expired
+                • <strong>Preserve folder links</strong> as clickable references
               </Typography>
               <Typography variant="body2" sx={{ mt: 0.5 }}>
-                In such cases, links will be preserved as clickable URLs in the RFQ instead of downloaded files.
+                ✨ Just paste your "Copy Link" URLs from Dropbox/Google Drive - no manual conversion needed!
               </Typography>
             </Alert>
 

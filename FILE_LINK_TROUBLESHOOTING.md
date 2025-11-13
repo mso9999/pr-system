@@ -1,8 +1,32 @@
 # File Link Troubleshooting Guide
 
-## Issue: Files Not Downloading from External URLs
+## ✨ Automatic URL Conversion (NEW!)
 
-When uploading line items via CSV with file links, the system attempts to automatically download files from the provided URLs. However, downloads may fail due to **CORS (Cross-Origin Resource Sharing) restrictions** imposed by file hosting services.
+**Good news!** The system now **automatically converts** sharing URLs from popular cloud storage services to direct download links. You can simply:
+
+1. **Copy the share link** from Dropbox, Google Drive, or OneDrive (using their "Copy Link" button)
+2. **Paste directly into your CSV** - no manual conversion needed!
+3. **Upload** - the system will automatically convert and download files
+
+### Supported Services
+
+| Service | Example URL | Auto-Converted To |
+|---------|-------------|-------------------|
+| **Dropbox** | `www.dropbox.com/...?dl=0` | `dl.dropboxusercontent.com/...?dl=1` |
+| **Google Drive** | `drive.google.com/file/d/ID/view` | `drive.google.com/uc?export=download&id=ID` |
+| **OneDrive** | `1drv.ms/...` or `onedrive.live.com/...` | Adds `download=1` parameter |
+
+---
+
+## How It Works
+
+When uploading line items via CSV with file links, the system:
+1. **Detects** cloud storage URLs
+2. **Automatically converts** them to direct download URLs
+3. **Downloads files** and uploads to secure Firebase Storage
+4. **Preserves folder links** as clickable references (not downloaded)
+
+However, downloads may still fail due to **CORS (Cross-Origin Resource Sharing) restrictions** or authentication requirements.
 
 ### Why Dropbox Links Don't Work
 
