@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -120,6 +120,17 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isDepartmentsLoading, setIsDepartmentsLoading] = useState(false);
+  const [permissionOptions, setPermissionOptions] = useState<{ 
+    level: number; 
+    name: string; 
+    code?: string; 
+    description?: string;
+    source: 'reference' | 'fallback';
+  }[]>([]);
+  const [permissionsLoading, setPermissionsLoading] = useState(false);
+  const [permissionsWarning, setPermissionsWarning] = useState<string | null>(null);
+  const [usingFallbackPermissions, setUsingFallbackPermissions] = useState(false);
+
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<string>('');
@@ -144,9 +155,82 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const isProcurement = currentUser?.permissionLevel === 3;
   const canManageAllUsers = currentUser?.permissionLevel === 1; // Only Admin
 
-  useEffect(() => {
-    loadInitialData();
+  const fallbackPermissionOptions = useMemo(() => {
+    return Object.entries(PERMISSION_LEVELS).map(([key, level]) => ({
+      level,
+      name: PERMISSION_NAMES[level as keyof typeof PERMISSION_NAMES] || `Level ${level}`,
+      code: key,
+      description: `${PERMISSION_NAMES[level as keyof typeof PERMISSION_NAMES] || key} (default)`,
+      source: 'fallback' as const
+    }));
   }, []);
+
+  const loadPermissions = async () => {
+    setPermissionsLoading(true);
+    setPermissionsWarning(null);
+    try {
+      const items = await referenceDataService.getItemsByType('permissions');
+      const activeItems = (items || []).filter(item => item.active !== false);
+      
+      const normalized: typeof permissionOptions = [];
+      const seenLevels = new Set<number>();
+      const duplicateLevels = new Set<number>();
+
+      activeItems.forEach(item => {
+        const rawLevel = typeof item.level === 'number' ? item.level : Number(item.level ?? item.code);
+        if (!rawLevel || Number.isNaN(rawLevel)) {
+          console.warn('[UserManagement] Skipping permission with invalid level', item);
+          return;
+        }
+        if (seenLevels.has(rawLevel)) {
+          duplicateLevels.add(rawLevel);
+          return;
+        }
+        seenLevels.add(rawLevel);
+        normalized.push({
+          level: rawLevel,
+          name: item.name || PERMISSION_NAMES[rawLevel as keyof typeof PERMISSION_NAMES] || `Level ${rawLevel}`,
+          code: item.code,
+          description: item.description,
+          source: 'reference'
+        });
+      });
+
+      const requiredLevels = Object.values(PERMISSION_LEVELS);
+      const hasAllRequired = requiredLevels.every(level => normalized.some(option => option.level === level));
+
+      if (normalized.length === 0 || !hasAllRequired) {
+        const warningMsg = normalized.length === 0
+          ? 'Reference permissions are empty; using fallback levels.'
+          : 'Reference permissions missing required levels; using fallback.';
+        console.warn('[UserManagement] ' + warningMsg, { normalized, requiredLevels });
+        setPermissionsWarning(warningMsg);
+        setPermissionOptions(fallbackPermissionOptions);
+        setUsingFallbackPermissions(true);
+        return;
+      }
+
+      if (duplicateLevels.size > 0) {
+        const warningMsg = `Duplicate permission levels detected (${Array.from(duplicateLevels).join(', ')}); using fallback.`;
+        console.warn('[UserManagement] ' + warningMsg);
+        setPermissionsWarning(warningMsg);
+        setPermissionOptions(fallbackPermissionOptions);
+        setUsingFallbackPermissions(true);
+        return;
+      }
+
+      normalized.sort((a, b) => a.level - b.level);
+      setPermissionOptions(normalized);
+      setUsingFallbackPermissions(false);
+    } catch (error) {
+      console.error('Error loading permissions reference data:', error);
+      setPermissionsWarning('Failed to load permissions reference data; using fallback levels.');
+      setPermissionOptions(fallbackPermissionOptions);
+      setUsingFallbackPermissions(true);
+    } finally {
+      setPermissionsLoading(false);
+    }
+  };
 
   const loadInitialData = async () => {
     setIsLoading(true);
@@ -154,12 +238,17 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       await Promise.all([
         loadUsers(), 
         loadOrganizations(),
-        loadAllDepartments()
+        loadAllDepartments(),
+        loadPermissions()
       ]);
     } finally {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    loadInitialData();
+  }, []);
 
   const loadUsers = async () => {
     try {
@@ -735,27 +824,40 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
               <FormControl fullWidth margin="normal">
                 <InputLabel>Permission Level</InputLabel>
                 <Select
-                  value={formData.permissionLevel || ''}
+                  value={formData.permissionLevel ?? ''}
                   onChange={(e) => setFormData({ ...formData, permissionLevel: Number(e.target.value) })}
                   label="Permission Level"
-                  disabled={isProcurement} // Procurement can only create Level 5
+                  disabled={isProcurement}
+                  displayEmpty
                 >
-                  {Object.entries(PERMISSION_LEVELS)
-                    .filter(([_, level]) => {
-                      // Procurement can only see/select Level 5 (Requester)
-                      if (isProcurement) {
-                        return level === 5;
-                      }
-                      // Admin sees all levels
-                      return true;
-                    })
-                    .map(([key, level]) => (
-                      <MenuItem key={key} value={level}>
-                        {PERMISSION_NAMES[level]}
-                      </MenuItem>
-                    ))}
+                  {permissionsLoading && (
+                    <MenuItem disabled>Loading permissions...</MenuItem>
+                  )}
+                  {!permissionsLoading &&
+                    permissionOptions
+                      .filter(option => {
+                        if (isProcurement) {
+                          return option.level === PERMISSION_LEVELS.REQ;
+                        }
+                        return true;
+                      })
+                      .map(option => (
+                        <MenuItem key={option.level} value={option.level}>
+                          {option.name} {option.source === 'fallback' ? '(default)' : ''}
+                        </MenuItem>
+                      ))}
                 </Select>
               </FormControl>
+              {permissionsWarning && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  {permissionsWarning}
+                </Alert>
+              )}
+              {!permissionsWarning && !permissionsLoading && usingFallbackPermissions && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Using built-in permission levels.
+                </Alert>
+              )}
               <FormControl fullWidth margin="dense">
                 <FormControlLabel
                   control={
