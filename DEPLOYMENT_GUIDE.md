@@ -33,23 +33,30 @@ firebase deploy --only hosting
 ```
 
 #### Automated Deployment (GitHub Actions)
-1. Get Firebase service account key:
+1. Generate a Firebase CI token:
    ```bash
    firebase login:ci
    ```
-   Copy the token provided
+   Copy the token provided (no service account JSON needed).
 
-2. Add secrets to GitHub repository:
-   - Go to: Settings → Secrets and variables → Actions
-   - Add these secrets:
-     - `FIREBASE_SERVICE_ACCOUNT`: The service account JSON
-     - `VITE_FIREBASE_API_KEY`: Your Firebase API key
-     - `VITE_FIREBASE_AUTH_DOMAIN`: pr-system-4ea55.firebaseapp.com
-     - `VITE_FIREBASE_PROJECT_ID`: pr-system-4ea55
-     - `VITE_FIREBASE_STORAGE_BUCKET`: pr-system-4ea55.firebasestorage.app
-     - `VITE_FIREBASE_APP_ID`: 1:562987209098:web:2f788d189f1c0867cb3873
+2. Add GitHub secrets (Settings → Secrets and variables → Actions → New repository secret):
 
-3. Push to main branch → automatic deployment
+   | Secret Name | Value |
+   |-------------|-------|
+   | `FIREBASE_TOKEN` | The token from `firebase login:ci` |
+   | `VITE_FIREBASE_API_KEY` | `AIzaSyD0tA1fvWs5dCr-7JqJv_bxlay2Bhs72jQ` |
+   | `VITE_FIREBASE_AUTH_DOMAIN` | `pr-system-4ea55.firebaseapp.com` |
+   | `VITE_FIREBASE_PROJECT_ID` | `pr-system-4ea55` |
+   | `VITE_FIREBASE_STORAGE_BUCKET` | `pr-system-4ea55.firebasestorage.app` |
+   | `VITE_FIREBASE_MESSAGING_SENDER_ID` | `562987209098` |
+   | `VITE_FIREBASE_APP_ID` | `1:562987209098:web:2f788d189f1c0867cb3873` |
+   | `VITE_FIREBASE_MEASUREMENT_ID` | `G-ZT7LN4XP80` (optional but recommended) |
+
+   **Tip:** the values above match the `.env` file checked out locally; update them if Firebase settings ever change.
+
+3. Push or merge to `main` → workflow builds with those secrets and auto-deploys to Firebase Hosting.
+
+4. To force a redeploy without new code, make a trivial commit (e.g., doc tweak) or trigger the workflow manually via GitHub → Actions → “Deploy to Firebase Hosting” → “Run workflow”.
 
 ### Your App URL
 After deployment: `https://pr-system-4ea55.web.app`

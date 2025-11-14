@@ -42,20 +42,22 @@ import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
 import { getAnalytics } from 'firebase/analytics';
 console.log('=== Firebase Initialization Starting ===');
-// Validate required environment variables
 const requiredEnvVars = [
     'VITE_FIREBASE_API_KEY',
     'VITE_FIREBASE_AUTH_DOMAIN',
     'VITE_FIREBASE_PROJECT_ID',
     'VITE_FIREBASE_APP_ID'
 ];
-// Check for missing environment variables
-const missingVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
-if (missingVars.length > 0) {
-    throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
-}
-// Firebase configuration
-const firebaseConfig = {
+const defaultFirebaseConfig = {
+    apiKey: 'AIzaSyD0tA1fvWs5dCr-7JqJv_bxlay2Bhs72jQ',
+    authDomain: 'pr-system-4ea55.firebaseapp.com',
+    projectId: 'pr-system-4ea55',
+    storageBucket: 'pr-system-4ea55.firebasestorage.app',
+    messagingSenderId: '562987209098',
+    appId: '1:562987209098:web:2f788d189f1c0867cb3873',
+    measurementId: void 0
+};
+const envFirebaseConfig = {
     apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
     authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
     projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
@@ -64,17 +66,27 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
     measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
-console.log('Environment variables debug:', {
-    VITE_FIREBASE_API_KEY: import.meta.env.VITE_FIREBASE_API_KEY,
-    VITE_FIREBASE_AUTH_DOMAIN: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-    VITE_FIREBASE_PROJECT_ID: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-    VITE_FIREBASE_STORAGE_BUCKET: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-    VITE_FIREBASE_APP_ID: import.meta.env.VITE_FIREBASE_APP_ID
-});
+const missingVars = requiredEnvVars.filter(varName => !import.meta.env[varName]);
+if (missingVars.length > 0) {
+    console.warn('[Firebase Config] Missing environment variables, falling back to default config for:', missingVars.join(', '));
+}
+const firebaseConfig = {
+    apiKey: envFirebaseConfig.apiKey || defaultFirebaseConfig.apiKey,
+    authDomain: envFirebaseConfig.authDomain || defaultFirebaseConfig.authDomain,
+    projectId: envFirebaseConfig.projectId || defaultFirebaseConfig.projectId,
+    storageBucket: envFirebaseConfig.storageBucket || defaultFirebaseConfig.storageBucket,
+    messagingSenderId: envFirebaseConfig.messagingSenderId || defaultFirebaseConfig.messagingSenderId,
+    appId: envFirebaseConfig.appId || defaultFirebaseConfig.appId,
+    measurementId: envFirebaseConfig.measurementId || defaultFirebaseConfig.measurementId
+};
+if (!firebaseConfig.apiKey || !firebaseConfig.authDomain || !firebaseConfig.projectId || !firebaseConfig.appId) {
+    throw new Error('Firebase configuration is incomplete even after applying defaults.');
+}
 console.log('Firebase config loaded:', {
     authDomain: firebaseConfig.authDomain,
     projectId: firebaseConfig.projectId,
-    storageBucket: firebaseConfig.storageBucket
+    storageBucket: firebaseConfig.storageBucket,
+    source: missingVars.length > 0 ? 'default+env' : 'env'
 });
 // Initialize Firebase app and services
 export const app = initializeApp(firebaseConfig);
