@@ -12,6 +12,7 @@
     "seed": "tsx src/scripts/seed.ts",
     "seed-reference-data": "tsx src/scripts/seedReferenceData.ts",
     "seed-payment-types": "tsx src/scripts/seedPaymentTypes.ts",
+    "import-archive": "tsx src/scripts/importArchivePRs.ts",
     "initialize-permissions": "tsx src/scripts/initializePermissions.ts",
     "initialize-rules": "tsx src/scripts/initializeRules.ts",
     "test": "vitest",

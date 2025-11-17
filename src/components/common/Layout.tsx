@@ -28,7 +28,8 @@ import {
   Person,
   AdminPanelSettings,
   FilterList,
-  HelpOutline
+  HelpOutline,
+  Archive as ArchiveIcon
 } from '@mui/icons-material';
 import { signOut } from '../../services/auth';
 import { clearUser } from '../../store/slices/authSlice';
@@ -132,6 +133,13 @@ export const Layout = () => {
             <ListIcon />
           </ListItemIcon>
           <ListItemText primary="PRs" />
+        </NavItem>
+        <Divider />
+        <NavItem onClick={() => navigate('/archive')}>
+          <ListItemIcon>
+            <ArchiveIcon />
+          </ListItemIcon>
+          <ListItemText primary="Archive Dataroom" />
         </NavItem>
         <Divider />
         <NavItem onClick={() => navigate('/help')}>

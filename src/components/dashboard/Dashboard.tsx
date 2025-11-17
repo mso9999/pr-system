@@ -20,7 +20,7 @@ import {
   TableCell,
   Badge,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, PriorityHigh as PriorityHighIcon, Assignment as AssignmentIcon } from '@mui/icons-material';
+import { Add as AddIcon, Delete as DeleteIcon, PriorityHigh as PriorityHighIcon, Assignment as AssignmentIcon, Archive as ArchiveIcon } from '@mui/icons-material';
 import { RootState } from '../../store';
 import { getUserPRs, deletePR } from '@/services/pr';
 import { setUserPRs, setPendingApprovals, setLoading, removePR, setMyActionsFilter } from '../../store/slices/prSlice';
@@ -559,6 +559,15 @@ export const Dashboard = () => {
                 </Badge>
               </Button>
             )}
+            <Button
+              variant="outlined"
+              color="primary"
+              startIcon={<ArchiveIcon />}
+              onClick={() => navigate('/archive')}
+              sx={{ mr: 2 }}
+            >
+              Archive Dataroom
+            </Button>
             <Button
               variant="contained"
               color="primary"

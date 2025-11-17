@@ -18,6 +18,8 @@ import { PrivateRoute } from './components/common/PrivateRoute';
 import { AdminRoute } from './components/common/AdminRoute';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { Layout } from './components/common/Layout';
+import { ArchiveList } from './components/archive/ArchiveList';
+import { ArchiveView } from './components/archive/ArchiveView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
 import { getUserDetails } from './services/auth';
 import { Box, Typography, CircularProgress } from '@mui/material';
@@ -98,6 +100,8 @@ function App() {
                   <Route path="/pr/list" element={<PRList />} />
                   <Route path="/pr/:id" element={<PRView />} />
                   <Route path="/pr/:id/edit" element={<PRView />} />
+                  <Route path="/archive" element={<ArchiveList />} />
+                  <Route path="/archive/:id" element={<ArchiveView />} />
                   <Route path="/help" element={<UserManual />} />
                   <Route path="/test-email" element={<TestEmail />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />
