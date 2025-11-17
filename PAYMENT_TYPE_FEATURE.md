@@ -1,7 +1,7 @@
 # Payment Type Feature - Implementation Summary
 
 ## Overview
-Added a payment type dropdown field that appears from PENDING_APPROVAL status onwards, linked to reference data.
+Added a payment type dropdown field that appears from IN_QUEUE status onwards, linked to reference data. Procurement can set payment type starting at IN_QUEUE status.
 
 ## Changes Made
 
@@ -11,17 +11,17 @@ Added a payment type dropdown field that appears from PENDING_APPROVAL status on
 
 ### 2. PR Request Type (`src/types/pr.ts`)
 - Added `paymentType?: string` field to `PRRequest` interface
-- Field is optional and becomes relevant from PENDING_APPROVAL status onwards
+- Field is optional and becomes relevant from IN_QUEUE status onwards
 
 ### 3. PRView Component (`src/components/pr/PRView.tsx`)
 - Added `paymentTypes` state variable
 - Updated reference data loading to include payment types
 - Added `paymentType` to `EditablePRFields` interface
 - **Added Payment Type dropdown** in Basic Information section:
-  - **Visibility:** Shows only when status is PENDING_APPROVAL, APPROVED, ORDERED, COMPLETED, or CANCELED
+  - **Visibility:** Shows only when status is IN_QUEUE, PENDING_APPROVAL, APPROVED, ORDERED, COMPLETED, or CANCELED
   - **Editability:** 
     - Procurement officers can edit in all visible statuses (when in edit mode)
-    - Other users can only edit in PENDING_APPROVAL status
+    - Other users can only edit in PENDING_APPROVAL status (for approvers)
   - **Position:** Appears after the Required Date field
   - **Options:** Populated from reference data, shows only active payment types
   - **Helper text:** Shows "Please select payment type" when not selected
@@ -76,15 +76,16 @@ git push origin main
 
 ### For Requestors:
 - Payment type field is NOT visible during PR creation
-- Becomes visible once PR reaches PENDING_APPROVAL status
-- Can be set by procurement team or during approval process
+- Becomes visible once PR reaches IN_QUEUE status
+- Can view payment type but cannot edit it (procurement sets it)
 
 ### For Procurement Officers:
-- Can set payment type at any time from PENDING_APPROVAL onwards
-- Field remains editable even in APPROVED, ORDERED, and COMPLETED statuses
+- Can set payment type starting at IN_QUEUE status
+- Field remains editable in all subsequent statuses (PENDING_APPROVAL, APPROVED, ORDERED, COMPLETED)
 
 ### For Approvers:
-- Can see and set payment type during PENDING_APPROVAL status
+- Can see payment type from IN_QUEUE onwards
+- Can set payment type during PENDING_APPROVAL status
 - Field becomes read-only after approval (unless user is procurement)
 
 ### For Admins:
@@ -135,12 +136,15 @@ If you prefer to manually add payment types via Firebase Console:
 ## Testing Checklist
 
 - [ ] Seed payment types successfully
+- [ ] Payment type dropdown appears in IN_QUEUE status
 - [ ] Payment type dropdown appears in PENDING_APPROVAL status
 - [ ] Payment type dropdown appears in APPROVED status
 - [ ] Payment type dropdown appears in ORDERED status
 - [ ] Payment type dropdown appears in COMPLETED status
-- [ ] Procurement can edit payment type in all statuses
-- [ ] Approvers can set payment type during approval
+- [ ] Procurement can edit payment type in IN_QUEUE status
+- [ ] Procurement can edit payment type in all subsequent statuses
+- [ ] Approvers can set payment type during PENDING_APPROVAL
+- [ ] Non-procurement users cannot edit payment type in IN_QUEUE
 - [ ] Payment type persists after saving
 - [ ] Payment type displays correctly in view mode
 - [ ] PR submission works without Firestore query errors

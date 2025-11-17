@@ -833,6 +833,7 @@ export function PRView() {
         preferredVendor: pr.preferredVendor,
         comments: pr.comments,
         approver: pr.approver,
+        paymentType: pr.paymentType,
       });
     } else {
       setEditedPR({});
@@ -1513,8 +1514,9 @@ export function PRView() {
                 />
               </Grid>
               
-              {/* Payment Type (available from PENDING_APPROVAL onwards) */}
-              {pr && (pr.status === PRStatus.PENDING_APPROVAL || 
+              {/* Payment Type (available from IN_QUEUE onwards) */}
+              {pr && (pr.status === PRStatus.IN_QUEUE || 
+                      pr.status === PRStatus.PENDING_APPROVAL || 
                       pr.status === PRStatus.APPROVED || 
                       pr.status === PRStatus.ORDERED || 
                       pr.status === PRStatus.COMPLETED || 
