@@ -136,8 +136,9 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   const isProcurement = currentUser.permissionLevel === 3;
   const isFinanceAdmin = currentUser.permissionLevel === 4;
   const isFinanceApprover = currentUser.permissionLevel === 6;
+  const isAdminApprover = currentUser.permissionLevel === 2;
   const isAdmin = currentUser.permissionLevel === 1;
-  const canCancelPO = isAdmin || isFinanceAdmin || isFinanceApprover;
+  const canCancelPO = isAdmin || isAdminApprover || isFinanceAdmin || isFinanceApprover;
   const canTakeAction = isProcurement || isFinanceAdmin || isFinanceApprover || isAdmin;
 
   // Get rule thresholds from organization (will need to fetch from org config)
