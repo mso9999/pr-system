@@ -159,9 +159,12 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   });
   const { showSnackbar } = useSnackbar();
 
-  // Procurement restrictions: Can only manage Level 5 (Requester) users
-  const isProcurement = currentUser?.permissionLevel === 3;
+  // Role restrictions
+  const isProcurement = currentUser?.permissionLevel === PERMISSION_LEVELS.PROC;
+  const isUserAdmin = currentUser?.permissionLevel === PERMISSION_LEVELS.USER_ADMIN;
   const canManageAllUsers = currentUser?.permissionLevel === 1; // Only Admin
+  const isProtectedAdminAccount = (user?: User | null) =>
+    !!user && user.permissionLevel === PERMISSION_LEVELS.ADMIN;
 
   const fallbackPermissionOptions = useMemo(() => {
     return Object.entries(PERMISSION_LEVELS).map(([key, level]) => ({
@@ -303,6 +306,17 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     }
   };
 
+  const availablePermissionOptions = useMemo(() => {
+    if (!isUserAdmin) {
+      return permissionOptions;
+    }
+    return permissionOptions.filter(
+      option =>
+        option.level >= PERMISSION_LEVELS.REQ &&
+        option.level !== PERMISSION_LEVELS.ADMIN
+    );
+  }, [permissionOptions, isUserAdmin]);
+
   // Helper function to normalize organization ID
   const normalizeOrgId = (orgId: string): string => {
     return orgId.toLowerCase().replace(/\s+/g, '_');
@@ -392,8 +406,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
 
   const handleAdd = () => {
     setEditingUser(null);
-    // Default to Requester (Level 5) when creating new users
-    // Procurement users can only create Level 5, others default to Level 5
+    // Default to Requester when creating new users
     setFormData({
       firstName: '',
       lastName: '',
@@ -401,7 +414,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       department: '',
       organization: '',
       additionalOrganizations: [],
-      permissionLevel: isProcurement ? 5 : 5, // Default to Requester level
+      permissionLevel: PERMISSION_LEVELS.REQ,
       isActive: true
     });
     setIsDialogOpen(true);
@@ -418,7 +431,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       department: '',
       organization: '',
       additionalOrganizations: [],
-      permissionLevel: isProcurement ? 5 : undefined, // Procurement can only create Level 5
+      permissionLevel: isProcurement || isUserAdmin ? PERMISSION_LEVELS.REQ : undefined,
       isActive: true
     });
   };
@@ -427,6 +440,11 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     // Procurement restriction: Can only edit Level 5 users
     if (isProcurement && user.permissionLevel !== 5) {
       showSnackbar('Procurement users can only manage Level 5 (Requester) users', 'error');
+      return;
+    }
+
+    if (isUserAdmin && isProtectedAdminAccount(user)) {
+      showSnackbar('User Administrators cannot modify Administrator accounts', 'error');
       return;
     }
 
@@ -464,6 +482,13 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     if (isProcurement && userToDelete && userToDelete.permissionLevel !== 5) {
       if (!skipConfirm) {
         showSnackbar('Procurement users can only manage Level 5 (Requester) users', 'error');
+      }
+      return;
+    }
+
+    if (isUserAdmin && isProtectedAdminAccount(userToDelete)) {
+      if (!skipConfirm) {
+        showSnackbar('User Administrators cannot delete Administrator accounts', 'error');
       }
       return;
     }
@@ -523,6 +548,12 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     permissionLevel: number;
     isActive: boolean;
   }) => {
+    if (isUserAdmin) {
+      if (userData.permissionLevel < PERMISSION_LEVELS.REQ || userData.permissionLevel === PERMISSION_LEVELS.ADMIN) {
+        showSnackbar('User Administrators can only create non-administrator users.', 'error');
+        return;
+      }
+    }
     try {
       setIsLoading(true);
       
@@ -545,6 +576,17 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     if (!formData.firstName || !formData.lastName || !formData.email || !formData.organization || !formData.permissionLevel) {
       showSnackbar('Please fill in all required fields', 'error');
       return;
+    }
+
+    if (isUserAdmin) {
+      if (formData.permissionLevel < PERMISSION_LEVELS.REQ || formData.permissionLevel === PERMISSION_LEVELS.ADMIN) {
+        showSnackbar('User Administrators can only assign requester-level or higher (non-administrator) permissions.', 'error');
+        return;
+      }
+      if (editingUser && isProtectedAdminAccount(editingUser)) {
+        showSnackbar('User Administrators cannot modify Administrator accounts', 'error');
+        return;
+      }
     }
 
     try {
@@ -604,6 +646,15 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         throw new Error('Email is required');
       }
 
+      if (isUserAdmin) {
+        const targetUser = users.find(u => u.id === userId);
+        if (isProtectedAdminAccount(targetUser)) {
+          showSnackbar('User Administrators cannot update Administrator passwords', 'error');
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const result = await updateUserPassword(userId, trimmedEmail, newPassword);
       
       if (result.data?.success) {
@@ -642,6 +693,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const handlePasswordDialogOpen = (user: User) => {
     if (!user.email) {
       showSnackbar('User has no email address', 'error');
+      return;
+    }
+    if (isUserAdmin && isProtectedAdminAccount(user)) {
+      showSnackbar('User Administrators cannot update Administrator passwords', 'error');
       return;
     }
     setSelectedUserId(user.id);
@@ -1085,7 +1140,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                     <MenuItem disabled>Loading permissions...</MenuItem>
                   )}
                   {!permissionsLoading &&
-                    permissionOptions
+                    availablePermissionOptions
                       .filter(option => {
                         if (isProcurement) {
                           return option.level === PERMISSION_LEVELS.REQ;
@@ -1219,6 +1274,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
               <Button
                 onClick={() => {
                   const user = users.find(u => u.id === selectedUserId);
+                  if (isUserAdmin && isProtectedAdminAccount(user)) {
+                    showSnackbar('User Administrators cannot update Administrator passwords', 'error');
+                    return;
+                  }
                   if (user?.email) {
                     const newPassword = passwordMode === 'custom' ? customPassword : generatedPassword;
                     if (newPassword.length < 6) {

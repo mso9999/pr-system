@@ -2,6 +2,7 @@ import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import { RootState } from '../../store';
+import { PERMISSION_LEVELS } from '@/config/permissions';
 
 interface AdminContext {
   isReadOnly: boolean;
@@ -10,11 +11,14 @@ interface AdminContext {
 export const AdminRoute = () => {
   const location = useLocation();
   const { user, loading, error } = useSelector((state: RootState) => state.auth);
+  const permissionLevel = user?.permissionLevel ?? 999;
 
-  // Check if user has admin permissions (level 1-4)
-  const hasAdminAccess = user?.permissionLevel && user.permissionLevel <= 4;
-  // Level 2-4 users have read-only access
-  const isReadOnly = user?.permissionLevel && user.permissionLevel >= 2;
+  // Level 1-4 have full admin access, level 8 (User Admin) has limited admin UI access
+  const hasAdminAccess = permissionLevel <= 4 || permissionLevel === PERMISSION_LEVELS.USER_ADMIN;
+  // Level 2-4 are read-only; level 8 should have edit rights in user management
+  const isReadOnly =
+    permissionLevel >= 2 &&
+    permissionLevel !== PERMISSION_LEVELS.USER_ADMIN;
 
   if (loading) {
     return (

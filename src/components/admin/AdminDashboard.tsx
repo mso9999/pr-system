@@ -7,7 +7,7 @@ import { DatabaseCleanup } from "./DatabaseCleanup"
 import { useOutletContext } from "react-router-dom"
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
-import { PERMISSION_NAMES } from '../../config/permissions'
+import { PERMISSION_LEVELS, PERMISSION_NAMES } from '../../config/permissions'
 import { useTranslation } from 'react-i18next'
 
 interface TabPanelProps {
@@ -53,7 +53,8 @@ export function AdminDashboard() {
   const { user } = useSelector((state: RootState) => state.auth);
   const isReadOnly = context?.isReadOnly ?? (user?.permissionLevel === 2);
   const permissionName = user?.permissionLevel ? PERMISSION_NAMES[user.permissionLevel] : '';
-  const isSuperadmin = user?.permissionLevel === 1;
+  const isSuperadmin = user?.permissionLevel === PERMISSION_LEVELS.ADMIN;
+  const isUserAdmin = user?.permissionLevel === PERMISSION_LEVELS.USER_ADMIN;
   
   // Initialize from localStorage or default to 0
   const [value, setValue] = useState(() => {
@@ -86,9 +87,17 @@ export function AdminDashboard() {
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={value} onChange={handleChange} aria-label="admin tabs">
           <Tab label={t('admin.userManagement')} {...a11yProps(0)} />
-          <Tab label={t('admin.referenceData')} {...a11yProps(1)} />
-          {isSuperadmin && <Tab label={t('admin.organizationSettings')} {...a11yProps(2)} />}
-          {isSuperadmin && <Tab label={t('admin.databaseCleanup')} {...a11yProps(3)} />}
+          <Tab
+            label={t('admin.referenceData')}
+            {...a11yProps(1)}
+            disabled={isUserAdmin}
+          />
+          {isSuperadmin && (
+            <Tab label={t('admin.organizationSettings')} {...a11yProps(2)} />
+          )}
+          {isSuperadmin && (
+            <Tab label={t('admin.databaseCleanup')} {...a11yProps(3)} />
+          )}
         </Tabs>
       </Box>
 
@@ -97,7 +106,13 @@ export function AdminDashboard() {
       </TabPanel>
 
       <TabPanel value={value} index={1}>
-        <ReferenceDataManagement isReadOnly={isReadOnly} />
+        {isUserAdmin ? (
+          <Typography variant="body2" color="text.secondary">
+            {t('admin.userAdminReferenceDataNotice', 'Reference data is view-only for User Administrators.')}
+          </Typography>
+        ) : (
+          <ReferenceDataManagement isReadOnly={isReadOnly} />
+        )}
       </TabPanel>
 
       {isSuperadmin && (

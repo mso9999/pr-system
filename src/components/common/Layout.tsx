@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import { PERMISSION_LEVELS } from '@/config/permissions';
 import {
   AppBar,
   Box,
@@ -90,8 +91,10 @@ export const Layout = () => {
     }
   };
 
-  // Check if user has admin access (either role ADMIN or permissionLevel <= 4)
-  const hasAdminAccess = user?.role === 'ADMIN' || (user?.permissionLevel && user?.permissionLevel <= 4);
+  const hasAdminAccess =
+    user?.role === 'ADMIN' ||
+    (user?.permissionLevel &&
+      (user.permissionLevel <= 4 || user.permissionLevel === PERMISSION_LEVELS.USER_ADMIN));
 
   const drawer = (
     <Box>

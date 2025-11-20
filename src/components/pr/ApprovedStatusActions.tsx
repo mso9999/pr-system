@@ -74,6 +74,9 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   const [notifyDialog, setNotifyDialog] = useState<'finance' | 'procurement' | null>(null);
   const [notifyMessage, setNotifyMessage] = useState('');
   const [moveToOrderedDialog, setMoveToOrderedDialog] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelJustification, setCancelJustification] = useState('');
+  const [cancelLoading, setCancelLoading] = useState(false);
   
   // Final price variance override dialog
   const [finalPriceVarianceDialog, setFinalPriceVarianceDialog] = useState(false);
@@ -132,8 +135,10 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   // Permission checks
   const isProcurement = currentUser.permissionLevel === 3;
   const isFinanceAdmin = currentUser.permissionLevel === 4;
+  const isFinanceApprover = currentUser.permissionLevel === 6;
   const isAdmin = currentUser.permissionLevel === 1;
-  const canTakeAction = isProcurement || isFinanceAdmin || isAdmin;
+  const canCancelPO = isAdmin || isFinanceAdmin || isFinanceApprover;
+  const canTakeAction = isProcurement || isFinanceAdmin || isFinanceApprover || isAdmin;
 
   // Get rule thresholds from organization (will need to fetch from org config)
   // For now, using a placeholder - should fetch from organization settings
@@ -759,6 +764,45 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     }
   };
 
+  const handleCancelPO = async () => {
+    if (!cancelJustification.trim()) {
+      enqueueSnackbar('Cancellation justification is required.', { variant: 'error' });
+      return;
+    }
+
+    try {
+      setCancelLoading(true);
+      await prService.updatePRStatus(
+        pr.id,
+        PRStatus.CANCELED,
+        `PO canceled: ${cancelJustification.trim()}`,
+        {
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name || currentUser.email,
+        }
+      );
+
+      await notificationService.handleStatusChange(
+        pr.id,
+        pr.status,
+        PRStatus.CANCELED,
+        currentUser,
+        `PO canceled with justification: ${cancelJustification.trim()}`
+      );
+
+      enqueueSnackbar('PO canceled successfully.', { variant: 'success' });
+      setCancelDialogOpen(false);
+      setCancelJustification('');
+      await onStatusChange();
+    } catch (error) {
+      console.error('Error canceling PO:', error);
+      enqueueSnackbar('Failed to cancel PO.', { variant: 'error' });
+    } finally {
+      setCancelLoading(false);
+    }
+  };
+
   // Auto-generate PO document and save as file (called during APPROVED -> ORDERED transition)
   const autoGeneratePODocument = async () => {
     console.log('[Auto PO Generation] Starting automatic PO document generation...');
@@ -1300,18 +1344,31 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
             </Paper>
           </Grid>
 
-          {/* Move to ORDERED Action */}
+          {/* Actions */}
           <Grid item xs={12}>
-            <Button
-              variant="contained"
-              color="success"
-              size="large"
-              fullWidth
-              startIcon={<CheckIcon />}
-              onClick={() => setMoveToOrderedDialog(true)}
-            >
-              {t('pr.moveToOrdered')}
-            </Button>
+            <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+              <Button
+                variant="contained"
+                color="success"
+                size="large"
+                fullWidth
+                startIcon={<CheckIcon />}
+                onClick={() => setMoveToOrderedDialog(true)}
+              >
+                {t('pr.moveToOrdered')}
+              </Button>
+              {canCancelPO && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="large"
+                  fullWidth
+                  onClick={() => setCancelDialogOpen(true)}
+                >
+                  {t('pr.cancelPO', 'Cancel PO')}
+                </Button>
+              )}
+            </Stack>
           </Grid>
         </Grid>
       </Paper>
@@ -1438,6 +1495,41 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
           <Button onClick={() => setMoveToOrderedDialog(false)}>{t('common.cancel')}</Button>
           <Button onClick={handleMoveToOrdered} variant="contained" color="success">
             {t('pr.confirmMoveToOrdered')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Cancel PO Dialog */}
+      <Dialog open={cancelDialogOpen} onClose={() => setCancelDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>{t('pr.cancelPO', 'Cancel Purchase Order')}</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" paragraph>
+            {t(
+              'pr.cancelPONote',
+              'Provide a justification to cancel this PO. This will move the request to CANCELED status.'
+            )}
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            minRows={4}
+            label={t('pr.cancellationReason', 'Cancellation Justification')}
+            value={cancelJustification}
+            onChange={(e) => setCancelJustification(e.target.value)}
+            placeholder={t('pr.cancellationReasonPlaceholder', 'Explain why this PO should be canceled.')}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCancelDialogOpen(false)} disabled={cancelLoading}>
+            {t('common.keepOpen', 'Keep PO Open')}
+          </Button>
+          <Button
+            onClick={handleCancelPO}
+            variant="contained"
+            color="error"
+            disabled={cancelLoading || !cancelJustification.trim()}
+          >
+            {cancelLoading ? t('common.processing', 'Processing...') : t('pr.confirmCancelPO', 'Cancel PO')}
           </Button>
         </DialogActions>
       </Dialog>
