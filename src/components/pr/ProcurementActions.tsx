@@ -401,65 +401,94 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   };
 
   // Show different actions based on user role and PR status
-  const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
+  // Normalize permission level to number (Firestore may return string)
+  const permissionLevel = typeof currentUser.permissionLevel === 'number' 
+    ? currentUser.permissionLevel 
+    : Number(currentUser.permissionLevel) || 0;
+  const isProcurement = permissionLevel === 3; // Level 3 = Procurement Officer
+  const isAdmin = permissionLevel === 1; // Level 1 = Superadmin
   const isRequestor = currentUser.email.toLowerCase() === requestorEmail.toLowerCase();
 
-  if (!isProcurement && !isRequestor) {
+  if (!isProcurement && !isRequestor && !isAdmin) {
     return null;
   }
 
-  // Show cancel button for requestor in appropriate statuses
-  if (isRequestor && (
-    currentStatus === PRStatus.SUBMITTED ||
-    currentStatus === PRStatus.RESUBMITTED ||
-    currentStatus === PRStatus.IN_QUEUE ||
-    currentStatus === PRStatus.REVISION_REQUIRED
-  )) {
+  // For SUBMITTED or RESUBMITTED status - Procurement and Admin actions (check this FIRST)
+  if ((isProcurement || isAdmin) && (currentStatus === PRStatus.SUBMITTED || currentStatus === PRStatus.RESUBMITTED)) {
     return (
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-        <Button
-          variant="contained"
-          color="error"
-          onClick={() => handleActionClick('cancel')}
-        >
-          Cancel PR
-        </Button>
+      <>
+        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={() => handleActionClick('queue' as const)}
+          >
+            Move to Queue
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={() => handleActionClick('reject')}
+          >
+            Reject
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            onClick={() => handleActionClick('revise')}
+          >
+            Revise & Resubmit
+          </Button>
+        </Box>
         <Dialog 
           open={isDialogOpen} 
           onClose={handleClose} 
           maxWidth="sm" 
           fullWidth
         >
-          <DialogTitle>Cancel PR</DialogTitle>
+          <DialogTitle>
+            {selectedAction === 'queue' && 'Move to Queue'}
+            {selectedAction === 'reject' && 'Reject PR'}
+            {selectedAction === 'revise' && 'Request Revision'}
+          </DialogTitle>
           <DialogContent>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
+                {error}
+              </Alert>
+            )}
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                Are you sure you want to cancel this PR? This action cannot be undone.
+                {selectedAction === 'queue' && 'Add optional notes about moving this PR to the procurement queue.'}
+                {selectedAction === 'reject' && 'Please provide a reason for rejecting this PR.'}
+                {selectedAction === 'revise' && 'Please specify what changes are needed for this PR.'}
               </Typography>
               <TextField
                 autoFocus
                 multiline
                 rows={4}
-                label="Notes (Optional)"
+                label="Notes"
+                fullWidth
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                fullWidth
+                error={!!error}
+                required={selectedAction === 'reject' || selectedAction === 'revise'}
               />
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleClose}>No, Keep PR</Button>
-            <Button onClick={handleSubmit} variant="contained" color="error">
-              Yes, Cancel PR
+            <Button onClick={handleClose}>Cancel</Button>
+            <Button onClick={handleSubmit} variant="contained" color="primary">
+              Confirm
             </Button>
           </DialogActions>
         </Dialog>
-      </Box>
+      </>
     );
   }
 
-  // For IN_QUEUE status - Procurement actions
-  if (currentStatus === PRStatus.IN_QUEUE && isProcurement) {
+  // For IN_QUEUE status - Procurement and Admin actions
+  if (currentStatus === PRStatus.IN_QUEUE && (isProcurement || isAdmin)) {
     return (
       <>
         <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
@@ -595,9 +624,9 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
     );
   }
 
-  // For REVISION_REQUIRED status - Procurement actions
-  // Procurement can only: 1) Revert to previous status, or 2) Reject
-  if (currentStatus === PRStatus.REVISION_REQUIRED && isProcurement) {
+  // For REVISION_REQUIRED status - Procurement and Admin actions
+  // Procurement/Admin can only: 1) Revert to previous status, or 2) Reject
+  if (currentStatus === PRStatus.REVISION_REQUIRED && (isProcurement || isAdmin)) {
     return (
       <>
         <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
@@ -661,77 +690,53 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
     );
   }
 
-  // For SUBMITTED or RESUBMITTED status - Procurement actions
-  if (isProcurement && (currentStatus === PRStatus.SUBMITTED || currentStatus === PRStatus.RESUBMITTED)) {
+  // Show cancel button for requestor in appropriate statuses (only if NOT procurement/admin)
+  if (isRequestor && !isProcurement && !isAdmin && (
+    currentStatus === PRStatus.SUBMITTED ||
+    currentStatus === PRStatus.RESUBMITTED ||
+    currentStatus === PRStatus.IN_QUEUE ||
+    currentStatus === PRStatus.REVISION_REQUIRED
+  )) {
     return (
-      <>
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => handleActionClick('queue' as const)}
-          >
-            Move to Queue
-          </Button>
-          <Button
-            variant="contained"
-            color="error"
-            onClick={() => handleActionClick('reject')}
-          >
-            Reject
-          </Button>
-          <Button
-            variant="contained"
-            color="warning"
-            onClick={() => handleActionClick('revise')}
-          >
-            Revise & Resubmit
-          </Button>
-        </Box>
+      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Button
+          variant="contained"
+          color="error"
+          onClick={() => handleActionClick('cancel')}
+        >
+          Cancel PR
+        </Button>
         <Dialog 
           open={isDialogOpen} 
           onClose={handleClose} 
           maxWidth="sm" 
           fullWidth
         >
-          <DialogTitle>
-            {selectedAction === 'queue' && 'Move to Queue'}
-            {selectedAction === 'reject' && 'Reject PR'}
-            {selectedAction === 'revise' && 'Request Revision'}
-          </DialogTitle>
+          <DialogTitle>Cancel PR</DialogTitle>
           <DialogContent>
-            {error && (
-              <Alert severity="error" sx={{ mb: 2, whiteSpace: 'pre-line' }}>
-                {error}
-              </Alert>
-            )}
             <Stack spacing={2}>
               <Typography variant="body2" color="text.secondary">
-                {selectedAction === 'queue' && 'Add optional notes about moving this PR to the procurement queue.'}
-                {selectedAction === 'reject' && 'Please provide a reason for rejecting this PR.'}
-                {selectedAction === 'revise' && 'Please specify what changes are needed for this PR.'}
+                Are you sure you want to cancel this PR? This action cannot be undone.
               </Typography>
               <TextField
                 autoFocus
                 multiline
                 rows={4}
-                label="Notes"
-                fullWidth
+                label="Notes (Optional)"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                error={!!error}
-                required={selectedAction === 'reject' || selectedAction === 'revise'}
+                fullWidth
               />
             </Stack>
           </DialogContent>
           <DialogActions>
-            <Button onClick={handleClose}>Cancel</Button>
-            <Button onClick={handleSubmit} variant="contained" color="primary">
-              Confirm
+            <Button onClick={handleClose}>No, Keep PR</Button>
+            <Button onClick={handleSubmit} variant="contained" color="error">
+              Yes, Cancel PR
             </Button>
           </DialogActions>
         </Dialog>
-      </>
+      </Box>
     );
   }
 
