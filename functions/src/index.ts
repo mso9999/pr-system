@@ -14,6 +14,7 @@ export { sendDailyQuoteConflictReminders } from './scheduled/sendDailyQuoteConfl
 
 // Export user management functions
 export { updateUserPassword } from './updateUserPassword';
+export { createUser } from './createUser';
 
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {

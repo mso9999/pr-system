@@ -55,7 +55,7 @@ function isValidEmail(email) {
  * Using v1 onCall with CORS support
  */
 exports.updateUserPassword = functions.https.onCall(async (data, context) => {
-    var _a, _b;
+    var _a, _b, _c;
     try {
         // Check if the caller is authenticated
         if (!context.auth) {
@@ -104,21 +104,63 @@ exports.updateUserPassword = functions.https.onCall(async (data, context) => {
             throw new functions.https.HttpsError('invalid-argument', 'Password must be at least 6 characters long');
         }
         try {
-            // First verify the user exists
-            const userRecord = await admin.auth().getUser(data.userId);
-            console.log('Found user:', userRecord.uid);
-            // Verify email matches
-            if (((_b = userRecord.email) === null || _b === void 0 ? void 0 : _b.toLowerCase()) !== cleanEmail) {
+            const db = admin.firestore();
+            let userRecord;
+            let userCreated = false;
+            // Try to get the user - if they don't exist, create them
+            try {
+                userRecord = await admin.auth().getUser(data.userId);
+                console.log('Found existing user:', userRecord.uid);
+            }
+            catch (getUserError) {
+                // If user doesn't exist, create them
+                if (getUserError.code === 'auth/user-not-found') {
+                    console.log(`User ${data.userId} not found in Auth, creating new account...`);
+                    // Verify the user exists in Firestore first
+                    const firestoreUserDoc = await db.collection('users').doc(data.userId).get();
+                    if (!firestoreUserDoc.exists) {
+                        throw new functions.https.HttpsError('not-found', 'User not found in Firestore. Cannot create Auth account.');
+                    }
+                    const firestoreUserData = firestoreUserDoc.data();
+                    const firestoreEmail = (_b = firestoreUserData === null || firestoreUserData === void 0 ? void 0 : firestoreUserData.email) === null || _b === void 0 ? void 0 : _b.toLowerCase().trim();
+                    // Verify email matches
+                    if (firestoreEmail !== cleanEmail) {
+                        throw new functions.https.HttpsError('invalid-argument', `Email does not match Firestore record. Expected: ${firestoreEmail}, Got: ${cleanEmail}`);
+                    }
+                    // Create the user in Firebase Auth
+                    userRecord = await admin.auth().createUser({
+                        uid: data.userId,
+                        email: cleanEmail,
+                        emailVerified: false,
+                        password: data.newPassword,
+                        disabled: false
+                    });
+                    userCreated = true;
+                    console.log(`Created new Auth account for user: ${data.userId}`);
+                }
+                else {
+                    throw getUserError;
+                }
+            }
+            // If user already exists, verify email matches
+            if (!userCreated && ((_c = userRecord.email) === null || _c === void 0 ? void 0 : _c.toLowerCase()) !== cleanEmail) {
                 throw new functions.https.HttpsError('invalid-argument', `Email does not match user record. Expected: ${userRecord.email}, Got: ${cleanEmail}`);
             }
-            // Update the user's password
-            await admin.auth().updateUser(data.userId, {
-                password: data.newPassword
-            });
-            console.log(`Successfully updated password for user: ${data.userId}`);
+            // If user was just created, password is already set, otherwise update it
+            if (!userCreated) {
+                await admin.auth().updateUser(data.userId, {
+                    password: data.newPassword
+                });
+                console.log(`Successfully updated password for user: ${data.userId}`);
+            }
+            else {
+                console.log(`Password set for newly created user: ${data.userId}`);
+            }
             return {
                 success: true,
-                message: 'Password updated successfully'
+                message: userCreated === true
+                    ? 'User account created and password set successfully'
+                    : 'Password updated successfully'
             };
         }
         catch (error) {
@@ -129,10 +171,13 @@ exports.updateUserPassword = functions.https.onCall(async (data, context) => {
             if (error instanceof Error && 'code' in error) {
                 const authError = error;
                 if (authError.code === 'auth/user-not-found') {
-                    throw new functions.https.HttpsError('not-found', 'User not found');
+                    throw new functions.https.HttpsError('not-found', 'User not found in Firebase Auth');
                 }
                 if (authError.code === 'auth/invalid-password') {
                     throw new functions.https.HttpsError('invalid-argument', 'Invalid password format');
+                }
+                if (authError.code === 'auth/email-already-exists') {
+                    throw new functions.https.HttpsError('already-exists', 'Email already exists in Firebase Auth');
                 }
             }
             throw new functions.https.HttpsError('internal', 'Error updating user password', error instanceof Error ? error.message : undefined);

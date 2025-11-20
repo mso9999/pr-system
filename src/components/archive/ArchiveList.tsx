@@ -38,6 +38,7 @@ import { formatCurrency } from '@/utils/formatters';
 import { format } from 'date-fns';
 
 export const ArchiveList = () => {
+  console.log('[ArchiveList] Component rendering');
   const navigate = useNavigate();
   const [archivePRs, setArchivePRs] = useState<ArchivePR[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,19 +48,16 @@ export const ArchiveList = () => {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
   const [searchTerm, setSearchTerm] = useState('');
-  const [organizationFilter, setOrganizationFilter] = useState<string>('');
   const [departmentFilter, setDepartmentFilter] = useState<string>('');
   const [vendorFilter, setVendorFilter] = useState<string>('');
   const [sortBy, setSortBy] = useState<'submittedDate' | 'requestorName' | 'amount'>('submittedDate');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  // Filter options
+  // Filter options (populated from actual archive data)
   const [filterOptions, setFilterOptions] = useState<{
-    organizations: string[];
     departments: string[];
     vendors: string[];
   }>({
-    organizations: [],
     departments: [],
     vendors: [],
   });
@@ -67,28 +65,31 @@ export const ArchiveList = () => {
   // Load archive PRs
   useEffect(() => {
     const loadArchivePRs = async () => {
+      console.log('[ArchiveList] Starting to load archive PRs...');
       setLoading(true);
       setError(null);
       try {
         const filters = {
           searchTerm: searchTerm || undefined,
-          organization: organizationFilter || undefined,
           department: departmentFilter || undefined,
           vendor: vendorFilter || undefined,
         };
         
-        const prs = await archiveService.getArchivePRs(filters, sortBy, sortOrder, 1000);
+        console.log('[ArchiveList] Calling getArchivePRs with filters:', filters);
+        const prs = await archiveService.getArchivePRs(filters, sortBy, sortOrder, 500);
+        console.log('[ArchiveList] Received', prs.length, 'archive PRs');
         setArchivePRs(prs);
       } catch (err) {
-        console.error('Error loading archive PRs:', err);
+        console.error('[ArchiveList] Error loading archive PRs:', err);
         setError(err instanceof Error ? err.message : 'Failed to load archive PRs');
       } finally {
+        console.log('[ArchiveList] Setting loading to false');
         setLoading(false);
       }
     };
 
     loadArchivePRs();
-  }, [searchTerm, organizationFilter, departmentFilter, vendorFilter, sortBy, sortOrder]);
+  }, [searchTerm, departmentFilter, vendorFilter, sortBy, sortOrder]);
 
   // Load filter options
   useEffect(() => {
@@ -148,7 +149,7 @@ export const ArchiveList = () => {
         </Stack>
         
         <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-          View-only access to legacy purchase requests from the previous system. 
+          View-only access to legacy purchase requests from the previous system (1PWR LESOTHO). 
           These records are archived and cannot be edited.
         </Typography>
 
@@ -170,22 +171,6 @@ export const ArchiveList = () => {
             sx={{ flexGrow: 1, minWidth: 250 }}
           />
           
-          <FormControl sx={{ minWidth: 150 }}>
-            <InputLabel>Organization</InputLabel>
-            <Select
-              value={organizationFilter}
-              onChange={(e) => setOrganizationFilter(e.target.value)}
-              label="Organization"
-            >
-              <MenuItem value="">All</MenuItem>
-              {filterOptions.organizations.map((org) => (
-                <MenuItem key={org} value={org}>
-                  {org}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
           <FormControl sx={{ minWidth: 150 }}>
             <InputLabel>Department</InputLabel>
             <Select
@@ -246,7 +231,6 @@ export const ArchiveList = () => {
               <TableCell>Date</TableCell>
               <TableCell>Requestor</TableCell>
               <TableCell>Description</TableCell>
-              <TableCell>Organization</TableCell>
               <TableCell>Department</TableCell>
               <TableCell>Vendor</TableCell>
               <TableCell align="right">Amount</TableCell>
@@ -256,7 +240,7 @@ export const ArchiveList = () => {
           <TableBody>
             {paginatedPRs.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                   <Typography color="text.secondary">
                     No archived requests found
                   </Typography>
@@ -290,9 +274,8 @@ export const ArchiveList = () => {
                       {pr.description || 'N/A'}
                     </Typography>
                   </TableCell>
-                  <TableCell>{pr.organization || 'N/A'}</TableCell>
                   <TableCell>{pr.department || 'N/A'}</TableCell>
-                  <TableCell>{pr.vendor || 'N/A'}</TableCell>
+                  <TableCell>{pr.vendorName || pr.vendor || 'N/A'}</TableCell>
                   <TableCell align="right">
                     {pr.amount
                       ? formatCurrency(pr.amount, pr.currency || 'LSL')

@@ -3,7 +3,7 @@
  * Handles operations for archived/legacy purchase requests
  */
 
-import { collection, query, getDocs, doc, getDoc, orderBy, where, limit, QueryConstraint } from 'firebase/firestore';
+import { collection, query, getDocs, doc, getDoc, orderBy, where, limit, QueryConstraint, startAfter } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { ArchivePR } from '@/types/archive';
 
@@ -31,7 +31,6 @@ class ArchiveService {
   }
 
   async getArchiveFilterOptions(): Promise<{
-    organizations: string[];
     departments: string[];
     vendors: string[];
   }> {
@@ -61,15 +60,13 @@ export async function getArchivePRs(
     const archiveRef = collection(db, ARCHIVE_COLLECTION);
     const constraints: QueryConstraint[] = [];
 
-    // Apply filters
-    if (filters?.organization) {
-      constraints.push(where('organization', '==', filters.organization));
-    }
+    // Apply filters (no organization filter - all are 1PWR LESOTHO)
     if (filters?.department) {
       constraints.push(where('department', '==', filters.department));
     }
     if (filters?.vendor) {
-      constraints.push(where('vendor', '==', filters.vendor));
+      // Search both vendorName and vendor fields
+      constraints.push(where('vendorName', '==', filters.vendor));
     }
     if (filters?.startDate) {
       constraints.push(where('submittedDate', '>=', filters.startDate));
@@ -99,9 +96,9 @@ export async function getArchivePRs(
       return archivePRs.filter(pr => 
         pr.requestorName?.toLowerCase().includes(searchLower) ||
         pr.description?.toLowerCase().includes(searchLower) ||
+        pr.vendorName?.toLowerCase().includes(searchLower) ||
         pr.vendor?.toLowerCase().includes(searchLower) ||
         pr.department?.toLowerCase().includes(searchLower) ||
-        pr.organization?.toLowerCase().includes(searchLower) ||
         pr.requestorEmail?.toLowerCase().includes(searchLower)
       );
     }
@@ -118,55 +115,90 @@ export async function getArchivePRs(
  */
 export async function getArchivePRById(id: string): Promise<ArchivePR | null> {
   try {
+    console.log('[ArchiveService] Fetching archive PR with ID:', id);
     const docRef = doc(db, ARCHIVE_COLLECTION, id);
+    console.log('[ArchiveService] Document reference created, fetching...');
     const docSnap = await getDoc(docRef);
+    console.log('[ArchiveService] Document fetched, exists:', docSnap.exists());
     
     if (docSnap.exists()) {
-      return {
+      const data = docSnap.data();
+      console.log('[ArchiveService] Document data keys:', Object.keys(data));
+      console.log('[ArchiveService] Legacy responses count:', data.legacyResponses?.length || 0);
+      const result = {
         id: docSnap.id,
-        ...docSnap.data(),
+        ...data,
       } as ArchivePR;
+      console.log('[ArchiveService] Returning archive PR');
+      return result;
     }
     
+    console.log('[ArchiveService] Document does not exist');
     return null;
   } catch (error) {
-    console.error('Error fetching archive PR:', error);
+    console.error('[ArchiveService] Error fetching archive PR:', error);
     throw new Error(`Failed to fetch archive PR: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
 
 /**
  * Get unique values for filter dropdowns
+ * Note: All archive PRs are for 1PWR LESOTHO, so no organization filter needed
+ * Uses a sample of documents to build filter options efficiently
  */
 export async function getArchiveFilterOptions(): Promise<{
-  organizations: string[];
   departments: string[];
   vendors: string[];
 }> {
   try {
     const archiveRef = collection(db, ARCHIVE_COLLECTION);
-    const querySnapshot = await getDocs(archiveRef);
-    
-    const organizations = new Set<string>();
     const departments = new Set<string>();
     const vendors = new Set<string>();
     
-    querySnapshot.forEach((docSnapshot) => {
-      const data = docSnapshot.data();
-      if (data.organization) organizations.add(data.organization);
-      if (data.department) departments.add(data.department);
-      if (data.vendor) vendors.add(data.vendor);
-    });
+    // Fetch in batches to avoid loading all 9k+ documents at once
+    // Sample up to 2000 documents which should give us good coverage of unique values
+    const maxSampleSize = 2000;
+    const batchSize = 500;
+    let lastDoc: any = null;
+    let totalFetched = 0;
+    
+    while (totalFetched < maxSampleSize) {
+      const constraints: QueryConstraint[] = [orderBy('submittedDate', 'desc'), limit(batchSize)];
+      if (lastDoc) {
+        constraints.push(startAfter(lastDoc));
+      }
+      
+      const q = query(archiveRef, ...constraints);
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        break;
+      }
+      
+      querySnapshot.forEach((docSnapshot) => {
+        const data = docSnapshot.data();
+        if (data.department) departments.add(data.department);
+        // Use vendorName if available, otherwise fall back to vendor
+        const vendor = data.vendorName || data.vendor;
+        if (vendor) vendors.add(vendor);
+        lastDoc = docSnapshot;
+        totalFetched++;
+      });
+      
+      // If we got fewer than batchSize, we're done
+      if (querySnapshot.size < batchSize) {
+        break;
+      }
+    }
     
     return {
-      organizations: Array.from(organizations).sort(),
       departments: Array.from(departments).sort(),
       vendors: Array.from(vendors).sort(),
     };
   } catch (error) {
     console.error('Error fetching archive filter options:', error);
+    // Fallback: return empty arrays and let the component handle it
     return {
-      organizations: [],
       departments: [],
       vendors: [],
     };

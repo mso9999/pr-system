@@ -15,19 +15,41 @@ This guide explains how to import legacy purchase requests from the old Google F
 2. Place it in the project root directory (same level as `package.json`)
 3. The file should contain all legacy purchase request data from Google Forms
 
-### Step 2: Run the Import Script
+### Step 2: Map Legacy Vendors to Vendor Codes (Recommended)
+
+Before importing, map legacy vendor names to vendor codes in the current system:
+
+```bash
+npm run map-archive-vendors
+```
+
+This will:
+- Analyze all unique vendor names from the CSV
+- Match them against vendors in the current system
+- Create `archive-vendor-mapping.json` with mappings
+- Show exact matches, similar matches, and unmatched vendors
+
+**Review and edit `archive-vendor-mapping.json`** to:
+- Verify correct matches
+- Manually map unmatched vendors to vendor codes
+- Remove or correct incorrect matches
+
+### Step 3: Run the Import Script
 ```bash
 npm run import-archive
 ```
 
 The script will:
+- Load vendor mappings from `archive-vendor-mapping.json` (if available)
 - Parse the CSV file
-- Map fields from the old system to the new archive format
-- Import records into Firestore collection `archivePRs`
+- Map CSV columns to ArchivePR format
+- Map vendor names to vendor codes using the mapping file
+- Extract departments from expense type fields (format: "2:Engineering R&D" -> "Engineering R&D")
+- Upload each record to the `archivePRs` collection in Firestore
 - Process in batches to avoid rate limiting
 - Show progress and completion status
 
-### Step 3: Verify Import
+### Step 4: Verify Import
 1. Log into the PR system
 2. Navigate to "Archive Dataroom" from the sidebar or dashboard
 3. Verify that archived PRs are visible and searchable
@@ -41,14 +63,14 @@ The import script maps Google Forms fields to archive PR fields:
 | Timestamp | submittedDate |
 | Email Address | requestorEmail, requestorName |
 | Description | description |
-| Vendor | vendor |
+| Vendor | vendorName, vendorCode (mapped) |
 | Currency | currency |
 | Cost | amount |
 | Payment Format | paymentType |
 | Site | site |
 | Entity | organization |
 | Project | projectCategory |
-| Expense Type | expenseType |
+| Expense Type | expenseType, department (extracted) |
 | Reason/Context | description (combined) |
 | Vehicle | vehicle |
 | Deadline | requiredDate |
@@ -68,10 +90,11 @@ The import script maps Google Forms fields to archive PR fields:
 - **No Editing**: Archive PRs are view-only for historical reference
 
 ### Search & Filter
-- Search by: requestor name, description, vendor, department, organization
-- Filter by: organization, department, vendor
+- Search by: requestor name, description, vendor, department, email
+- Filter by: department, vendor (populated from actual archive data)
 - Sort by: date, requestor name, amount
 - Pagination: 10, 25, 50, or 100 records per page
+- **Note**: All archive PRs are for 1PWR LESOTHO, so no organization filter is needed
 
 ## Troubleshooting
 
@@ -95,11 +118,13 @@ The import script maps Google Forms fields to archive PR fields:
   requestorName: string
   requestorEmail: string
   description: string
-  vendor: string
+  vendorName: string (for display)
+  vendorCode: string (linked to current system)
+  vendor: string (legacy vendor name)
   currency: string
   amount: number
-  organization: string
-  department: string
+  organization: string (always "1PWR LESOTHO")
+  department: string (extracted from expense type)
   site: string
   projectCategory: string
   expenseType: string

@@ -28,9 +28,10 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
-  Switch
+  Switch,
+  Checkbox
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Visibility, VisibilityOff, Key as KeyIcon } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Visibility, VisibilityOff, Key as KeyIcon, Search as SearchIcon, ArrowUpward, ArrowDownward } from '@mui/icons-material';
 import { doc, collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, orderBy, setDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../config/firebase';
@@ -112,6 +113,9 @@ function PasswordDialog({ open, onClose, onSubmit, userId }: PasswordDialogProps
   );
 }
 
+type SortField = 'name' | 'email' | 'organization' | 'department' | 'permissionLevel' | 'status';
+type SortDirection = 'asc' | 'desc';
+
 export function UserManagement({ isReadOnly }: UserManagementProps) {
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [users, setUsers] = useState<User[]>([]);
@@ -119,6 +123,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const [allDepartments, setAllDepartments] = useState<ReferenceData[]>([]);
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState<SortField>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [isDepartmentsLoading, setIsDepartmentsLoading] = useState(false);
   const [permissionOptions, setPermissionOptions] = useState<{ 
     level: number; 
@@ -448,24 +456,31 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     setIsDialogOpen(true);
   };
 
-  const handleDelete = async (userId: string) => {
+  const handleDelete = async (userId: string, skipConfirm = false) => {
     // Find the user to check permission level
     const userToDelete = users.find(u => u.id === userId);
     
     // Procurement restriction: Can only delete Level 5 users
     if (isProcurement && userToDelete && userToDelete.permissionLevel !== 5) {
-      showSnackbar('Procurement users can only manage Level 5 (Requester) users', 'error');
+      if (!skipConfirm) {
+        showSnackbar('Procurement users can only manage Level 5 (Requester) users', 'error');
+      }
       return;
     }
 
-    if (window.confirm('Are you sure you want to delete this user?')) {
+    if (skipConfirm || window.confirm('Are you sure you want to delete this user?')) {
       try {
         await deleteDoc(doc(db, 'users', userId));
-        await loadUsers();
-        showSnackbar('User deleted successfully', 'success');
+        if (!skipConfirm) {
+          await loadUsers();
+          showSnackbar('User deleted successfully', 'success');
+        }
       } catch (error) {
         console.error('Error deleting user:', error);
-        showSnackbar('Failed to delete user', 'error');
+        if (!skipConfirm) {
+          showSnackbar('Failed to delete user', 'error');
+        }
+        throw error; // Re-throw for bulk delete handling
       }
     }
   };
@@ -592,7 +607,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       const result = await updateUserPassword(userId, trimmedEmail, newPassword);
       
       if (result.data?.success) {
-        showSnackbar('Password updated successfully', 'success');
+        const message = result.data?.message || 'Password updated successfully';
+        showSnackbar(message, 'success');
         setPasswordDialogOpen(false);
         // Reset states
         setCustomPassword('');
@@ -602,9 +618,22 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       } else {
         throw new Error(result.data?.error || 'Failed to update password');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating password:', error);
-      showSnackbar(error instanceof Error ? error.message : 'Failed to update password', 'error');
+      let errorMessage = 'Failed to update password';
+      
+      // Handle specific Firebase errors
+      if (error?.code === 'functions/not-found') {
+        errorMessage = 'User not found in Firebase Auth. The system will attempt to create the account.';
+      } else if (error?.code === 'functions/permission-denied') {
+        errorMessage = 'You do not have permission to update passwords. Only Superadmin can update passwords.';
+      } else if (error?.code === 'functions/invalid-argument') {
+        errorMessage = error.message || 'Invalid password or email format';
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      showSnackbar(errorMessage, 'error');
     } finally {
       setIsLoading(false);
     }
@@ -635,6 +664,125 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const getPermissionName = (level: number): string => {
     // Use centralized permission names from config
     return PERMISSION_NAMES[level as keyof typeof PERMISSION_NAMES] || `Unknown Permission`;
+  };
+
+  // Filter and sort users
+  const filteredAndSortedUsers = useMemo(() => {
+    let filtered = users;
+
+    // Apply search filter
+    if (searchTerm) {
+      const searchLower = searchTerm.toLowerCase();
+      filtered = filtered.filter(user => 
+        `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchLower) ||
+        user.email.toLowerCase().includes(searchLower) ||
+        getOrganizationName(user.organization).toLowerCase().includes(searchLower) ||
+        getDepartmentName(user.department).toLowerCase().includes(searchLower) ||
+        getPermissionName(user.permissionLevel).toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Apply sorting
+    const sorted = [...filtered].sort((a, b) => {
+      let aValue: any;
+      let bValue: any;
+
+      switch (sortField) {
+        case 'name':
+          aValue = `${a.firstName} ${a.lastName}`.toLowerCase();
+          bValue = `${b.firstName} ${b.lastName}`.toLowerCase();
+          break;
+        case 'email':
+          aValue = a.email.toLowerCase();
+          bValue = b.email.toLowerCase();
+          break;
+        case 'organization':
+          aValue = getOrganizationName(a.organization).toLowerCase();
+          bValue = getOrganizationName(b.organization).toLowerCase();
+          break;
+        case 'department':
+          aValue = getDepartmentName(a.department).toLowerCase();
+          bValue = getDepartmentName(b.department).toLowerCase();
+          break;
+        case 'permissionLevel':
+          aValue = a.permissionLevel || 0;
+          bValue = b.permissionLevel || 0;
+          break;
+        case 'status':
+          aValue = a.isActive ? 1 : 0;
+          bValue = b.isActive ? 1 : 0;
+          break;
+        default:
+          return 0;
+      }
+
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [users, searchTerm, sortField, sortDirection, organizations, allDepartments]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const handleSelectUser = (userId: string) => {
+    setSelectedUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedUsers.size === filteredAndSortedUsers.length) {
+      setSelectedUsers(new Set());
+    } else {
+      setSelectedUsers(new Set(filteredAndSortedUsers.map(u => u.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedUsers.size === 0) {
+      showSnackbar('No users selected', 'warning');
+      return;
+    }
+
+    if (!window.confirm(`Are you sure you want to delete ${selectedUsers.size} user(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    setIsLoading(true);
+    const countBefore = selectedUsers.size;
+    try {
+      const deletePromises = Array.from(selectedUsers).map(userId => handleDelete(userId, true));
+      await Promise.all(deletePromises);
+      setSelectedUsers(new Set());
+      await loadUsers();
+      showSnackbar(`Successfully deleted ${countBefore} user(s)`, 'success');
+    } catch (error) {
+      console.error('Error bulk deleting users:', error);
+      showSnackbar('Error deleting some users', 'error');
+      await loadUsers(); // Refresh to show current state
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderSortIcon = (field: SortField) => {
+    if (sortField !== field) return null;
+    return sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
   };
 
   return (
@@ -668,48 +816,151 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
               </Box>
             )}
           </Box>
+
+          {/* Search and Bulk Actions */}
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, alignItems: 'center' }}>
+            <TextField
+              placeholder="Search users..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon />
+                  </InputAdornment>
+                ),
+              }}
+              sx={{ flexGrow: 1, maxWidth: 400 }}
+            />
+            {!isReadOnly && selectedUsers.size > 0 && (
+              <Button
+                variant="contained"
+                color="error"
+                onClick={handleBulkDelete}
+                disabled={isLoading}
+              >
+                Delete Selected ({selectedUsers.size})
+              </Button>
+            )}
+          </Box>
+
           <TableContainer component={Paper}>
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Organization</TableCell>
-                  <TableCell>Department</TableCell>
-                  <TableCell>Permission Level</TableCell>
-                  <TableCell>Status</TableCell>
+                  {!isReadOnly && (
+                    <TableCell padding="checkbox">
+                      <Checkbox
+                        indeterminate={selectedUsers.size > 0 && selectedUsers.size < filteredAndSortedUsers.length}
+                        checked={filteredAndSortedUsers.length > 0 && selectedUsers.size === filteredAndSortedUsers.length}
+                        onChange={handleSelectAll}
+                      />
+                    </TableCell>
+                  )}
+                  <TableCell 
+                    sx={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSort('name')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      Name
+                      {renderSortIcon('name')}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSort('email')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      Email
+                      {renderSortIcon('email')}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSort('organization')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      Organization
+                      {renderSortIcon('organization')}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSort('department')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      Department
+                      {renderSortIcon('department')}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSort('permissionLevel')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      Permission Level
+                      {renderSortIcon('permissionLevel')}
+                    </Box>
+                  </TableCell>
+                  <TableCell 
+                    sx={{ cursor: 'pointer', userSelect: 'none' }}
+                    onClick={() => handleSort('status')}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      Status
+                      {renderSortIcon('status')}
+                    </Box>
+                  </TableCell>
                   {!isReadOnly && <TableCell>Actions</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
-                {users.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell>{`${user.firstName} ${user.lastName}`}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{getOrganizationName(user.organization)}</TableCell>
-                    <TableCell>{getDepartmentName(user.department)}</TableCell>
-                    <TableCell>{getPermissionName(user.permissionLevel)}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={user.isActive ? "Active" : "Inactive"}
-                        color={user.isActive ? "success" : "default"}
-                      />
+                {filteredAndSortedUsers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={!isReadOnly ? 8 : 7} align="center">
+                      <Typography variant="body2" color="text.secondary">
+                        {searchTerm ? 'No users found matching your search' : 'No users found'}
+                      </Typography>
                     </TableCell>
-                    {!isReadOnly && (
-                      <TableCell>
-                        <IconButton onClick={() => handleEdit(user)} title="Edit User">
-                          <EditIcon />
-                        </IconButton>
-                        <IconButton onClick={() => handlePasswordDialogOpen(user)} title="Reset Password">
-                          <KeyIcon />
-                        </IconButton>
-                        <IconButton onClick={() => handleDelete(user.id)} title="Delete User" color="error">
-                          <DeleteIcon />
-                        </IconButton>
-                      </TableCell>
-                    )}
                   </TableRow>
-                ))}
+                ) : (
+                  filteredAndSortedUsers.map((user) => (
+                    <TableRow key={user.id} hover>
+                      {!isReadOnly && (
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            checked={selectedUsers.has(user.id)}
+                            onChange={() => handleSelectUser(user.id)}
+                          />
+                        </TableCell>
+                      )}
+                      <TableCell>{`${user.firstName} ${user.lastName}`}</TableCell>
+                      <TableCell>{user.email}</TableCell>
+                      <TableCell>{getOrganizationName(user.organization)}</TableCell>
+                      <TableCell>{getDepartmentName(user.department)}</TableCell>
+                      <TableCell>{getPermissionName(user.permissionLevel)}</TableCell>
+                      <TableCell>
+                        <Chip 
+                          label={user.isActive ? "Active" : "Inactive"}
+                          color={user.isActive ? "success" : "default"}
+                        />
+                      </TableCell>
+                      {!isReadOnly && (
+                        <TableCell>
+                          <IconButton onClick={() => handleEdit(user)} title="Edit User">
+                            <EditIcon />
+                          </IconButton>
+                          <IconButton onClick={() => handlePasswordDialogOpen(user)} title="Reset Password">
+                            <KeyIcon />
+                          </IconButton>
+                          <IconButton onClick={() => handleDelete(user.id)} title="Delete User" color="error">
+                            <DeleteIcon />
+                          </IconButton>
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TableContainer>

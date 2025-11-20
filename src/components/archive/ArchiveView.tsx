@@ -12,11 +12,12 @@ import {
   Grid,
   Divider,
   IconButton,
-  Chip,
   Alert,
   CircularProgress,
   Card,
   CardContent,
+  Link,
+  Stack,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import ArchiveIcon from '@mui/icons-material/Archive';
@@ -40,19 +41,24 @@ export const ArchiveView = () => {
         return;
       }
 
+      console.log('[ArchiveView] Loading archive PR with ID:', id);
       setLoading(true);
       setError(null);
       try {
+        console.log('[ArchiveView] Calling getArchivePRById...');
         const pr = await archiveService.getArchivePRById(id);
+        console.log('[ArchiveView] Received PR data:', pr ? 'Found' : 'Not found');
         if (pr) {
+          console.log('[ArchiveView] Setting archive PR, legacyResponses count:', pr.legacyResponses?.length || 0);
           setArchivePR(pr);
         } else {
           setError('Archive PR not found');
         }
       } catch (err) {
-        console.error('Error loading archive PR:', err);
+        console.error('[ArchiveView] Error loading archive PR:', err);
         setError(err instanceof Error ? err.message : 'Failed to load archive PR');
       } finally {
+        console.log('[ArchiveView] Setting loading to false');
         setLoading(false);
       }
     };
@@ -72,8 +78,11 @@ export const ArchiveView = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+      <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
         <CircularProgress />
+        <Typography variant="body2" sx={{ mt: 2 }}>
+          Loading archive PR...
+        </Typography>
       </Box>
     );
   }
@@ -81,7 +90,14 @@ export const ArchiveView = () => {
   if (error || !archivePR) {
     return (
       <Box sx={{ p: 3 }}>
-        <Alert severity="error">{error || 'Archive PR not found'}</Alert>
+        <Alert severity="error">
+          {error || 'Archive PR not found'}
+          {id && (
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              ID: {id}
+            </Typography>
+          )}
+        </Alert>
         <Box sx={{ mt: 2 }}>
           <IconButton onClick={() => navigate('/archive')}>
             <ArrowBackIcon /> Back to Archive
@@ -90,6 +106,13 @@ export const ArchiveView = () => {
       </Box>
     );
   }
+
+  const hasOperationalDetails = Boolean(
+    archivePR.urgent ||
+    archivePR.budgetApproval ||
+    (archivePR.attachments && archivePR.attachments.length > 0) ||
+    archivePR.otherInfo
+  );
 
   return (
     <Box sx={{ p: 3 }}>
@@ -153,12 +176,21 @@ export const ArchiveView = () => {
                 </Typography>
               </Grid>
 
-              <Grid item xs={6}>
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary">
+                  Reason / Context
+                </Typography>
+                <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {archivePR.reason || 'N/A'}
+                </Typography>
+              </Grid>
+
+              <Grid item xs={12}>
                 <Typography variant="caption" color="text.secondary">
                   Organization
                 </Typography>
                 <Typography variant="body1">
-                  {archivePR.organization || 'N/A'}
+                  1PWR LESOTHO
                 </Typography>
               </Grid>
 
@@ -179,6 +211,17 @@ export const ArchiveView = () => {
                   {archivePR.site || 'N/A'}
                 </Typography>
               </Grid>
+
+              {archivePR.entity && (
+                <Grid item xs={6}>
+                  <Typography variant="caption" color="text.secondary">
+                    Paying Entity
+                  </Typography>
+                  <Typography variant="body1">
+                    {archivePR.entity}
+                  </Typography>
+                </Grid>
+              )}
 
               <Grid item xs={6}>
                 <Typography variant="caption" color="text.secondary">
@@ -266,7 +309,7 @@ export const ArchiveView = () => {
         </Grid>
 
         {/* Vendor Information */}
-        {archivePR.vendor && (
+        {(archivePR.vendorName || archivePR.vendor) && (
           <Grid item xs={12} md={6}>
             <Paper sx={{ p: 3 }}>
               <Typography variant="h6" gutterBottom>
@@ -274,8 +317,91 @@ export const ArchiveView = () => {
               </Typography>
               <Divider sx={{ mb: 2 }} />
               <Typography variant="body1">
-                {archivePR.vendor}
+                {archivePR.vendorName || archivePR.vendor}
               </Typography>
+              {archivePR.vendorCode && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Vendor Code: {archivePR.vendorCode}
+                </Typography>
+              )}
+            </Paper>
+          </Grid>
+        )}
+
+        {/* Operational Details */}
+        {hasOperationalDetails && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Operational Details
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <Grid container spacing={2}>
+                {archivePR.urgent && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Urgent Issue
+                    </Typography>
+                    <Typography variant="body1">
+                      {archivePR.urgent}
+                    </Typography>
+                  </Grid>
+                )}
+
+                {archivePR.budgetApproval && (
+                  <Grid item xs={12} md={6}>
+                    <Typography variant="caption" color="text.secondary">
+                      Monthly Budget Approval
+                    </Typography>
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {archivePR.budgetApproval}
+                    </Typography>
+                  </Grid>
+                )}
+
+                {archivePR.otherInfo && (
+                  <Grid item xs={12}>
+                    <Typography variant="caption" color="text.secondary">
+                      Additional Information
+                    </Typography>
+                    <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
+                      {archivePR.otherInfo}
+                    </Typography>
+                  </Grid>
+                )}
+
+                {archivePR.attachments?.length ? (
+                  <Grid item xs={12}>
+                    <Typography variant="caption" color="text.secondary">
+                      Attachments / References
+                    </Typography>
+                    <Stack spacing={1} sx={{ mt: 1 }}>
+                      {archivePR.attachments.map((attachment, index) => {
+                        const isUrl = /^https?:\/\//i.test(attachment);
+                        const label = attachment || `Attachment ${index + 1}`;
+                        return isUrl ? (
+                          <Link
+                            key={`${attachment}-${index}`}
+                            href={attachment}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                          >
+                            {label}
+                          </Link>
+                        ) : (
+                          <Typography
+                            key={`${attachment}-${index}`}
+                            variant="body1"
+                            sx={{ wordBreak: 'break-word' }}
+                          >
+                            {label}
+                          </Typography>
+                        );
+                      })}
+                    </Stack>
+                  </Grid>
+                ) : null}
+              </Grid>
             </Paper>
           </Grid>
         )}
@@ -295,20 +421,6 @@ export const ArchiveView = () => {
           </Grid>
         )}
 
-        {/* Notes */}
-        {archivePR.notes && (
-          <Grid item xs={12}>
-            <Paper sx={{ p: 3 }}>
-              <Typography variant="h6" gutterBottom>
-                Additional Notes
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-                {archivePR.notes}
-              </Typography>
-            </Paper>
-          </Grid>
-        )}
 
         {/* Import Metadata */}
         <Grid item xs={12}>

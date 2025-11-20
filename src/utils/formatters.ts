@@ -1,6 +1,28 @@
 import { Timestamp } from 'firebase/firestore';
 
+function normalizeCurrencyCode(rawCurrency?: string): string {
+  if (!rawCurrency) {
+    return 'LSL';
+  }
+
+  // Remove anything after a slash or whitespace (e.g., "ZAR/LSL" -> "ZAR")
+  const cleaned = rawCurrency
+    .trim()
+    .toUpperCase()
+    .split(/[\/\s]/)[0]
+    .replace(/[^A-Z]/g, '');
+
+  // Fallback to LSL if we don't end up with a valid ISO 4217 style code
+  if (!cleaned || cleaned.length !== 3) {
+    return 'LSL';
+  }
+
+  return cleaned;
+}
+
 export function formatCurrency(amount: number, currency: string = 'LSL', withSymbol: boolean = true): string {
+  const normalizedCurrency = normalizeCurrencyCode(currency);
+
   if (!withSymbol) {
     return new Intl.NumberFormat('en-US', {
       minimumFractionDigits: 2,
@@ -9,7 +31,7 @@ export function formatCurrency(amount: number, currency: string = 'LSL', withSym
   }
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: currency || 'LSL'
+    currency: normalizedCurrency
   }).format(amount);
 }
 
