@@ -7,6 +7,8 @@ export const PERMISSION_LEVELS = {
   FIN_AD: 4,
   REQ: 5,
   FIN_APPROVER: 6,
+  SITE_MANAGER: 7,
+  USER_ADMIN: 8,
 } as const;
 
 export const REFERENCE_DATA_TYPES = {
@@ -31,7 +33,41 @@ export const PERMISSION_NAMES = {
   [PERMISSION_LEVELS.FIN_AD]: 'Finance Admin',
   [PERMISSION_LEVELS.REQ]: 'Requester',
   [PERMISSION_LEVELS.FIN_APPROVER]: 'Finance Approver',
+  [PERMISSION_LEVELS.SITE_MANAGER]: 'Site Manager',
+  [PERMISSION_LEVELS.USER_ADMIN]: 'User Administrator',
 } as const;
+
+export const PERMISSION_DESCRIPTIONS: Record<number, string> = {
+  [PERMISSION_LEVELS.ADMIN]:
+    'Full system access including organizations, reference data, users, and all PR actions.',
+  [PERMISSION_LEVELS.APPROVER]:
+    'Can approve purchase requests, view admin area in read-only mode, and review reports.',
+  [PERMISSION_LEVELS.PROC]:
+    'Procurement officer – can process PRs, manage vendor interactions, and update procurement statuses.',
+  [PERMISSION_LEVELS.FIN_AD]:
+    'Finance admin – can process finance steps, manage payouts, and approve finance-related PR steps.',
+  [PERMISSION_LEVELS.REQ]:
+    'Requester – can create, view, and follow their own PRs.',
+  [PERMISSION_LEVELS.FIN_APPROVER]:
+    'Finance approver – can approve high value PRs and monitor finance queues.',
+  [PERMISSION_LEVELS.SITE_MANAGER]:
+    'Site manager – can submit and monitor PRs for specific sites and view site-level dashboards.',
+  [PERMISSION_LEVELS.USER_ADMIN]:
+    'User administrator – can view the admin area, manage user accounts (except super administrators), and reset passwords.',
+};
+
+export function getPermissionInfo(level?: number) {
+  if (!level) {
+    return {
+      name: 'Unknown',
+      description: 'No permission information available.',
+    };
+  }
+  const name = PERMISSION_NAMES[level as keyof typeof PERMISSION_NAMES] || `Level ${level}`;
+  const description = PERMISSION_DESCRIPTIONS[level] || 'Custom permission configuration.';
+
+  return { name, description };
+}
 
 export interface ReferenceDataAccess {
   canEdit: boolean;

@@ -12,11 +12,16 @@ import {
   Box,
   Snackbar,
   Alert,
+  Chip,
+  Divider,
+  Tooltip,
 } from '@mui/material';
+import { getPermissionInfo } from '@/config/permissions';
 
 export function UserProfile() {
   const dispatch = useDispatch();
   const user = useSelector((state: RootState) => state.auth.user);
+  const permissionInfo = getPermissionInfo(user?.permissionLevel);
   
   const [isEditing, setIsEditing] = useState(false);
   const [snackbar, setSnackbar] = useState<{
@@ -104,6 +109,39 @@ export function UserProfile() {
       <Typography variant="h5" gutterBottom>
         Profile Management
       </Typography>
+      <Box
+        sx={{
+          p: 2,
+          mb: 3,
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: 'background.paper',
+        }}
+      >
+        <Typography variant="subtitle1" gutterBottom>
+          Access Level
+        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Chip
+            color="primary"
+            label={
+              user?.permissionLevel
+                ? `Level ${user.permissionLevel}: ${permissionInfo.name}`
+                : 'Permission level unavailable'
+            }
+          />
+          <Tooltip title="Permission levels determine which parts of the system you can use.">
+            <Typography variant="body2" color="text.secondary">
+              Read only
+            </Typography>
+          </Tooltip>
+        </Box>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          {permissionInfo.description}
+        </Typography>
+      </Box>
+      <Divider sx={{ mb: 3 }} />
       <form onSubmit={handleSubmit}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
