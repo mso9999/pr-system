@@ -1331,7 +1331,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                     Notify Finance for Payment
                   </Button>
                 )}
-                {isFinanceAdmin && (
+                {(isFinanceAdmin || isFinanceApprover) && (
                   <Button
                     variant="outlined"
                     startIcon={<SendIcon />}
