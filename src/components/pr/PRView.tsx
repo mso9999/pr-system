@@ -1514,17 +1514,22 @@ export function PRView() {
                 />
               </Grid>
               
-              {/* Payment Type (available from IN_QUEUE onwards) */}
+              {/* Payment Type (available from IN_QUEUE onwards, including REVISION_REQUIRED) */}
               {pr && (pr.status === PRStatus.IN_QUEUE || 
                       pr.status === PRStatus.PENDING_APPROVAL || 
                       pr.status === PRStatus.APPROVED || 
                       pr.status === PRStatus.ORDERED || 
                       pr.status === PRStatus.COMPLETED || 
-                      pr.status === PRStatus.CANCELED) && (
+                      pr.status === PRStatus.CANCELED ||
+                      pr.status === PRStatus.REVISION_REQUIRED) && (
                 <Grid item xs={6}>
                   <FormControl 
                     fullWidth 
-                    disabled={!isEditMode || (!isProcurement && pr.status !== PRStatus.PENDING_APPROVAL)}
+                    disabled={!isEditMode || (
+                      pr.status === PRStatus.REVISION_REQUIRED
+                        ? (!isProcurement && !isAdmin) // In R&R: only procurement and admin can edit
+                        : (!isProcurement && !isAdmin && pr.status !== PRStatus.PENDING_APPROVAL) // Other statuses: procurement/admin can edit, or anyone in PENDING_APPROVAL
+                    )}
                   >
                     <InputLabel>Payment Type</InputLabel>
                     <Select
@@ -1567,7 +1572,11 @@ export function PRView() {
               <Grid item xs={6}>
                 <FormControl 
                   fullWidth 
-                  disabled={!isEditMode || (!isProcurement && !isRequestor) || isLockedInApprovedStatus('approver')}
+                  disabled={!isEditMode || (
+                    pr?.status === PRStatus.REVISION_REQUIRED 
+                      ? (!isProcurement && !isAdmin) // In R&R: only procurement and admin can edit
+                      : (!isProcurement && !isRequestor && !isAdmin) // Other statuses: procurement, requestor, or admin
+                  ) || isLockedInApprovedStatus('approver')}
                   error={!!approverAmountError}
                 >
                   <InputLabel>{t('pr.approver')}</InputLabel>
@@ -1613,7 +1622,11 @@ export function PRView() {
                   <Grid item xs={6}>
                     <FormControl 
                       fullWidth 
-                      disabled={!isEditMode || (!isProcurement && !isRequestor) || isLockedInApprovedStatus('approver2')}
+                      disabled={!isEditMode || (
+                        pr?.status === PRStatus.REVISION_REQUIRED 
+                          ? (!isProcurement && !isAdmin) // In R&R: only procurement and admin can edit
+                          : (!isProcurement && !isRequestor && !isAdmin) // Other statuses: procurement, requestor, or admin
+                      ) || isLockedInApprovedStatus('approver2')}
                     >
                       <InputLabel>{t('pr.secondApprover')}</InputLabel>
                       <Select
