@@ -57,19 +57,28 @@ export const OrganizationSelector = ({ value, onChange, error, helperText }: Org
           return;
         }
         
-        // Filter organizations based on user role
+        // Filter organizations based on user role and permission level
         let filteredOrgs;
         if (!user) {
           filteredOrgs = [];
-        } else if (
-          user.role === 'ADMIN' || 
-          user.role === 'FINANCE_ADMIN' || 
-          user.role === 'PROCUREMENT'
-        ) {
-          // Admin, Finance Admin, and Procurement see all orgs
-          filteredOrgs = allOrgs;
         } else {
-          // Approvers and Requestors see their primary org and additional orgs
+          // Normalize permission level to number
+          const permissionLevel = typeof user.permissionLevel === 'number' 
+            ? user.permissionLevel 
+            : Number(user.permissionLevel) || 0;
+          
+          // Superadmin (level 1), Admin role, Finance Admin (level 4), and Procurement (level 3) see all orgs
+          if (
+            permissionLevel === 1 || // Superadmin
+            user.role === 'ADMIN' || 
+            user.role === 'FINANCE_ADMIN' || 
+            user.role === 'PROCUREMENT' ||
+            permissionLevel === 3 || // Procurement
+            permissionLevel === 4    // Finance Admin
+          ) {
+            filteredOrgs = allOrgs;
+          } else {
+            // Approvers and Requestors see their primary org and additional orgs
           const userOrgNames = [
             user.organization,
             ...(user.additionalOrganizations || [])
@@ -97,6 +106,7 @@ export const OrganizationSelector = ({ value, onChange, error, helperText }: Org
           if (filteredOrgs.length === 0) {
             console.error('User has no matching organizations');
             setInternalError('No organizations available for your account');
+          }
           }
         }
         

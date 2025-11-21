@@ -234,6 +234,12 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             return;
           }
 
+          // Validate Payment Type is set before moving to PENDING_APPROVAL
+          if (!pr.paymentType || pr.paymentType.trim() === '') {
+            setError('Payment Type is required before moving to PENDING_APPROVAL. Please set the Payment Type field in the PR details.');
+            return;
+          }
+
           // Determine if dual approval is required (above Rule 3 threshold - high-value PRs)
           // Rule 3 is the high-value threshold that triggers dual approval requirement (Rule 5)
           const rule3 = rules?.find((r: Rule) => (r as any).number === 3 || (r as any).number === '3');

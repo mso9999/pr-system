@@ -77,6 +77,9 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelJustification, setCancelJustification] = useState('');
   const [cancelLoading, setCancelLoading] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectJustification, setRejectJustification] = useState('');
+  const [rejectLoading, setRejectLoading] = useState(false);
   
   // Final price variance override dialog
   const [finalPriceVarianceDialog, setFinalPriceVarianceDialog] = useState(false);
@@ -132,12 +135,16 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     setFinalPriceNotes(pr.finalPriceVarianceNotes || '');
   }, [pr]);
 
-  // Permission checks
-  const isProcurement = currentUser.permissionLevel === 3;
-  const isFinanceAdmin = currentUser.permissionLevel === 4;
-  const isFinanceApprover = currentUser.permissionLevel === 6;
-  const isAdminApprover = currentUser.permissionLevel === 2;
-  const isAdmin = currentUser.permissionLevel === 1;
+  // Permission checks (normalize permissionLevel to number in case it's stored as string)
+  const permissionLevel = typeof currentUser.permissionLevel === 'number'
+    ? currentUser.permissionLevel
+    : Number(currentUser.permissionLevel ?? 0);
+
+  const isProcurement = permissionLevel === 3;
+  const isFinanceAdmin = permissionLevel === 4;
+  const isFinanceApprover = permissionLevel === 6;
+  const isAdminApprover = permissionLevel === 2;
+  const isAdmin = permissionLevel === 1;
   const canCancelPO = isAdmin || isAdminApprover || isFinanceAdmin || isFinanceApprover;
   const canTakeAction = isProcurement || isFinanceAdmin || isFinanceApprover || isAdmin;
 
@@ -804,6 +811,46 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     }
   };
 
+  const handleRejectPO = async () => {
+    if (!rejectJustification.trim()) {
+      enqueueSnackbar('Rejection notes are required.', { variant: 'error' });
+      return;
+    }
+
+    try {
+      setRejectLoading(true);
+      await prService.updatePRStatus(
+        pr.id,
+        PRStatus.REJECTED,
+        `PO rejected: ${rejectJustification.trim()}`,
+        {
+          id: currentUser.id,
+          email: currentUser.email,
+          name: currentUser.name || currentUser.email,
+        }
+      );
+
+      await notificationService.handleStatusChange(
+        pr.id,
+        pr.status,
+        PRStatus.REJECTED,
+        currentUser,
+        `PO rejected with notes: ${rejectJustification.trim()}`
+      );
+
+      enqueueSnackbar('PO rejected successfully.', { variant: 'success' });
+      setRejectDialogOpen(false);
+      setRejectJustification('');
+      await onStatusChange();
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error rejecting PO:', error);
+      enqueueSnackbar('Failed to reject PO.', { variant: 'error' });
+    } finally {
+      setRejectLoading(false);
+    }
+  };
+
   // Auto-generate PO document and save as file (called during APPROVED -> ORDERED transition)
   const autoGeneratePODocument = async () => {
     console.log('[Auto PO Generation] Starting automatic PO document generation...');
@@ -1369,6 +1416,17 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                   {t('pr.cancelPO', 'Cancel PO')}
                 </Button>
               )}
+              {canRejectPO && (
+                <Button
+                  variant="outlined"
+                  color="error"
+                  size="large"
+                  fullWidth
+                  onClick={() => setRejectDialogOpen(true)}
+                >
+                  Reject PO
+                </Button>
+              )}
             </Stack>
           </Grid>
         </Grid>
@@ -1531,6 +1589,39 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
             disabled={cancelLoading || !cancelJustification.trim()}
           >
             {cancelLoading ? t('common.processing', 'Processing...') : t('pr.confirmCancelPO', 'Cancel PO')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Reject PO Dialog */}
+      <Dialog open={rejectDialogOpen} onClose={() => setRejectDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Reject Purchase Order</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" paragraph>
+            Provide notes to reject this PO. This will move the request to REJECTED status.
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            minRows={4}
+            label="Rejection Notes"
+            value={rejectJustification}
+            onChange={(e) => setRejectJustification(e.target.value)}
+            placeholder="Explain why this PO should be rejected."
+            required
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRejectDialogOpen(false)} disabled={rejectLoading}>
+            Keep PO Open
+          </Button>
+          <Button
+            onClick={handleRejectPO}
+            variant="contained"
+            color="error"
+            disabled={rejectLoading || !rejectJustification.trim()}
+          >
+            {rejectLoading ? 'Processing...' : 'Reject PO'}
           </Button>
         </DialogActions>
       </Dialog>

@@ -1,7 +1,7 @@
 # Payment Type Feature - Implementation Summary
 
 ## Overview
-Added a payment type dropdown field that appears from IN_QUEUE status onwards, linked to reference data. Procurement can set payment type starting at IN_QUEUE status.
+Added a payment type dropdown field that appears from IN_QUEUE status onwards, linked to reference data. Procurement can set payment type starting at IN_QUEUE status. **Payment Type is now REQUIRED before moving from IN_QUEUE to PENDING_APPROVAL status.**
 
 ## Changes Made
 
@@ -26,7 +26,12 @@ Added a payment type dropdown field that appears from IN_QUEUE status onwards, l
   - **Options:** Populated from reference data, shows only active payment types
   - **Helper text:** Shows "Please select payment type" when not selected
 
-### 4. Seed Script (`src/scripts/seedPaymentTypes.ts`)
+### 4. Payment Type Enforcement (`src/components/pr/ProcurementActions.tsx`)
+- **Added validation** to prevent moving from IN_QUEUE to PENDING_APPROVAL without setting Payment Type
+- Error message: "Payment Type is required before moving to PENDING_APPROVAL. Please set the Payment Type field in the PR details."
+- This ensures all POs have a payment type before approval workflow begins
+
+### 5. Seed Script (`src/scripts/seedPaymentTypes.ts`)
 - Created new seed script to populate initial payment types
 - Pre-populated with:
   - **Cash**
@@ -36,10 +41,10 @@ Added a payment type dropdown field that appears from IN_QUEUE status onwards, l
   - **Bank Transfer** (bonus)
 - Added npm script: `npm run seed-payment-types`
 
-### 5. Package.json
+### 6. Package.json
 - Added `"seed-payment-types": "tsx src/scripts/seedPaymentTypes.ts"` script
 
-### 6. Bug Fixes (Previously Requested)
+### 7. Bug Fixes (Previously Requested)
 - **Fixed Firestore composite filter query issue** (`src/services/pr.ts`):
   - Added `and` import from firebase/firestore
   - Properly wrapped `or()` filter with `and()` when organization filter is present
@@ -147,6 +152,8 @@ If you prefer to manually add payment types via Firebase Console:
 - [ ] Non-procurement users cannot edit payment type in IN_QUEUE
 - [ ] Payment type persists after saving
 - [ ] Payment type displays correctly in view mode
+- [ ] **Payment Type is REQUIRED before moving from IN_QUEUE to PENDING_APPROVAL** ✅
+- [ ] Error message appears if trying to push to approver without payment type
 - [ ] PR submission works without Firestore query errors
 - [ ] admin@1pwrafrica.com receives notifications for APPROVED and later statuses
 
