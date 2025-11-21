@@ -24,6 +24,9 @@ import {
   IconButton,
   Tooltip,
   Link,
+  FormControlLabel,
+  Checkbox,
+  Alert,
 } from '@mui/material';
 import { FormState } from '../NewPRForm';
 import { ReferenceDataItem } from '../../../types/referenceData';
@@ -48,6 +51,7 @@ interface ReviewStepProps {
   approvers: Approver[];
   loading: boolean;
   onSubmit: () => void;
+  rules?: any[]; // Rules for validation
 }
 
 export const ReviewStep: React.FC<ReviewStepProps> = ({
@@ -58,7 +62,8 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
   sites,
   approvers,
   loading,
-  onSubmit
+  onSubmit,
+  rules = []
 }) => {
   // Get approver names for display
   const getApproverNames = () => {
@@ -284,6 +289,54 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
               </TableBody>
             </Table>
           </TableContainer>
+        </Paper>
+      </Grid>
+
+      {/* Skip Queue Option */}
+      <Grid item xs={12}>
+        <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
+          <FormControlLabel
+            control={
+              <Checkbox
+                checked={formState.skipQueue || false}
+                onChange={(e) => {
+                  if (setFormState) {
+                    setFormState(prev => ({ ...prev, skipQueue: e.target.checked }));
+                  }
+                }}
+              />
+            }
+            label="Skip Queue - Push directly to Pending Approval"
+          />
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, ml: 4 }}>
+            This option allows you to skip the IN_QUEUE status and send the PR directly to approvers.
+            Only available for PRs below Rule 1 threshold.
+          </Typography>
+          {formState.skipQueue && (() => {
+            // Check if amount is below Rule 1 threshold
+            const rule1 = rules.find((rule: any) => 
+              rule.number === 1 || rule.number === '1' || 
+              rule.description?.toLowerCase().includes('finance admin approvers can approve low value')
+            );
+            const amount = typeof formState.estimatedAmount === 'number' 
+              ? formState.estimatedAmount 
+              : parseFloat(formState.estimatedAmount) || 0;
+            const isAboveThreshold = rule1 && amount > rule1.threshold;
+            
+            if (isAboveThreshold) {
+              return (
+                <Alert severity="error" sx={{ mt: 2, ml: 4 }}>
+                  Cannot skip queue: Amount ({amount} {formState.currency}) exceeds Rule 1 threshold ({rule1.threshold} {rule1.currency}).
+                  Only PRs below this threshold can skip the queue.
+                </Alert>
+              );
+            }
+            return (
+              <Alert severity="info" sx={{ mt: 2, ml: 4 }}>
+                This PR will be sent directly to approvers, skipping the procurement queue.
+              </Alert>
+            );
+          })()}
         </Paper>
       </Grid>
 

@@ -136,6 +136,7 @@ export interface FormState {
   lineItems: LineItem[];
   quotes: Quote[];
   isUrgent: boolean;
+  skipQueue?: boolean; // Skip IN_QUEUE and go directly to PENDING_APPROVAL
 }
 
 // Business rule thresholds - DEFAULT VALUES ONLY
@@ -230,7 +231,8 @@ export const NewPRForm = () => {
     customVendorName: undefined,
     lineItems: [],
     quotes: [], // Keep this for compatibility with PR View
-    isUrgent: false
+    isUrgent: false,
+    skipQueue: false
   }), [user]);
 
   // Form state
@@ -448,6 +450,7 @@ export const NewPRForm = () => {
       approvers={availableApprovers}
       loading={isLoading}
       onSubmit={handleSubmit}
+      rules={rules}
     />
   );
 
@@ -940,6 +943,29 @@ export const NewPRForm = () => {
         return;
       }
 
+      // Validate skipQueue option - must be below Rule 1 threshold
+      if (formState.skipQueue) {
+        // Get Rule 1 threshold
+        const rules = await referenceDataService.getRules(formState.organization?.name || '');
+        const rule1 = rules.find((rule: any) => 
+          rule.number === 1 || rule.number === '1' || 
+          rule.description?.toLowerCase().includes('finance admin approvers can approve low value')
+        );
+        
+        if (rule1 && amount > rule1.threshold) {
+          enqueueSnackbar(
+            `Cannot skip queue: Amount (${amount} ${formState.currency}) exceeds Rule 1 threshold (${rule1.threshold} ${rule1.currency}). Only PRs below this threshold can skip the queue.`,
+            { variant: 'error', autoHideDuration: 8000 }
+          );
+          setIsSubmitting(false);
+          isSubmittingRef.current = false;
+          return;
+        }
+      }
+
+      // Determine initial status based on skipQueue option
+      const initialStatus = formState.skipQueue ? PRStatus.PENDING_APPROVAL : PRStatus.SUBMITTED;
+
       // Prepare PR data with proper type conversions
       const prData = {
         requestorId: user.id,
@@ -960,7 +986,7 @@ export const NewPRForm = () => {
         estimatedAmount: amount,
         currency: formState.currency,
         requiredDate: formState.requiredDate,
-        status: PRStatus.SUBMITTED,
+        status: initialStatus,
         isUrgent: formState.isUrgent,
         lineItems: formState.lineItems.map(item => ({
           description: item.description,

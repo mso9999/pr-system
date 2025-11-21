@@ -26,7 +26,8 @@
     "test": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:emails": "tsx src/scripts/testEmails.ts",
-    "test:mock-emails": "tsx src/scripts/mockTestEmails.ts"
+    "test:mock-emails": "tsx src/scripts/mockTestEmails.ts",
+    "delete-test-pr": "tsx src/scripts/deleteTestPR.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
