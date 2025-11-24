@@ -249,6 +249,36 @@ class ReferenceDataService {
       return this.handleError(error, 'getting vendor by ID');
     }
   }
+
+  async getRules(organization?: string | OrganizationData): Promise<ReferenceData[]> {
+    try {
+      const rulesCollection = collection(this.db, 'referenceData_rules');
+      let q = rulesCollection;
+
+      if (organization) {
+        const normalizedOrgId = this.normalizeOrganizationId(organization);
+        if (normalizedOrgId) {
+          q = query(
+            rulesCollection,
+            where('organizationId', '==', normalizedOrgId)
+          ) as any;
+        }
+      }
+
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        console.warn('[ReferenceDataService] No rules found for organization:', organization);
+        return [];
+      }
+
+      return snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ReferenceData[];
+    } catch (error) {
+      return this.handleError(error, 'getting rules');
+    }
+  }
 }
 
 export const referenceDataService = new ReferenceDataService();

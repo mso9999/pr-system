@@ -5,70 +5,76 @@
  * Usage:
  *   npm run delete-test-pr
  * 
- * Requires FIREBASE_AUTH_EMAIL and FIREBASE_AUTH_PASSWORD in .env file
- * Or set them as environment variables
+ * Requires FIREBASE_SERVICE_ACCOUNT_KEY environment variable or firebase-service-account.json file
  */
 
 import { config } from 'dotenv';
-import { initializeApp, getApps } from 'firebase/app';
-import { getFirestore, doc, getDoc, deleteDoc } from 'firebase/firestore';
-import { getAuth, signInWithEmailAndPassword } from 'firebase/auth';
+import * as admin from 'firebase-admin';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
 // Load environment variables from .env file
 config();
 
-// Firebase configuration
-const firebaseConfig = {
-  apiKey: process.env.VITE_FIREBASE_API_KEY || 'AIzaSyD0tA1fvWs5dCr-7JqJv_bxlay2Bhs72jQ',
-  authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN || 'pr-system-4ea55.firebaseapp.com',
-  projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'pr-system-4ea55',
-  storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET || 'pr-system-4ea55.firebasestorage.app',
-  messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '562987209098',
-  appId: process.env.VITE_FIREBASE_APP_ID || '1:562987209098:web:2f788d189f1c0867cb3873',
-};
-
-// Initialize Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
 const PR_COLLECTION = 'purchaseRequests';
 const PR_ID = 'H3cQplynU4vKuTJ6qAvs';
 
 async function deleteTestPR() {
   try {
-    // Authenticate with Firebase
-    const auth = getAuth(app);
-    const email = process.env.FIREBASE_AUTH_EMAIL || process.env.VITE_TEST_EMAIL;
-    const password = process.env.FIREBASE_AUTH_PASSWORD || process.env.VITE_TEST_PASSWORD;
+    // Initialize Firebase Admin SDK
+    let serviceAccount;
+    const serviceAccountKey = process.env.FIREBASE_SERVICE_ACCOUNT_KEY;
     
-    if (!email || !password) {
-      console.error('❌ Authentication credentials not found.');
-      console.log('\nPlease set one of the following in your .env file:');
-      console.log('  FIREBASE_AUTH_EMAIL=your-email@1pwrafrica.com');
-      console.log('  FIREBASE_AUTH_PASSWORD=your-password');
-      console.log('\nOr use:');
-      console.log('  VITE_TEST_EMAIL=your-email@1pwrafrica.com');
-      console.log('  VITE_TEST_PASSWORD=your-password');
-      process.exit(1);
-    }
-    
-    console.log('🔐 Authenticating with Firebase...');
-    console.log(`   Email: ${email}`);
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      console.log('✅ Authentication successful');
-    } catch (authError: any) {
-      console.error('❌ Authentication failed:', authError.message);
-      console.log('\nPlease check your credentials in .env file.');
-      process.exit(1);
+      if (serviceAccountKey) {
+        try {
+          // Handle escaped newlines in the JSON string
+          // First, try parsing as-is (in case it's already valid JSON)
+          try {
+            serviceAccount = JSON.parse(serviceAccountKey);
+          } catch (firstError) {
+            // If that fails, try cleaning up escaped characters
+            const cleanedKey = serviceAccountKey
+              .replace(/\\n/g, '\n')
+              .replace(/\\"/g, '"')
+              .replace(/\\\\/g, '\\');
+            serviceAccount = JSON.parse(cleanedKey);
+          }
+        } catch (error) {
+          console.error('❌ Failed to parse FIREBASE_SERVICE_ACCOUNT_KEY from environment:', error);
+          process.exit(1);
+        }
+    } else {
+      // Try to read from file (for local development)
+      const serviceAccountPath = join(process.cwd(), 'firebase-service-account.json');
+      try {
+        serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+      } catch (error) {
+        // Try temp file as fallback
+        try {
+          serviceAccount = JSON.parse(readFileSync('/tmp/firebase-service-account.json', 'utf8'));
+        } catch (tempError) {
+          console.error('❌ Could not load service account. Please set FIREBASE_SERVICE_ACCOUNT_KEY or provide firebase-service-account.json');
+          process.exit(1);
+        }
+      }
     }
 
+    const app = initializeApp({
+      credential: cert(serviceAccount)
+    });
+    console.log('✅ Firebase Admin SDK initialized');
+
+    const db = getFirestore(app);
+    
     console.log(`\n🗑️  Attempting to delete PR: ${PR_ID}`);
     
     // First, check if the PR exists
-    const prRef = doc(db, PR_COLLECTION, PR_ID);
-    const prDoc = await getDoc(prRef);
+    const prRef = db.collection(PR_COLLECTION).doc(PR_ID);
+    const prDoc = await prRef.get();
     
-    if (!prDoc.exists()) {
+    if (!prDoc.exists) {
       console.log(`❌ PR ${PR_ID} not found in database.`);
       process.exit(1);
     }
@@ -83,7 +89,7 @@ async function deleteTestPR() {
     });
 
     // Delete the PR
-    await deleteDoc(prRef);
+    await prRef.delete();
     
     console.log(`\n✅ Successfully deleted PR ${PR_ID}`);
     console.log(`   PR Number: ${prData?.prNumber || 'N/A'}`);
@@ -94,8 +100,6 @@ async function deleteTestPR() {
     process.exit(1);
   }
 }
-
-deleteTestPR();
 
 deleteTestPR();
 
