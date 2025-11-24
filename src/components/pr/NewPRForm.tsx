@@ -945,8 +945,9 @@ export const NewPRForm = () => {
 
       // Validate skipQueue option - must be below Rule 1 threshold
       if (formState.skipQueue) {
-        // Get Rule 1 threshold
-        const rules = await referenceDataService.getRules(formState.organization?.name || '');
+        // Get Rule 1 threshold - use getItemsByType for consistency with rest of codebase
+        const orgId = formState.organization?.id || formState.organization?.name || '';
+        const rules = await referenceDataService.getItemsByType('rules', orgId);
         const rule1 = rules.find((rule: any) => 
           rule.number === 1 || rule.number === '1' || 
           rule.description?.toLowerCase().includes('finance admin approvers can approve low value')
