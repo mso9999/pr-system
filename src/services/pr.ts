@@ -139,6 +139,7 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       description: data.description,
       status: data.status as PRStatus,
       expenseType: data.expenseType,
+      paymentType: data.paymentType || undefined,
       estimatedAmount: data.estimatedAmount || 0,
       currency: data.currency,
       totalAmount: data.totalAmount || 0,
