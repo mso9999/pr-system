@@ -533,6 +533,8 @@ A dialog appears showing:
 
 Once line items are ready (via manual entry OR bulk upload):
 
+> **Availability:** Procurement officers (Permission Level 3) can open the RFQ / bulk line-item tools while the PR is in **IN_QUEUE**, **PENDING_APPROVAL**, or **APPROVED** status. If the PR is outside these statuses (e.g., SUBMITTED, ORDERED), the section is hidden on purpose.
+
 1. Expand **"Request for Quotation (RFQ)"** section
 2. Verify line items are complete
 3. Click **"Generate RFQ"** button

@@ -454,6 +454,13 @@ export function PRView() {
   const [lineItems, setLineItems] = useState<Array<ExtendedLineItem>>([]);
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isProcurement = currentUser?.permissionLevel === 3; // Level 3 = Procurement Officer
+  const bulkImportAllowedStatuses = new Set<PRStatus>([
+    PRStatus.IN_QUEUE,
+    PRStatus.PENDING_APPROVAL,
+    PRStatus.APPROVED,
+  ]);
+  const canShowBulkImportTools =
+    Boolean(isProcurement && pr?.status && bulkImportAllowedStatuses.has(pr.status as PRStatus));
   const isAdmin = currentUser?.permissionLevel === 1 || currentUser?.role === 'admin'; // Level 1 = Admin
   const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
   const canProcessPR = isProcurement || (isRequestor && (
@@ -1265,8 +1272,8 @@ export function PRView() {
       
       enqueueSnackbar('PR saved successfully', { variant: 'success' });
       
-      // Navigate back to dashboard after successful save
-      navigate('/dashboard');
+      // Return to the PR detail view after save so editors can keep context
+      navigate(`/pr/${pr.id}`);
     } catch (error) {
       console.error('Error saving PR:', error);
       enqueueSnackbar('Failed to save PR', { variant: 'error' });
@@ -2432,8 +2439,8 @@ export function PRView() {
         </Box>
       )}
 
-      {/* IN_QUEUE Status Actions (Generate RFQ) */}
-      {pr?.status === PRStatus.IN_QUEUE && currentUser && (
+      {/* Procurement line item tools (bulk import / RFQ) */}
+      {canShowBulkImportTools && currentUser && pr && (
         <Box sx={{ mb: 3 }}>
           <InQueueStatusActions
             pr={pr}
