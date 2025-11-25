@@ -138,8 +138,35 @@ export const Dashboard = () => {
       console.log('Dashboard: Loading data for user:', { userId, organization: selectedOrg, showOnlyMyPRs });
       try {
         setIsLoading(true);
-        const prs = await getUserPRs(userId, selectedOrg.name, showOnlyMyPRs);
-        dispatch(setUserPRs(prs));
+        const primaryPRs = await getUserPRs(userId, selectedOrg.name, showOnlyMyPRs);
+        let combinedPRs = [...primaryPRs];
+
+        // Some legacy PRs may store the normalized organization ID instead of the display name.
+        // Fetch by organization ID as well to ensure nothing falls out of the dashboard filters.
+        if (selectedOrg.id && selectedOrg.id !== selectedOrg.name) {
+          try {
+            const secondaryPRs = await getUserPRs(userId, selectedOrg.id, showOnlyMyPRs);
+            if (secondaryPRs.length > 0) {
+              const existingIds = new Set(primaryPRs.map(pr => pr.id));
+              secondaryPRs.forEach(pr => {
+                if (!existingIds.has(pr.id)) {
+                  combinedPRs.push(pr);
+                }
+              });
+            }
+          } catch (secondaryError) {
+            console.error('Error loading PRs by organization ID, continuing with primary results:', secondaryError);
+          }
+        }
+
+        // Normalize ordering so merged lists remain consistent
+        combinedPRs = combinedPRs.sort((a, b) => {
+          const aDate = new Date(a.createdAt || a.updatedAt || 0).getTime();
+          const bDate = new Date(b.createdAt || b.updatedAt || 0).getTime();
+          return bDate - aDate;
+        });
+
+        dispatch(setUserPRs(combinedPRs));
       } catch (error) {
         console.error('Error loading PRs:', error);
         setError('Failed to load purchase requests. Please try again.');

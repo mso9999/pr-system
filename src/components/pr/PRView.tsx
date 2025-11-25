@@ -525,11 +525,12 @@ export function PRView() {
           const requestorData = await auth.getUserDetails(prData.requestorId);
           
           // Update PR with requestor data
-          setPr(prev => ({
+          setPr(prev => prev ? ({
             ...prev,
             requestor: requestorData,
-            organization: requestorData.organization || prev.organization
-          }));
+            // Preserve existing organization label; only fall back to requestor data if missing
+            organization: prev.organization || requestorData.organization || prev.organization
+          }) : prev);
         } catch (error) {
           console.error('Error loading requestor details:', error);
         }
