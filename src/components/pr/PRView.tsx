@@ -1742,7 +1742,7 @@ export function PRView() {
                 </Typography>
               </Grid>
               <Grid item xs={6}>
-                <Typography color="textSecondary">Time Since Submitted</Typography>
+                <Typography color="textSecondary">Time Since Submitted [DD_HH_MM]</Typography>
                 <Typography sx={{ fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 'bold', color: 'primary.main' }}>
                   {pr?.createdAt ? (() => {
                     const now = currentTime;
