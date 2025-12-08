@@ -2803,12 +2803,16 @@ export function PRView() {
                           {pr.proformaOverrideJustification || 'No justification provided'}
                         </Typography>
                       </Box>
-                      {(pr.proformaOverrideAt || pr.proformaOverrideBy) && (
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                          Override applied on {pr.proformaOverrideAt ? new Date(pr.proformaOverrideAt).toLocaleString() : 'unknown date'}
-                          {pr.proformaOverrideBy && ` by ${userNameCache[pr.proformaOverrideBy] || pr.proformaOverrideBy}`}
-                        </Typography>
-                      )}
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        {pr.proformaOverrideAt || pr.proformaOverrideBy ? (
+                          <>
+                            Override applied on {pr.proformaOverrideAt ? new Date(pr.proformaOverrideAt).toLocaleString() : 'unknown date'}
+                            {pr.proformaOverrideBy && ` by ${userNameCache[pr.proformaOverrideBy] || pr.proformaOverrideBy}`}
+                          </>
+                        ) : (
+                          'Override applied (date and user not recorded)'
+                        )}
+                      </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -2829,12 +2833,16 @@ export function PRView() {
                           {pr.popOverrideJustification || 'No justification provided'}
                         </Typography>
                       </Box>
-                      {(pr.popOverrideAt || pr.popOverrideBy) && (
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                          Override applied on {pr.popOverrideAt ? new Date(pr.popOverrideAt).toLocaleString() : 'unknown date'}
-                          {pr.popOverrideBy && ` by ${userNameCache[pr.popOverrideBy] || pr.popOverrideBy}`}
-                        </Typography>
-                      )}
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        {pr.popOverrideAt || pr.popOverrideBy ? (
+                          <>
+                            Override applied on {pr.popOverrideAt ? new Date(pr.popOverrideAt).toLocaleString() : 'unknown date'}
+                            {pr.popOverrideBy && ` by ${userNameCache[pr.popOverrideBy] || pr.popOverrideBy}`}
+                          </>
+                        ) : (
+                          'Override applied (date and user not recorded)'
+                        )}
+                      </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -2855,12 +2863,16 @@ export function PRView() {
                           {pr.poDocumentOverrideJustification || 'No justification provided'}
                         </Typography>
                       </Box>
-                      {(pr.poDocumentOverrideAt || pr.poDocumentOverrideBy) && (
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                          Override applied on {pr.poDocumentOverrideAt ? new Date(pr.poDocumentOverrideAt).toLocaleString() : 'unknown date'}
-                          {pr.poDocumentOverrideBy && ` by ${userNameCache[pr.poDocumentOverrideBy] || pr.poDocumentOverrideBy}`}
-                        </Typography>
-                      )}
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        {pr.poDocumentOverrideAt || pr.poDocumentOverrideBy ? (
+                          <>
+                            Override applied on {pr.poDocumentOverrideAt ? new Date(pr.poDocumentOverrideAt).toLocaleString() : 'unknown date'}
+                            {pr.poDocumentOverrideBy && ` by ${userNameCache[pr.poDocumentOverrideBy] || pr.poDocumentOverrideBy}`}
+                          </>
+                        ) : (
+                          'Override applied (date and user not recorded)'
+                        )}
+                      </Typography>
                     </CardContent>
                   </Card>
                 </Grid>
@@ -2888,12 +2900,16 @@ export function PRView() {
                           {pr.finalPriceVarianceOverrideJustification || 'No justification provided'}
                         </Typography>
                       </Box>
-                      {(pr.finalPriceVarianceOverrideAt || pr.finalPriceVarianceOverrideBy) && (
-                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                          Override applied on {pr.finalPriceVarianceOverrideAt ? new Date(pr.finalPriceVarianceOverrideAt).toLocaleString() : 'unknown date'}
-                          {pr.finalPriceVarianceOverrideBy && ` by ${userNameCache[pr.finalPriceVarianceOverrideBy] || pr.finalPriceVarianceOverrideBy}`}
-                        </Typography>
-                      )}
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                        {pr.finalPriceVarianceOverrideAt || pr.finalPriceVarianceOverrideBy ? (
+                          <>
+                            Override applied on {pr.finalPriceVarianceOverrideAt ? new Date(pr.finalPriceVarianceOverrideAt).toLocaleString() : 'unknown date'}
+                            {pr.finalPriceVarianceOverrideBy && ` by ${userNameCache[pr.finalPriceVarianceOverrideBy] || pr.finalPriceVarianceOverrideBy}`}
+                          </>
+                        ) : (
+                          'Override applied (date and user not recorded)'
+                        )}
+                      </Typography>
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                         ⚠️ This override has been flagged for management review (finalPriceRequiresApproval: {pr.finalPriceRequiresApproval ? 'Yes' : 'No'})
                       </Typography>
