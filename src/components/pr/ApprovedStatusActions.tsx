@@ -320,6 +320,8 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
       await prService.updatePR(pr.id, {
         proformaOverride: true,
         proformaOverrideJustification: proformaJustification,
+        proformaOverrideBy: currentUser?.id,
+        proformaOverrideAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
 
@@ -343,6 +345,8 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
       await prService.updatePR(pr.id, {
         popOverride: true,
         popOverrideJustification: popJustification,
+        popOverrideBy: currentUser?.id,
+        popOverrideAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
 
@@ -558,6 +562,8 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
       await prService.updatePR(pr.id, {
         poDocumentOverride: true,
         poDocumentOverrideJustification: poDocJustification,
+        poDocumentOverrideBy: currentUser?.id,
+        poDocumentOverrideAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
 
@@ -965,6 +971,8 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
       await prService.updatePR(pr.id, {
         finalPriceVarianceOverride: true,
         finalPriceVarianceOverrideJustification: finalPriceVarianceJustification,
+        finalPriceVarianceOverrideBy: currentUser?.id,
+        finalPriceVarianceOverrideAt: new Date().toISOString(),
         finalPriceRequiresApproval: true,
         updatedAt: new Date().toISOString()
       });

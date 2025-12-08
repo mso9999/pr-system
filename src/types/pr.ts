@@ -176,12 +176,20 @@ export interface PRRequest {
   proformaOverride?: boolean;
   /** Justification note if proforma override is set */
   proformaOverrideJustification?: string;
+  /** User who granted the proforma override */
+  proformaOverrideBy?: string;
+  /** Timestamp of proforma override */
+  proformaOverrideAt?: string;
   /** Uploaded proof of payment files (supports multiple) */
   proofOfPayment?: Attachment | Attachment[]; // Backward compatible: single or array
   /** Flag indicating PoP override is used */
   popOverride?: boolean;
   /** Justification note if PoP override is set */
   popOverrideJustification?: string;
+  /** User who granted the PoP override */
+  popOverrideBy?: string;
+  /** Timestamp of PoP override */
+  popOverrideAt?: string;
   
   // Final Price Fields (APPROVED Status)
   /** Final price from proforma invoice (entered by procurement) */
@@ -208,6 +216,10 @@ export interface PRRequest {
   finalPriceVarianceOverride?: boolean;
   /** Justification note if final price variance override is set */
   finalPriceVarianceOverrideJustification?: string;
+  /** User who granted the final price variance override */
+  finalPriceVarianceOverrideBy?: string;
+  /** Timestamp of final price variance override */
+  finalPriceVarianceOverrideAt?: string;
   
   /** Uploaded delivery note files (ORDERED status, supports multiple) */
   deliveryNote?: Attachment | Attachment[]; // Backward compatible: single or array
@@ -223,6 +235,10 @@ export interface PRRequest {
   poDocumentOverride?: boolean;
   /** Justification note if PO document override is set */
   poDocumentOverrideJustification?: string;
+  /** User who granted the PO document override */
+  poDocumentOverrideBy?: string;
+  /** Timestamp of PO document override */
+  poDocumentOverrideAt?: string;
   /** Expected delivery date (ETD) - required before ORDERED */
   estimatedDeliveryDate?: string;
   

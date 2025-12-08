@@ -502,6 +502,7 @@ export function PRView() {
   const [showRuleOverrideDialog, setShowRuleOverrideDialog] = React.useState(false);
   const [ruleOverrideJustification, setRuleOverrideJustification] = React.useState('');
   const [currentTime, setCurrentTime] = React.useState(Date.now());
+  const [userNameCache, setUserNameCache] = React.useState<Record<string, string>>({});
 
   // Fetch PR data
   const fetchPR = async () => {
@@ -613,6 +614,49 @@ export function PRView() {
       setLoadingReference(false);
     }
   };
+
+  // Helper function to get user name from user ID
+  const getUserName = React.useCallback(async (userId: string | undefined): Promise<string> => {
+    if (!userId) return 'Unknown User';
+    
+    // Check cache first
+    if (userNameCache[userId]) {
+      return userNameCache[userId];
+    }
+    
+    try {
+      const userData = await auth.getUserDetails(userId);
+      const userName = userData?.name || `${userData?.firstName || ''} ${userData?.lastName || ''}`.trim() || userData?.email || userId;
+      setUserNameCache(prev => ({ ...prev, [userId]: userName }));
+      return userName;
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      return userId; // Fallback to user ID if fetch fails
+    }
+  }, []);
+
+  // Load user names for all override fields when PR is loaded
+  React.useEffect(() => {
+    if (!pr) return;
+    
+    const loadOverrideUserNames = async () => {
+      const userIds = [
+        pr.quoteRequirementOverrideBy,
+        pr.proformaOverrideBy,
+        pr.popOverrideBy,
+        pr.poDocumentOverrideBy,
+        pr.finalPriceVarianceOverrideBy
+      ].filter(Boolean) as string[];
+      
+      for (const userId of userIds) {
+        if (!userNameCache[userId]) {
+          await getUserName(userId);
+        }
+      }
+    };
+    
+    loadOverrideUserNames();
+  }, [pr, getUserName]);
 
   // Function to refresh PR data
   const refreshPR = async () => {
@@ -2734,10 +2778,10 @@ export function PRView() {
                           {pr.quoteRequirementOverrideJustification}
                         </Typography>
                       </Box>
-                      {pr.quoteRequirementOverrideAt && (
+                      {(pr.quoteRequirementOverrideAt || pr.quoteRequirementOverrideBy) && (
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
-                          {t('pr.overrideApplied', { date: new Date(pr.quoteRequirementOverrideAt).toLocaleString() })}
-                          {pr.quoteRequirementOverrideBy && ` ${t('pr.overrideAppliedBy', { user: pr.quoteRequirementOverrideBy })}`}
+                          Override applied on {pr.quoteRequirementOverrideAt ? new Date(pr.quoteRequirementOverrideAt).toLocaleString() : 'unknown date'}
+                          {pr.quoteRequirementOverrideBy && ` by ${userNameCache[pr.quoteRequirementOverrideBy] || pr.quoteRequirementOverrideBy}`}
                         </Typography>
                       )}
                     </CardContent>
@@ -2751,9 +2795,20 @@ export function PRView() {
                       <Typography variant="subtitle2" color="warning.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
                         📄 Proforma Invoice Override
                       </Typography>
-                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
-                        <strong>Justification:</strong> {pr.proformaOverrideJustification || 'No justification provided'}
-                      </Typography>
+                      <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          <strong>Justification:</strong>
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                          {pr.proformaOverrideJustification || 'No justification provided'}
+                        </Typography>
+                      </Box>
+                      {(pr.proformaOverrideAt || pr.proformaOverrideBy) && (
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                          Override applied on {pr.proformaOverrideAt ? new Date(pr.proformaOverrideAt).toLocaleString() : 'unknown date'}
+                          {pr.proformaOverrideBy && ` by ${userNameCache[pr.proformaOverrideBy] || pr.proformaOverrideBy}`}
+                        </Typography>
+                      )}
                     </CardContent>
                   </Card>
                 </Grid>
@@ -2766,9 +2821,20 @@ export function PRView() {
                       <Typography variant="subtitle2" color="warning.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
                         💰 Proof of Payment Override
                       </Typography>
-                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
-                        <strong>Justification:</strong> {pr.popOverrideJustification || 'No justification provided'}
-                      </Typography>
+                      <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          <strong>Justification:</strong>
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                          {pr.popOverrideJustification || 'No justification provided'}
+                        </Typography>
+                      </Box>
+                      {(pr.popOverrideAt || pr.popOverrideBy) && (
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                          Override applied on {pr.popOverrideAt ? new Date(pr.popOverrideAt).toLocaleString() : 'unknown date'}
+                          {pr.popOverrideBy && ` by ${userNameCache[pr.popOverrideBy] || pr.popOverrideBy}`}
+                        </Typography>
+                      )}
                     </CardContent>
                   </Card>
                 </Grid>
@@ -2781,9 +2847,20 @@ export function PRView() {
                       <Typography variant="subtitle2" color="warning.dark" gutterBottom sx={{ fontWeight: 'bold' }}>
                         📋 PO Document Override (High-Value PR)
                       </Typography>
-                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
-                        <strong>Justification:</strong> {pr.poDocumentOverrideJustification || 'No justification provided'}
-                      </Typography>
+                      <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          <strong>Justification:</strong>
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                          {pr.poDocumentOverrideJustification || 'No justification provided'}
+                        </Typography>
+                      </Box>
+                      {(pr.poDocumentOverrideAt || pr.poDocumentOverrideBy) && (
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                          Override applied on {pr.poDocumentOverrideAt ? new Date(pr.poDocumentOverrideAt).toLocaleString() : 'unknown date'}
+                          {pr.poDocumentOverrideBy && ` by ${userNameCache[pr.poDocumentOverrideBy] || pr.poDocumentOverrideBy}`}
+                        </Typography>
+                      )}
                     </CardContent>
                   </Card>
                 </Grid>
@@ -2803,9 +2880,20 @@ export function PRView() {
                           → Final: {formatCurrency(pr.finalPrice || 0, pr.finalPriceCurrency || pr.currency || 'LSL')})
                         </Typography>
                       )}
-                      <Typography variant="body2" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
-                        <strong>Justification:</strong> {pr.finalPriceVarianceOverrideJustification || 'No justification provided'}
-                      </Typography>
+                      <Box sx={{ mt: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1 }}>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          <strong>Justification:</strong>
+                        </Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
+                          {pr.finalPriceVarianceOverrideJustification || 'No justification provided'}
+                        </Typography>
+                      </Box>
+                      {(pr.finalPriceVarianceOverrideAt || pr.finalPriceVarianceOverrideBy) && (
+                        <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 1 }}>
+                          Override applied on {pr.finalPriceVarianceOverrideAt ? new Date(pr.finalPriceVarianceOverrideAt).toLocaleString() : 'unknown date'}
+                          {pr.finalPriceVarianceOverrideBy && ` by ${userNameCache[pr.finalPriceVarianceOverrideBy] || pr.finalPriceVarianceOverrideBy}`}
+                        </Typography>
+                      )}
                       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 1 }}>
                         ⚠️ This override has been flagged for management review (finalPriceRequiresApproval: {pr.finalPriceRequiresApproval ? 'Yes' : 'No'})
                       </Typography>
