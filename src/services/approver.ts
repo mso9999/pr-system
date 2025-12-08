@@ -1,5 +1,6 @@
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { User } from '../types/user';
+import { normalizeOrganizationId } from '@/utils/organization';
 
 interface Approver {
   id: string;
@@ -7,18 +8,15 @@ interface Approver {
   email: string;
   permissionLevel: number;  // 1 for global, 2 for organization
   organization?: string;  // Only for Level 2 approvers
+  additionalOrganizations?: string[];
+  normalizedOrganization?: string;
+  normalizedAdditionalOrganizations?: string[];
   department?: string;
   isActive: boolean;
 }
 
 class ApproverService {
   private db = getFirestore();
-
-  private normalizeOrganizationId(orgId: string | { id: string; name: string }): string {
-    if (!orgId) return '';
-    const id = typeof orgId === 'string' ? orgId : orgId.id;
-    return id.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  }
 
   async getActiveApprovers(): Promise<Approver[]> {
     try {
@@ -61,35 +59,54 @@ class ApproverService {
       const querySnapshot = await getDocs(q);
       
       // Filter and map users to approvers
+      const normalizedTargetOrgId = normalizeOrganizationId(organizationId);
+
       const approvers = querySnapshot.docs
         .map(doc => {
           const data = doc.data();
+          const permissionLevel = Number(data.permissionLevel ?? 0);
+          const additionalOrganizations: string[] = Array.isArray(data.additionalOrganizations)
+            ? data.additionalOrganizations
+            : [];
+          const normalizedOrganization = normalizeOrganizationId(data.organization || '');
+          const normalizedAdditionalOrganizations = additionalOrganizations
+            .map(org => normalizeOrganizationId(org))
+            .filter(Boolean);
+
           return {
             id: doc.id,
             name: `${data.firstName} ${data.lastName}`.trim(),
             email: data.email || '',
-            permissionLevel: data.permissionLevel,
+            permissionLevel,
             organization: data.organization,
+            additionalOrganizations,
+            normalizedOrganization,
+            normalizedAdditionalOrganizations,
             department: data.department,
             isActive: data.isActive === true
           } as Approver;
         })
         .filter(approver => {
+          if (approver.permissionLevel === 6) {
+            return approver.email?.toLowerCase() === 'admin@1pwrafrica.com';
+          }
           // Level 1 approvers (global) are always included
           if (approver.permissionLevel === 1) return true;
           
           // Level 2 (Senior Approvers) must match the organization
           if (approver.permissionLevel === 2) {
-            const normalizedOrgId = this.normalizeOrganizationId(organizationId);
-            const approverOrgId = this.normalizeOrganizationId(approver.organization || '');
-            return normalizedOrgId === approverOrgId;
+            if (!normalizedTargetOrgId) return true;
+            const matchesPrimary = !!approver.normalizedOrganization && normalizedTargetOrgId === approver.normalizedOrganization;
+            const matchesAdditional = approver.normalizedAdditionalOrganizations?.includes(normalizedTargetOrgId);
+            return matchesPrimary || Boolean(matchesAdditional);
           }
           
           // Level 6 (Finance Approvers) must match the organization
           if (approver.permissionLevel === 6) {
-            const normalizedOrgId = this.normalizeOrganizationId(organizationId);
-            const approverOrgId = this.normalizeOrganizationId(approver.organization || '');
-            return normalizedOrgId === approverOrgId;
+            if (!normalizedTargetOrgId) return true;
+            const matchesPrimary = !!approver.normalizedOrganization && normalizedTargetOrgId === approver.normalizedOrganization;
+            const matchesAdditional = approver.normalizedAdditionalOrganizations?.includes(normalizedTargetOrgId);
+            return matchesPrimary || Boolean(matchesAdditional);
           }
           
           return false;
@@ -104,26 +121,48 @@ class ApproverService {
 
   async getDepartmentApprovers(organization: string | { id: string; name: string }, department: string): Promise<Approver[]> {
     try {
-      const normalizedOrgId = this.normalizeOrganizationId(organization);
+      const normalizedOrgId = normalizeOrganizationId(organization);
       const usersRef = collection(this.db, 'users');
       const q = query(usersRef);
       const querySnapshot = await getDocs(q);
       
       const approvers = querySnapshot.docs.map(doc => {
         const data = doc.data();
+        const permissionLevel = Number(data.permissionLevel ?? 0);
+        const additionalOrganizations: string[] = Array.isArray(data.additionalOrganizations)
+          ? data.additionalOrganizations
+          : [];
+        const normalizedOrganization = normalizeOrganizationId(data.organization || '');
+        const normalizedAdditionalOrganizations = additionalOrganizations
+          .map(org => normalizeOrganizationId(org))
+          .filter(Boolean);
+
         return {
           id: doc.id,
           name: `${data.firstName} ${data.lastName}`.trim(),
           email: data.email || '',
-          permissionLevel: data.permissionLevel || 0,
+          permissionLevel,
           organization: data.organization || '',
+          additionalOrganizations,
+          normalizedOrganization,
+          normalizedAdditionalOrganizations,
           department: data.department || '',
           isActive: data.isActive === true
         } as Approver;
-      }).filter(a => 
-        a.department === department && 
-        a.organization === normalizedOrgId
-      );
+      }).filter(a => {
+        if (a.permissionLevel === 6 && a.email?.toLowerCase() !== 'admin@1pwrafrica.com') {
+          return false;
+        }
+        const matchesDepartment = a.department === department;
+        if (!matchesDepartment) return false;
+
+        if (!normalizedOrgId) return true;
+
+        const matchesPrimary = !!a.normalizedOrganization && a.normalizedOrganization === normalizedOrgId;
+        const matchesAdditional = a.normalizedAdditionalOrganizations?.includes(normalizedOrgId);
+
+        return matchesPrimary || Boolean(matchesAdditional);
+      });
 
       return approvers;
     } catch (error) {

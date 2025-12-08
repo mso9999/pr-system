@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -25,7 +25,7 @@ import { RootState } from '../../store';
 import { getUserPRs, deletePR } from '@/services/pr';
 import { setUserPRs, setPendingApprovals, setLoading, removePR, setMyActionsFilter } from '../../store/slices/prSlice';
 import { PRStatus, PRRequest, StatusHistoryItem } from '../../types/pr';
-import { OrganizationSelector } from '../common/OrganizationSelector';
+import { OrganizationSelector, ALL_ORGANIZATIONS_OPTION } from '../common/OrganizationSelector';
 import { MetricsPanel } from './MetricsPanel';
 import { ConfirmationDialog } from '../common/ConfirmationDialog';
 import { AdvancedFilterPanel, FilterCriteria } from './AdvancedFilterPanel';
@@ -65,7 +65,16 @@ export const Dashboard = () => {
   const { userPRs, pendingApprovals, loading, showOnlyMyPRs, myActionsFilter } = useSelector(
     (state: RootState) => state.pr
   );
-  const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string } | null>(null);
+  const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string } | null>(ALL_ORGANIZATIONS_OPTION);
+  const [availableOrgs, setAvailableOrgs] = useState<{ id: string; name: string }[]>([]);
+  const handleOrganizationChange = useCallback((org: { id: string; name: string }) => {
+    console.log('Organization selected:', org);
+    setSelectedOrg(org);
+  }, []);
+
+  const handleOrganizationsLoaded = useCallback((orgs: { id: string; name: string }[]) => {
+    setAvailableOrgs(orgs);
+  }, []);
   const [selectedStatus, setSelectedStatus] = useState<PRStatus>(PRStatus.SUBMITTED);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [prToDelete, setPrToDelete] = useState<PRRequest | null>(null);
@@ -99,7 +108,7 @@ export const Dashboard = () => {
   // Load reference data for filters
   useEffect(() => {
     const loadReferenceData = async () => {
-      if (!selectedOrg?.name) return;
+      if (!selectedOrg?.name || selectedOrg.id === ALL_ORGANIZATIONS_OPTION.id) return;
 
       try {
         const [depts, sites, vehs, projCats, expTypes, vends] = await Promise.all([
@@ -130,32 +139,74 @@ export const Dashboard = () => {
   // Load PRs when organization is selected or filter changes
   useEffect(() => {
     const loadPRs = async () => {
-      if (!userId || !selectedOrg?.name) {
+      if (!userId || !selectedOrg) {
         console.log('Dashboard: No user ID or organization available', { userId, selectedOrg, userOrg: user?.organization });
         return;
       }
 
-      console.log('Dashboard: Loading data for user:', { userId, organization: selectedOrg, showOnlyMyPRs });
+      const isAllOrganizations = selectedOrg.id === ALL_ORGANIZATIONS_OPTION.id;
+
+      console.log('Dashboard: Loading data for user:', { userId, organization: selectedOrg, showOnlyMyPRs, isAllOrganizations });
       try {
         setIsLoading(true);
-        const primaryPRs = await getUserPRs(userId, selectedOrg.name, showOnlyMyPRs);
-        let combinedPRs = [...primaryPRs];
+        let combinedPRs: PRRequest[] = [];
 
-        // Some legacy PRs may store the normalized organization ID instead of the display name.
-        // Fetch by organization ID as well to ensure nothing falls out of the dashboard filters.
-        if (selectedOrg.id && selectedOrg.id !== selectedOrg.name) {
-          try {
-            const secondaryPRs = await getUserPRs(userId, selectedOrg.id, showOnlyMyPRs);
-            if (secondaryPRs.length > 0) {
-              const existingIds = new Set(primaryPRs.map(pr => pr.id));
-              secondaryPRs.forEach(pr => {
-                if (!existingIds.has(pr.id)) {
-                  combinedPRs.push(pr);
-                }
-              });
+        if (isAllOrganizations) {
+          if (!showOnlyMyPRs) {
+            if (availableOrgs.length === 0) {
+              console.log('Dashboard: Waiting for available organizations before loading ALL view');
+              setIsLoading(false);
+              return;
             }
-          } catch (secondaryError) {
-            console.error('Error loading PRs by organization ID, continuing with primary results:', secondaryError);
+
+            const orgFetches = availableOrgs.map(async (org) => {
+              const orgPRs = await getUserPRs(userId, org.name, showOnlyMyPRs);
+              let merged = [...orgPRs];
+              if (org.id && org.id !== org.name) {
+                try {
+                  const idPRs = await getUserPRs(userId, org.id, showOnlyMyPRs);
+                  const existingIds = new Set(merged.map(pr => pr.id));
+                  idPRs.forEach(pr => {
+                    if (!existingIds.has(pr.id)) {
+                      merged.push(pr);
+                    }
+                  });
+                } catch (orgIdError) {
+                  console.error(`Error loading PRs by organization ID (${org.id})`, orgIdError);
+                }
+              }
+              return merged;
+            });
+
+            const results = await Promise.all(orgFetches);
+            const dedupedMap = new Map<string, PRRequest>();
+            results.flat().forEach(pr => {
+              if (!dedupedMap.has(pr.id)) {
+                dedupedMap.set(pr.id, pr);
+              }
+            });
+            combinedPRs = Array.from(dedupedMap.values());
+          } else {
+            combinedPRs = await getUserPRs(userId, undefined, showOnlyMyPRs);
+          }
+        } else {
+          const primaryPRs = await getUserPRs(userId, selectedOrg.name, showOnlyMyPRs);
+          combinedPRs = [...primaryPRs];
+
+          if (selectedOrg.id && selectedOrg.id !== selectedOrg.name) {
+            try {
+              const secondaryPRs = await getUserPRs(userId, selectedOrg.id, showOnlyMyPRs);
+              if (secondaryPRs.length > 0) {
+                const existingIds = new Set(primaryPRs.map(pr => pr.id));
+                secondaryPRs.forEach(pr => {
+                  if (!existingIds.has(pr.id)) {
+                    combinedPRs.push(pr);
+                  }
+                });
+              }
+            } catch (secondaryError) {
+              console.error('Error loading PRs by organization ID, continuing with primary results:', secondaryError);
+            }
           }
         }
 
@@ -176,54 +227,7 @@ export const Dashboard = () => {
     };
 
     loadPRs();
-  }, [userId, selectedOrg?.name, showOnlyMyPRs, dispatch]);
-
-  // Set initial organization from user data
-  useEffect(() => {
-    if (!user?.organization) return;
-
-    console.log('Setting organization from user:', { 
-      organization: user.organization,
-      additionalOrgs: user.additionalOrganizations || []
-    });
-
-    // Load available organizations
-    const loadOrganizations = async () => {
-      try {
-        const orgs = await referenceDataService.getOrganizations();
-        console.log('Available organizations:', orgs);
-
-        // Find matching organization
-        const matchingOrg = orgs.find(org => {
-          const orgId = org.id?.toLowerCase() || '';
-          const orgCode = org.code?.toLowerCase() || '';
-          const orgName = org.name?.toLowerCase() || '';
-          const userOrgId = user.organization.toLowerCase();
-
-          console.log('Comparing organization:', { orgId, orgCode, orgName, userOrgId });
-
-          return orgId === userOrgId || 
-                 orgCode === userOrgId || 
-                 orgName === userOrgId;
-        });
-
-        if (matchingOrg) {
-          console.log('Found matching organization:', {
-            id: matchingOrg.id,
-            name: matchingOrg.name,
-            code: matchingOrg.code,
-            userOrg: user.organization
-          });
-          setSelectedOrg(matchingOrg);
-        }
-      } catch (error) {
-        console.error('Error loading organizations:', error);
-        setError('Failed to load organizations. Please try again.');
-      }
-    };
-
-    loadOrganizations();
-  }, [user?.organization]);
+  }, [userId, selectedOrg, showOnlyMyPRs, availableOrgs, dispatch]);
 
   // Get PRs for the selected status
   const getStatusPRs = (status: PRStatus) => {
@@ -564,10 +568,9 @@ export const Dashboard = () => {
             <Grid item xs={12} md={4}>
               <OrganizationSelector
                 value={selectedOrg || ''}
-                onChange={(org) => {
-                  console.log('Organization selected:', org);
-                  setSelectedOrg(org);
-                }}
+                includeAllOption
+                onOrganizationsLoaded={handleOrganizationsLoaded}
+                onChange={handleOrganizationChange}
               />
             </Grid>
             <Box sx={{ flexGrow: 1 }} />

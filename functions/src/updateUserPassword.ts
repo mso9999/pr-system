@@ -28,25 +28,30 @@ function isValidEmail(email: string): boolean {
  * Using v1 onCall with CORS support
  */
 export const updateUserPassword = functions.https.onCall(async (data: UpdatePasswordData, context) => {
-  try {
-    // Check if the caller is authenticated
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        'unauthenticated',
-        'User must be authenticated to update passwords'
-      );
-    }
+  // Check if the caller is authenticated
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated to update passwords'
+    );
+  }
 
-    // Get the calling user's data from Firestore to check permission level
-    const db = admin.firestore();
-    const callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
-    const callingUserData = callingUserDoc.data();
+  // Get the calling user's data from Firestore to check permission level
+  const db = admin.firestore();
+  let callingUserDoc;
+  let callingUserData;
+  let callingUserPermissionLevel;
+  
+  try {
+    callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
+    callingUserData = callingUserDoc.data();
     
-    // Only Level 1 (Superadmin) can reset passwords
-    if (!callingUserData || callingUserData.permissionLevel !== 1) {
+    // Only Level 1 (Superadmin) or Level 8 (IT Support/User Admin) can reset passwords
+    callingUserPermissionLevel = callingUserData?.permissionLevel;
+    if (!callingUserData || (callingUserPermissionLevel !== 1 && callingUserPermissionLevel !== 8)) {
       throw new functions.https.HttpsError(
         'permission-denied',
-        'Only Superadmin (Level 1) can update user passwords'
+        'Only Superadmin (Level 1) or IT Support (Level 8) can update user passwords'
       );
     }
   } catch (error) {
@@ -98,8 +103,20 @@ export const updateUserPassword = functions.https.onCall(async (data: UpdatePass
       );
     }
 
+    // If caller is IT Support (Level 8), prevent resetting superadmin (Level 1) passwords
+    if (callingUserPermissionLevel === 8) {
+      const targetUserDoc = await db.collection('users').doc(data.userId).get();
+      const targetUserData = targetUserDoc.data();
+      
+      if (targetUserData?.permissionLevel === 1) {
+        throw new functions.https.HttpsError(
+          'permission-denied',
+          'IT Support cannot reset passwords for Superadmin accounts'
+        );
+      }
+    }
+
     try {
-      const db = admin.firestore();
       let userRecord;
       let userCreated = false;
       

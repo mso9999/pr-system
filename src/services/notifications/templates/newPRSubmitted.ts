@@ -7,11 +7,12 @@ import { db } from '@/config/firebase';
 import { doc, getDoc, query, collection, where, getDocs } from 'firebase/firestore';
 
 // Helper function to format currency
-function formatCurrency(amount?: number): string {
+function formatCurrency(amount?: number, currency?: string): string {
   if (amount === undefined || amount === null) return 'Not specified';
   
-  // Format with LSL currency code and 2 decimal places
-  return `LSL ${amount.toFixed(2)}`;
+  // Use the PR's currency if provided, otherwise default to LSL
+  const currencyCode = currency || 'LSL';
+  return `${currencyCode} ${amount.toFixed(2)}`;
 }
 
 // Helper function to format date
@@ -527,7 +528,7 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
           </tr>
           <tr>
             <td style="${styles.tableCell}"><strong>Total Amount</strong></td>
-            <td style="${styles.tableCell}">${formatCurrency(pr.estimatedAmount)}</td>
+            <td style="${styles.tableCell}">${formatCurrency(pr.estimatedAmount, pr.currency)}</td>
           </tr>
           <tr>
             <td style="${styles.tableCell}"><strong>Vendor</strong></td>
@@ -589,7 +590,7 @@ PR Number: ${prNumber}
 Approver: ${approverName}
 Category: ${categoryName}
 Expense Type: ${expenseTypeName}
-Total Amount: ${formatCurrency(pr.estimatedAmount)}
+Total Amount: ${formatCurrency(pr.estimatedAmount, pr.currency)}
 Vendor: ${vendorName}
 Required Date: ${formatDate(pr.requiredDate)}
 ${pr.description ? `Description: ${pr.description}` : ''}

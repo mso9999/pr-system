@@ -104,6 +104,21 @@ export function UserProfile() {
     }
   };
 
+  const formatOrganization = (org: unknown): string => {
+    if (!org) return '';
+    if (typeof org === 'string') return org;
+    if (typeof org === 'object' && org !== null) {
+      const obj = org as { name?: string; code?: string; id?: string };
+      return obj.name || obj.code || obj.id || '';
+    }
+    return String(org);
+  };
+
+  const primaryOrganization = formatOrganization(user?.organization) || 'Not set';
+  const additionalOrganizations = Array.isArray(user?.additionalOrganizations)
+    ? user!.additionalOrganizations!.map(formatOrganization).filter(Boolean)
+    : [];
+
   return (
     <Box>
       <Typography variant="h5" gutterBottom>
@@ -140,6 +155,28 @@ export function UserProfile() {
         <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
           {permissionInfo.description}
         </Typography>
+
+        <Divider sx={{ my: 2 }} />
+
+        <Typography variant="subtitle1" gutterBottom>
+          Organizations
+        </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Chip color="secondary" label={`Primary: ${primaryOrganization}`} />
+          </Box>
+          {additionalOrganizations.length > 0 ? (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+              {additionalOrganizations.map((org, idx) => (
+                <Chip key={`${org}-${idx}`} variant="outlined" label={`Additional: ${org}`} />
+              ))}
+            </Box>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              No additional organizations assigned.
+            </Typography>
+          )}
+        </Box>
       </Box>
       <Divider sx={{ mb: 3 }} />
       <form onSubmit={handleSubmit}>

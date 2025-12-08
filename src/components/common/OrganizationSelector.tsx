@@ -4,34 +4,35 @@ import { Select, MenuItem, FormControl, InputLabel, CircularProgress, FormHelper
 import { referenceDataService } from '../../services/referenceData';
 import { ReferenceData } from '@/types/referenceData';
 import { RootState } from '@/store';
+import { normalizeOrganizationId, organizationMatchesUser } from '@/utils/organization';
+
+export const ALL_ORGANIZATIONS_OPTION = { id: 'ALL_ORGS', name: 'All Organizations' };
 
 interface OrganizationSelectorProps {
   value: { id: string; name: string } | null | string;
   onChange: (value: { id: string; name: string }) => void;
+  includeAllOption?: boolean;
+  onOrganizationsLoaded?: (orgs: { id: string; name: string }[]) => void;
   error?: boolean;
   helperText?: string;
 }
 
-// Map display names to codes
-const organizationDisplayMap: Record<string, string> = {
-  '1PWR LESOTHO': '1PWR_LSO',
-  '1PWR ZAMBIA': '1PWR_ZAM',
-  '1PWR BENIN': '1PWR_BEN',
-  'PUECO LESOTHO': 'PUECO_LSO',
-  'PUECO BENIN': 'PUECO_BEN',
-  'NEO1': 'NEO1',
-  'SMP': 'SMP'
-};
-
-// Map codes to display names
-const organizationCodeMap: Record<string, string> = Object.entries(organizationDisplayMap)
-  .reduce((acc, [display, code]) => ({ ...acc, [code]: display }), {});
-
-export const OrganizationSelector = ({ value, onChange, error, helperText }: OrganizationSelectorProps) => {
+export const OrganizationSelector = ({ value, onChange, includeAllOption = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalError, setInternalError] = useState<string | null>(null);
   const user = useSelector((state: RootState) => state.auth.user);
+  const userOrgIds = useMemo(() => {
+    if (!user) return new Set<string>();
+    const orgEntries = [
+      user.organization,
+      ...(user.additionalOrganizations || [])
+    ];
+    const normalized = orgEntries
+      .map(entry => normalizeOrganizationId(entry as any))
+      .filter((id): id is string => Boolean(id));
+    return new Set(normalized);
+  }, [user]);
 
   useEffect(() => {
     const loadOrganizations = async () => {
@@ -79,34 +80,12 @@ export const OrganizationSelector = ({ value, onChange, error, helperText }: Org
             filteredOrgs = allOrgs;
           } else {
             // Approvers and Requestors see their primary org and additional orgs
-          const userOrgNames = [
-            user.organization,
-            ...(user.additionalOrganizations || [])
-          ].filter(Boolean).map(org => org.toString().toLowerCase());
-          
-          console.log('User organization names:', userOrgNames);
-          
-          // Match by organization name
-          filteredOrgs = allOrgs.filter(org => {
-            const orgName = org.name.toString().toLowerCase();
-            const matches = userOrgNames.some(userOrgName => 
-              orgName === userOrgName ||
-              // Also try with underscores replaced by spaces
-              orgName === userOrgName.replace(/_/g, ' ')
-            );
+            filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
 
-            console.log('Checking organization:', {
-              org: { id: org.id, name: org.name },
-              matches
-            });
-
-            return matches;
-          });
-
-          if (filteredOrgs.length === 0) {
-            console.error('User has no matching organizations');
-            setInternalError('No organizations available for your account');
-          }
+            if (filteredOrgs.length === 0) {
+              console.error('User has no matching organizations');
+              setInternalError('No organizations available for your account');
+            }
           }
         }
         
@@ -116,19 +95,21 @@ export const OrganizationSelector = ({ value, onChange, error, helperText }: Org
           code: org.code
         })));
         setOrganizations(filteredOrgs);
+        onOrganizationsLoaded?.(filteredOrgs.map(org => ({ id: org.id, name: org.name })));
+
+        const shouldDefaultToAll = includeAllOption && !value;
+
+        if (shouldDefaultToAll) {
+          console.log('Setting default organization to ALL');
+          onChange(ALL_ORGANIZATIONS_OPTION);
+          return;
+        }
 
         // Set default organization if no value is selected and user has an organization
         if (!value && user?.organization && filteredOrgs.length > 0) {
-          // Try to find org by name
-          const userOrgName = user.organization.toString().toLowerCase();
-          const userOrg = filteredOrgs.find(org => {
-            const orgName = org.name.toString().toLowerCase();
-            return (
-              orgName === userOrgName ||
-              // Also try with underscores replaced by spaces
-              orgName === userOrgName.replace(/_/g, ' ')
-            );
-          });
+          // Try to find org by normalized ID
+          const targetId = normalizeOrganizationId(user.organization as any);
+          const userOrg = filteredOrgs.find(org => normalizeOrganizationId(org) === targetId);
           
           if (userOrg) {
             console.log('Setting default organization:', userOrg);
@@ -147,12 +128,27 @@ export const OrganizationSelector = ({ value, onChange, error, helperText }: Org
   }, [user, value, onChange]);
 
   // Convert organization object or string to display value
+  const organizationOptions = useMemo(() => {
+    if (includeAllOption) {
+      return [ALL_ORGANIZATIONS_OPTION, ...organizations];
+    }
+    return organizations;
+  }, [includeAllOption, organizations]);
+
   const displayValue = useMemo(() => {
     if (!value) return '';
     if (typeof value === 'object') return value.name;
     
     // If value is a string, try to find matching organization
-    const org = organizations.find(o => o.id === value || o.name === value);
+    if (value === ALL_ORGANIZATIONS_OPTION.id || value === ALL_ORGANIZATIONS_OPTION.name) {
+      return ALL_ORGANIZATIONS_OPTION.name;
+    }
+    const normalizedValue = normalizeOrganizationId(value as any);
+    const org = organizations.find(o => 
+      o.id === value || 
+      o.name === value || 
+      normalizeOrganizationId(o) === normalizedValue
+    );
     return org ? org.name : value;
   }, [value, organizations]);
 
@@ -170,6 +166,11 @@ export const OrganizationSelector = ({ value, onChange, error, helperText }: Org
         label="Organization"
         onChange={(e) => {
           // Find the selected organization object
+          if (includeAllOption && e.target.value === ALL_ORGANIZATIONS_OPTION.name) {
+            console.log('Organization selected: ALL');
+            onChange(ALL_ORGANIZATIONS_OPTION);
+            return;
+          }
           const selectedOrg = organizations.find(org => org.name === e.target.value);
           if (selectedOrg) {
             console.log('Organization selected:', selectedOrg);
@@ -177,7 +178,7 @@ export const OrganizationSelector = ({ value, onChange, error, helperText }: Org
           }
         }}
       >
-        {organizations.map((org) => (
+        {organizationOptions.map((org) => (
           <MenuItem key={org.id} value={org.name}>
             {org.name}
           </MenuItem>

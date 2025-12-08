@@ -56,18 +56,22 @@ function isValidEmail(email) {
  */
 exports.updateUserPassword = functions.https.onCall(async (data, context) => {
     var _a, _b, _c;
+    // Check if the caller is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to update passwords');
+    }
+    // Get the calling user's data from Firestore to check permission level
+    const db = admin.firestore();
+    let callingUserDoc;
+    let callingUserData;
+    let callingUserPermissionLevel;
     try {
-        // Check if the caller is authenticated
-        if (!context.auth) {
-            throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to update passwords');
-        }
-        // Get the calling user's data from Firestore to check permission level
-        const db = admin.firestore();
-        const callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
-        const callingUserData = callingUserDoc.data();
-        // Only Level 1 (Superadmin) can reset passwords
-        if (!callingUserData || callingUserData.permissionLevel !== 1) {
-            throw new functions.https.HttpsError('permission-denied', 'Only Superadmin (Level 1) can update user passwords');
+        callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
+        callingUserData = callingUserDoc.data();
+        // Only Level 1 (Superadmin) or Level 8 (IT Support/User Admin) can reset passwords
+        callingUserPermissionLevel = callingUserData === null || callingUserData === void 0 ? void 0 : callingUserData.permissionLevel;
+        if (!callingUserData || (callingUserPermissionLevel !== 1 && callingUserPermissionLevel !== 8)) {
+            throw new functions.https.HttpsError('permission-denied', 'Only Superadmin (Level 1) or IT Support (Level 8) can update user passwords');
         }
     }
     catch (error) {
@@ -103,8 +107,15 @@ exports.updateUserPassword = functions.https.onCall(async (data, context) => {
         if (data.newPassword.length < 6) {
             throw new functions.https.HttpsError('invalid-argument', 'Password must be at least 6 characters long');
         }
+        // If caller is IT Support (Level 8), prevent resetting superadmin (Level 1) passwords
+        if (callingUserPermissionLevel === 8) {
+            const targetUserDoc = await db.collection('users').doc(data.userId).get();
+            const targetUserData = targetUserDoc.data();
+            if ((targetUserData === null || targetUserData === void 0 ? void 0 : targetUserData.permissionLevel) === 1) {
+                throw new functions.https.HttpsError('permission-denied', 'IT Support cannot reset passwords for Superadmin accounts');
+            }
+        }
         try {
-            const db = admin.firestore();
             let userRecord;
             let userCreated = false;
             // Try to get the user - if they don't exist, create them

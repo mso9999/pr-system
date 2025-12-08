@@ -23,6 +23,7 @@
     "reset-user-passwords": "tsx src/scripts/resetUserPasswords.ts",
     "initialize-permissions": "tsx src/scripts/initializePermissions.ts",
     "initialize-rules": "tsx src/scripts/initializeRules.ts",
+    "copy-rules-to-smp": "tsx src/scripts/copyRulesToSMP.ts",
     "fix-org-fields": "tsx src/scripts/fixOrganizationFields.ts",
     "test": "vitest",
     "test:coverage": "vitest run --coverage",

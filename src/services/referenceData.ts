@@ -1,5 +1,6 @@
 import { db } from "@/config/firebase";
 import { collection, getDocs, query, where, addDoc, writeBatch, doc, setDoc, getDoc } from "firebase/firestore";
+import { normalizeOrganizationId as normalizeOrgId } from "@/utils/organization";
 
 export interface OrganizationData {
   id: string;
@@ -42,18 +43,8 @@ class ReferenceDataService {
   }
 
   private normalizeOrganizationId(orgId: string | OrganizationData): string {
-    if (!orgId) return '';
-    
-    // Handle both string and object cases
-    const rawId = typeof orgId === 'string' ? orgId : orgId.id;
-    
-    // Convert to lowercase and replace any non-alphanumeric chars with underscore
-    const normalized = rawId.toLowerCase()
-      .replace(/[^a-z0-9]/g, '_')
-      .replace(/_+/g, '_')  // Replace multiple underscores with single
-      .replace(/^_|_$/g, ''); // Remove leading/trailing underscores
-    
-    return normalized;
+    // Use the centralized normalization function that includes the alias map
+    return normalizeOrgId(orgId);
   }
 
   async getItemsByType(type: string, organization?: string | OrganizationData): Promise<ReferenceData[]> {

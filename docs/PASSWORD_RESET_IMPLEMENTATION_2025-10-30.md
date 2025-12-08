@@ -3,10 +3,10 @@
 **Status:** ✅ Completed and Deployed
 
 ## Overview
-Implemented self-contained password reset functionality within the PR System app, allowing Superadmin users to reset passwords for any user without requiring access to the Firebase Console.
+Implemented self-contained password reset functionality within the PR System app, allowing Superadmin and IT Support users to reset passwords for users without requiring access to the Firebase Console.
 
 ## Business Requirement
-User management should be self-contained within the PR System application. Superadmin users need the ability to reset user passwords directly from the User Management interface without manual intervention in Firebase.
+User management should be self-contained within the PR System application. Superadmin users need the ability to reset user passwords directly from the User Management interface without manual intervention in Firebase. IT Support (User Administrator, Permission Level 8) should also be able to reset passwords for all users except Superadmins.
 
 ## Implementation Details
 
@@ -15,7 +15,8 @@ User management should be self-contained within the PR System application. Super
 
 Created a v1 callable Cloud Function with the following features:
 - **Authentication Required:** Caller must be authenticated
-- **Authorization:** Only Superadmin (Permission Level 1) can reset passwords
+- **Authorization:** Superadmin (Permission Level 1) and IT Support (Permission Level 8) can reset passwords
+- **Restriction:** IT Support cannot reset passwords for Superadmin accounts (Level 1)
 - **Email Validation:** Validates email format and ensures it matches the user record
 - **Password Validation:** Minimum 6 characters (Firebase Auth requirement)
 - **Audit Logging:** Console logs for tracking password reset operations
@@ -27,11 +28,21 @@ export const updateUserPassword = functions.https.onCall(async (data: UpdatePass
     throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
   }
 
-  // Verify caller is Superadmin
+  // Verify caller is Superadmin or IT Support
   const callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
   const callingUserData = callingUserDoc.data();
-  if (!callingUserData || callingUserData.permissionLevel !== 1) {
-    throw new functions.https.HttpsError('permission-denied', 'Only Superadmin can update passwords');
+  const callingUserPermissionLevel = callingUserData?.permissionLevel;
+  if (!callingUserData || (callingUserPermissionLevel !== 1 && callingUserPermissionLevel !== 8)) {
+    throw new functions.https.HttpsError('permission-denied', 'Only Superadmin (Level 1) or IT Support (Level 8) can update passwords');
+  }
+  
+  // If caller is IT Support, prevent resetting superadmin passwords
+  if (callingUserPermissionLevel === 8) {
+    const targetUserDoc = await db.collection('users').doc(data.userId).get();
+    const targetUserData = targetUserDoc.data();
+    if (targetUserData?.permissionLevel === 1) {
+      throw new functions.https.HttpsError('permission-denied', 'IT Support cannot reset passwords for Superadmin accounts');
+    }
   }
 
   // Update password
@@ -65,10 +76,11 @@ Integrated password reset into the user edit dialog with:
 
 ## Security Features
 1. **Caller Authentication:** Cloud Function verifies the caller is logged in
-2. **Permission Check:** Only users with `permissionLevel: 1` can reset passwords
-3. **User Verification:** Validates that the email matches the user record
-4. **Secure Transport:** All communication via HTTPS
-5. **No Password Storage:** Password is directly passed to Firebase Auth API
+2. **Permission Check:** Only users with `permissionLevel: 1` (Superadmin) or `permissionLevel: 8` (IT Support) can reset passwords
+3. **Superadmin Protection:** IT Support cannot reset passwords for Superadmin accounts (Level 1)
+4. **User Verification:** Validates that the email matches the user record
+5. **Secure Transport:** All communication via HTTPS
+6. **No Password Storage:** Password is directly passed to Firebase Auth API
 
 ## Deployment Process
 
@@ -96,18 +108,21 @@ Encountered several deployment challenges:
 - **Export:** Properly exported in `functions/src/index.ts`
 
 ## Testing
-✅ Superadmin can reset user passwords  
-✅ Non-superadmin users cannot access the function  
+✅ Superadmin can reset passwords for any user  
+✅ IT Support can reset passwords for all users except Superadmins  
+✅ IT Support cannot reset Superadmin passwords (blocked by backend and frontend)  
+✅ Non-authorized users cannot access the function  
 ✅ Password validation prevents weak passwords  
 ✅ Email validation prevents mismatches  
 ✅ Users can log in with new password immediately
 
 ## Usage
-1. Navigate to User Management as Superadmin
-2. Click "Edit" on any user
-3. Enter a new password (min 6 characters)
-4. Click "Save"
+1. Navigate to User Management as Superadmin or IT Support
+2. Click the key icon (Reset Password) on any user
+3. Enter a new password (min 6 characters) or use the generated random password
+4. Click "Reset Password"
 5. Password is immediately updated in Firebase Auth
+6. Note: IT Support will see an error if attempting to reset a Superadmin password
 
 ## Files Modified
 - `functions/src/updateUserPassword.ts` - New Cloud Function
