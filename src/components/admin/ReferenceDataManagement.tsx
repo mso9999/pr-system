@@ -27,9 +27,12 @@ import {
   Alert,
   Tooltip,
   IconButton,
-  Chip
+  Chip,
+  Checkbox,
+  CircularProgress,
+  Divider
 } from "@mui/material"
-import { Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon } from "@mui/icons-material"
+import { Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon, FileDownload as ImportIcon } from "@mui/icons-material"
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import { ReferenceDataItem } from "@/types/referenceData"
@@ -42,7 +45,7 @@ import {
   REFERENCE_DATA_TYPES
 } from '@/config/permissions'
 import { referenceDataAdminService } from '@/services/referenceDataAdmin'
-import { organizationService } from '@/services/organizationService'
+import { organizationService, Organization } from '@/services/organizationService'
 import { ORG_INDEPENDENT_TYPES } from '@/services/referenceData'
 
 const REFERENCE_DATA_TYPE_LABELS = {
@@ -1149,6 +1152,264 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     setFormErrors({});
   };
 
+  const handleLoadSourceItems = async (sourceOrgId: string) => {
+    if (!sourceOrgId) return;
+    
+    setIsLoadingSourceItems(true);
+    try {
+      const items = await referenceDataAdminService.getItems(selectedType, sourceOrgId);
+      setSourceItems(items);
+      // Pre-select all items
+      setSelectedItems(new Set(items.map(item => item.id)));
+    } catch (error) {
+      console.error('Error loading source items:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to load items from source organization',
+        severity: 'error'
+      });
+    } finally {
+      setIsLoadingSourceItems(false);
+    }
+  };
+
+  const handleImportItems = async () => {
+    if (selectedItems.size === 0 || !selectedOrganization || !sourceOrganization) {
+      setSnackbar({
+        open: true,
+        message: 'Please select items to import and ensure both source and target organizations are selected',
+        severity: 'error'
+      });
+      return;
+    }
+
+    setIsImporting(true);
+    try {
+      const itemsToImport = sourceItems.filter(item => selectedItems.has(item.id));
+      const targetOrg = organizations.find(o => o.id === selectedOrganization);
+      
+      if (!targetOrg) {
+        throw new Error('Target organization not found');
+      }
+
+      // Get existing items to check for duplicates
+      const existingItems = await referenceDataAdminService.getItems(selectedType, selectedOrganization);
+      const existingCodes = new Set(existingItems.map(item => item.code?.toLowerCase().trim()).filter(Boolean));
+      const existingNames = new Set(existingItems.map(item => item.name?.toLowerCase().trim()).filter(Boolean));
+
+      let importedCount = 0;
+      let skippedCount = 0;
+
+      for (const item of itemsToImport) {
+        // Check for duplicates by code or name
+        const itemCode = item.code?.toLowerCase().trim();
+        const itemName = item.name?.toLowerCase().trim();
+        
+        if ((itemCode && existingCodes.has(itemCode)) || (itemName && existingNames.has(itemName))) {
+          skippedCount++;
+          continue;
+        }
+
+        // Create new item data
+        const newItem: any = {
+          ...item,
+          id: undefined, // Let Firestore generate new ID
+          organizationId: targetOrg.id,
+          organization: {
+            id: targetOrg.id,
+            name: targetOrg.name
+          }
+        };
+
+        // Remove old ID and organization references
+        delete newItem.oldId;
+        
+        // Generate new ID if needed (for code-based types)
+        if (CODE_BASED_ID_TYPES.includes(selectedType as any) && newItem.code) {
+          newItem.id = newItem.code.toLowerCase();
+        }
+
+        await referenceDataAdminService.addItem(selectedType, newItem);
+        importedCount++;
+      }
+
+      setSnackbar({
+        open: true,
+        message: `Imported ${importedCount} item(s)${skippedCount > 0 ? `, skipped ${skippedCount} duplicate(s)` : ''}`,
+        severity: 'success'
+      });
+
+      // Refresh items and close dialog
+      await loadItems();
+      setImportDialogOpen(false);
+      setSourceOrganization('');
+      setSourceItems([]);
+      setSelectedItems(new Set());
+    } catch (error) {
+      console.error('Error importing items:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to import items: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error'
+      });
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  const renderImportDialog = () => {
+    const isOrgDependent = shouldShowOrgSelect;
+    
+    if (!isOrgDependent) return null;
+
+    return (
+      <Dialog 
+        open={importDialogOpen} 
+        onClose={() => {
+          setImportDialogOpen(false);
+          setSourceOrganization('');
+          setSourceItems([]);
+          setSelectedItems(new Set());
+        }}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          Import {REFERENCE_DATA_TYPE_LABELS[selectedType]} from Organization
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ mt: 2 }}>
+            <FormControl fullWidth sx={{ mb: 3 }}>
+              <InputLabel>Source Organization</InputLabel>
+              <Select
+                value={sourceOrganization}
+                label="Source Organization"
+                onChange={(e) => {
+                  const orgId = e.target.value;
+                  setSourceOrganization(orgId);
+                  if (orgId) {
+                    handleLoadSourceItems(orgId);
+                  } else {
+                    setSourceItems([]);
+                    setSelectedItems(new Set());
+                  }
+                }}
+              >
+                {organizations
+                  .filter(org => org.id !== selectedOrganization)
+                  .map((org) => (
+                    <MenuItem key={org.id} value={org.id}>{org.name}</MenuItem>
+                  ))}
+              </Select>
+              <FormHelperText>
+                Select the organization to import from (current: {organizations.find(o => o.id === selectedOrganization)?.name || 'None'})
+              </FormHelperText>
+            </FormControl>
+
+            {isLoadingSourceItems && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            )}
+
+            {!isLoadingSourceItems && sourceItems.length > 0 && (
+              <>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    {sourceItems.length} item(s) found. Select items to import:
+                  </Typography>
+                  <Box>
+                    <Button 
+                      size="small" 
+                      onClick={() => setSelectedItems(new Set(sourceItems.map(item => item.id)))}
+                    >
+                      Select All
+                    </Button>
+                    <Button 
+                      size="small" 
+                      onClick={() => setSelectedItems(new Set())}
+                      sx={{ ml: 1 }}
+                    >
+                      Deselect All
+                    </Button>
+                  </Box>
+                </Box>
+                <Divider sx={{ mb: 2 }} />
+                <TableContainer component={Paper} sx={{ maxHeight: 400 }}>
+                  <Table size="small" stickyHeader>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell padding="checkbox" sx={{ width: 50 }}>Select</TableCell>
+                        {getDisplayFields(selectedType).slice(0, 3).map((field) => (
+                          <TableCell key={field.name}>{field.label}</TableCell>
+                        ))}
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {sourceItems.map((item) => (
+                        <TableRow key={item.id} hover>
+                          <TableCell padding="checkbox">
+                            <Checkbox
+                              checked={selectedItems.has(item.id)}
+                              onChange={(e) => {
+                                const newSelected = new Set(selectedItems);
+                                if (e.target.checked) {
+                                  newSelected.add(item.id);
+                                } else {
+                                  newSelected.delete(item.id);
+                                }
+                                setSelectedItems(newSelected);
+                              }}
+                            />
+                          </TableCell>
+                          {getDisplayFields(selectedType).slice(0, 3).map((field) => (
+                            <TableCell key={field.name}>
+                              {renderCellContent(item, field)}
+                            </TableCell>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+                  {selectedItems.size} of {sourceItems.length} item(s) selected
+                </Typography>
+              </>
+            )}
+
+            {!isLoadingSourceItems && sourceOrganization && sourceItems.length === 0 && (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+                No items found in the selected source organization.
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button 
+            onClick={() => {
+              setImportDialogOpen(false);
+              setSourceOrganization('');
+              setSourceItems([]);
+              setSelectedItems(new Set());
+            }}
+            disabled={isImporting}
+          >
+            Cancel
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleImportItems}
+            disabled={isImporting || selectedItems.size === 0 || !sourceOrganization}
+            startIcon={isImporting ? <CircularProgress size={20} /> : <ImportIcon />}
+          >
+            {isImporting ? 'Importing...' : `Import ${selectedItems.size} Item(s)`}
+          </Button>
+        </DialogActions>
+      </Dialog>
+    );
+  };
+
   // Convert date from "DD-MMM-YY" to "YYYY-MM-DD"
   const formatDateForInput = (dateStr: string): string => {
     if (!dateStr) return '';
@@ -1213,13 +1474,23 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
         )}
 
         {!isReadOnly && canEdit && (
-          <Button 
-            variant="contained" 
-            onClick={handleAddNew}
-            sx={{ ml: 'auto' }}
-          >
-            Add {REFERENCE_DATA_TYPE_LABELS[selectedType]}
-          </Button>
+          <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+            {shouldShowOrgSelect && (
+              <Button 
+                variant="outlined" 
+                startIcon={<ImportIcon />}
+                onClick={() => setImportDialogOpen(true)}
+              >
+                Import from Organization
+              </Button>
+            )}
+            <Button 
+              variant="contained" 
+              onClick={handleAddNew}
+            >
+              Add {REFERENCE_DATA_TYPE_LABELS[selectedType]}
+            </Button>
+          </Box>
         )}
       </Box>
 
@@ -1240,6 +1511,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       </TableContainer>
 
       {renderDialog()}
+      {renderImportDialog()}
 
       <Snackbar
         open={snackbar.open}
