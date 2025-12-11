@@ -33,6 +33,7 @@ import { SearchResultsAnalytics } from './SearchResultsAnalytics';
 import { exportPRsToCSV } from '@/utils/exportUtils';
 import { Link } from 'react-router-dom';
 import { referenceDataService } from '../../services/referenceData';
+import { normalizeOrganizationId } from '@/utils/organization';
 
 interface StatusHistoryEntry {
   status: PRStatus;
@@ -152,19 +153,38 @@ export const Dashboard = () => {
         let combinedPRs: PRRequest[] = [];
 
         if (isAllOrganizations) {
-          if (!showOnlyMyPRs) {
-            if (availableOrgs.length === 0) {
-              console.log('Dashboard: Waiting for available organizations before loading ALL view');
-              setIsLoading(false);
-              return;
-            }
+          // Get user's assigned organizations (primary + additional)
+          const userAssignedOrgs: string[] = [];
+          if (user?.organization) {
+            userAssignedOrgs.push(user.organization);
+          }
+          if (user?.additionalOrganizations && Array.isArray(user.additionalOrganizations)) {
+            user.additionalOrganizations.forEach(org => {
+              const orgStr = typeof org === 'string' ? org : (org as any)?.name || (org as any)?.id || '';
+              if (orgStr && !userAssignedOrgs.includes(orgStr)) {
+                userAssignedOrgs.push(orgStr);
+              }
+            });
+          }
 
-            const orgFetches = availableOrgs.map(async (org) => {
-              const orgPRs = await getUserPRs(userId, org.name, showOnlyMyPRs);
+          if (userAssignedOrgs.length === 0) {
+            console.log('Dashboard: User has no assigned organizations');
+            setIsLoading(false);
+            return;
+          }
+
+          console.log('Dashboard: Loading PRs for user assigned organizations:', userAssignedOrgs);
+
+          if (!showOnlyMyPRs) {
+            // Fetch PRs for each of the user's assigned organizations
+            const orgFetches = userAssignedOrgs.map(async (orgName) => {
+              const orgPRs = await getUserPRs(userId, orgName, showOnlyMyPRs);
               let merged = [...orgPRs];
-              if (org.id && org.id !== org.name) {
+              // Also try fetching by normalized ID if different from name
+              const normalizedId = normalizeOrganizationId(orgName);
+              if (normalizedId && normalizedId !== orgName) {
                 try {
-                  const idPRs = await getUserPRs(userId, org.id, showOnlyMyPRs);
+                  const idPRs = await getUserPRs(userId, normalizedId, showOnlyMyPRs);
                   const existingIds = new Set(merged.map(pr => pr.id));
                   idPRs.forEach(pr => {
                     if (!existingIds.has(pr.id)) {
@@ -172,7 +192,7 @@ export const Dashboard = () => {
                     }
                   });
                 } catch (orgIdError) {
-                  console.error(`Error loading PRs by organization ID (${org.id})`, orgIdError);
+                  console.error(`Error loading PRs by organization ID (${normalizedId})`, orgIdError);
                 }
               }
               return merged;
@@ -187,6 +207,8 @@ export const Dashboard = () => {
             });
             combinedPRs = Array.from(dedupedMap.values());
           } else {
+            // When showing only my PRs, fetch without organization filter
+            // This will get PRs where user is requestor or approver across all their orgs
             combinedPRs = await getUserPRs(userId, undefined, showOnlyMyPRs);
           }
         } else {
@@ -227,7 +249,7 @@ export const Dashboard = () => {
     };
 
     loadPRs();
-  }, [userId, selectedOrg, showOnlyMyPRs, availableOrgs, dispatch]);
+  }, [userId, selectedOrg, showOnlyMyPRs, user, dispatch]);
 
   // Get PRs for the selected status
   const getStatusPRs = (status: PRStatus) => {
