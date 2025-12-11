@@ -362,7 +362,14 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const loadOrganizations = async () => {
     try {
       console.log('Loading organizations...');
-      const loadedOrganizations = await referenceDataService.getOrganizations();
+      // Load all organizations from reference data without filtering by active status
+      // This ensures all organizations are available for selection in user management
+      const collectionRef = collection(db, 'referenceData_organizations');
+      const querySnapshot = await getDocs(collectionRef);
+      const loadedOrganizations: ReferenceData[] = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      })) as ReferenceData[];
       console.log('Loaded organizations:', loadedOrganizations);
       setOrganizations(loadedOrganizations);
     } catch (error) {
