@@ -1216,24 +1216,21 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
           continue;
         }
 
-        // Create new item data
+        // Create new item data - remove id field completely (don't set to undefined)
         const newItem: any = {
-          ...item,
-          id: undefined, // Let Firestore generate new ID
-          organizationId: targetOrg.id,
-          organization: {
-            id: targetOrg.id,
-            name: targetOrg.name
-          }
+          ...item
         };
 
-        // Remove old ID and organization references
+        // Remove id field - let addItem handle ID generation
+        delete newItem.id;
         delete newItem.oldId;
         
-        // Generate new ID if needed (for code-based types)
-        if (CODE_BASED_ID_TYPES.includes(selectedType as any) && newItem.code) {
-          newItem.id = newItem.code.toLowerCase();
-        }
+        // Set organization info
+        newItem.organizationId = targetOrg.id;
+        newItem.organization = {
+          id: targetOrg.id,
+          name: targetOrg.name
+        };
 
         await referenceDataAdminService.addItem(selectedType, newItem);
         importedCount++;
