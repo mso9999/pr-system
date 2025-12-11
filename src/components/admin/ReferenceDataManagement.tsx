@@ -457,6 +457,12 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     message: '',
     severity: 'success'
   });
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [sourceOrganization, setSourceOrganization] = useState('');
+  const [sourceItems, setSourceItems] = useState<ReferenceDataItem[]>([]);
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
+  const [isLoadingSourceItems, setIsLoadingSourceItems] = useState(false);
+  const [isImporting, setIsImporting] = useState(false);
 
   const canEdit = useMemo(() => {
     return user?.permissionLevel ? hasEditAccess(user.permissionLevel, selectedType) : false;
