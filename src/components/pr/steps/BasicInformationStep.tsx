@@ -25,11 +25,14 @@ import {
   CircularProgress,
   Alert,
   Paper,
+  Button,
 } from '@mui/material';
+import { Store as StoreIcon } from '@mui/icons-material';
 import { FormState } from '../NewPRForm';
 import { ReferenceDataItem } from '../../../types/referenceData';
 import { organizations } from '../../../services/localReferenceData';
 import { OrganizationSelector } from '../../common/OrganizationSelector';
+import { VendorSelectionDialog } from '../../common/VendorSelectionDialog';
 
 interface BasicInformationStepProps {
   formState: FormState;
@@ -551,30 +554,65 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
 
       {/* Preferred Vendor */}
       <Grid item xs={12} md={6}>
-        <FormControl fullWidth>
-          <InputLabel id="vendor-label">Preferred Vendor</InputLabel>
-          <Select
-            labelId="vendor-label"
-            id="vendor-select"
-            value={formState.preferredVendor || ''}
-            onChange={handleChange('preferredVendor')}
-            label="Preferred Vendor"
-            disabled={loading}
+        <Box>
+          <Box sx={{ display: 'flex', gap: 1, mb: 0.5 }}>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<StoreIcon />}
+              onClick={() => setVendorDialogOpen(true)}
+              disabled={loading}
+              sx={{
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                height: '56px',
+                ...(formState.preferredVendor && formState.preferredVendor !== 'other' && {
+                  color: 'text.primary',
+                  fontWeight: 'normal',
+                }),
+              }}
+            >
+              {formState.preferredVendor && formState.preferredVendor !== 'other'
+                ? vendors.find(v => v.id === formState.preferredVendor)?.name || 'Select Vendor'
+                : 'Select Preferred Vendor (Optional)'}
+            </Button>
+            {formState.preferredVendor && formState.preferredVendor !== 'other' && (
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => {
+                  setFormState(prev => ({ ...prev, preferredVendor: undefined, customVendorName: undefined }));
+                }}
+                sx={{ minWidth: 'auto', px: 1 }}
+              >
+                Clear
+              </Button>
+            )}
+          </Box>
+          <Button
+            variant="text"
+            size="small"
+            onClick={() => {
+              setFormState(prev => ({ ...prev, preferredVendor: 'other', customVendorName: prev.customVendorName || '' }));
+            }}
+            disabled={loading || formState.preferredVendor === 'other'}
+            sx={{ textTransform: 'none', mb: 0.5 }}
           >
-            <MenuItem value="">
-              <em>None</em>
-            </MenuItem>
-            {vendors
-              .filter(vendor => vendor.active)
-              .map(vendor => (
-                <MenuItem key={vendor.id} value={vendor.id}>
-                  {vendor.name}
-                </MenuItem>
-              ))}
-            <MenuItem value="other">Other - I will write in</MenuItem>
-          </Select>
-          <FormHelperText>Optional - Select if you have a preferred vendor</FormHelperText>
-        </FormControl>
+            Or enter custom vendor name
+          </Button>
+          <FormHelperText sx={{ mt: 0 }}>
+            Optional - Select if you have a preferred vendor
+          </FormHelperText>
+        </Box>
+        <VendorSelectionDialog
+          open={vendorDialogOpen}
+          onClose={() => setVendorDialogOpen(false)}
+          onSelect={(vendorId) => {
+            setFormState(prev => ({ ...prev, preferredVendor: vendorId, customVendorName: undefined }));
+          }}
+          vendors={vendors.filter(vendor => vendor.active)}
+          selectedVendorId={formState.preferredVendor && formState.preferredVendor !== 'other' ? formState.preferredVendor : undefined}
+        />
       </Grid>
 
       {/* Custom Vendor Name - Only shown when "Other" is selected */}
