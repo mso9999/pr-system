@@ -50,6 +50,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DownloadIcon from '@mui/icons-material/Download';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import SendIcon from '@mui/icons-material/Send';
+import StoreIcon from '@mui/icons-material/Store';
 import { RootState } from '@/store';
 import { prService } from '@/services/pr';
 import { PRRequest, PRStatus, LineItem, Quote, Attachment, ApprovalHistoryItem, WorkflowHistoryItem, UserReference as User, PRUpdateParams } from '@/types/pr';
@@ -83,6 +84,7 @@ import { UrgencyControl } from './UrgencyControl';
 import { StatusProgressStepper } from './StatusProgressStepper';
 import { ExternalApprovalBypass } from './ExternalApprovalBypass';
 import { InQueueStatusActions } from './InQueueStatusActions';
+import { VendorSelectionDialog } from '../common/VendorSelectionDialog';
 
 interface EditablePRFields {
   department?: string;
@@ -491,6 +493,7 @@ export function PRView() {
   const [selectedApprover2, setSelectedApprover2] = useState<string | undefined>(
     pr?.approver2 || pr?.approvalWorkflow?.secondApprover || undefined
   );
+  const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
   const [loadingApprovers, setLoadingApprovers] = useState(false);
   const [currentApprover, setCurrentApprover] = useState<User | null>(null);
   const [isLoadingApprover, setIsLoadingApprover] = useState(false);
@@ -1503,29 +1506,75 @@ export function PRView() {
                 </Grid>
               )}
               <Grid item xs={6}>
-                <FormControl fullWidth disabled={!isEditMode || isLockedInApprovedStatus('preferredVendor')}>
-                  <InputLabel>{t('pr.preferredVendor')}</InputLabel>
-                  <Select
-                    value={isEditMode ? (editedPR.preferredVendor || pr?.preferredVendor || '') : (pr?.preferredVendor || '')}
-                    onChange={(e) => handleFieldChange('preferredVendor', e.target.value)}
-                    label={t('pr.preferredVendor')}
-                    renderValue={(value) => {
-                      const vendor = vendors.find(v => v.id === value);
-                      return vendor ? vendor.name : value || '';
-                    }}
-                  >
-                    {vendors
-                      .filter(vendor => vendor.active)
-                      .map((vendor) => (
-                        <MenuItem key={vendor.id} value={vendor.id}>
-                          {vendor.name}
-                        </MenuItem>
-                      ))}
-                  </Select>
-                  {isEditMode && isLockedInApprovedStatus('preferredVendor') && (
-                    <FormHelperText>Vendor cannot be changed after approval</FormHelperText>
-                  )}
-                </FormControl>
+                {isEditMode && !isLockedInApprovedStatus('preferredVendor') ? (
+                  <Box>
+                    <Button
+                      variant="outlined"
+                      fullWidth
+                      startIcon={<StoreIcon />}
+                      onClick={() => setVendorDialogOpen(true)}
+                      disabled={isLockedInApprovedStatus('preferredVendor')}
+                      sx={{
+                        justifyContent: 'flex-start',
+                        textTransform: 'none',
+                        height: '56px',
+                        ...((editedPR.preferredVendor || pr?.preferredVendor) && {
+                          color: 'text.primary',
+                          fontWeight: 'normal',
+                        }),
+                      }}
+                    >
+                      {(editedPR.preferredVendor || pr?.preferredVendor)
+                        ? vendors.find(v => v.id === (editedPR.preferredVendor || pr?.preferredVendor))?.name || 'Select Vendor'
+                        : 'Select Preferred Vendor (Optional)'}
+                    </Button>
+                    {(editedPR.preferredVendor || pr?.preferredVendor) && (
+                      <Button
+                        size="small"
+                        onClick={() => handleFieldChange('preferredVendor', '')}
+                        sx={{ mt: 0.5 }}
+                      >
+                        Clear Selection
+                      </Button>
+                    )}
+                    <FormHelperText sx={{ mt: 0.5 }}>
+                      Optional - Select if you have a preferred vendor
+                    </FormHelperText>
+                    <VendorSelectionDialog
+                      open={vendorDialogOpen}
+                      onClose={() => setVendorDialogOpen(false)}
+                      onSelect={(vendorId) => {
+                        handleFieldChange('preferredVendor', vendorId);
+                        setVendorDialogOpen(false);
+                      }}
+                      vendors={vendors.filter(vendor => vendor.active)}
+                      selectedVendorId={editedPR.preferredVendor || pr?.preferredVendor || undefined}
+                    />
+                  </Box>
+                ) : (
+                  <FormControl fullWidth disabled>
+                    <InputLabel>{t('pr.preferredVendor')}</InputLabel>
+                    <Select
+                      value={pr?.preferredVendor || ''}
+                      label={t('pr.preferredVendor')}
+                      renderValue={(value) => {
+                        const vendor = vendors.find(v => v.id === value);
+                        return vendor ? vendor.name : value || '';
+                      }}
+                    >
+                      {vendors
+                        .filter(vendor => vendor.active)
+                        .map((vendor) => (
+                          <MenuItem key={vendor.id} value={vendor.id}>
+                            {vendor.name}
+                          </MenuItem>
+                        ))}
+                    </Select>
+                    {isEditMode && isLockedInApprovedStatus('preferredVendor') && (
+                      <FormHelperText>Vendor cannot be changed after approval</FormHelperText>
+                    )}
+                  </FormControl>
+                )}
               </Grid>
               <Grid item xs={6}>
                 <TextField

@@ -14,8 +14,10 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
+import StoreIcon from '@mui/icons-material/Store';
 import { Quote, ReferenceDataItem } from '@/types/pr';
 import { StorageService } from '@/services/storage';
+import { VendorSelectionDialog } from '../common/VendorSelectionDialog';
 
 const formSchema = z.object({
   vendorId: z.string().min(1, { message: 'Vendor is required' }),
@@ -47,6 +49,7 @@ export function QuoteForm({
     name: string;
     url: string;
   }>>(initialData?.attachments || []);
+  const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
 
   const {
     register,
@@ -100,23 +103,40 @@ export function QuoteForm({
     <Box component="form" onSubmit={handleSubmit(onSubmitForm)} sx={{ mt: 2 }}>
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <FormControl fullWidth error={!!errors.vendorId}>
-            <InputLabel>Vendor</InputLabel>
-            <Select
-              {...register('vendorId')}
-              label="Vendor"
-              defaultValue={initialData?.vendorId || ''}
+          <Box>
+            <Button
+              variant="outlined"
+              fullWidth
+              startIcon={<StoreIcon />}
+              onClick={() => setVendorDialogOpen(true)}
+              sx={{
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                height: '56px',
+                ...(watch('vendorId') && {
+                  color: 'text.primary',
+                  fontWeight: 'normal',
+                }),
+              }}
             >
-              {vendors.map((vendor) => (
-                <MenuItem key={vendor.id} value={vendor.id}>
-                  {vendor.name}
-                </MenuItem>
-              ))}
-            </Select>
+              {watch('vendorId')
+                ? vendors.find(v => v.id === watch('vendorId'))?.name || 'Select Vendor'
+                : 'Select Vendor'}
+            </Button>
             {errors.vendorId && (
-              <FormHelperText>{errors.vendorId.message}</FormHelperText>
+              <FormHelperText error sx={{ mt: 0.5 }}>{errors.vendorId.message}</FormHelperText>
             )}
-          </FormControl>
+            <VendorSelectionDialog
+              open={vendorDialogOpen}
+              onClose={() => setVendorDialogOpen(false)}
+              onSelect={(vendorId) => {
+                setValue('vendorId', vendorId, { shouldValidate: true });
+                setVendorDialogOpen(false);
+              }}
+              vendors={vendors.filter(vendor => vendor.active)}
+              selectedVendorId={watch('vendorId') || undefined}
+            />
+          </Box>
         </Grid>
 
         <Grid item xs={12} md={6}>

@@ -36,9 +36,11 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import SaveIcon from '@mui/icons-material/Save';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import StoreIcon from '@mui/icons-material/Store';
 import { StorageService } from '../../../services/storage';
 import { Quote, ReferenceDataItem, PRStatus } from '../../../types/pr';
 import { auth } from '../../../config/firebase';
+import { VendorSelectionDialog } from '../../common/VendorSelectionDialog';
 
 interface QuotesStepProps {
   formState: {
@@ -83,6 +85,8 @@ export function QuotesStep({
 }: QuotesStepProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = React.useState(false);
   const [deleteIndex, setDeleteIndex] = React.useState<number | null>(null);
+  const [vendorDialogOpen, setVendorDialogOpen] = React.useState(false);
+  const [vendorDialogQuoteIndex, setVendorDialogQuoteIndex] = React.useState<number | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const quotes = formState.quotes || [];
@@ -348,37 +352,39 @@ export function QuotesStep({
                   </TableCell>
                 )}
                 <TableCell>
-                  <FormControl fullWidth error={!quote.vendorId && !readOnly}>
-                    <InputLabel>Vendor</InputLabel>
-                    <Select
-                      value={quote.vendorId}
-                      onChange={(event) => {
-                        const value = event.target.value;
-                        if (typeof value === 'string') {
-                          handleQuoteChange(index, 'vendorId')({
-                            target: { value }
-                          });
-                        }
-                      }}
-                      label="Vendor"
-                      disabled={readOnly}
-                      sx={{ 
-                        '& .MuiSelect-select.Mui-disabled': {
-                          WebkitTextFillColor: 'rgba(0, 0, 0, 0.6)',
-                        }
-                      }}
-                    >
-                      <MenuItem value="">Select Vendor</MenuItem>
-                      {vendors.map((vendor) => (
-                        <MenuItem key={vendor.id} value={vendor.id}>
-                          {vendor.name}
-                        </MenuItem>
-                      ))}
-                    </Select>
-                    {!quote.vendorId && !readOnly && (
-                      <FormHelperText error>Vendor is required</FormHelperText>
-                    )}
-                  </FormControl>
+                  {readOnly ? (
+                    <Typography>
+                      {quote.vendorName || vendors.find(v => v.id === quote.vendorId)?.name || 'Not specified'}
+                    </Typography>
+                  ) : (
+                    <Box>
+                      <Button
+                        variant="outlined"
+                        fullWidth
+                        startIcon={<StoreIcon />}
+                        onClick={() => {
+                          setVendorDialogQuoteIndex(index);
+                          setVendorDialogOpen(true);
+                        }}
+                        sx={{
+                          justifyContent: 'flex-start',
+                          textTransform: 'none',
+                          height: '40px',
+                          ...(quote.vendorId && {
+                            color: 'text.primary',
+                            fontWeight: 'normal',
+                          }),
+                        }}
+                      >
+                        {quote.vendorId
+                          ? vendors.find(v => v.id === quote.vendorId)?.name || 'Select Vendor'
+                          : 'Select Vendor'}
+                      </Button>
+                      {!quote.vendorId && (
+                        <FormHelperText error sx={{ mt: 0.5 }}>Vendor is required</FormHelperText>
+                      )}
+                    </Box>
+                  )}
                 </TableCell>
                 <TableCell>
                   <TextField
@@ -569,6 +575,30 @@ export function QuotesStep({
           <Button onClick={handleConfirmDelete} color="error">Delete</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Vendor Selection Dialog */}
+      {vendorDialogQuoteIndex !== null && (
+        <VendorSelectionDialog
+          open={vendorDialogOpen}
+          onClose={() => {
+            setVendorDialogOpen(false);
+            setVendorDialogQuoteIndex(null);
+          }}
+          onSelect={(vendorId) => {
+            const vendor = vendors.find(v => v.id === vendorId);
+            handleQuoteChange(vendorDialogQuoteIndex, 'vendorId')({
+              target: { value: vendorId }
+            });
+            handleQuoteChange(vendorDialogQuoteIndex, 'vendorName')({
+              target: { value: vendor?.name || '' }
+            });
+            setVendorDialogOpen(false);
+            setVendorDialogQuoteIndex(null);
+          }}
+          vendors={vendors.filter(vendor => vendor.active)}
+          selectedVendorId={vendorDialogQuoteIndex !== null ? quotes[vendorDialogQuoteIndex]?.vendorId : undefined}
+        />
+      )}
     </Box>
   );
 }
