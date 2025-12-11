@@ -209,12 +209,9 @@ export const NewPRForm = () => {
   // Business rule state
   const [requiresFinanceApproval, setRequiresFinanceApproval] = useState(false);
 
-  // Initial form state
+  // Initial form state - organization will be set by OrganizationSelector based on user's primary org
   const initialFormState = useMemo(() => ({
-    organization: {
-      id: '1pwr_lesotho',
-      name: '1PWR LESOTHO'
-    },
+    organization: null as { id: string; name: string } | null, // Will be set by OrganizationSelector
     requestor: user ? `${user.firstName} ${user.lastName}` : '',
     email: user?.email || '',
     department: '',

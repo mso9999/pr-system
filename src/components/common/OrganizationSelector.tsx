@@ -12,12 +12,13 @@ interface OrganizationSelectorProps {
   value: { id: string; name: string } | null | string;
   onChange: (value: { id: string; name: string }) => void;
   includeAllOption?: boolean;
+  restrictToUserOrgs?: boolean; // If true, only show user's assigned organizations (primary + additional)
   onOrganizationsLoaded?: (orgs: { id: string; name: string }[]) => void;
   error?: boolean;
   helperText?: string;
 }
 
-export const OrganizationSelector = ({ value, onChange, includeAllOption = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
+export const OrganizationSelector = ({ value, onChange, includeAllOption = false, restrictToUserOrgs = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalError, setInternalError] = useState<string | null>(null);
@@ -63,28 +64,37 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
         if (!user) {
           filteredOrgs = [];
         } else {
-          // Normalize permission level to number
-          const permissionLevel = typeof user.permissionLevel === 'number' 
-            ? user.permissionLevel 
-            : Number(user.permissionLevel) || 0;
-          
-          // Superadmin (level 1), Admin role, Finance Admin (level 4), and Procurement (level 3) see all orgs
-          if (
-            permissionLevel === 1 || // Superadmin
-            user.role === 'ADMIN' || 
-            user.role === 'FINANCE_ADMIN' || 
-            user.role === 'PROCUREMENT' ||
-            permissionLevel === 3 || // Procurement
-            permissionLevel === 4    // Finance Admin
-          ) {
-            filteredOrgs = allOrgs;
-          } else {
-            // Approvers and Requestors see their primary org and additional orgs
+          // If restrictToUserOrgs is true, always filter to user's assigned organizations
+          if (restrictToUserOrgs) {
             filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
-
             if (filteredOrgs.length === 0) {
               console.error('User has no matching organizations');
               setInternalError('No organizations available for your account');
+            }
+          } else {
+            // Normalize permission level to number
+            const permissionLevel = typeof user.permissionLevel === 'number' 
+              ? user.permissionLevel 
+              : Number(user.permissionLevel) || 0;
+            
+            // Superadmin (level 1), Admin role, Finance Admin (level 4), and Procurement (level 3) see all orgs
+            if (
+              permissionLevel === 1 || // Superadmin
+              user.role === 'ADMIN' || 
+              user.role === 'FINANCE_ADMIN' || 
+              user.role === 'PROCUREMENT' ||
+              permissionLevel === 3 || // Procurement
+              permissionLevel === 4    // Finance Admin
+            ) {
+              filteredOrgs = allOrgs;
+            } else {
+              // Approvers and Requestors see their primary org and additional orgs
+              filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
+
+              if (filteredOrgs.length === 0) {
+                console.error('User has no matching organizations');
+                setInternalError('No organizations available for your account');
+              }
             }
           }
         }

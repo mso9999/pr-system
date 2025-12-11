@@ -310,6 +310,7 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
               organization: org
             }));
           }}
+          restrictToUserOrgs={true}
           error={isSubmitted && !formState.organization}
           helperText={isSubmitted && !formState.organization ? "Organization is required" : ""}
         />
