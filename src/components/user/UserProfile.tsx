@@ -15,7 +15,16 @@ import {
   Chip,
   Divider,
   Tooltip,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  IconButton,
+  InputAdornment,
+  Visibility,
+  VisibilityOff,
 } from '@mui/material';
+import { Key as KeyIcon } from '@mui/icons-material';
 import { getPermissionInfo } from '@/config/permissions';
 
 export function UserProfile() {
@@ -24,6 +33,10 @@ export function UserProfile() {
   const permissionInfo = getPermissionInfo(user?.permissionLevel);
   
   const [isEditing, setIsEditing] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -38,6 +51,12 @@ export function UserProfile() {
     firstName: user?.firstName || '',
     lastName: user?.lastName || '',
     email: user?.email || '',
+    newPassword: '',
+    confirmPassword: '',
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
@@ -94,11 +113,88 @@ export function UserProfile() {
       });
       
       setIsEditing(false);
+      // Clear password fields
+      setFormData(prev => ({ ...prev, newPassword: '', confirmPassword: '' }));
     } catch (error) {
       console.error('Error updating profile:', error);
       setSnackbar({
         open: true,
         message: 'Failed to update profile',
+        severity: 'error',
+      });
+    }
+  };
+
+  const handlePasswordChange = async () => {
+    try {
+      if (!auth.currentUser) {
+        setSnackbar({
+          open: true,
+          message: 'You must be logged in to change your password',
+          severity: 'error',
+        });
+        return;
+      }
+
+      // Validate passwords
+      if (!passwordData.newPassword || !passwordData.confirmPassword) {
+        setSnackbar({
+          open: true,
+          message: 'Please fill in all password fields',
+          severity: 'error',
+        });
+        return;
+      }
+
+      if (passwordData.newPassword !== passwordData.confirmPassword) {
+        setSnackbar({
+          open: true,
+          message: 'New passwords do not match',
+          severity: 'error',
+        });
+        return;
+      }
+
+      if (passwordData.newPassword.length < 6) {
+        setSnackbar({
+          open: true,
+          message: 'Password must be at least 6 characters long',
+          severity: 'error',
+        });
+        return;
+      }
+
+      // Update password using Firebase Auth
+      await updatePassword(auth.currentUser, passwordData.newPassword);
+
+      setSnackbar({
+        open: true,
+        message: 'Password changed successfully',
+        severity: 'success',
+      });
+
+      // Reset password form and close dialog
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: '',
+      });
+      setIsPasswordDialogOpen(false);
+    } catch (error: any) {
+      console.error('Error changing password:', error);
+      let errorMessage = 'Failed to change password';
+      
+      if (error.code === 'auth/requires-recent-login') {
+        errorMessage = 'For security, please sign out and sign back in before changing your password';
+      } else if (error.code === 'auth/weak-password') {
+        errorMessage = 'Password is too weak. Please choose a stronger password';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      setSnackbar({
+        open: true,
+        message: errorMessage,
         severity: 'error',
       });
     }
@@ -179,6 +275,34 @@ export function UserProfile() {
         </Box>
       </Box>
       <Divider sx={{ mb: 3 }} />
+      
+      {/* Change Password Section */}
+      <Box
+        sx={{
+          p: 2,
+          mb: 3,
+          borderRadius: 2,
+          border: '1px solid',
+          borderColor: 'divider',
+          backgroundColor: 'background.paper',
+        }}
+      >
+        <Typography variant="subtitle1" gutterBottom>
+          Password
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Change your account password to keep your account secure.
+        </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<KeyIcon />}
+          onClick={() => setIsPasswordDialogOpen(true)}
+        >
+          Change Password
+        </Button>
+      </Box>
+
+      <Divider sx={{ mb: 3 }} />
       <form onSubmit={handleSubmit}>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <TextField
@@ -258,6 +382,91 @@ export function UserProfile() {
           </Box>
         </Box>
       </form>
+
+      {/* Change Password Dialog */}
+      <Dialog
+        open={isPasswordDialogOpen}
+        onClose={() => {
+          setIsPasswordDialogOpen(false);
+          setPasswordData({
+            currentPassword: '',
+            newPassword: '',
+            confirmPassword: '',
+          });
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Change Password</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
+            <TextField
+              label="New Password"
+              name="newPassword"
+              type={showNewPassword ? 'text' : 'password'}
+              value={passwordData.newPassword}
+              onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+              fullWidth
+              required
+              helperText="Must be at least 6 characters long"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                      edge="end"
+                    >
+                      {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              label="Confirm New Password"
+              name="confirmPassword"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={passwordData.confirmPassword}
+              onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+              fullWidth
+              required
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      edge="end"
+                    >
+                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setIsPasswordDialogOpen(false);
+              setPasswordData({
+                currentPassword: '',
+                newPassword: '',
+                confirmPassword: '',
+              });
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handlePasswordChange}
+            disabled={!passwordData.newPassword || !passwordData.confirmPassword}
+          >
+            Change Password
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Snackbar
         open={snackbar.open}
