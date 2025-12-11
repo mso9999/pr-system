@@ -30,6 +30,8 @@ import {
   Chip
 } from "@mui/material"
 import { Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon } from "@mui/icons-material"
+import { doc, updateDoc } from 'firebase/firestore'
+import { db } from '@/config/firebase'
 import { ReferenceDataItem } from "@/types/referenceData"
 import { useSelector } from 'react-redux'
 import { RootState } from '@/store'
