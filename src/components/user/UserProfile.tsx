@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { doc, updateDoc } from 'firebase/firestore';
-import { updateEmail, updatePassword } from 'firebase/auth';
+import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
 import { auth, db } from '@/config/firebase';
 import { RootState } from '@/store';
 import { setUser } from '@/store/slices/authSlice';
@@ -162,6 +162,56 @@ export function UserProfile() {
         return;
       }
 
+      // Re-authenticate user before changing password (Firebase requirement)
+      if (!passwordData.currentPassword) {
+        setSnackbar({
+          open: true,
+          message: 'Please enter your current password',
+          severity: 'error',
+        });
+        return;
+      }
+
+      if (!auth.currentUser?.email) {
+        setSnackbar({
+          open: true,
+          message: 'Unable to verify your account. Please sign out and sign back in.',
+          severity: 'error',
+        });
+        return;
+      }
+
+      try {
+        // Re-authenticate with current password
+        const credential = EmailAuthProvider.credential(
+          auth.currentUser.email,
+          passwordData.currentPassword
+        );
+        await reauthenticateWithCredential(auth.currentUser, credential);
+      } catch (reauthError: any) {
+        console.error('Re-authentication error:', reauthError);
+        if (reauthError.code === 'auth/wrong-password') {
+          setSnackbar({
+            open: true,
+            message: 'Current password is incorrect',
+            severity: 'error',
+          });
+        } else if (reauthError.code === 'auth/invalid-credential') {
+          setSnackbar({
+            open: true,
+            message: 'Current password is incorrect',
+            severity: 'error',
+          });
+        } else {
+          setSnackbar({
+            open: true,
+            message: `Authentication failed: ${reauthError.message || 'Please try again'}`,
+            severity: 'error',
+          });
+        }
+        return;
+      }
+
       // Update password using Firebase Auth
       await updatePassword(auth.currentUser, passwordData.newPassword);
 
@@ -177,6 +227,9 @@ export function UserProfile() {
         newPassword: '',
         confirmPassword: '',
       });
+      setShowCurrentPassword(false);
+      setShowNewPassword(false);
+      setShowConfirmPassword(false);
       setIsPasswordDialogOpen(false);
     } catch (error: any) {
       console.error('Error changing password:', error);
@@ -399,6 +452,28 @@ export function UserProfile() {
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
             <TextField
+              label="Current Password"
+              name="currentPassword"
+              type={showCurrentPassword ? 'text' : 'password'}
+              value={passwordData.currentPassword}
+              onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+              fullWidth
+              required
+              helperText="Enter your current password to verify your identity"
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      edge="end"
+                    >
+                      {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
               label="New Password"
               name="newPassword"
               type={showNewPassword ? 'text' : 'password'}
@@ -459,7 +534,7 @@ export function UserProfile() {
           <Button
             variant="contained"
             onClick={handlePasswordChange}
-            disabled={!passwordData.newPassword || !passwordData.confirmPassword}
+            disabled={!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword}
           >
             Change Password
           </Button>

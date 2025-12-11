@@ -154,14 +154,26 @@ export const Dashboard = () => {
 
         if (isAllOrganizations) {
           // Get user's assigned organizations (primary + additional)
+          // Only use organizations the user is actually assigned to, not all organizations in the system
           const userAssignedOrgs: string[] = [];
+          
+          console.log('Dashboard: User organization data:', {
+            primaryOrg: user?.organization,
+            additionalOrgs: user?.additionalOrganizations,
+            userPermissionLevel: user?.permissionLevel
+          });
+
           if (user?.organization) {
-            userAssignedOrgs.push(user.organization);
+            const orgStr = typeof user.organization === 'string' ? user.organization : (user.organization as any)?.name || (user.organization as any)?.id || '';
+            if (orgStr && orgStr !== 'All Organizations' && !userAssignedOrgs.includes(orgStr)) {
+              userAssignedOrgs.push(orgStr);
+            }
           }
+          
           if (user?.additionalOrganizations && Array.isArray(user.additionalOrganizations)) {
             user.additionalOrganizations.forEach(org => {
               const orgStr = typeof org === 'string' ? org : (org as any)?.name || (org as any)?.id || '';
-              if (orgStr && !userAssignedOrgs.includes(orgStr)) {
+              if (orgStr && orgStr !== 'All Organizations' && !userAssignedOrgs.includes(orgStr)) {
                 userAssignedOrgs.push(orgStr);
               }
             });
@@ -173,7 +185,7 @@ export const Dashboard = () => {
             return;
           }
 
-          console.log('Dashboard: Loading PRs for user assigned organizations:', userAssignedOrgs);
+          console.log('Dashboard: Loading PRs for user assigned organizations only:', userAssignedOrgs);
 
           if (!showOnlyMyPRs) {
             // Fetch PRs for each of the user's assigned organizations
