@@ -21,10 +21,8 @@ import {
   DialogActions,
   IconButton,
   InputAdornment,
-  Visibility,
-  VisibilityOff,
 } from '@mui/material';
-import { Key as KeyIcon } from '@mui/icons-material';
+import { Key as KeyIcon, Visibility, VisibilityOff } from '@mui/icons-material';
 import { getPermissionInfo } from '@/config/permissions';
 
 export function UserProfile() {
