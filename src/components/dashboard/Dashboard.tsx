@@ -154,8 +154,8 @@ export const Dashboard = () => {
 
         if (isAllOrganizations) {
           // Get user's assigned organizations (primary + additional)
-          // Only use organizations the user is actually assigned to, not all organizations in the system
-          const userAssignedOrgs: string[] = [];
+          // Need to resolve normalized IDs to actual organization names for PR queries
+          const userAssignedOrgIds: string[] = [];
           
           console.log('Dashboard: User organization data:', {
             primaryOrg: user?.organization,
@@ -163,71 +163,114 @@ export const Dashboard = () => {
             userPermissionLevel: user?.permissionLevel
           });
 
-          // Get user's primary organization - filter out invalid values
+          // Collect normalized organization IDs from user
           if (user?.organization) {
             const orgStr = typeof user.organization === 'string' ? user.organization : (user.organization as any)?.name || (user.organization as any)?.id || '';
             if (orgStr && 
                 orgStr !== 'All Organizations' && 
                 orgStr !== 'ALL_ORGS' &&
-                orgStr.trim() !== '' &&
-                !userAssignedOrgs.includes(orgStr)) {
-              userAssignedOrgs.push(orgStr);
+                orgStr.trim() !== '') {
+              const normalizedId = normalizeOrganizationId(orgStr);
+              if (normalizedId && !userAssignedOrgIds.includes(normalizedId)) {
+                userAssignedOrgIds.push(normalizedId);
+              }
             }
           }
           
-          // Get user's additional organizations - filter out invalid values
           if (user?.additionalOrganizations && Array.isArray(user.additionalOrganizations)) {
             user.additionalOrganizations.forEach(org => {
               const orgStr = typeof org === 'string' ? org : (org as any)?.name || (org as any)?.id || '';
               if (orgStr && 
                   orgStr !== 'All Organizations' && 
                   orgStr !== 'ALL_ORGS' &&
-                  orgStr.trim() !== '' &&
-                  !userAssignedOrgs.includes(orgStr)) {
-                userAssignedOrgs.push(orgStr);
+                  orgStr.trim() !== '') {
+                const normalizedId = normalizeOrganizationId(orgStr);
+                if (normalizedId && !userAssignedOrgIds.includes(normalizedId)) {
+                  userAssignedOrgIds.push(normalizedId);
+                }
               }
             });
           }
 
-          // Safety check: Warn if user has unusually many assigned organizations
-          // This helps identify data issues
-          if (userAssignedOrgs.length > 10) {
-            console.warn('Dashboard: User has unusually many assigned organizations:', userAssignedOrgs.length);
-            console.warn('User organization data:', {
-              primaryOrg: user?.organization,
-              additionalOrgs: user?.additionalOrganizations,
-              userAssignedOrgs
-            });
-          }
-
-          if (userAssignedOrgs.length === 0) {
+          if (userAssignedOrgIds.length === 0) {
             console.log('Dashboard: User has no assigned organizations');
             setIsLoading(false);
             return;
           }
 
-          console.log('Dashboard: Loading PRs for user assigned organizations only:', userAssignedOrgs);
+          // Load organization reference data to get actual names
+          // PRs are stored with organization names (e.g., "1PWR LESOTHO"), not normalized IDs
+          let organizationNames: string[] = [];
+          try {
+            const allOrgs = await referenceDataService.getOrganizations();
+            const orgMap = new Map<string, string>(); // normalizedId -> name
+            
+            allOrgs.forEach(org => {
+              const normalizedId = normalizeOrganizationId(org);
+              if (normalizedId) {
+                orgMap.set(normalizedId, org.name);
+              }
+            });
+
+            console.log('Dashboard: Organization name mapping:', {
+              userAssignedOrgIds,
+              orgMapEntries: Array.from(orgMap.entries())
+            });
+
+            // Get organization names for user's assigned org IDs (PRIMARY - use names)
+            userAssignedOrgIds.forEach(normalizedId => {
+              const orgName = orgMap.get(normalizedId);
+              if (orgName && !organizationNames.includes(orgName)) {
+                organizationNames.push(orgName);
+              } else if (!orgName) {
+                console.warn(`Dashboard: Could not find organization name for normalized ID: ${normalizedId}`);
+              }
+            });
+
+            // Only add normalized IDs as fallback if we didn't get names (shouldn't happen normally)
+            if (organizationNames.length === 0) {
+              console.warn('Dashboard: No organization names found, falling back to normalized IDs');
+              userAssignedOrgIds.forEach(normalizedId => {
+                if (!organizationNames.includes(normalizedId)) {
+                  organizationNames.push(normalizedId);
+                }
+              });
+            }
+          } catch (orgLoadError) {
+            console.error('Error loading organizations for name resolution:', orgLoadError);
+            // Fallback to using normalized IDs directly
+            organizationNames = [...userAssignedOrgIds];
+          }
+
+          console.log('Dashboard: Loading PRs for user assigned organizations:', {
+            normalizedIds: userAssignedOrgIds,
+            organizationNames: organizationNames
+          });
 
           if (!showOnlyMyPRs) {
-            // Fetch PRs for each of the user's assigned organizations
-            const orgFetches = userAssignedOrgs.map(async (orgName) => {
-              const orgPRs = await getUserPRs(userId, orgName, showOnlyMyPRs);
+            // Fetch PRs for each organization (try both name and normalized ID)
+            const orgFetches = organizationNames.map(async (orgIdentifier) => {
+              const orgPRs = await getUserPRs(userId, orgIdentifier, showOnlyMyPRs);
               let merged = [...orgPRs];
-              // Also try fetching by normalized ID if different from name
-              const normalizedId = normalizeOrganizationId(orgName);
-              if (normalizedId && normalizedId !== orgName) {
+              
+              // Also try the normalized ID if we're using a name, or vice versa
+              const normalizedId = normalizeOrganizationId(orgIdentifier);
+              const alternateIdentifier = normalizedId !== orgIdentifier ? normalizedId : null;
+              
+              if (alternateIdentifier) {
                 try {
-                  const idPRs = await getUserPRs(userId, normalizedId, showOnlyMyPRs);
+                  const altPRs = await getUserPRs(userId, alternateIdentifier, showOnlyMyPRs);
                   const existingIds = new Set(merged.map(pr => pr.id));
-                  idPRs.forEach(pr => {
+                  altPRs.forEach(pr => {
                     if (!existingIds.has(pr.id)) {
                       merged.push(pr);
                     }
                   });
-                } catch (orgIdError) {
-                  console.error(`Error loading PRs by organization ID (${normalizedId})`, orgIdError);
+                } catch (altError) {
+                  console.error(`Error loading PRs by alternate identifier (${alternateIdentifier})`, altError);
                 }
               }
+              
               return merged;
             });
 
