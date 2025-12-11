@@ -74,6 +74,7 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
   validationErrors = [],
 }) => {
   const [approverAmountError, setApproverAmountError] = useState<string | null>(null);
+  const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
   const handleChange = (field: keyof FormState) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<any>
   ) => {
