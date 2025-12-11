@@ -163,19 +163,40 @@ export const Dashboard = () => {
             userPermissionLevel: user?.permissionLevel
           });
 
+          // Get user's primary organization - filter out invalid values
           if (user?.organization) {
             const orgStr = typeof user.organization === 'string' ? user.organization : (user.organization as any)?.name || (user.organization as any)?.id || '';
-            if (orgStr && orgStr !== 'All Organizations' && !userAssignedOrgs.includes(orgStr)) {
+            if (orgStr && 
+                orgStr !== 'All Organizations' && 
+                orgStr !== 'ALL_ORGS' &&
+                orgStr.trim() !== '' &&
+                !userAssignedOrgs.includes(orgStr)) {
               userAssignedOrgs.push(orgStr);
             }
           }
           
+          // Get user's additional organizations - filter out invalid values
           if (user?.additionalOrganizations && Array.isArray(user.additionalOrganizations)) {
             user.additionalOrganizations.forEach(org => {
               const orgStr = typeof org === 'string' ? org : (org as any)?.name || (org as any)?.id || '';
-              if (orgStr && orgStr !== 'All Organizations' && !userAssignedOrgs.includes(orgStr)) {
+              if (orgStr && 
+                  orgStr !== 'All Organizations' && 
+                  orgStr !== 'ALL_ORGS' &&
+                  orgStr.trim() !== '' &&
+                  !userAssignedOrgs.includes(orgStr)) {
                 userAssignedOrgs.push(orgStr);
               }
+            });
+          }
+
+          // Safety check: Warn if user has unusually many assigned organizations
+          // This helps identify data issues
+          if (userAssignedOrgs.length > 10) {
+            console.warn('Dashboard: User has unusually many assigned organizations:', userAssignedOrgs.length);
+            console.warn('User organization data:', {
+              primaryOrg: user?.organization,
+              additionalOrgs: user?.additionalOrganizations,
+              userAssignedOrgs
             });
           }
 
