@@ -49,12 +49,15 @@ export function calculateDaysOpen(createdAt: string | Date | Timestamp): number 
 
   const endDate = new Date();
   
-  console.log('Days calculation:', {
-    input: createdAt,
-    startDate: startDate.toISOString(),
-    endDate: endDate.toISOString(),
-    diffDays: Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
-  });
+  // Debug logging (development only)
+  if (import.meta.env.MODE === 'development') {
+    console.log('Days calculation:', {
+      input: createdAt,
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      diffDays: Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24))
+    });
+  }
 
   return Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 }

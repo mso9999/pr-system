@@ -249,12 +249,6 @@ export const Dashboard = () => {
     }));
 
     const statusPRs = prs.filter(pr => {
-      console.log('Filtering PR:', {
-        id: pr.id,
-        status: pr.status,
-        selectedStatus,
-        matches: pr.status === selectedStatus
-      });
       return pr.status === selectedStatus;
     });
     

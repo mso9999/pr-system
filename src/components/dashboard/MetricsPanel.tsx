@@ -33,22 +33,28 @@ export const MetricsPanel = ({ prs }: MetricsPanelProps) => {
     // Calculate average days open dynamically
     const totalDaysOpen = prs.reduce((acc, pr) => {
       const daysOpen = calculateDaysOpen(pr.createdAt);
-      console.log('Days open for PR:', {
-        id: pr.id,
-        prNumber: pr.prNumber,
-        createdAt: pr.createdAt,
-        daysOpen
-      });
+      // Debug logging (development only)
+      if (import.meta.env.MODE === 'development') {
+        console.log('Days open for PR:', {
+          id: pr.id,
+          prNumber: pr.prNumber,
+          createdAt: pr.createdAt,
+          daysOpen
+        });
+      }
       return acc + daysOpen;
     }, 0);
     
     const avgDaysOpen = totalPRs > 0 ? totalDaysOpen / totalPRs : 0;
     
-    console.log('Average days calculation:', {
-      totalPRs,
-      totalDaysOpen,
-      avgDaysOpen
-    });
+    // Debug logging (development only)
+    if (import.meta.env.MODE === 'development') {
+      console.log('Average days calculation:', {
+        totalPRs,
+        totalDaysOpen,
+        avgDaysOpen
+      });
+    }
     
     const overduePRs = prs.filter(pr => pr.metrics?.isOverdue).length;
 

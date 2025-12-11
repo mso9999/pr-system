@@ -268,13 +268,15 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         
-        // Log user data for debugging
-        console.log('Loading user data:', {
-          id: doc.id,
-          rawPermissionLevel: data.permissionLevel,
-          convertedPermissionLevel: typeof data.permissionLevel === 'number' ? data.permissionLevel : 
-            typeof data.permissionLevel === 'string' ? Number(data.permissionLevel) : 5
-        });
+        // Log user data for debugging (development only)
+        if (import.meta.env.MODE === 'development') {
+          console.log('Loading user data:', {
+            id: doc.id,
+            rawPermissionLevel: data.permissionLevel,
+            convertedPermissionLevel: typeof data.permissionLevel === 'number' ? data.permissionLevel : 
+              typeof data.permissionLevel === 'string' ? Number(data.permissionLevel) : 5
+          });
+        }
         
         loadedUsers.push({
           id: doc.id,
@@ -573,8 +575,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   };
 
   const handleSubmit = async () => {
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.organization || !formData.permissionLevel) {
-      showSnackbar('Please fill in all required fields', 'error');
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.organization || !formData.department || !formData.permissionLevel) {
+      showSnackbar('Please fill in all required fields (including department)', 'error');
       return;
     }
 
@@ -618,7 +620,15 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           createdAt: new Date().toISOString()
         };
 
-        await createUser(newUserData, password);
+        await createUser({
+          email: formData.email!,
+          password: password,
+          firstName: formData.firstName!,
+          lastName: formData.lastName!,
+          department: formData.department || '',
+          organization: formData.organization!,
+          permissionLevel: formData.permissionLevel!
+        });
         await loadUsers();
       }
 
