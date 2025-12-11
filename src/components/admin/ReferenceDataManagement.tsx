@@ -277,6 +277,7 @@ const organizationFields: ReferenceDataField[] = [
   { name: 'country', label: 'Country', required: true },
   { name: 'timezoneOffset', label: 'Timezone Offset (GMT)', type: 'number', required: true },
   { name: 'currency', label: 'Currency', required: true },
+  { name: 'active', label: 'Active', type: 'boolean', defaultValue: true },
 ];
 
 const permissionFields: ReferenceDataField[] = [
@@ -359,7 +360,12 @@ function getDisplayFields(type: ReferenceDataType): ReferenceDataField[] {
         { name: 'notes', label: 'Notes', sx: { width: '150px', whiteSpace: 'normal', wordWrap: 'break-word' } }
       ];
     case 'organizations':
-      return organizationFields.map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } }));
+      return organizationFields.map(field => ({ 
+        ...field, 
+        sx: field.type === 'boolean' 
+          ? { width: '80px', whiteSpace: 'normal', wordWrap: 'break-word' }
+          : { whiteSpace: 'normal', wordWrap: 'break-word' }
+      }));
     case 'permissions':
       return permissionFields.map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } }));
     case 'vehicles':
