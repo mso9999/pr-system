@@ -1009,7 +1009,6 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   const handleToggle = async (id: string, field: string, value: boolean) => {
     try {
-      setIsLoading(true);
       const itemRef = doc(db, `referenceData_${selectedType}`, id);
       await updateDoc(itemRef, {
         [field]: value,
@@ -1023,12 +1022,18 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
         )
       );
       
-      enqueueSnackbar('Item updated successfully', { variant: 'success' });
+      setSnackbar({
+        open: true,
+        message: 'Item updated successfully',
+        severity: 'success'
+      });
     } catch (error) {
       console.error('Error updating item:', error);
-      enqueueSnackbar('Failed to update item', { variant: 'error' });
-    } finally {
-      setIsLoading(false);
+      setSnackbar({
+        open: true,
+        message: 'Failed to update item',
+        severity: 'error'
+      });
     }
   };
 
