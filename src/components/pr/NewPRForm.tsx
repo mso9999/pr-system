@@ -246,6 +246,15 @@ export const NewPRForm = () => {
     const loadReferenceData = async () => {
       if (!formState.organization) {
         console.log('No organization selected, skipping reference data load');
+        // Clear all organization-specific fields when no org is selected
+        setDepartments([]);
+        setProjectCategories([]);
+        setSites([]);
+        setExpenseTypes([]);
+        setVehicles([]);
+        setApprovers([]);
+        setAvailableApprovers([]);
+        setRules([]);
         return;
       }
 
@@ -253,12 +262,16 @@ export const NewPRForm = () => {
       console.log('Loading reference data for organization:', formState.organization);
 
       try {
+        // Use organization name or id for department loading (getDepartments accepts both)
+        const orgParam = formState.organization.name || formState.organization.id;
+        const orgId = formState.organization.id || formState.organization.name;
+
         // Load departments first
-        const deptItems = await referenceDataService.getDepartments(formState.organization);
+        const deptItems = await referenceDataService.getDepartments(orgParam);
         console.log('Loaded departments:', deptItems);
         setDepartments(deptItems);
 
-        // Load other reference data
+        // Load other reference data - all organization-specific fields use orgId
         const [
           projectCategoryItems,
           siteItems,
@@ -269,14 +282,14 @@ export const NewPRForm = () => {
           currencyItems,
           rulesItems
         ] = await Promise.all([
-          referenceDataService.getProjectCategories(formState.organization.id),
-          referenceDataService.getSites(formState.organization.id),
-          referenceDataService.getExpenseTypes(formState.organization.id),
-          referenceDataService.getVehicles(formState.organization.id),
-          referenceDataService.getVendors(),
-          approverService.getApprovers(formState.organization.id),
-          referenceDataService.getCurrencies(),
-          referenceDataService.getItemsByType('rules', formState.organization.id)
+          referenceDataService.getProjectCategories(orgId),
+          referenceDataService.getSites(orgId),
+          referenceDataService.getExpenseTypes(orgId),
+          referenceDataService.getVehicles(orgId),
+          referenceDataService.getVendors(), // Vendors are org-independent
+          approverService.getApprovers(orgId),
+          referenceDataService.getCurrencies(), // Currencies are org-independent
+          referenceDataService.getItemsByType('rules', orgId)
         ]);
 
         setProjectCategories(projectCategoryItems);
@@ -291,6 +304,18 @@ export const NewPRForm = () => {
         setRules(rulesItems);
         console.log('Rules loaded in NewPRForm:', rulesItems);
 
+        // Clear organization-specific form fields when organization changes
+        // This prevents invalid selections from previous organization
+        setFormState(prev => ({
+          ...prev,
+          department: '',
+          projectCategory: '',
+          site: '',
+          expenseType: '',
+          vehicle: undefined,
+          approvers: [], // Clear approvers when org changes
+        }));
+
       } catch (error) {
         console.error('Error loading reference data:', error);
         setError('Failed to load form data. Please try again.');
@@ -301,10 +326,10 @@ export const NewPRForm = () => {
       }
     };
 
-    if (!isInitialized) {
-      loadReferenceData();
-    }
-  }, [formState.organization, isInitialized, enqueueSnackbar]);
+    // Always load reference data when organization changes (not just on initialization)
+    loadReferenceData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formState.organization?.id, formState.organization?.name]);
 
   // Load data on mount
   useEffect(() => {
