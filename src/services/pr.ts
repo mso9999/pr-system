@@ -388,7 +388,28 @@ export async function updatePRStatus(
            // e.g., update approvalWorkflow.currentApprover to null or set a final timestamp
         }
 
-        await updateDoc(prDocRef, updateData);
+        // Recursively remove undefined values - Firestore doesn't accept undefined
+        const cleanUndefined = (obj: any): any => {
+          if (obj === null) return null;
+          if (obj === undefined) return undefined;
+          if (Array.isArray(obj)) {
+            return obj.map(item => cleanUndefined(item)).filter(item => item !== undefined);
+          }
+          if (typeof obj === 'object') {
+            const cleaned: any = {};
+            for (const key in obj) {
+              const value = cleanUndefined(obj[key]);
+              if (value !== undefined) {
+                cleaned[key] = value;
+              }
+            }
+            return cleaned;
+          }
+          return obj;
+        };
+
+        const cleanedUpdateData = cleanUndefined(updateData);
+        await updateDoc(prDocRef, cleanedUpdateData);
         console.log(`Successfully updated status for PR ${prId} to ${status}`);
         
         // Add notification creation logic here if needed upon status change
