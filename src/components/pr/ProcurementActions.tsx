@@ -86,6 +86,11 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   };
 
   const handleSubmit = async () => {
+    console.log('[ProcurementActions] handleSubmit called:', {
+      selectedAction,
+      prId,
+      notesLength: notes?.length || 0
+    });
     try {
       // Validate notes for reject and revise actions
       if ((selectedAction === 'reject' || selectedAction === 'revise') && !notes.trim()) {
@@ -93,16 +98,25 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
         return;
       }
 
+      console.log('[ProcurementActions] Fetching PR data...');
       // Get the PR data
       const pr = await prService.getPR(prId);
       if (!pr) {
         setError('PR not found');
         return;
       }
+      console.log('[ProcurementActions] PR data fetched:', {
+        id: pr.id,
+        status: pr.status,
+        paymentType: pr.paymentType,
+        quoteRequirementOverride: pr.quoteRequirementOverride,
+        approver: pr.approver
+      });
 
       let newStatus: PRStatus;
       switch (selectedAction) {
         case 'approve':
+          console.log('[ProcurementActions] Processing approve action...');
           // Get the rules for this organization from referenceData
           const rulesData = await referenceDataService.getItemsByType('rules', pr.organization);
           const rules = rulesData as unknown as Rule[];
@@ -167,6 +181,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
                 }
                 // Otherwise, validation passes (quote errors are overridden)
                 console.log('Only quote errors present and override exists - proceeding');
+                // Continue to next validation steps
               } else if (hasQuoteErrors && !pr.quoteRequirementOverride) {
                 // Show override dialog for quote requirements
                 setQuoteErrorMessage(validation.errors.join('\n\n'));
@@ -235,10 +250,19 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           }
 
           // Validate Payment Type is set before moving to PENDING_APPROVAL
+          console.log('[ProcurementActions] Checking Payment Type:', {
+            paymentType: pr.paymentType,
+            isEmpty: !pr.paymentType || pr.paymentType.trim() === '',
+            prId: pr.id,
+            prNumber: pr.prNumber
+          });
           if (!pr.paymentType || pr.paymentType.trim() === '') {
-            setError('Payment Type is required before moving to PENDING_APPROVAL. Please set the Payment Type field in the PR details.');
+            const errorMsg = 'Payment Type is required before moving to PENDING_APPROVAL. Please set the Payment Type field in the PR details.';
+            console.error('[ProcurementActions] Payment Type validation failed:', errorMsg);
+            setError(errorMsg);
             return;
           }
+          console.log('[ProcurementActions] Payment Type validation passed, proceeding to status update');
 
           // Determine if dual approval is required (above Rule 3 threshold - high-value PRs)
           // Rule 3 is the high-value threshold that triggers dual approval requirement (Rule 5)
@@ -253,14 +277,15 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           const poNumber = pr.prNumber.replace('PR', 'PO');
           newStatus = PRStatus.PENDING_APPROVAL;
           
-          console.log('Updating PR with:', {
+          console.log('[ProcurementActions] Updating PR with:', {
             poNumber,
             newStatus,
             requiresDualApproval,
-            currentUser,
+            currentUser: { id: currentUser.id, email: currentUser.email },
             prId: pr.id
           });
 
+          console.log('[ProcurementActions] Calling prService.updatePR...');
           // Update PR with PO number, dual approval settings, and approver information
           // This must happen BEFORE sending notifications so handlers can fetch the updated PR
           await prService.updatePR(prId, {
@@ -280,9 +305,11 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               lastUpdated: new Date().toISOString()
             }
           });
+          console.log('[ProcurementActions] PR updated successfully, now updating status history...');
 
           // Update status history separately
           await prService.updatePRStatus(prId, newStatus, notes, currentUser);
+          console.log('[ProcurementActions] Status history updated successfully');
 
           // Send notification to approver(s)
           // This happens AFTER the PR is fully updated in Firestore
