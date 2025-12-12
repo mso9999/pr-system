@@ -147,6 +147,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   const isAdmin = permissionLevel === 1;
   const canCancelPO = isAdmin || isAdminApprover || isFinanceAdmin || isFinanceApprover;
   const canRejectPO = isAdmin || isFinanceAdmin || isFinanceApprover;
+  // Finance Admin (Level 4) can upload PoP, Proforma, and move PO to ORDERED status
   const canTakeAction = isProcurement || isFinanceAdmin || isFinanceApprover || isAdmin;
 
   // Get rule thresholds from organization (will need to fetch from org config)
@@ -1081,7 +1082,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
             </Paper>
           </Grid>
 
-          {/* Proof of Payment Section */}
+          {/* Proof of Payment Section - Finance Admin (Level 4) can upload PoP documents */}
           <Grid item xs={12} md={6}>
             <Paper variant="outlined" sx={{ p: 2 }}>
               <Typography variant="subtitle1" gutterBottom>
