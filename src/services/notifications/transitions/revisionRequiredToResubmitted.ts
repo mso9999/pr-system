@@ -27,7 +27,8 @@ export class RevisionRequiredToResubmittedHandler implements StatusTransitionHan
   async getEmailContent(context: NotificationContext): Promise<EmailContent> {
     const { prNumber, oldStatus, newStatus, user, notes } = context;
     const userName = user ? `${user.firstName} ${user.lastName}`.trim() : 'System';
-    const baseUrl = getBaseUrl();
+    // Always use production URL for notifications
+    const baseUrl = 'https://pr.1pwrafrica.com';
 
     const subject = `PR #${prNumber} Resubmitted`;
     const text = `PR ${prNumber} has been resubmitted after revisions by ${userName}.\n` +

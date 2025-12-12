@@ -32,7 +32,8 @@ export class PendingApprovalToApprovedHandler implements StatusTransitionHandler
   async getEmailContent(context: NotificationContext): Promise<EmailContent> {
     const { prNumber, user, notes, prId } = context;
     const userName = user ? `${user.firstName} ${user.lastName}`.trim() : 'System';
-    const baseUrl = getBaseUrl();
+    // Always use production URL for notifications
+    const baseUrl = 'https://pr.1pwrafrica.com';
 
     const subject = `PR #${prNumber} Approved`;
     const text = `Your PR #${prNumber} has been approved by ${userName}.\n` +

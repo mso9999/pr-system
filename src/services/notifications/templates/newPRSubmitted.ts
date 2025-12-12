@@ -350,7 +350,8 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
     requestorEmail: pr.requestorEmail
   });
 
-  const prUrl = `${baseUrl || 'https://1pwr.firebaseapp.com'}/pr/${pr.id}`;
+  // Always use production URL for notifications
+  const prUrl = `https://pr.1pwrafrica.com/pr/${pr.id}`;
   const urgentFlag = pr.isUrgent || isUrgent;
   const subject = `${urgentFlag ? 'URGENT: ' : ''}New PR ${prNumber} Submitted`;
 

@@ -5,7 +5,8 @@ import { styles } from './styles';
 
 export function generateReviseAndResubmitEmail(context: NotificationContext): EmailContent {
   const { pr, prNumber, isUrgent, notes, baseUrl } = context;
-  const prUrl = `${baseUrl}/pr/${pr.id}`;
+  // Always use production URL for notifications
+  const prUrl = `https://pr.1pwrafrica.com/pr/${pr.id}`;
   
   const subject = `${isUrgent ? 'URGENT: ' : ''}PR ${prNumber} Status Changed: SUBMITTED → REVISION_REQUIRED`;
   

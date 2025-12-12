@@ -205,7 +205,7 @@ export class QuoteConflictDetectedHandler implements NotificationHandler {
 </p>
 
 <p style="margin-top: 30px;">
-  <a href="${window.location.origin}/pr/${context.prId}" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+  <a href="https://pr.1pwrafrica.com/pr/${context.prId}" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
     View PR and Resolve Conflict
   </a>
 </p>

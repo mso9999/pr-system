@@ -156,8 +156,8 @@ export class NotificationService {
         userId: user?.id
       };
       
-      // Generate base URL for PR link
-      const prUrl = `${window.location.origin}/pr/${prId}`;
+      // Generate base URL for PR link - always use production URL for notifications
+      const prUrl = `https://pr.1pwrafrica.com/pr/${prId}`;
       
       // Log notification in Firestore
       await this.logNotification('STATUS_CHANGE', prId, [], 'pending', { 
@@ -596,7 +596,7 @@ export class NotificationService {
         prNumber,
         user,
         notes,
-        baseUrl: window.location.origin,
+        baseUrl: 'https://pr.1pwrafrica.com', // Always use production URL for notifications
         isUrgent: pr.isUrgent || false
       };
       
@@ -638,7 +638,7 @@ export class NotificationService {
         plainText += `Total Amount: ${formattedAmount}\n`;
         plainText += `Vendor: ${pr.preferredVendor || ''}\n`;
         plainText += `Required Date: ${pr.requiredDate ? new Date(pr.requiredDate).toLocaleDateString() : ''}\n\n`;
-        plainText += `View PR: ${window.location.origin}/pr/${pr.id}`;
+        plainText += `View PR: https://pr.1pwrafrica.com/pr/${pr.id}`;
         
         htmlContent = `
       <div style="
@@ -827,7 +827,7 @@ export class NotificationService {
     margin-top: 30px;
     text-align: center;
   ">
-          <a href="${window.location.origin}/pr/${pr.id}" style="
+          <a href="https://pr.1pwrafrica.com/pr/${pr.id}" style="
     display: inline-block;
     padding: 10px 20px;
     background-color: #4CAF50;
@@ -853,7 +853,7 @@ export class NotificationService {
         }
         
         if (notes) plainText += `${notes}\n`;
-        plainText += `\nView PR: ${window.location.origin}/pr/${pr.id}`;
+        plainText += `\nView PR: https://pr.1pwrafrica.com/pr/${pr.id}`;
         
         htmlContent = `
       <div style="
@@ -974,7 +974,7 @@ export class NotificationService {
     margin-top: 30px;
     text-align: center;
   ">
-          <a href="${window.location.origin}/pr/${pr.id}" style="
+          <a href="https://pr.1pwrafrica.com/pr/${pr.id}" style="
     display: inline-block;
     padding: 10px 20px;
     background-color: #4CAF50;

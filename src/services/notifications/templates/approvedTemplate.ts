@@ -5,7 +5,8 @@ import { styles } from './styles';
 export function generateApprovedEmail(context: NotificationContext): EmailContent {
   try {
     const { pr, prNumber, user, notes, baseUrl, isUrgent } = context;
-    const prUrl = `${baseUrl}/pr/${pr.id}`;
+    // Always use production URL for notifications
+    const prUrl = `https://pr.1pwrafrica.com/pr/${pr.id}`;
     
     const subject = `${isUrgent ? 'URGENT: ' : ''}PR ${prNumber} Has Been Approved`;
     

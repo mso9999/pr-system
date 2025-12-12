@@ -1,8 +1,11 @@
+import { getPRSystemUrl } from '@/config/environment';
+
 /**
  * Generates a link to view a PR in the system
+ * Always uses production URL (pr.1pwrafrica.com) for notifications
  */
 export function generatePRLink(prId: string): string {
-  const baseUrl = window.location.origin;
+  const baseUrl = getPRSystemUrl();
   return `${baseUrl}/pr/${prId}`;
 }
 

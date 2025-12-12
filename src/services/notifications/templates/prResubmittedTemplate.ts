@@ -5,7 +5,8 @@ import { styles } from './styles';
 
 export function generateResubmittedEmail(context: NotificationContext): EmailContent {
   const { pr, prNumber, user, notes, baseUrl, isUrgent } = context;
-  const prUrl = `${baseUrl}/pr/${pr?.id || context.prId}`;
+  // Always use production URL for notifications
+  const prUrl = `https://pr.1pwrafrica.com/pr/${pr?.id || context.prId}`;
   
   const subject = `${isUrgent ? 'URGENT: ' : ''}PR ${prNumber} Has Been Resubmitted`;
   

@@ -89,7 +89,8 @@ export class SubmittedToPendingApprovalHandler implements StatusTransitionHandle
     }
 
     const baseUrl = getBaseUrl();
-    const prViewUrl = `${baseUrl}/pr/${pr.id}`;
+    // Always use production URL for notifications
+    const prViewUrl = `https://pr.1pwrafrica.com/pr/${pr.id}`;
     
     return {
       subject: `PR #${pr.prNumber} - Pending Your Approval`,

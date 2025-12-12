@@ -120,7 +120,8 @@ function formatAmount(amount?: number | null, currency?: string): string {
 export async function generateRevisionRequiredEmail(context: NotificationContext): Promise<EmailContent> {
   try {
     const { pr, prNumber, user, notes, baseUrl, isUrgent } = context;
-    const prUrl = `${baseUrl}/pr/${pr?.id || context.prId}`;
+    // Always use production URL for notifications
+    const prUrl = `https://pr.1pwrafrica.com/pr/${pr?.id || context.prId}`;
     
     const subject = `${isUrgent ? 'URGENT: ' : ''}PR ${prNumber} Status Changed: SUBMITTED → REVISION_REQUIRED`;
     

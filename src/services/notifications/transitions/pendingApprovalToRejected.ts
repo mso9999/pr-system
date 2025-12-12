@@ -32,7 +32,8 @@ export class PendingApprovalToRejectedHandler implements StatusTransitionHandler
   async getEmailContent(context: NotificationContext): Promise<EmailContent> {
     const { prNumber, user, notes, prId } = context;
     const userName = user ? `${user.firstName} ${user.lastName}`.trim() : 'System';
-    const baseUrl = getBaseUrl();
+    // Always use production URL for notifications
+    const baseUrl = 'https://pr.1pwrafrica.com';
 
     const subject = `PR #${prNumber} Rejected`;
     const text = `Your PR #${prNumber} has been rejected by ${userName}.\n` +
