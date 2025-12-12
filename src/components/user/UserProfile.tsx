@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { doc, updateDoc } from 'firebase/firestore';
 import { updateEmail, updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth';
@@ -20,6 +20,7 @@ import {
 } from '@mui/material';
 import { Visibility, VisibilityOff } from '@mui/icons-material';
 import { getPermissionInfo } from '@/config/permissions';
+import { referenceDataService } from '@/services/referenceData';
 
 export function UserProfile() {
   const dispatch = useDispatch();
@@ -48,6 +49,9 @@ export function UserProfile() {
     newPassword: '',
     confirmPassword: '',
   });
+  
+  const [organizations, setOrganizations] = useState<Array<{ id: string; name: string }>>([]);
+  const [loadingOrgs, setLoadingOrgs] = useState(true);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -172,19 +176,43 @@ export function UserProfile() {
   };
 
 
-  const formatOrganization = (org: unknown): string => {
-    if (!org) return '';
-    if (typeof org === 'string') return org;
-    if (typeof org === 'object' && org !== null) {
-      const obj = org as { name?: string; code?: string; id?: string };
-      return obj.name || obj.code || obj.id || '';
-    }
-    return String(org);
+  // Load organizations to resolve IDs to names
+  useEffect(() => {
+    const loadOrganizations = async () => {
+      try {
+        setLoadingOrgs(true);
+        const orgs = await referenceDataService.getOrganizations();
+        setOrganizations(orgs.map(org => ({ id: org.id, name: org.name })));
+      } catch (error) {
+        console.error('Error loading organizations:', error);
+      } finally {
+        setLoadingOrgs(false);
+      }
+    };
+    loadOrganizations();
+  }, []);
+
+  // Resolve organization ID to name
+  const getOrganizationName = (orgId: string | undefined | null): string => {
+    if (!orgId) return 'Not set';
+    if (typeof orgId !== 'string') return String(orgId);
+    
+    // Try to find organization by ID (normalized)
+    const normalizedId = orgId.toLowerCase().replace(/[^a-z0-9]/g, '_');
+    const org = organizations.find(o => 
+      o.id === orgId || 
+      o.id === normalizedId ||
+      o.id.toLowerCase() === orgId.toLowerCase() ||
+      o.name.toLowerCase() === orgId.toLowerCase()
+    );
+    
+    // If found, return the name; otherwise return the ID as fallback
+    return org?.name || orgId;
   };
 
-  const primaryOrganization = formatOrganization(user?.organization) || 'Not set';
+  const primaryOrganization = getOrganizationName(user?.organization);
   const additionalOrganizations = Array.isArray(user?.additionalOrganizations)
-    ? user!.additionalOrganizations!.map(formatOrganization).filter(Boolean)
+    ? user!.additionalOrganizations!.map(getOrganizationName).filter(Boolean)
     : [];
 
   return (
