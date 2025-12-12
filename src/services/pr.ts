@@ -735,38 +735,74 @@ export async function createPR(
        // approvalWorkflow initialization might be needed here
      };
 
-     // Recursively remove undefined values - Firestore doesn't accept undefined
-     const cleanUndefined = (obj: any): any => {
-       if (obj === null || obj === undefined) {
-         return null;
-       }
-       if (Array.isArray(obj)) {
-         return obj.map(item => cleanUndefined(item));
-       }
-       if (typeof obj === 'object') {
-         const cleaned: any = {};
-         for (const key in obj) {
-           const value = cleanUndefined(obj[key]);
-           if (value !== undefined) {
-             cleaned[key] = value;
-           }
-         }
-         return cleaned;
-       }
-       return obj;
-     };
+    // Recursively remove undefined values - Firestore doesn't accept undefined
+    const cleanUndefined = (obj: any): any => {
+      if (obj === null || obj === undefined) {
+        return null;
+      }
+      if (Array.isArray(obj)) {
+        // Filter out undefined values from arrays, but keep null
+        return obj
+          .map(item => cleanUndefined(item))
+          .filter(item => item !== undefined);
+      }
+      if (typeof obj === 'object') {
+        const cleaned: any = {};
+        for (const key in obj) {
+          const value = cleanUndefined(obj[key]);
+          if (value !== undefined) {
+            cleaned[key] = value;
+          }
+        }
+        return cleaned;
+      }
+      return obj;
+    };
 
-     const cleanedPRData = cleanUndefined(finalPRData) as Omit<PRRequest, 'id'>;
+    const cleanedPRData = cleanUndefined(finalPRData) as Omit<PRRequest, 'id'>;
 
-     console.log('[PR SERVICE] Final PR data before saving to Firestore:');
-     console.log('[PR SERVICE] - PR Number:', cleanedPRData.prNumber);
-     console.log('[PR SERVICE] - Preferred Vendor:', cleanedPRData.preferredVendor);
-     console.log('[PR SERVICE] - Organization:', cleanedPRData.organization);
-     console.log('[PR SERVICE] Attempting to save to Firestore...');
+    // Validate required fields before attempting to save
+    const requiredFields = ['prNumber', 'organization', 'department', 'projectCategory', 'description', 'site', 'expenseType', 'estimatedAmount', 'currency', 'requiredDate', 'requestorId', 'requestorEmail', 'requestor', 'status'];
+    const missingFields = requiredFields.filter(field => {
+      const value = cleanedPRData[field as keyof typeof cleanedPRData];
+      return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
+    });
 
-     // Use addDoc to create a new document with an auto-generated ID
-     const docRef = await addDoc(collection(db, PR_COLLECTION), cleanedPRData);
-     console.log(`[PR SERVICE] Successfully created PR ${prNumber} with ID ${docRef.id}`);
+    if (missingFields.length > 0) {
+      console.error('[PR SERVICE] ❌ Missing or empty required fields:', missingFields);
+      console.error('[PR SERVICE] Current cleaned data:', cleanedPRData);
+      throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+    }
+
+    console.log('[PR SERVICE] ========== FINAL PR DATA ==========');
+    console.log('[PR SERVICE] Full cleaned PR data:', JSON.stringify(cleanedPRData, null, 2));
+    console.log('[PR SERVICE] - PR Number:', cleanedPRData.prNumber);
+    console.log('[PR SERVICE] - Organization:', cleanedPRData.organization);
+    console.log('[PR SERVICE] - Department:', cleanedPRData.department);
+    console.log('[PR SERVICE] - Project Category:', cleanedPRData.projectCategory);
+    console.log('[PR SERVICE] - Site:', cleanedPRData.site);
+    console.log('[PR SERVICE] - Expense Type:', cleanedPRData.expenseType);
+    console.log('[PR SERVICE] - Preferred Vendor:', cleanedPRData.preferredVendor);
+    console.log('[PR SERVICE] - Requestor ID:', cleanedPRData.requestorId);
+    console.log('[PR SERVICE] - Estimated Amount:', cleanedPRData.estimatedAmount);
+    console.log('[PR SERVICE] - Currency:', cleanedPRData.currency);
+    console.log('[PR SERVICE] - Status:', cleanedPRData.status);
+    console.log('[PR SERVICE] =====================================');
+    console.log('[PR SERVICE] Attempting to save to Firestore...');
+
+    // Use addDoc to create a new document with an auto-generated ID
+    let docRef;
+    try {
+      docRef = await addDoc(collection(db, PR_COLLECTION), cleanedPRData);
+      console.log(`[PR SERVICE] ✅ Successfully created PR ${prNumber} with ID ${docRef.id}`);
+    } catch (firestoreError: any) {
+      console.error('[PR SERVICE] ❌ Firestore error details:');
+      console.error('[PR SERVICE] - Error code:', firestoreError?.code);
+      console.error('[PR SERVICE] - Error message:', firestoreError?.message);
+      console.error('[PR SERVICE] - Error stack:', firestoreError?.stack);
+      console.error('[PR SERVICE] - Full error object:', firestoreError);
+      throw firestoreError; // Re-throw to be caught by outer catch
+    }
      
     // Trigger notification for new PR submission
     try {
