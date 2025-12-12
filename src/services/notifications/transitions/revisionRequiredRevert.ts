@@ -66,7 +66,7 @@ The revision that was previously requested is no longer needed. Your PR will con
 
 ${this.getNextStepsMessage(context.newStatus)}
 
-View PR: ${context.prUrl || `[PR Link]`}
+View PR: https://pr.1pwrafrica.com/pr/${context.prId}
 
 Best regards,
 Procurement Team

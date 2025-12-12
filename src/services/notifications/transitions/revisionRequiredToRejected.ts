@@ -64,7 +64,7 @@ ${context.notes || 'No specific reason provided.'}
 **Next Steps:**
 If you believe this rejection was made in error, please contact the procurement team to discuss the matter. The PR can be resurrected if needed.
 
-View PR: ${context.prUrl || `[PR Link]`}
+View PR: https://pr.1pwrafrica.com/pr/${context.prId}
 
 Thank you for your understanding.
 

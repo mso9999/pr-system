@@ -56,7 +56,7 @@ ${context.notes || 'No notes provided'}
 **Next Steps:**
 Please review the resubmitted PR and take appropriate action (move to queue, request additional revision, or reject).
 
-View PR: ${context.prUrl || `[PR Link]`}
+View PR: https://pr.1pwrafrica.com/pr/${context.prId}
 
 Best regards,
 PR System
