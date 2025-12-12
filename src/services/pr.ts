@@ -96,11 +96,27 @@ function createStatusHistoryItem(
   status: PRStatus,
   user: UserReference,
   notes?: string
-): Omit<StatusHistoryItem, 'id'> { 
+): Omit<StatusHistoryItem, 'id'> {
+  // Clean the user object to remove undefined fields before storing
+  const cleanedUser: UserReference = {
+    id: user.id,
+    email: user.email,
+    ...(user.firstName && { firstName: user.firstName }),
+    ...(user.lastName && { lastName: user.lastName }),
+    ...(user.name && { name: user.name }),
+    ...(user.displayName && { displayName: user.displayName }),
+    ...(user.role && { role: user.role }),
+    ...(user.organization && { organization: user.organization }),
+    ...(user.department && { department: user.department }),
+    ...(user.isActive !== undefined && { isActive: user.isActive }), // isActive can be false
+    ...(user.permissionLevel !== undefined && { permissionLevel: user.permissionLevel }),
+    ...(user.permissions && Object.keys(user.permissions).length > 0 && { permissions: user.permissions }),
+  };
+
   return {
     status, 
     timestamp: new Date().toISOString(), 
-    user: user, 
+    user: cleanedUser, 
     notes: notes || `Status changed to ${status}`,
   };
 }
@@ -397,7 +413,13 @@ export async function updatePRStatus(
         const statusHistoryEntry = createStatusHistoryItem(status, cleanUser, notes);
 
         // Recursively remove undefined values - Firestore doesn't accept undefined
-        const cleanUndefined = (obj: any): any => {
+        const cleanUndefined = (obj: any, depth: number = 0): any => {
+          // Prevent infinite recursion
+          if (depth > 10) {
+            console.warn('[updatePRStatus] cleanUndefined: Max depth reached, returning null');
+            return null;
+          }
+          
           // Handle null (Firestore accepts null)
           if (obj === null) {
             return null;
@@ -408,9 +430,10 @@ export async function updatePRStatus(
           }
           // Handle arrays - clean each item and filter out undefined sentinels
           if (Array.isArray(obj)) {
-            return obj
-              .map(item => cleanUndefined(item))
+            const cleaned = obj
+              .map(item => cleanUndefined(item, depth + 1))
               .filter(item => item !== '__UNDEFINED__');
+            return cleaned;
           }
           // Handle objects (but not Firestore special types like serverTimestamp)
           if (typeof obj === 'object' && obj !== null) {
@@ -426,7 +449,8 @@ export async function updatePRStatus(
             const cleaned: any = {};
             for (const key in obj) {
               if (Object.prototype.hasOwnProperty.call(obj, key)) {
-                const value = cleanUndefined(obj[key]);
+                const value = cleanUndefined(obj[key], depth + 1);
+                // Only add the key if the value is not the undefined sentinel
                 if (value !== '__UNDEFINED__') {
                   cleaned[key] = value;
                 }
@@ -440,9 +464,11 @@ export async function updatePRStatus(
 
         // Clean the status history entry before adding it
         const cleanedStatusHistoryEntry = cleanUndefined(statusHistoryEntry);
+        console.log('[updatePRStatus] Cleaned status history entry:', JSON.stringify(cleanedStatusHistoryEntry, null, 2));
         
         // Clean existing status history entries as well (they might have undefined values)
         const cleanedCurrentStatusHistory = currentStatusHistory.map(entry => cleanUndefined(entry));
+        console.log('[updatePRStatus] Cleaned current status history entries count:', cleanedCurrentStatusHistory.length);
 
         // Prepare update data
         const updateData: PRUpdateData = {
