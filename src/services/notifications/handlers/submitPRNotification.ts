@@ -10,7 +10,7 @@ import { getEnvironmentConfig } from '@/config/environment';
 const functions = getFunctions();
 
 export class SubmitPRNotificationHandler {
-  private readonly PROCUREMENT_EMAIL = 'procurement@1pwrafrica.com';
+  private readonly DEFAULT_PROCUREMENT_EMAIL = 'procurement@1pwrafrica.com';
   private readonly notificationsCollection = 'purchaseRequestsNotifications';
 
   /**
@@ -31,6 +31,56 @@ export class SubmitPRNotificationHandler {
 
     const docRef = await addDoc(collection(db, this.notificationsCollection), notification);
     return docRef.id;
+  }
+
+  /**
+   * Fetches the organization's procurement email from Firestore
+   * Falls back to default if not found or on error
+   */
+  private async getProcurementEmail(organizationName: string): Promise<string> {
+    try {
+      if (!organizationName) {
+        console.warn('No organization name provided, using default procurement email');
+        return this.DEFAULT_PROCUREMENT_EMAIL;
+      }
+
+      // Normalize organization name to ID format (e.g., "1PWR BENIN" -> "1pwr_benin")
+      const orgId = organizationName.toLowerCase().replace(/\s+/g, '_');
+      
+      console.log(`Fetching procurement email for organization: ${organizationName} (ID: ${orgId})`);
+      
+      // Try to find organization by ID first
+      const orgRef = doc(db, 'organizations', orgId);
+      const orgDoc = await getDoc(orgRef);
+      
+      if (orgDoc.exists()) {
+        const orgData = orgDoc.data();
+        if (orgData.procurementEmail) {
+          console.log(`Found procurement email for ${organizationName}: ${orgData.procurementEmail}`);
+          return orgData.procurementEmail;
+        }
+      }
+      
+      // If not found by ID, try querying by name
+      const orgsRef = collection(db, 'organizations');
+      const orgsQuery = query(orgsRef, where('name', '==', organizationName));
+      const orgsSnapshot = await getDocs(orgsQuery);
+      
+      if (!orgsSnapshot.empty) {
+        const orgData = orgsSnapshot.docs[0].data();
+        if (orgData.procurementEmail) {
+          console.log(`Found procurement email for ${organizationName} (by name): ${orgData.procurementEmail}`);
+          return orgData.procurementEmail;
+        }
+      }
+      
+      console.warn(`No procurement email found for organization: ${organizationName}, using default: ${this.DEFAULT_PROCUREMENT_EMAIL}`);
+      return this.DEFAULT_PROCUREMENT_EMAIL;
+    } catch (error) {
+      console.error('Error fetching organization procurement email:', error);
+      console.warn(`Using default procurement email due to error: ${this.DEFAULT_PROCUREMENT_EMAIL}`);
+      return this.DEFAULT_PROCUREMENT_EMAIL;
+    }
   }
 
   /**
@@ -233,8 +283,11 @@ export class SubmitPRNotificationHandler {
         throw new Error('Base URL is not configured');
       }
 
+      // Get organization's procurement email dynamically
+      const procurementEmail = await this.getProcurementEmail(prDoc.organization);
+      
       // Generate notification ID and log
-      const notificationId = await this.logNotification(prDoc.id, [this.PROCUREMENT_EMAIL]);
+      const notificationId = await this.logNotification(prDoc.id, [procurementEmail]);
 
       // Detailed raw data logging to detect approver issues
       console.debug('Raw PR approver data:', {
@@ -454,22 +507,28 @@ export class SubmitPRNotificationHandler {
       const { html, text, subject } = await generateNewPREmail(notificationContext);
       console.log(`[VENDOR DEBUG] Email content generated`);
 
+      // Use the procurement email we already fetched earlier
+      console.log(`[NOTIFICATION] Using procurement email for ${prDoc.organization}: ${procurementEmail}`);
       
-      // Get recipients
-      const recipients = [this.PROCUREMENT_EMAIL];
+      // Get recipients - TO is the procurement email for the organization
+      const recipients = [procurementEmail];
       
       // Add CC list
-      const cc = [];
+      const cc: string[] = [];
       
       // Always CC the requestor
       if (prDoc.requestorEmail) {
         cc.push(prDoc.requestorEmail);
+        console.log(`[NOTIFICATION] Adding requestor to CC: ${prDoc.requestorEmail}`);
       }
       
       // If requestor has a different email in their user record, CC that too
       if (prDoc.requestor?.email && prDoc.requestor.email !== prDoc.requestorEmail) {
         cc.push(prDoc.requestor.email);
+        console.log(`[NOTIFICATION] Adding requestor alternate email to CC: ${prDoc.requestor.email}`);
       }
+      
+      console.log(`[NOTIFICATION] Final recipients - TO: ${recipients.join(', ')}, CC: ${cc.join(', ') || '(none)'}`);
       
       // Create notification document
       const notificationRef = collection(db, 'notifications');
@@ -514,7 +573,13 @@ export class SubmitPRNotificationHandler {
         }
       });
       
-      console.info(`Notification logged`, { type: 'PR_SUBMITTED', prId: prDoc.id, recipients, status: 'pending' });
+      console.info(`Notification logged`, { 
+        type: 'PR_SUBMITTED', 
+        prId: prDoc.id, 
+        prNumber,
+        recipients: { to: recipients, cc: cc },
+        status: 'pending' 
+      });
       
       return {
         success: true,
