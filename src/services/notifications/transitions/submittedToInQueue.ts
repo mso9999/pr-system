@@ -1,21 +1,77 @@
-import { StatusTransitionHandler, NotificationContext, EmailContent } from '../types';
+import { StatusTransitionHandler, NotificationContext, EmailContent, Recipients } from '../types';
 import { PRStatus } from '../../../types/pr';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '@/config/firebase';
+
+const DEFAULT_PROCUREMENT_EMAIL = 'procurement@1pwrafrica.com';
+
+/**
+ * Fetches the organization's procurement email from Firestore
+ * Falls back to default if not found or on error
+ */
+async function getProcurementEmail(organizationName: string): Promise<string> {
+  try {
+    if (!organizationName) {
+      console.warn('No organization name provided, using default procurement email');
+      return DEFAULT_PROCUREMENT_EMAIL;
+    }
+
+    // Normalize organization name to ID format (e.g., "1PWR BENIN" -> "1pwr_benin")
+    const orgId = organizationName.toLowerCase().replace(/\s+/g, '_');
+    
+    console.log(`[SubmittedToInQueue] Fetching procurement email for organization: ${organizationName} (ID: ${orgId})`);
+    
+    // Try to find organization by ID first
+    const orgRef = doc(db, 'organizations', orgId);
+    const orgDoc = await getDoc(orgRef);
+    
+    if (orgDoc.exists()) {
+      const orgData = orgDoc.data();
+      if (orgData.procurementEmail) {
+        console.log(`[SubmittedToInQueue] Found procurement email for ${organizationName}: ${orgData.procurementEmail}`);
+        return orgData.procurementEmail;
+      }
+    }
+    
+    // If not found by ID, try querying by name
+    const orgsRef = collection(db, 'organizations');
+    const orgsQuery = query(orgsRef, where('name', '==', organizationName));
+    const orgsSnapshot = await getDocs(orgsQuery);
+    
+    if (!orgsSnapshot.empty) {
+      const orgData = orgsSnapshot.docs[0].data();
+      if (orgData.procurementEmail) {
+        console.log(`[SubmittedToInQueue] Found procurement email for ${organizationName} (by name): ${orgData.procurementEmail}`);
+        return orgData.procurementEmail;
+      }
+    }
+    
+    console.warn(`[SubmittedToInQueue] No procurement email found for organization: ${organizationName}, using default: ${DEFAULT_PROCUREMENT_EMAIL}`);
+    return DEFAULT_PROCUREMENT_EMAIL;
+  } catch (error) {
+    console.error('[SubmittedToInQueue] Error fetching organization procurement email:', error);
+    console.warn(`[SubmittedToInQueue] Using default procurement email due to error: ${DEFAULT_PROCUREMENT_EMAIL}`);
+    return DEFAULT_PROCUREMENT_EMAIL;
+  }
+}
 
 export class SubmittedToInQueueHandler implements StatusTransitionHandler {
-  async getRecipients(context: NotificationContext): Promise<string[]> {
-    const recipients: string[] = [];
+  async getRecipients(context: NotificationContext): Promise<Recipients> {
+    const recipients: Recipients = {
+      to: [],
+      cc: []
+    };
     
     // Primary recipient: Requestor
     if (context.pr.requestorEmail) {
-      recipients.push(context.pr.requestorEmail);
+      recipients.to.push(context.pr.requestorEmail);
     }
     
-    // CC: Procurement team (always)
+    // CC: Procurement team (organization-specific)
     if (context.pr.organization) {
-      // Get procurement email from organization
-      // This would need to be fetched from the organization data
-      // For now, we'll use a placeholder
-      recipients.push('procurement@1pwrafrica.com');
+      const procurementEmail = await getProcurementEmail(context.pr.organization);
+      recipients.cc.push(procurementEmail);
+      console.log(`[SubmittedToInQueue] Recipients: TO=${recipients.to.join(', ')}, CC=${recipients.cc.join(', ')}`);
     }
     
     return recipients;
