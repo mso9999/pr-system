@@ -735,13 +735,18 @@ export async function createPR(
        // approvalWorkflow initialization might be needed here
      };
 
+     // Remove undefined values - Firestore doesn't accept undefined
+     const cleanedPRData = Object.fromEntries(
+       Object.entries(finalPRData).filter(([_, value]) => value !== undefined)
+     ) as Omit<PRRequest, 'id'>;
+
      console.log('[PR SERVICE] Final PR data before saving to Firestore:');
-     console.log('[PR SERVICE] - PR Number:', finalPRData.prNumber);
-     console.log('[PR SERVICE] - Preferred Vendor:', finalPRData.preferredVendor);
-     console.log('[PR SERVICE] - Organization:', finalPRData.organization);
+     console.log('[PR SERVICE] - PR Number:', cleanedPRData.prNumber);
+     console.log('[PR SERVICE] - Preferred Vendor:', cleanedPRData.preferredVendor);
+     console.log('[PR SERVICE] - Organization:', cleanedPRData.organization);
 
      // Use addDoc to create a new document with an auto-generated ID
-     const docRef = await addDoc(collection(db, PR_COLLECTION), finalPRData);
+     const docRef = await addDoc(collection(db, PR_COLLECTION), cleanedPRData);
      console.log(`[PR SERVICE] Successfully created PR ${prNumber} with ID ${docRef.id}`);
      
     // Trigger notification for new PR submission
@@ -750,7 +755,7 @@ export async function createPR(
       
       // Create the complete PR object with the generated ID
       const completePRData = {
-        ...finalPRData,
+        ...cleanedPRData,
         id: docRef.id
       };
       
