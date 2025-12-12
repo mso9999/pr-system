@@ -151,17 +151,25 @@ export function QuotesStep({
     event: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>
   ) => {
     if (!readOnly) {
-      console.log('Quote change:', { index, field, value: event.target.value });
-      
       const currentQuotes = formState.quotes || [];
+      if (index < 0 || index >= currentQuotes.length) {
+        console.error('[QuotesStep] Invalid quote index:', { index, quotesLength: currentQuotes.length });
+        return;
+      }
+      
+      console.log('[QuotesStep] Quote change:', { index, field, value: event.target.value, currentQuote: currentQuotes[index] });
+      
       const value = field === 'amount' ? Number(event.target.value) : event.target.value;
       
       const updatedQuotes = currentQuotes.map((quote, i) => {
         if (i === index) {
           if (field === 'vendorId' && typeof value === 'string') {
             const vendor = vendors.find(v => v.id === value);
-            console.log('Selected vendor:', vendor);
-            return {
+            console.log('[QuotesStep] Selected vendor:', { vendorId: value, vendor, vendorsCount: vendors.length });
+            if (!vendor) {
+              console.warn('[QuotesStep] Vendor not found for ID:', value);
+            }
+            const updatedQuote = {
               ...quote,
               vendorId: value,
               vendorName: vendor?.name || '',
@@ -171,6 +179,8 @@ export function QuotesStep({
               notes: quote.notes || '',
               attachments: quote.attachments || []
             };
+            console.log('[QuotesStep] Updated quote with vendor:', updatedQuote);
+            return updatedQuote;
           }
           return {
             ...quote,
@@ -180,7 +190,7 @@ export function QuotesStep({
         return quote;
       });
       
-      console.log('Updated quotes:', updatedQuotes);
+      console.log('[QuotesStep] Updated quotes array:', { before: currentQuotes.length, after: updatedQuotes.length, updatedQuote: updatedQuotes[index] });
       setFormState({
         ...formState,
         quotes: updatedQuotes
@@ -585,17 +595,35 @@ export function QuotesStep({
             setVendorDialogQuoteIndex(null);
           }}
           onSelect={(vendorId) => {
+            const quoteIndex = vendorDialogQuoteIndex; // Capture the index before any state changes
+            if (quoteIndex === null) {
+              console.error('[QuotesStep] Vendor selected but quote index is null');
+              setVendorDialogOpen(false);
+              setVendorDialogQuoteIndex(null);
+              return;
+            }
             const vendor = vendors.find(v => v.id === vendorId);
-            handleQuoteChange(vendorDialogQuoteIndex, 'vendorId')({
+            console.log('[QuotesStep] Vendor selected from dialog:', { vendorId, vendor, quoteIndex, vendorsCount: vendors.length });
+            
+            if (!vendor) {
+              console.error('[QuotesStep] Vendor not found for ID:', vendorId);
+              setVendorDialogOpen(false);
+              setVendorDialogQuoteIndex(null);
+              return;
+            }
+            
+            // Only call handleQuoteChange once for vendorId - it already sets vendorName
+            handleQuoteChange(quoteIndex, 'vendorId')({
               target: { value: vendorId }
-            });
-            handleQuoteChange(vendorDialogQuoteIndex, 'vendorName')({
-              target: { value: vendor?.name || '' }
-            });
-            setVendorDialogOpen(false);
-            setVendorDialogQuoteIndex(null);
+            } as React.ChangeEvent<HTMLInputElement>);
+            
+            // Close dialog after a small delay to ensure state update completes
+            setTimeout(() => {
+              setVendorDialogOpen(false);
+              setVendorDialogQuoteIndex(null);
+            }, 100);
           }}
-          vendors={vendors.filter(vendor => vendor.active)}
+          vendors={vendors.filter(vendor => vendor.active !== false)}
           selectedVendorId={vendorDialogQuoteIndex !== null ? quotes[vendorDialogQuoteIndex]?.vendorId : undefined}
         />
       )}
