@@ -636,7 +636,16 @@
       "closingWarning1": "• DOIT entrer des notes sur les problèmes",
       "closingWarning2": "• Optionnel : Cochez \"Approuver le fournisseur malgré les problèmes\"",
       "closingWarning3": "• Problème enregistré dans le dossier du fournisseur",
-      "closingWarning4": "• Peut toujours fermer la commande"
+      "closingWarning4": "• Peut toujours fermer la commande",
+      "uploadingPoP": "Téléchargement de la preuve de paiement (statut APPROUVÉ)",
+      "uploadingPoPDesc": "L'administrateur financier peut télécharger des documents de preuve de paiement lorsqu'un BC est en statut APPROUVÉ, ce qui est requis avant de passer au statut COMMANDÉ (pour les DR au-dessus du seuil de la Règle 1).",
+      "popStep1": "1. Filtrer par statut : APPROUVÉ",
+      "popStep2": "2. Ouvrir le BC que vous devez traiter",
+      "popStep3": "3. Faire défiler jusqu'à la section 'Preuve de paiement'",
+      "popStep4": "4. Cliquer sur 'Télécharger' et sélectionner votre/vos document(s) de preuve de paiement",
+      "popStep5": "5. Télécharger des fichiers PDF, JPG ou PNG (plusieurs fichiers autorisés)",
+      "popStep6": "6. Une fois téléchargé, le BC peut être déplacé au statut COMMANDÉ (si toutes les autres exigences sont remplies)",
+      "popNote": "Note : La preuve de paiement est requise pour les DR au-dessus du seuil de la Règle 1. Si le paiement n'a pas encore été effectué, vous pouvez définir une dérogation avec justification à la place."
     },
     "superadmin": {
       "title": "Guide Superadmin",

@@ -636,7 +636,16 @@
       "closingWarning1": "• MUST enter issue notes",
       "closingWarning2": "• Optional: Check \"Approve vendor despite issues\"",
       "closingWarning3": "• Issue logged to vendor record",
-      "closingWarning4": "• Can still close order"
+      "closingWarning4": "• Can still close order",
+      "uploadingPoP": "Uploading Proof of Payment (APPROVED Status)",
+      "uploadingPoPDesc": "Finance Admin can upload Proof of Payment documents when a PO is in APPROVED status, which is required before moving to ORDERED status (for PRs above Rule 1 threshold).",
+      "popStep1": "1. Filter by status: APPROVED",
+      "popStep2": "2. Open the PO you need to process",
+      "popStep3": "3. Scroll to the 'Proof of Payment' section",
+      "popStep4": "4. Click 'Upload' and select your PoP document(s)",
+      "popStep5": "5. Upload PDF, JPG, or PNG files (multiple files allowed)",
+      "popStep6": "6. Once uploaded, the PO can be moved to ORDERED status (if all other requirements are met)",
+      "popNote": "Note: PoP is required for PRs above Rule 1 threshold. If payment hasn't been made yet, you can set an override with justification instead."
     },
     "superadmin": {
       "title": "Superadmin Guide",

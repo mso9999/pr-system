@@ -847,6 +847,42 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
+              <Typography variant="h6">{t('manual.finance.uploadingPoP')}</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="body2" paragraph>
+                {t('manual.finance.uploadingPoPDesc')}
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText primary={t('manual.finance.popStep1')} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary={t('manual.finance.popStep2')} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary={t('manual.finance.popStep3')} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary={t('manual.finance.popStep4')} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary={t('manual.finance.popStep5')} />
+                </ListItem>
+                <ListItem>
+                  <ListItemText primary={t('manual.finance.popStep6')} />
+                </ListItem>
+              </List>
+              <Alert severity="info" sx={{ mt: 2 }}>
+                <Typography variant="body2">
+                  {t('manual.finance.popNote')}
+                </Typography>
+              </Alert>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandIcon />}>
               <Typography variant="h6">{t('manual.finance.closingCompleted')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
