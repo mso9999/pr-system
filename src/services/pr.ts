@@ -371,8 +371,30 @@ export async function updatePRStatus(
             );
         }
 
-        // Create new status history item using the renamed function
-        const statusHistoryEntry = createStatusHistoryItem(status, user, notes);
+        // Clean the user object first to remove any undefined fields
+        // Only include fields that have actual values (not undefined or null)
+        const cleanUser: UserReference = {
+          id: user.id,
+          email: user.email || ''
+        };
+        // Only include optional fields if they have actual values (not undefined)
+        if (user.firstName !== undefined && user.firstName !== null) cleanUser.firstName = user.firstName;
+        if (user.lastName !== undefined && user.lastName !== null) cleanUser.lastName = user.lastName;
+        if (user.name !== undefined && user.name !== null) {
+          cleanUser.name = user.name;
+        } else if (user.firstName || user.lastName) {
+          cleanUser.name = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email || 'Unknown';
+        }
+        if (user.displayName !== undefined && user.displayName !== null) cleanUser.displayName = user.displayName;
+        if (user.role !== undefined && user.role !== null) cleanUser.role = user.role;
+        if (user.organization !== undefined && user.organization !== null) cleanUser.organization = user.organization;
+        if (user.department !== undefined && user.department !== null) cleanUser.department = user.department;
+        if (user.isActive !== undefined && user.isActive !== null) cleanUser.isActive = user.isActive;
+        if (user.permissionLevel !== undefined && user.permissionLevel !== null) cleanUser.permissionLevel = user.permissionLevel;
+        if (user.permissions !== undefined && user.permissions !== null) cleanUser.permissions = user.permissions;
+
+        // Create new status history item using the cleaned user
+        const statusHistoryEntry = createStatusHistoryItem(status, cleanUser, notes);
 
         // Recursively remove undefined values - Firestore doesn't accept undefined
         const cleanUndefined = (obj: any): any => {
