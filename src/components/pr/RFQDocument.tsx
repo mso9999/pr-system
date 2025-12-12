@@ -21,6 +21,8 @@ interface RFQDocumentProps {
   orgLogo?: string;
   organization: Organization;
   customData: RFQCustomData;
+  departmentName?: string;
+  projectCategoryName?: string;
 }
 
 const styles = StyleSheet.create({
@@ -149,6 +151,8 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
   orgLogo,
   organization,
   customData,
+  departmentName,
+  projectCategoryName,
 }) => {
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'N/A';
@@ -215,11 +219,11 @@ export const RFQDocument: React.FC<RFQDocumentProps> = ({
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Department:</Text>
-            <Text style={styles.value}>{pr.department || 'N/A'}</Text>
+            <Text style={styles.value}>{departmentName || pr.department || 'N/A'}</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Project Category:</Text>
-            <Text style={styles.value}>{pr.projectCategory || 'N/A'}</Text>
+            <Text style={styles.value}>{projectCategoryName || pr.projectCategory || 'N/A'}</Text>
           </View>
         </View>
 

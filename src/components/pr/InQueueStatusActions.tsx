@@ -54,6 +54,7 @@ import {
 import { organizationService } from '@/services/organizationService';
 import { imageUrlToBase64ViaImage } from '@/utils/imageUtils';
 import { prService } from '@/services/pr';
+import { referenceDataService } from '@/services/referenceData';
 
 interface InQueueStatusActionsProps {
   pr: PRRequest;
@@ -145,7 +146,48 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
         console.warn('⚠️ Failed to load 1PWR Africa logo:', error);
       }
 
-      console.log('📄 Step 3: Creating RFQ document component...');
+      console.log('📄 Step 3: Resolving department and project category names...');
+      
+      // Resolve department and project category IDs to names
+      let departmentName = pr.department || 'N/A';
+      let projectCategoryName = pr.projectCategory || 'N/A';
+      
+      try {
+        const organization = pr.organization || '';
+        
+        // Fetch departments and project categories
+        const [departments, projectCategories] = await Promise.all([
+          referenceDataService.getDepartments(organization),
+          referenceDataService.getProjectCategories(organization)
+        ]);
+        
+        // Resolve department ID to name
+        if (pr.department) {
+          const dept = departments.find(d => d.id === pr.department);
+          if (dept) {
+            departmentName = dept.name;
+            console.log(`✓ Resolved department ID '${pr.department}' to '${departmentName}'`);
+          } else {
+            console.warn(`⚠️ Department ID '${pr.department}' not found, using ID as fallback`);
+          }
+        }
+        
+        // Resolve project category ID to name
+        if (pr.projectCategory) {
+          const category = projectCategories.find(c => c.id === pr.projectCategory);
+          if (category) {
+            projectCategoryName = category.name;
+            console.log(`✓ Resolved project category ID '${pr.projectCategory}' to '${projectCategoryName}'`);
+          } else {
+            console.warn(`⚠️ Project category ID '${pr.projectCategory}' not found, using ID as fallback`);
+          }
+        }
+      } catch (error) {
+        console.error('⚠️ Error resolving reference data names:', error);
+        // Continue with IDs as fallback
+      }
+      
+      console.log('📄 Step 4: Creating RFQ document component...');
       
       // If organization data not found, create fallback with PR's organization name
       const organizationData = orgData || { 
@@ -186,10 +228,12 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
           orgLogo={logoBase64}
           organization={organizationData}
           customData={rfqData}
+          departmentName={departmentName}
+          projectCategoryName={projectCategoryName}
         />
       );
 
-      console.log('🔄 Step 4: Generating PDF blob...');
+      console.log('🔄 Step 5: Generating PDF blob...');
       let blob;
       try {
         blob = await pdf(rfqDoc).toBlob();
@@ -213,7 +257,7 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
         throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`);
       }
       
-      console.log('💾 Step 5: Triggering download...');
+      console.log('💾 Step 6: Triggering download...');
       // Download the PDF
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
