@@ -374,11 +374,59 @@ export async function updatePRStatus(
         // Create new status history item using the renamed function
         const statusHistoryEntry = createStatusHistoryItem(status, user, notes);
 
+        // Recursively remove undefined values - Firestore doesn't accept undefined
+        const cleanUndefined = (obj: any): any => {
+          // Handle null (Firestore accepts null)
+          if (obj === null) {
+            return null;
+          }
+          // Handle undefined - return a sentinel value that we'll filter out
+          if (obj === undefined) {
+            return '__UNDEFINED__';
+          }
+          // Handle arrays - clean each item and filter out undefined sentinels
+          if (Array.isArray(obj)) {
+            return obj
+              .map(item => cleanUndefined(item))
+              .filter(item => item !== '__UNDEFINED__');
+          }
+          // Handle objects (but not Firestore special types like serverTimestamp)
+          if (typeof obj === 'object' && obj !== null) {
+            // Check if it's a Firestore special value (like serverTimestamp)
+            // These have special properties that indicate they're Firestore types
+            if (obj.constructor && obj.constructor.name && 
+                (obj.constructor.name.includes('FieldValue') || 
+                 obj.constructor.name === 'Timestamp' ||
+                 typeof obj.toMillis === 'function')) {
+              return obj; // Don't clean Firestore special values
+            }
+            
+            const cleaned: any = {};
+            for (const key in obj) {
+              if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                const value = cleanUndefined(obj[key]);
+                if (value !== '__UNDEFINED__') {
+                  cleaned[key] = value;
+                }
+              }
+            }
+            return cleaned;
+          }
+          // Handle primitives
+          return obj;
+        };
+
+        // Clean the status history entry before adding it
+        const cleanedStatusHistoryEntry = cleanUndefined(statusHistoryEntry);
+        
+        // Clean existing status history entries as well (they might have undefined values)
+        const cleanedCurrentStatusHistory = currentStatusHistory.map(entry => cleanUndefined(entry));
+
         // Prepare update data
         const updateData: PRUpdateData = {
             status: status,
-            // Append to statusHistory
-            statusHistory: [...currentStatusHistory, statusHistoryEntry], 
+            // Append to statusHistory (both cleaned)
+            statusHistory: [...cleanedCurrentStatusHistory, cleanedStatusHistoryEntry], 
             updatedAt: serverTimestamp(), 
         };
         
@@ -388,27 +436,9 @@ export async function updatePRStatus(
            // e.g., update approvalWorkflow.currentApprover to null or set a final timestamp
         }
 
-        // Recursively remove undefined values - Firestore doesn't accept undefined
-        const cleanUndefined = (obj: any): any => {
-          if (obj === null) return null;
-          if (obj === undefined) return undefined;
-          if (Array.isArray(obj)) {
-            return obj.map(item => cleanUndefined(item)).filter(item => item !== undefined);
-          }
-          if (typeof obj === 'object') {
-            const cleaned: any = {};
-            for (const key in obj) {
-              const value = cleanUndefined(obj[key]);
-              if (value !== undefined) {
-                cleaned[key] = value;
-              }
-            }
-            return cleaned;
-          }
-          return obj;
-        };
-
+        // Clean the entire update data object (cleanUndefined function is already defined above)
         const cleanedUpdateData = cleanUndefined(updateData);
+        console.log('[updatePRStatus] Cleaned update data:', JSON.stringify(cleanedUpdateData, null, 2));
         await updateDoc(prDocRef, cleanedUpdateData);
         console.log(`Successfully updated status for PR ${prId} to ${status}`);
         
