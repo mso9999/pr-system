@@ -319,10 +319,40 @@ export class NotificationService {
         createdAt: serverTimestamp()
       };
       
-      // Filter out any undefined values to prevent Firestore errors
-      const cleanPayload = Object.fromEntries(
-        Object.entries(notificationPayload).filter(([_, v]) => v !== undefined)
-      );
+      // Recursively remove undefined values - Firestore doesn't accept undefined at any level
+      const cleanUndefined = (obj: any): any => {
+        if (obj === null) return null;
+        if (obj === undefined) return '__UNDEFINED__';
+        if (Array.isArray(obj)) {
+          return obj
+            .map(item => cleanUndefined(item))
+            .filter(item => item !== '__UNDEFINED__');
+        }
+        if (typeof obj === 'object' && obj !== null) {
+          // Check if it's a Firestore special value (like serverTimestamp)
+          if (obj.constructor && obj.constructor.name && 
+              (obj.constructor.name.includes('FieldValue') || 
+               obj.constructor.name === 'Timestamp' ||
+               typeof obj.toMillis === 'function')) {
+            return obj; // Don't clean Firestore special values
+          }
+          
+          const cleaned: any = {};
+          for (const key in obj) {
+            if (Object.prototype.hasOwnProperty.call(obj, key)) {
+              const value = cleanUndefined(obj[key]);
+              if (value !== '__UNDEFINED__') {
+                cleaned[key] = value;
+              }
+            }
+          }
+          return cleaned;
+        }
+        return obj;
+      };
+      
+      const cleanPayload = cleanUndefined(notificationPayload);
+      console.log('[Notification] Cleaned payload:', JSON.stringify(cleanPayload, null, 2));
       
       const notificationsRef = collection(db, 'notifications');
       const notificationDoc = await addDoc(notificationsRef, cleanPayload);
