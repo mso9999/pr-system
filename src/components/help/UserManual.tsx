@@ -34,6 +34,7 @@ import {
 } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import { useTranslation } from 'react-i18next';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -57,6 +58,7 @@ function TabPanel(props: TabPanelProps) {
 }
 
 export const UserManual: React.FC = () => {
+  const { t } = useTranslation();
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const { user } = useSelector((state: RootState) => state.auth);
@@ -89,19 +91,19 @@ export const UserManual: React.FC = () => {
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
             <Typography variant="h4" gutterBottom>
-              PR System User Manual
+              {t('manual.title')}
             </Typography>
             <Typography variant="body2" color="textSecondary">
-              Version 1.0 | Last Updated: November 2025
+              {t('manual.version')}
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <Tooltip title="Print Manual">
+            <Tooltip title={t('manual.printManual')}>
               <IconButton onClick={handlePrint}>
                 <PrintIcon />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Download Full Manual">
+            <Tooltip title={t('manual.downloadFullManual')}>
               <IconButton onClick={handleDownload}>
                 <DownloadIcon />
               </IconButton>
@@ -113,7 +115,7 @@ export const UserManual: React.FC = () => {
         <TextField
           fullWidth
           size="small"
-          placeholder="Search manual..."
+          placeholder={t('manual.searchPlaceholder')}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           InputProps={{
@@ -131,48 +133,48 @@ export const UserManual: React.FC = () => {
         {/* Role-based Tabs */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
-            <Tab label="Getting Started" />
-            <Tab icon={<RequestorIcon />} label="Requestor" iconPosition="start" />
-            <Tab icon={<ApproverIcon />} label="Approver" iconPosition="start" />
-            <Tab icon={<ProcurementIcon />} label="Procurement" iconPosition="start" />
-            <Tab icon={<FinanceIcon />} label="Finance/Admin" iconPosition="start" />
-            <Tab icon={<AdminIcon />} label="Superadmin" iconPosition="start" />
-            <Tab label="FAQs" />
+            <Tab label={t('manual.tabs.gettingStarted')} />
+            <Tab icon={<RequestorIcon />} label={t('manual.tabs.requestor')} iconPosition="start" />
+            <Tab icon={<ApproverIcon />} label={t('manual.tabs.approver')} iconPosition="start" />
+            <Tab icon={<ProcurementIcon />} label={t('manual.tabs.procurement')} iconPosition="start" />
+            <Tab icon={<FinanceIcon />} label={t('manual.tabs.financeAdmin')} iconPosition="start" />
+            <Tab icon={<AdminIcon />} label={t('manual.tabs.superadmin')} iconPosition="start" />
+            <Tab label={t('manual.tabs.faqs')} />
           </Tabs>
         </Box>
 
         {/* Getting Started */}
         <TabPanel value={tabValue} index={0}>
           <Typography variant="h5" gutterBottom>
-            Getting Started with PR System
+            {t('manual.gettingStarted.title')}
           </Typography>
 
           <Alert severity="info" sx={{ mb: 3 }}>
-            Welcome to the PR System! This guide will help you get started quickly.
+            {t('manual.gettingStarted.welcome')}
           </Alert>
 
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Logging In</Typography>
+              <Typography variant="h6">{t('manual.gettingStarted.loggingIn')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List>
                 <ListItem>
                   <ListItemText
-                    primary="1. Navigate to the PR System URL"
-                    secondary="Use the link provided by your administrator"
+                    primary={t('manual.gettingStarted.loginStep1')}
+                    secondary={t('manual.gettingStarted.loginStep1Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="2. Click 'Sign in with Google'"
-                    secondary="Use your organization Google account"
+                    primary={t('manual.gettingStarted.loginStep2')}
+                    secondary={t('manual.gettingStarted.loginStep2Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="3. Wait for account activation"
-                    secondary="An administrator will assign your permission level"
+                    primary={t('manual.gettingStarted.loginStep3')}
+                    secondary={t('manual.gettingStarted.loginStep3Desc')}
                   />
                 </ListItem>
               </List>
@@ -181,38 +183,38 @@ export const UserManual: React.FC = () => {
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">User Roles</Typography>
+              <Typography variant="h6">{t('manual.gettingStarted.userRoles')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box>
-                  <Chip icon={<RequestorIcon />} label="Requestor (Level 5)" color="default" sx={{ mr: 1 }} />
+                  <Chip icon={<RequestorIcon />} label={t('manual.gettingStarted.roleRequestor')} color="default" sx={{ mr: 1 }} />
                   <Typography variant="body2" display="inline">
-                    Create and track purchase requests
+                    {t('manual.gettingStarted.roleRequestorDesc')}
                   </Typography>
                 </Box>
                 <Box>
-                  <Chip icon={<ApproverIcon />} label="Approver (Level 2)" color="primary" sx={{ mr: 1 }} />
+                  <Chip icon={<ApproverIcon />} label={t('manual.gettingStarted.roleApprover')} color="primary" sx={{ mr: 1 }} />
                   <Typography variant="body2" display="inline">
-                    Review and approve/reject purchase requests
+                    {t('manual.gettingStarted.roleApproverDesc')}
                   </Typography>
                 </Box>
                 <Box>
-                  <Chip icon={<ProcurementIcon />} label="Procurement (Level 3)" color="info" sx={{ mr: 1 }} />
+                  <Chip icon={<ProcurementIcon />} label={t('manual.gettingStarted.roleProcurement')} color="info" sx={{ mr: 1 }} />
                   <Typography variant="body2" display="inline">
-                    Manage quotes, vendors, and order processing
+                    {t('manual.gettingStarted.roleProcurementDesc')}
                   </Typography>
                 </Box>
                 <Box>
-                  <Chip icon={<FinanceIcon />} label="Finance/Admin (Level 4)" color="success" sx={{ mr: 1 }} />
+                  <Chip icon={<FinanceIcon />} label={t('manual.gettingStarted.roleFinance')} color="success" sx={{ mr: 1 }} />
                   <Typography variant="body2" display="inline">
-                    Handle payments and financial compliance
+                    {t('manual.gettingStarted.roleFinanceDesc')}
                   </Typography>
                 </Box>
                 <Box>
-                  <Chip icon={<AdminIcon />} label="Superadmin (Level 1)" color="error" sx={{ mr: 1 }} />
+                  <Chip icon={<AdminIcon />} label={t('manual.gettingStarted.roleSuperadmin')} color="error" sx={{ mr: 1 }} />
                   <Typography variant="body2" display="inline">
-                    Full system access and configuration
+                    {t('manual.gettingStarted.roleSuperadminDesc')}
                   </Typography>
                 </Box>
               </Box>
@@ -221,32 +223,32 @@ export const UserManual: React.FC = () => {
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Dashboard Overview</Typography>
+              <Typography variant="h6">{t('manual.gettingStarted.dashboardOverview')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List>
                 <ListItem>
                   <ListItemText
-                    primary="Key Metrics"
-                    secondary="Total PRs, Urgent PRs, Average Days Open, Overdue PRs"
+                    primary={t('manual.gettingStarted.dashboardMetrics')}
+                    secondary={t('manual.gettingStarted.dashboardMetricsDesc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="My PRs Toggle"
-                    secondary="Filter to see only PRs relevant to you (sidebar)"
+                    primary={t('manual.gettingStarted.dashboardMyPRs')}
+                    secondary={t('manual.gettingStarted.dashboardMyPRsDesc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="PR/PO Table"
-                    secondary="List of all purchase requests and orders with filters"
+                    primary={t('manual.gettingStarted.dashboardTable')}
+                    secondary={t('manual.gettingStarted.dashboardTableDesc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Search & Filters"
-                    secondary="Find PRs by number, vendor, status, date, and more"
+                    primary={t('manual.gettingStarted.dashboardSearch')}
+                    secondary={t('manual.gettingStarted.dashboardSearchDesc')}
                   />
                 </ListItem>
               </List>
@@ -255,7 +257,7 @@ export const UserManual: React.FC = () => {
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">PR Status Flow</Typography>
+              <Typography variant="h6">{t('manual.gettingStarted.prStatusFlow')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Alert severity="success" sx={{ mb: 2 }}>
@@ -266,22 +268,22 @@ APPROVED → ORDERED → COMPLETED`}
               </Alert>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="SUBMITTED" secondary="PR created by requestor" />
+                  <ListItemText primary={t('manual.gettingStarted.statusSubmitted')} secondary={t('manual.gettingStarted.statusSubmittedDesc')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="IN_QUEUE" secondary="Procurement adding quotes" />
+                  <ListItemText primary={t('manual.gettingStarted.statusInQueue')} secondary={t('manual.gettingStarted.statusInQueueDesc')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="PENDING_APPROVAL" secondary="Waiting for approver" />
+                  <ListItemText primary={t('manual.gettingStarted.statusPendingApproval')} secondary={t('manual.gettingStarted.statusPendingApprovalDesc')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="APPROVED" secondary="Approved, ready for ordering" />
+                  <ListItemText primary={t('manual.gettingStarted.statusApproved')} secondary={t('manual.gettingStarted.statusApprovedDesc')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="ORDERED" secondary="Order placed with vendor" />
+                  <ListItemText primary={t('manual.gettingStarted.statusOrdered')} secondary={t('manual.gettingStarted.statusOrderedDesc')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="COMPLETED" secondary="Items delivered and order closed" />
+                  <ListItemText primary={t('manual.gettingStarted.statusCompleted')} secondary={t('manual.gettingStarted.statusCompletedDesc')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -291,75 +293,75 @@ APPROVED → ORDERED → COMPLETED`}
         {/* Requestor Guide */}
         <TabPanel value={tabValue} index={1}>
           <Typography variant="h5" gutterBottom>
-            Requestor Guide
+            {t('manual.requestor.title')}
           </Typography>
           <Typography variant="body1" paragraph color="textSecondary">
-            As a Requestor, you create Purchase Requests when your department needs to buy goods or services.
+            {t('manual.requestor.description')}
           </Typography>
 
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Creating a New PR</Typography>
+              <Typography variant="h6">{t('manual.requestor.creatingPR')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List>
                 <ListItem>
                   <ListItemText
-                    primary="Step 1: Click 'NEW PR' button"
-                    secondary="Located in top right corner of dashboard"
+                    primary={t('manual.requestor.step1')}
+                    secondary={t('manual.requestor.step1Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Step 2: Fill Basic Information"
-                    secondary="Organization, Department, Category, Description, Amount, Currency, Required Date"
+                    primary={t('manual.requestor.step2')}
+                    secondary={t('manual.requestor.step2Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Step 3: Add Line Items"
-                    secondary="Click 'Add Line Item' for each product/service needed"
+                    primary={t('manual.requestor.step3')}
+                    secondary={t('manual.requestor.step3Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Step 4: Upload Documents"
-                    secondary="Supporting documents like specs, drawings, or existing quotes"
+                    primary={t('manual.requestor.step4')}
+                    secondary={t('manual.requestor.step4Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Step 5: Review and Submit"
-                    secondary="Double-check all information and click 'Submit PR'"
+                    primary={t('manual.requestor.step5')}
+                    secondary={t('manual.requestor.step5Desc')}
                   />
                 </ListItem>
               </List>
               <Alert severity="warning" sx={{ mt: 2 }}>
-                <strong>Important:</strong> All fields marked with * are required. PRs cannot be edited after submission.
+                <strong>{t('manual.requestor.important')}</strong> {t('manual.requestor.importantNote')}
               </Alert>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Tracking Your PRs</Typography>
+              <Typography variant="h6">{t('manual.requestor.trackingPRs')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" paragraph>
-                To view your PRs:
+                {t('manual.requestor.trackingDesc')}
               </Typography>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="1. Enable 'My PRs' toggle in sidebar" />
+                  <ListItemText primary={t('manual.requestor.trackingStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="2. PRs you created will be shown" />
+                  <ListItemText primary={t('manual.requestor.trackingStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="3. Check Status column to see progress" />
+                  <ListItemText primary={t('manual.requestor.trackingStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="4. Click PR number to view full details" />
+                  <ListItemText primary={t('manual.requestor.trackingStep4')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -367,30 +369,30 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Responding to Revision Requests</Typography>
+              <Typography variant="h6">{t('manual.requestor.revisionRequests')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Alert severity="info" sx={{ mb: 2 }}>
-                When status is REVISION_REQUIRED, action is needed from you!
+                {t('manual.requestor.revisionAlert')}
               </Alert>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="1. Click on your PR to open it" />
+                  <ListItemText primary={t('manual.requestor.revisionStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="2. Read the Revision Notes carefully" />
+                  <ListItemText primary={t('manual.requestor.revisionStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="3. Click 'Edit' button" />
+                  <ListItemText primary={t('manual.requestor.revisionStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="4. Make requested changes" />
+                  <ListItemText primary={t('manual.requestor.revisionStep4')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="5. Add note explaining changes" />
+                  <ListItemText primary={t('manual.requestor.revisionStep5')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="6. Click 'Resubmit'" />
+                  <ListItemText primary={t('manual.requestor.revisionStep6')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -398,26 +400,26 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Tips for Requestors</Typography>
+              <Typography variant="h6">{t('manual.requestor.tips')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Alert severity="success">
-                  <strong>DO:</strong>
+                  <strong>{t('manual.requestor.do')}</strong>
                   <ul>
-                    <li>Provide detailed descriptions</li>
-                    <li>Upload supporting documents</li>
-                    <li>Respond quickly to revision requests</li>
-                    <li>Include technical specifications</li>
+                    <li>{t('manual.requestor.do1')}</li>
+                    <li>{t('manual.requestor.do2')}</li>
+                    <li>{t('manual.requestor.do3')}</li>
+                    <li>{t('manual.requestor.do4')}</li>
                   </ul>
                 </Alert>
                 <Alert severity="error">
-                  <strong>DON'T:</strong>
+                  <strong>{t('manual.requestor.dont')}</strong>
                   <ul>
-                    <li>Mark everything as urgent</li>
-                    <li>Submit incomplete information</li>
-                    <li>Split purchases to avoid approval thresholds</li>
-                    <li>Ignore email notifications</li>
+                    <li>{t('manual.requestor.dont1')}</li>
+                    <li>{t('manual.requestor.dont2')}</li>
+                    <li>{t('manual.requestor.dont3')}</li>
+                    <li>{t('manual.requestor.dont4')}</li>
                   </ul>
                 </Alert>
               </Box>
@@ -428,34 +430,34 @@ APPROVED → ORDERED → COMPLETED`}
         {/* Approver Guide */}
         <TabPanel value={tabValue} index={2}>
           <Typography variant="h5" gutterBottom>
-            Approver Guide
+            {t('manual.approver.title')}
           </Typography>
           <Typography variant="body1" paragraph color="textSecondary">
-            As an Approver, you review PRs to ensure they're necessary, properly justified, and follow company policies.
+            {t('manual.approver.description')}
           </Typography>
 
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Finding PRs to Approve</Typography>
+              <Typography variant="h6">{t('manual.approver.findingPRs')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List>
                 <ListItem>
                   <ListItemText
-                    primary="Enable 'My PRs' toggle"
-                    secondary="Shows PRs where you're the assigned approver"
+                    primary={t('manual.approver.findingStep1')}
+                    secondary={t('manual.approver.findingStep1Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Filter by PENDING_APPROVAL status"
-                    secondary="Click Status dropdown and select PENDING_APPROVAL"
+                    primary={t('manual.approver.findingStep2')}
+                    secondary={t('manual.approver.findingStep2Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Check email notifications"
-                    secondary="You receive emails when PRs are assigned to you"
+                    primary={t('manual.approver.findingStep3')}
+                    secondary={t('manual.approver.findingStep3Desc')}
                   />
                 </ListItem>
               </List>
@@ -464,33 +466,33 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">What to Check Before Approving</Typography>
+              <Typography variant="h6">{t('manual.approver.checkBeforeApproving')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="✓ Description is clear and justified" />
+                  <ListItemText primary={t('manual.approver.check1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ Amount is reasonable" />
+                  <ListItemText primary={t('manual.approver.check2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ Quantities make sense" />
+                  <ListItemText primary={t('manual.approver.check3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ Required quotes are attached" />
+                  <ListItemText primary={t('manual.approver.check4')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ Prices are competitive" />
+                  <ListItemText primary={t('manual.approver.check5')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ Within budget expectations" />
+                  <ListItemText primary={t('manual.approver.check6')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ Urgency is justified (if marked urgent)" />
+                  <ListItemText primary={t('manual.approver.check7')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="✓ Vendor selection is appropriate" />
+                  <ListItemText primary={t('manual.approver.check8')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -498,47 +500,29 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Approval Actions</Typography>
+              <Typography variant="h6">{t('manual.approver.approvalActions')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="subtitle1" color="success.main" gutterBottom>
-                    <strong>Approve</strong>
+                    <strong>{t('manual.approver.approve')}</strong>
                   </Typography>
-                  <Typography variant="body2">
-                    1. Scroll to "Approver Actions" section<br />
-                    2. Click "Approve" button<br />
-                    3. Add notes (optional but recommended)<br />
-                    4. Click "Confirm Approval"<br />
-                    5. PR moves to next stage
-                  </Typography>
+                  <Typography variant="body2" component="div" dangerouslySetInnerHTML={{ __html: t('manual.approver.approveSteps').replace(/\n/g, '<br />') }} />
                 </Paper>
 
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="subtitle1" color="warning.main" gutterBottom>
-                    <strong>Request Revision</strong>
+                    <strong>{t('manual.approver.requestRevision')}</strong>
                   </Typography>
-                  <Typography variant="body2">
-                    1. Click "Request Revision" button<br />
-                    2. Enter detailed notes explaining what needs to change<br />
-                    3. Click "Confirm"<br />
-                    4. PR goes back to requestor<br />
-                    5. Status becomes REVISION_REQUIRED
-                  </Typography>
+                  <Typography variant="body2" component="div" dangerouslySetInnerHTML={{ __html: t('manual.approver.revisionSteps').replace(/\n/g, '<br />') }} />
                 </Paper>
 
                 <Paper variant="outlined" sx={{ p: 2 }}>
                   <Typography variant="subtitle1" color="error.main" gutterBottom>
-                    <strong>Reject</strong>
+                    <strong>{t('manual.approver.reject')}</strong>
                   </Typography>
-                  <Typography variant="body2">
-                    1. Click "Reject" button<br />
-                    2. <strong>MUST provide justification</strong><br />
-                    3. Click "Confirm Rejection"<br />
-                    4. PR status becomes REJECTED (terminal)<br />
-                    5. All stakeholders notified
-                  </Typography>
+                  <Typography variant="body2" component="div" dangerouslySetInnerHTML={{ __html: t('manual.approver.rejectSteps').replace(/\n/g, '<br />') }} />
                 </Paper>
               </Box>
             </AccordionDetails>
@@ -546,34 +530,34 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Quote Requirements</Typography>
+              <Typography variant="h6">{t('manual.approver.quoteRequirements')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Alert severity="info" sx={{ mb: 2 }}>
-                The system automatically enforces quote rules based on the PR amount
+                {t('manual.approver.quoteInfo')}
               </Alert>
               <List dense>
                 <ListItem>
                   <ListItemText
-                    primary="Below Rule 1 threshold"
-                    secondary="1 quote required"
+                    primary={t('manual.approver.quoteBelowRule1')}
+                    secondary={t('manual.approver.quoteBelowRule1Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Above Rule 1, below Rule 2"
-                    secondary="3 quotes required (or 1 from approved vendor)"
+                    primary={t('manual.approver.quoteBetweenRules')}
+                    secondary={t('manual.approver.quoteBetweenRulesDesc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="Above Rule 2 threshold"
-                    secondary="3 quotes + second approver required"
+                    primary={t('manual.approver.quoteAboveRule2')}
+                    secondary={t('manual.approver.quoteAboveRule2Desc')}
                   />
                 </ListItem>
               </List>
               <Typography variant="caption" color="textSecondary" sx={{ mt: 1, display: 'block' }}>
-                * Thresholds are organization-specific. Contact your administrator for details.
+                {t('manual.approver.quoteNote')}
               </Typography>
             </AccordionDetails>
           </Accordion>
@@ -582,34 +566,34 @@ APPROVED → ORDERED → COMPLETED`}
         {/* Procurement Guide */}
         <TabPanel value={tabValue} index={3}>
           <Typography variant="h5" gutterBottom>
-            Procurement Guide
+            {t('manual.procurement.title')}
           </Typography>
           <Typography variant="body1" paragraph color="textSecondary">
-            As Procurement, you're the hub of the PR process. You manage quotes, vendors, and ensure smooth workflow.
+            {t('manual.procurement.description')}
           </Typography>
 
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Processing New PRs (SUBMITTED)</Typography>
+              <Typography variant="h6">{t('manual.procurement.processingNewPRs')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List>
                 <ListItem>
                   <ListItemText
-                    primary="1. Review for completeness"
-                    secondary="Check all required fields, documents, and clarity"
+                    primary={t('manual.procurement.processStep1')}
+                    secondary={t('manual.procurement.processStep1Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="2. Click 'Move to In Queue'"
-                    secondary="Status changes to IN_QUEUE"
+                    primary={t('manual.procurement.processStep2')}
+                    secondary={t('manual.procurement.processStep2Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText
-                    primary="3. Add notes (optional)"
-                    secondary="'Working on obtaining quotes' or 'Contacting vendors'"
+                    primary={t('manual.procurement.processStep3')}
+                    secondary={t('manual.procurement.processStep3Desc')}
                   />
                 </ListItem>
               </List>
@@ -618,36 +602,36 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Adding Quotes (IN_QUEUE)</Typography>
+              <Typography variant="h6">{t('manual.procurement.addingQuotes')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Alert severity="warning" sx={{ mb: 2 }}>
-                Check "Quote Requirements" section to see how many quotes are needed
+                {t('manual.procurement.quoteWarning')}
               </Alert>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="1. Scroll to 'Quotes' section" />
+                  <ListItemText primary={t('manual.procurement.quoteStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="2. Click 'Add Quote'" />
+                  <ListItemText primary={t('manual.procurement.quoteStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="3. Fill in: Vendor, Amount, Currency, Valid Until, Lead Time" />
+                  <ListItemText primary={t('manual.procurement.quoteStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="4. Upload quote document (usually required)" />
+                  <ListItemText primary={t('manual.procurement.quoteStep4')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="5. Click 'Save Quote'" />
+                  <ListItemText primary={t('manual.procurement.quoteStep5')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="6. Repeat for additional vendors" />
+                  <ListItemText primary={t('manual.procurement.quoteStep6')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="7. Mark preferred quote" />
+                  <ListItemText primary={t('manual.procurement.quoteStep7')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="8. Click 'Submit for Approval'" />
+                  <ListItemText primary={t('manual.procurement.quoteStep8')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -655,112 +639,112 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">3-Quote Override</Typography>
+              <Typography variant="h6">{t('manual.procurement.quoteOverride')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" paragraph>
-                If you can't get 3 quotes (vendor monopoly, urgent need, etc.):
+                {t('manual.procurement.overrideDesc')}
               </Typography>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="1. Add the quotes you have (at least 1)" />
+                  <ListItemText primary={t('manual.procurement.overrideStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="2. Check 'Override Quote Requirement' checkbox" />
+                  <ListItemText primary={t('manual.procurement.overrideStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="3. MUST provide detailed justification" />
+                  <ListItemText primary={t('manual.procurement.overrideStep3')} />
                 </ListItem>
               </List>
               <Alert severity="info" sx={{ mt: 2 }}>
-                Approver will review your justification before deciding
+                {t('manual.procurement.overrideNote')}
               </Alert>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">✨ Generating RFQs (Request for Quotation)</Typography>
+              <Typography variant="h6">{t('manual.procurement.generatingRFQs')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" paragraph>
-                Generate professional RFQ PDFs to send to vendors when PR is in <Chip label="IN_QUEUE" size="small" color="warning" /> status.
+                {t('manual.procurement.rfqDesc')}
               </Typography>
               
               <Alert severity="success" icon={<DownloadIcon />} sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" gutterBottom><strong>Two Ways to Add Line Items:</strong></Typography>
-                <Typography variant="body2">• Manual Entry - Best for small orders (1-5 items)</Typography>
-                <Typography variant="body2">• Bulk Upload (CSV/Excel) - Best for large orders (dozens/hundreds of items)</Typography>
+                <Typography variant="subtitle2" gutterBottom><strong>{t('manual.procurement.rfqTwoWays')}</strong></Typography>
+                <Typography variant="body2">{t('manual.procurement.rfqManual')}</Typography>
+                <Typography variant="body2">{t('manual.procurement.rfqBulk')}</Typography>
               </Alert>
 
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}><strong>Bulk Upload Process:</strong></Typography>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}><strong>{t('manual.procurement.rfqBulkProcess')}</strong></Typography>
               <List dense>
                 <ListItem>
                   <ListItemText 
-                    primary="1. Download Template" 
-                    secondary="Click 'Download Template' → Choose Excel (.xlsx) or CSV format"
+                    primary={t('manual.procurement.rfqStep1')} 
+                    secondary={t('manual.procurement.rfqStep1Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="2. Fill Template"
-                    secondary="Columns: Description, Quantity, UOM, Notes, Est. Price, File/Folder Link (optional)"
+                    primary={t('manual.procurement.rfqStep2')}
+                    secondary={t('manual.procurement.rfqStep2Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="3. Add File Links (Optional)"
-                    secondary="Paste Dropbox/Google Drive/OneDrive 'Copy Link' URLs - System auto-converts them!"
+                    primary={t('manual.procurement.rfqStep3')}
+                    secondary={t('manual.procurement.rfqStep3Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="4. Upload File"
-                    secondary="Click 'Upload Line Items' → Select your filled template"
+                    primary={t('manual.procurement.rfqStep4')}
+                    secondary={t('manual.procurement.rfqStep4Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="5. Choose Mode"
-                    secondary="Overwrite (replace all) OR Add (append to existing)"
+                    primary={t('manual.procurement.rfqStep5')}
+                    secondary={t('manual.procurement.rfqStep5Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="6. Apply & Generate"
-                    secondary="Click 'Apply' → Then 'Generate RFQ' → Professional PDF downloads"
+                    primary={t('manual.procurement.rfqStep6')}
+                    secondary={t('manual.procurement.rfqStep6Desc')}
                   />
                 </ListItem>
               </List>
 
               <Alert severity="info" icon={<SearchIcon />} sx={{ mt: 2 }}>
-                <Typography variant="subtitle2" gutterBottom><strong>🔗 Automatic URL Conversion:</strong></Typography>
-                <Typography variant="body2">Dropbox: www.dropbox.com → dl.dropboxusercontent.com ✓</Typography>
-                <Typography variant="body2">Google Drive: drive.google.com/file/d/ID/view → direct download ✓</Typography>
-                <Typography variant="body2">OneDrive: Adds download parameter automatically ✓</Typography>
+                <Typography variant="subtitle2" gutterBottom><strong>{t('manual.procurement.rfqAutoConversion')}</strong></Typography>
+                <Typography variant="body2">{t('manual.procurement.rfqDropbox')}</Typography>
+                <Typography variant="body2">{t('manual.procurement.rfqGoogleDrive')}</Typography>
+                <Typography variant="body2">{t('manual.procurement.rfqOneDrive')}</Typography>
                 <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                  Just paste "Copy Link" URLs - no manual conversion needed!
+                  {t('manual.procurement.rfqAutoNote')}
                 </Typography>
               </Alert>
 
-              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}><strong>Troubleshooting:</strong></Typography>
+              <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}><strong>{t('manual.procurement.rfqTroubleshooting')}</strong></Typography>
               <List dense>
                 <ListItem>
                   <ListItemText 
-                    primary="File download fails?" 
-                    secondary="Ensure files don't require login. Links are preserved as clickable URLs if download fails."
+                    primary={t('manual.procurement.rfqTrouble1')} 
+                    secondary={t('manual.procurement.rfqTrouble1Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="UOM invalid?" 
-                    secondary="Use standard UOMs from Reference Data (M, KG, UNIT, L, etc.)"
+                    primary={t('manual.procurement.rfqTrouble2')} 
+                    secondary={t('manual.procurement.rfqTrouble2Desc')}
                   />
                 </ListItem>
                 <ListItem>
                   <ListItemText 
-                    primary="Template parsing error?" 
-                    secondary="Don't change column headers. Instruction/example rows are auto-skipped."
+                    primary={t('manual.procurement.rfqTrouble3')} 
+                    secondary={t('manual.procurement.rfqTrouble3Desc')}
                   />
                 </ListItem>
               </List>
@@ -769,27 +753,27 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Managing Vendors</Typography>
+              <Typography variant="h6">{t('manual.procurement.managingVendors')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" paragraph>
-                Access: Admin → Reference Data → Vendors
+                {t('manual.procurement.vendorAccess')}
               </Typography>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="Add new vendors" />
+                  <ListItemText primary={t('manual.procurement.vendorStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="View vendor details (click vendor row)" />
+                  <ListItemText primary={t('manual.procurement.vendorStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Upload vendor documents (incorporation, tax cert, etc.)" />
+                  <ListItemText primary={t('manual.procurement.vendorStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="View all PRs associated with vendor" />
+                  <ListItemText primary={t('manual.procurement.vendorStep4')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Manually approve/de-approve vendors" />
+                  <ListItemText primary={t('manual.procurement.vendorStep5')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -797,30 +781,30 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Placing Orders (APPROVED)</Typography>
+              <Typography variant="h6">{t('manual.procurement.placingOrders')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="1. Filter by status: APPROVED" />
+                  <ListItemText primary={t('manual.procurement.orderStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="2. Open PR and review approved quote" />
+                  <ListItemText primary={t('manual.procurement.orderStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="3. Create PO with selected vendor" />
+                  <ListItemText primary={t('manual.procurement.orderStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="4. Click 'Move to Ordered'" />
+                  <ListItemText primary={t('manual.procurement.orderStep4')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="5. Enter: Selected Vendor, Final Amount, PO Number, Delivery Date" />
+                  <ListItemText primary={t('manual.procurement.orderStep5')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="6. Upload proforma invoice (required)" />
+                  <ListItemText primary={t('manual.procurement.orderStep6')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="7. Click 'Confirm'" />
+                  <ListItemText primary={t('manual.procurement.orderStep7')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -830,32 +814,32 @@ APPROVED → ORDERED → COMPLETED`}
         {/* Finance/Admin Guide */}
         <TabPanel value={tabValue} index={4}>
           <Typography variant="h5" gutterBottom>
-            Finance/Admin Guide
+            {t('manual.finance.title')}
           </Typography>
           <Typography variant="body1" paragraph color="textSecondary">
-            Finance/Admin handles payments and closes completed orders.
+            {t('manual.finance.description')}
           </Typography>
 
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Reviewing Approved PRs</Typography>
+              <Typography variant="h6">{t('manual.finance.reviewingApproved')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="Filter by status: APPROVED" />
+                  <ListItemText primary={t('manual.finance.reviewStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Verify budget allocation" />
+                  <ListItemText primary={t('manual.finance.reviewStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Check amount within limits" />
+                  <ListItemText primary={t('manual.finance.reviewStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Review vendor payment terms" />
+                  <ListItemText primary={t('manual.finance.reviewStep4')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Add notes if financial concerns" />
+                  <ListItemText primary={t('manual.finance.reviewStep5')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -863,46 +847,46 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Closing Completed Orders</Typography>
+              <Typography variant="h6">{t('manual.finance.closingCompleted')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" paragraph>
-                When items are delivered and verified:
+                {t('manual.finance.closingDesc')}
               </Typography>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="1. Filter by status: ORDERED" />
+                  <ListItemText primary={t('manual.finance.closingStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="2. Open the PR" />
+                  <ListItemText primary={t('manual.finance.closingStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="3. Verify delivery documentation uploaded" />
+                  <ListItemText primary={t('manual.finance.closingStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="4. Answer: 'Order closed without issues?'" />
+                  <ListItemText primary={t('manual.finance.closingStep4')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="5. Click 'Move to Completed'" />
+                  <ListItemText primary={t('manual.finance.closingStep5')} />
                 </ListItem>
               </List>
 
               <Alert severity="success" sx={{ mt: 2 }}>
-                <Typography variant="body2" fontWeight="bold">If NO issues (YES selected):</Typography>
+                <Typography variant="body2" fontWeight="bold">{t('manual.finance.closingSuccess')}</Typography>
                 <Typography variant="body2">
-                  • Vendor automatically approved for 6-12 months<br />
-                  • Status changes to COMPLETED<br />
-                  • All stakeholders notified
+                  • {t('manual.finance.closingSuccess1')}<br />
+                  • {t('manual.finance.closingSuccess2')}<br />
+                  • {t('manual.finance.closingSuccess3')}
                 </Typography>
               </Alert>
 
               <Alert severity="warning" sx={{ mt: 2 }}>
-                <Typography variant="body2" fontWeight="bold">If issues occurred (NO selected):</Typography>
+                <Typography variant="body2" fontWeight="bold">{t('manual.finance.closingWarning')}</Typography>
                 <Typography variant="body2">
-                  • MUST enter issue notes<br />
-                  • Optional: Check "Approve vendor despite issues"<br />
-                  • Issue logged to vendor record<br />
-                  • Can still close order
+                  • {t('manual.finance.closingWarning1')}<br />
+                  • {t('manual.finance.closingWarning2')}<br />
+                  • {t('manual.finance.closingWarning3')}<br />
+                  • {t('manual.finance.closingWarning4')}
                 </Typography>
               </Alert>
             </AccordionDetails>
@@ -912,32 +896,32 @@ APPROVED → ORDERED → COMPLETED`}
         {/* Superadmin Guide */}
         <TabPanel value={tabValue} index={5}>
           <Typography variant="h5" gutterBottom>
-            Superadmin Guide
+            {t('manual.superadmin.title')}
           </Typography>
           <Typography variant="body1" paragraph color="textSecondary">
-            As Superadmin, you have full system access and configuration capabilities.
+            {t('manual.superadmin.description')}
           </Typography>
 
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">User Management</Typography>
+              <Typography variant="h6">{t('manual.superadmin.userManagement')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" paragraph>
-                Access: Admin → User Management
+                {t('manual.superadmin.userAccess')}
               </Typography>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="Add new users (must use Google account email)" />
+                  <ListItemText primary={t('manual.superadmin.userStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Assign permission levels (1-5)" />
+                  <ListItemText primary={t('manual.superadmin.userStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Update user organizations/departments" />
+                  <ListItemText primary={t('manual.superadmin.userStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Activate/deactivate user accounts" />
+                  <ListItemText primary={t('manual.superadmin.userStep4')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -945,24 +929,24 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Organization Configuration</Typography>
+              <Typography variant="h6">{t('manual.superadmin.orgConfig')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" paragraph>
-                Access: Admin → Organization Settings
+                {t('manual.superadmin.orgAccess')}
               </Typography>
               <List dense>
                 <ListItem>
-                  <ListItemText primary="Set Rule 1 & Rule 2 thresholds" />
+                  <ListItemText primary={t('manual.superadmin.orgStep1')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Configure quote requirements" />
+                  <ListItemText primary={t('manual.superadmin.orgStep2')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Set vendor approval durations" />
+                  <ListItemText primary={t('manual.superadmin.orgStep3')} />
                 </ListItem>
                 <ListItem>
-                  <ListItemText primary="Define high-value vendor thresholds" />
+                  <ListItemText primary={t('manual.superadmin.orgStep4')} />
                 </ListItem>
               </List>
             </AccordionDetails>
@@ -970,24 +954,24 @@ APPROVED → ORDERED → COMPLETED`}
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography variant="h6">Reference Data Management</Typography>
+              <Typography variant="h6">{t('manual.superadmin.referenceData')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" paragraph>
-                Access: Admin → Reference Data
+                {t('manual.superadmin.refAccess')}
               </Typography>
               <Typography variant="body2" paragraph>
-                Manage:
+                {t('manual.superadmin.refManage')}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                <Chip label="Departments" size="small" />
-                <Chip label="Project Categories" size="small" />
-                <Chip label="Sites" size="small" />
-                <Chip label="Expense Types" size="small" />
-                <Chip label="Vehicles" size="small" />
-                <Chip label="Vendors" size="small" />
-                <Chip label="Currencies" size="small" />
-                <Chip label="Units of Measure" size="small" />
+                <Chip label={t('manual.superadmin.refDept')} size="small" />
+                <Chip label={t('manual.superadmin.refCategory')} size="small" />
+                <Chip label={t('manual.superadmin.refSite')} size="small" />
+                <Chip label={t('manual.superadmin.refExpense')} size="small" />
+                <Chip label={t('manual.superadmin.refVehicle')} size="small" />
+                <Chip label={t('manual.superadmin.refVendor')} size="small" />
+                <Chip label={t('manual.superadmin.refCurrency')} size="small" />
+                <Chip label={t('manual.superadmin.refUOM')} size="small" />
               </Box>
             </AccordionDetails>
           </Accordion>
@@ -996,100 +980,93 @@ APPROVED → ORDERED → COMPLETED`}
         {/* FAQs */}
         <TabPanel value={tabValue} index={6}>
           <Typography variant="h5" gutterBottom>
-            Frequently Asked Questions
+            {t('manual.faqs.title')}
           </Typography>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography>Who can create a PR?</Typography>
+              <Typography>{t('manual.faqs.q1')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2">
-                Any user with Requestor level (5) or higher permissions can create a PR.
+                {t('manual.faqs.a1')}
               </Typography>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography>Can I edit a PR after submitting?</Typography>
+              <Typography>{t('manual.faqs.q2')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2">
-                No, PRs cannot be edited after submission. If changes are needed, the approver must request revision,
-                which sends the PR back to you for editing. Alternatively, you can cancel and create a new PR.
+                {t('manual.faqs.a2')}
               </Typography>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography>How long does approval take?</Typography>
+              <Typography>{t('manual.faqs.q3')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2">
-                Typically 1-3 business days depending on the complexity and amount. Urgent PRs may be processed faster.
-                You'll receive email notifications when status changes.
+                {t('manual.faqs.a3')}
               </Typography>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography>When should I mark a PR as urgent?</Typography>
+              <Typography>{t('manual.faqs.q4')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2">
-                Only when there's a genuine urgent need such as equipment breakdown, critical deadline, or safety issue.
-                Don't mark everything urgent as it reduces the priority of truly urgent requests.
+                {t('manual.faqs.a4')}
               </Typography>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography>What file types can I upload?</Typography>
+              <Typography>{t('manual.faqs.q5')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2">
-                Images (JPG, PNG, GIF), Documents (PDF, DOC, DOCX), Spreadsheets (XLS, XLSX).
-                Maximum file size is 10MB per file.
+                {t('manual.faqs.a5')}
               </Typography>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography>How do I check PR status?</Typography>
+              <Typography>{t('manual.faqs.q6')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2">
-                Enable "My PRs" toggle in the sidebar to see your PRs. Check the Status column, or click on the PR
-                number to see full details including complete status history.
+                {t('manual.faqs.a6')}
               </Typography>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography>What if I can't login?</Typography>
+              <Typography>{t('manual.faqs.q7')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2">
-                Verify you're using your organization Google account. Contact your administrator to ensure your account
-                exists in the system and is activated. Try clearing browser cache or using incognito mode.
+                {t('manual.faqs.a7')}
               </Typography>
             </AccordionDetails>
           </Accordion>
 
           <Accordion>
             <AccordionSummary expandIcon={<ExpandIcon />}>
-              <Typography>Where can I get more help?</Typography>
+              <Typography>{t('manual.faqs.q8')}</Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2">
-                Contact your IT support team or system administrator. Have your name, email, PR number (if applicable),
-                and description of the issue ready.
+                {t('manual.faqs.a8')}
               </Typography>
             </AccordionDetails>
           </Accordion>
@@ -1099,7 +1076,7 @@ APPROVED → ORDERED → COMPLETED`}
         <Divider sx={{ my: 3 }} />
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="caption" color="textSecondary">
-            Need more help? Contact your system administrator
+            {t('manual.footer.needHelp')}
           </Typography>
           <Button
             variant="outlined"
@@ -1107,7 +1084,7 @@ APPROVED → ORDERED → COMPLETED`}
             onClick={handleDownload}
             startIcon={<DownloadIcon />}
           >
-            Download Full Manual
+            {t('manual.downloadFullManual')}
           </Button>
         </Box>
       </Paper>
