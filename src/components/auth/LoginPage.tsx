@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { Box, Button, TextField, Typography, CircularProgress, Link } from '@mui/material';
 import { signIn, resetPassword } from '../../services/auth';
@@ -9,7 +8,6 @@ import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../common/LanguageToggle';
 
 export const LoginPage = () => {
-  const navigate = useNavigate();
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const [email, setEmail] = useState('');
@@ -20,13 +18,8 @@ export const LoginPage = () => {
   const globalError = useSelector((state: RootState) => state.auth.error);
   const isAuthenticated = useSelector((state: RootState) => !!state.auth.user);
 
-  useEffect(() => {
-    // Redirect if already authenticated
-    if (isAuthenticated) {
-      console.log('LoginPage: User is authenticated, redirecting to dashboard');
-      navigate('/dashboard', { replace: true });
-    }
-  }, [isAuthenticated, navigate]);
+  // Don't redirect here - let App.tsx handle it to avoid race conditions
+  // The route definition in App.tsx will handle redirecting authenticated users
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -70,8 +63,14 @@ export const LoginPage = () => {
     }
   };
 
+  // Don't render if authenticated - let App.tsx handle redirect
+  // Returning null immediately can cause React DOM issues during unmount
   if (isAuthenticated) {
-    return null;
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
   }
 
   return (
