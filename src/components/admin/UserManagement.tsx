@@ -683,6 +683,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         setGeneratedPassword('');
         setPasswordMode('custom');
         setShowPassword(false);
+        // Reload users to ensure UI is up to date
+        await loadUsers();
       } else {
         throw new Error(result.data?.error || 'Failed to update password');
       }
@@ -692,11 +694,16 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       
       // Handle specific Firebase errors
       if (error?.code === 'functions/not-found') {
-        errorMessage = 'User not found in Firebase Auth. The system will attempt to create the account.';
+        errorMessage = 'User not found in Firestore. Please verify the user exists in the system. If the user exists, check that the email address matches exactly (case-sensitive).';
       } else if (error?.code === 'functions/permission-denied') {
         errorMessage = 'You do not have permission to update passwords. Only Superadmin can update passwords.';
       } else if (error?.code === 'functions/invalid-argument') {
-        errorMessage = error.message || 'Invalid password or email format';
+        // Check if it's an email mismatch error
+        if (error?.message?.includes('Email does not match Firestore record')) {
+          errorMessage = `Email mismatch: ${error.message}. Please verify the email address in the user record matches exactly.`;
+        } else {
+          errorMessage = error.message || 'Invalid password or email format';
+        }
       } else if (error?.message) {
         errorMessage = error.message;
       }
