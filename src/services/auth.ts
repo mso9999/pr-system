@@ -92,8 +92,12 @@ export const signIn = async (email: string, password: string): Promise<void> => 
     store.dispatch(setLoading(true));
     store.dispatch(setError(null));
 
+    // Normalize email (Firebase Auth is case-insensitive, but normalize for consistency)
+    const normalizedEmail = email.trim().toLowerCase();
+    console.log('auth.ts: Normalized email:', normalizedEmail, 'from:', email);
+
     // Sign in with Firebase
-    const userCredential = await signInWithEmailAndPassword(getAuth(), email, password);
+    const userCredential = await signInWithEmailAndPassword(getAuth(), normalizedEmail, password);
     console.log('auth.ts: Firebase sign in successful');
 
     // Get user details from Firestore
@@ -115,18 +119,27 @@ export const signIn = async (email: string, password: string): Promise<void> => 
 
     if (error instanceof Error) {
       const authError = error as AuthError;
+      console.log('auth.ts: Auth error code:', authError.code);
       switch (authError.code) {
         case AuthErrorCodes.INVALID_PASSWORD:
-          errorMessage = 'Invalid password';
+          errorMessage = 'Invalid password. Please check your password or contact an administrator to reset it.';
+          break;
+        case AuthErrorCodes.INVALID_CREDENTIAL:
+        case 'auth/invalid-credential':
+          errorMessage = 'Invalid email or password. If you recently reset your password, please try again. If the problem persists, the account may not exist in Firebase Auth. Contact an administrator.';
           break;
         case AuthErrorCodes.USER_DELETED:
-          errorMessage = 'Account not found';
+        case 'auth/user-not-found':
+          errorMessage = 'Account not found. The account may not exist in Firebase Auth. Please contact an administrator to create the account.';
           break;
         case AuthErrorCodes.TOO_MANY_ATTEMPTS_TRY_LATER:
           errorMessage = 'Too many attempts. Please try again later';
           break;
+        case 'auth/user-disabled':
+          errorMessage = 'Account is disabled. Please contact an administrator.';
+          break;
         default:
-          errorMessage = authError.message;
+          errorMessage = authError.message || 'Sign in failed. Please check your credentials.';
       }
     }
 
