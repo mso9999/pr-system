@@ -541,6 +541,15 @@ export async function updatePR(prId: string, updateData: Partial<PRRequest>): Pr
     
     const cleanedData = cleanUndefined(updateData);
     
+    // Migration: If sites array is provided, ensure old site field is removed
+    if ('sites' in cleanedData && Array.isArray(cleanedData.sites) && cleanedData.sites.length > 0) {
+      // Remove legacy site field if sites array is present
+      if ('site' in cleanedData) {
+        delete cleanedData.site;
+        console.log(`[updatePR] Migrated from site to sites array, removed legacy site field`);
+      }
+    }
+    
     // Debug logging for approver fields and justifications
     console.log(`Firestore update payload for ${prId}:`, {
       approver: cleanedData.approver || '(not in payload)',
@@ -859,6 +868,15 @@ export async function createPR(
     };
 
     const cleanedPRData = cleanUndefined(finalPRData) as Omit<PRRequest, 'id'>;
+
+    // Migration: If sites array is provided, ensure old site field is removed
+    if ('sites' in cleanedPRData && Array.isArray(cleanedPRData.sites) && cleanedPRData.sites.length > 0) {
+      // Remove legacy site field if sites array is present
+      if ('site' in cleanedPRData) {
+        delete (cleanedPRData as any).site;
+        console.log('[PR SERVICE] Migrated from site to sites array, removed legacy site field');
+      }
+    }
 
     // Validate required fields before attempting to save
     const requiredFields = ['prNumber', 'organization', 'department', 'projectCategory', 'description', 'sites', 'expenseType', 'estimatedAmount', 'currency', 'requiredDate', 'requestorId', 'requestorEmail', 'requestor', 'status'];
