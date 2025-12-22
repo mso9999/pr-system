@@ -119,8 +119,10 @@ export interface PRRequest {
   projectCategory: string;
   /** Detailed description of what is being requested */
   description: string;
-  /** Site or location where items are needed */
-  site: string;
+  /** Sites or locations where items are needed (multiple selection) */
+  sites: string[];
+  /** @deprecated Use sites instead. Site or location where items are needed (legacy single site) */
+  site?: string;
   /** Type of expense (CAPEX/OPEX) */
   expenseType: string;
   /** Vehicle associated with request (if applicable) */

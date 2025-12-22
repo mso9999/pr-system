@@ -163,7 +163,8 @@ export class InQueueToPendingApprovalHandler implements StatusTransitionHandler 
         id: context.pr.id,
         prNumber: context.pr.prNumber,
         requestor: context.pr.requestor,
-        site: context.pr.site,
+        sites: context.pr.sites || (context.pr.site ? [context.pr.site] : []),
+        site: context.pr.site, // Legacy field for backward compatibility
         category: context.pr.category,
         expenseType: context.pr.expenseType,
         estimatedAmount: context.pr.estimatedAmount,

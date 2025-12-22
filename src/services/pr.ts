@@ -151,7 +151,7 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       organization: data.organization,
       department: data.department,
       projectCategory: data.projectCategory,
-      site: data.site,
+      sites: data.sites || (data.site ? [data.site] : []), // Support both sites array and legacy site field
       description: data.description,
       status: data.status as PRStatus,
       expenseType: data.expenseType,
@@ -879,7 +879,7 @@ export async function createPR(
     console.log('[PR SERVICE] - Organization:', cleanedPRData.organization);
     console.log('[PR SERVICE] - Department:', cleanedPRData.department);
     console.log('[PR SERVICE] - Project Category:', cleanedPRData.projectCategory);
-    console.log('[PR SERVICE] - Site:', cleanedPRData.site);
+    console.log('[PR SERVICE] - Sites:', cleanedPRData.sites);
     console.log('[PR SERVICE] - Expense Type:', cleanedPRData.expenseType);
     console.log('[PR SERVICE] - Preferred Vendor:', cleanedPRData.preferredVendor);
     console.log('[PR SERVICE] - Requestor ID:', cleanedPRData.requestorId);

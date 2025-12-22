@@ -24,7 +24,8 @@ export interface PR {
   id: string;
   prNumber: string;
   requestor?: PRRequestor;
-  site?: string;
+  sites?: string[];
+  site?: string; // Legacy field for backward compatibility
   category?: string;
   expenseType?: string;
   estimatedAmount?: number;
@@ -32,6 +33,9 @@ export interface PR {
   preferredVendor?: string;
   requiredDate?: string | Date;
   isUrgent?: boolean;
+  organization?: string;
+  department?: string;
+  projectCategory?: string;
 }
 
 export interface NotificationContext {

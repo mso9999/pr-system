@@ -78,7 +78,7 @@ export function exportPRsToCSV(prs: PRRequest[], filters: FilterCriteria, baseCu
       escapeCSV(pr.description || ''),
       escapeCSV(pr.organization || ''),
       escapeCSV(pr.department || ''),
-      escapeCSV(pr.site || ''),
+      escapeCSV((pr.sites && pr.sites.length > 0 ? pr.sites.join(', ') : (pr.site || ''))),
       escapeCSV(pr.projectCategory || ''),
       escapeCSV(pr.expenseType || ''),
       escapeCSV(pr.vehicle || ''),

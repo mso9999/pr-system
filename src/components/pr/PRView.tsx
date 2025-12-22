@@ -32,6 +32,8 @@ import {
   Step,
   StepLabel,
   Stepper,
+  Autocomplete,
+  Chip,
 } from '@mui/material';
 import {
   TableContainer,
@@ -89,7 +91,8 @@ import { VendorSelectionDialog } from '../common/VendorSelectionDialog';
 interface EditablePRFields {
   department?: string;
   projectCategory?: string;
-  site?: string;
+  sites?: string[];
+  site?: string; // Legacy field for backward compatibility
   expenseType?: string;
   vehicle?: string;
   preferredVendor?: string;
@@ -872,6 +875,14 @@ export function PRView() {
     ));
   };
 
+  // Helper function to normalize sites (handle backward compatibility)
+  const normalizeSites = (pr: PRRequest | null): string[] => {
+    if (!pr) return [];
+    if (pr.sites && pr.sites.length > 0) return pr.sites;
+    if (pr.site) return [pr.site];
+    return [];
+  };
+
   // Initialize editedPR when entering edit mode
   useEffect(() => {
     if (isEditMode && pr) {
@@ -879,7 +890,7 @@ export function PRView() {
         description: pr.description,
         department: pr.department,
         projectCategory: pr.projectCategory,
-        site: pr.site,
+        sites: normalizeSites(pr),
         expenseType: pr.expenseType,
         vehicle: pr.vehicle,
         estimatedAmount: pr.estimatedAmount,
@@ -975,7 +986,7 @@ export function PRView() {
     }
   };
 
-  const handleFieldChange = (field: keyof EditablePRFields, value: string | number) => {
+  const handleFieldChange = (field: keyof EditablePRFields, value: string | number | string[]) => {
     // Special handling for expense type changes
     if (field === 'expenseType') {
       const selectedType = expenseTypes.find(type => type.id === value);
@@ -1422,24 +1433,47 @@ export function PRView() {
                 </FormControl>
               </Grid>
               <Grid item xs={6}>
-                <FormControl fullWidth disabled={!isEditMode}>
-                  <InputLabel>{t('pr.site')}</InputLabel>
-                  <Select
-                    value={isEditMode ? (editedPR.site || pr?.site || '') : (pr?.site || '')}
-                    onChange={(e) => handleFieldChange('site', e.target.value)}
-                    label={t('pr.site')}
-                    renderValue={(value) => {
-                      const site = sites.find(s => s.id === value);
-                      return site ? site.name : value;
+                {isEditMode ? (
+                  <Autocomplete
+                    multiple
+                    id="sites-select"
+                    options={sites}
+                    getOptionLabel={(option) => typeof option === 'string' ? sites.find(s => s.id === option)?.name || option : option.name}
+                    value={sites.filter(site => {
+                      const currentSites = editedPR.sites || normalizeSites(pr);
+                      return currentSites.includes(site.id);
+                    })}
+                    onChange={(event, newValue) => {
+                      handleFieldChange('sites', newValue.map(site => site.id));
                     }}
-                  >
-                    {sites.map((site) => (
-                      <MenuItem key={site.id} value={site.id}>
-                        {site.name}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
+                    disabled={!isEditMode}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label={t('pr.site')}
+                      />
+                    )}
+                    renderTags={(value, getTagProps) =>
+                      value.map((option, index) => (
+                        <Chip
+                          label={option.name}
+                          {...getTagProps({ index })}
+                          key={option.id}
+                        />
+                      ))
+                    }
+                  />
+                ) : (
+                  <TextField
+                    fullWidth
+                    label={t('pr.site')}
+                    value={normalizeSites(pr).map(siteId => {
+                      const site = sites.find(s => s.id === siteId);
+                      return site ? site.name : siteId;
+                    }).join(', ') || 'Not specified'}
+                    disabled
+                  />
+                )}
               </Grid>
               <Grid item xs={6}>
                 <FormControl fullWidth disabled={!isEditMode || !canEditFinancialFields}>

@@ -422,29 +422,40 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
         />
       </Grid>
 
-      {/* Site */}
+      {/* Sites */}
       <Grid item xs={12} md={6}>
-        <FormControl fullWidth required error={isSubmitted && !formState.site}>
-          <InputLabel id="site-label">Site</InputLabel>
-          <Select
-            labelId="site-label"
-            id="site-select"
-            value={formState.site || ''}
-            onChange={handleChange('site')}
-            label="Site"
-            disabled={loading}
-          >
-            <MenuItem value="">
-              <em>Select a site</em>
-            </MenuItem>
-            {sites.map(site => (
-              <MenuItem key={site.id} value={site.id}>
-                {site.name}
-              </MenuItem>
-            ))}
-          </Select>
-          <FormHelperText>{isSubmitted && !formState.site ? 'Site is required' : 'Please select a site'}</FormHelperText>
-        </FormControl>
+        <Autocomplete
+          multiple
+          id="sites-select"
+          options={sites}
+          getOptionLabel={(option) => typeof option === 'string' ? sites.find(s => s.id === option)?.name || option : option.name}
+          value={sites.filter(site => formState.sites.includes(site.id))}
+          onChange={(event, newValue) => {
+            setFormState(prev => ({
+              ...prev,
+              sites: newValue.map(site => site.id)
+            }));
+          }}
+          disabled={loading}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Sites"
+              required
+              error={isSubmitted && formState.sites.length === 0}
+              helperText={isSubmitted && formState.sites.length === 0 ? 'At least one site is required' : 'Select one or more sites'}
+            />
+          )}
+          renderTags={(value, getTagProps) =>
+            value.map((option, index) => (
+              <Chip
+                label={option.name}
+                {...getTagProps({ index })}
+                key={option.id}
+              />
+            ))
+          }
+        />
       </Grid>
 
       {/* Expense Type */}

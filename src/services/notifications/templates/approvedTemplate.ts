@@ -1,5 +1,5 @@
 import { NotificationContext, EmailContent } from './types';
-import { generateTable } from './baseTemplate';
+import { generateTable, formatSites } from './baseTemplate';
 import { styles } from './styles';
 
 export function generateApprovedEmail(context: NotificationContext): EmailContent {
@@ -15,7 +15,7 @@ export function generateApprovedEmail(context: NotificationContext): EmailConten
         `${pr.requestor.firstName} ${pr.requestor.lastName}` : 'Not specified'],
       ['Email', pr.requestor?.email || 'Not specified'],
       ['Department', pr.requestor?.department || 'Not specified'],
-      ['Site', pr.site || 'Not specified'],
+      ['Site', formatSites(pr)],
     ];
 
     const prSummary = [

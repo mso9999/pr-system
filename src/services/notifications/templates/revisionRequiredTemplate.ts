@@ -1,6 +1,6 @@
 import { NotificationContext, EmailContent } from '../types';
 import { generateEmailHeaders } from '../types/emailHeaders';
-import { generateTable } from './baseTemplate';
+import { generateTable, formatSites } from './baseTemplate';
 import { styles } from './styles';
 import { referenceDataService } from '../../referenceData';
 
@@ -142,7 +142,7 @@ export async function generateRevisionRequiredEmail(context: NotificationContext
       { label: 'Name', value: requestorName },
       { label: 'Email', value: getRequestorEmail(pr?.requestor) },
       { label: 'Department', value: pr?.department || 'Not specified' },
-      { label: 'Site', value: pr?.site || 'Not specified' }
+      { label: 'Site', value: formatSites(pr || {}) }
     ];
 
     const prDetails = [

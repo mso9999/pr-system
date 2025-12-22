@@ -93,7 +93,14 @@ class ReferenceDataService {
           
           return shouldInclude;
         }
-        return item.active !== false;
+        // For departments and other types, check 'active' field
+        // Default to true if not specified (include items without active field)
+        const active = item.active !== undefined ? item.active : (item.Active !== undefined ? item.Active : true);
+        const isActive = active === true || active === 'true' || active === undefined || active === null;
+        if (!isActive && organization) {
+          console.log(`[getItemsByType] Filtered out inactive ${type} item:`, { id: item.id, name: item.name, active, organization: this.normalizeOrganizationId(organization) });
+        }
+        return isActive;
       });
       
       // Check if vendor 1030 is in active items after filtering
@@ -122,20 +129,71 @@ class ReferenceDataService {
       const collectionRef = collection(this.db, this.getCollectionName('departments'));
       const normalizedOrgId = this.normalizeOrganizationId(organization);
       
-      // Query for departments where organizationId matches
-      const q = query(
-        collectionRef,
-        where('organizationId', '==', normalizedOrgId)
+      console.log(`[getDepartments] Called with organization:`, organization);
+      console.log(`[getDepartments] Normalized org ID:`, normalizedOrgId);
+      
+      // Try multiple possible organizationId formats
+      const possibleOrgIds = [
+        normalizedOrgId,
+        ...(typeof organization === 'object' && organization.code ? [organization.code.toLowerCase()] : []),
+        ...(typeof organization === 'object' && organization.id ? [organization.id.toLowerCase()] : []),
+        ...(typeof organization === 'object' && organization.name ? [organization.name.toLowerCase().replace(/[^a-z0-9]/g, '_')] : [])
+      ].filter((id, index, arr) => arr.indexOf(id) === index); // Remove duplicates
+      
+      console.log(`[getDepartments] Trying organizationIds:`, possibleOrgIds);
+      
+      // Query for departments where organizationId matches any of the possible formats
+      let querySnapshot;
+      let foundItems: any[] = [];
+      
+      for (const orgId of possibleOrgIds) {
+        const q = query(
+          collectionRef,
+          where('organizationId', '==', orgId)
+        );
+        
+        console.log(`[getDepartments] Querying for organizationId == "${orgId}"`);
+        querySnapshot = await getDocs(q);
+        console.log(`[getDepartments] Found ${querySnapshot.size} departments with organizationId "${orgId}"`);
+        
+        if (querySnapshot.size > 0) {
+          const items = querySnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          foundItems.push(...items);
+          console.log(`[getDepartments] Sample department data:`, items[0] ? { id: items[0].id, name: items[0].name, organizationId: items[0].organizationId, active: items[0].active } : 'none');
+        }
+      }
+      
+      // Remove duplicates by id
+      const uniqueItems = foundItems.filter((item, index, self) => 
+        index === self.findIndex(t => t.id === item.id)
       );
       
-      const querySnapshot = await getDocs(q);
+      console.log(`[getDepartments] Total unique departments found: ${uniqueItems.length}`);
 
-      const items = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as ReferenceData[];
+      const items = uniqueItems as ReferenceData[];
 
-      return items.filter(item => item.active);
+      console.log(`[getDepartments] Found ${items.length} departments for org ${normalizedOrgId}, active status:`, items.map(item => ({ id: item.id, name: item.name, organizationId: item.organizationId, active: item.active })));
+
+      // Filter by active status - match the logic in getItemsByType
+      // Include items where active is not explicitly false (default to true if undefined)
+      const activeItems = items.filter(item => {
+        const active = item.active !== undefined ? item.active : (item.Active !== undefined ? item.Active : true);
+        // Include if active is true, 'true', undefined, or null (only exclude if explicitly false)
+        const isActive = active !== false && active !== 'false';
+        if (!isActive) {
+          console.log(`[getDepartments] Filtered out inactive department:`, { id: item.id, name: item.name, active, org: normalizedOrgId });
+        }
+        return isActive;
+      });
+
+      console.log(`[getDepartments] After filtering, ${activeItems.length} active departments for org ${normalizedOrgId}`);
+      if (activeItems.length === 0 && items.length > 0) {
+        console.warn(`[getDepartments] All ${items.length} departments for org ${normalizedOrgId} were filtered out. Check active field values.`);
+      }
+      return activeItems;
     } catch (error) {
       return this.handleError(error, 'getting departments');
     }

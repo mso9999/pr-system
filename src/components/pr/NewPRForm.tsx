@@ -124,7 +124,7 @@ export interface FormState {
   department: string;
   projectCategory: string;
   description: string;
-  site: string;
+  sites: string[];
   expenseType: string;
   vehicle?: string;
   estimatedAmount: number;
@@ -217,7 +217,7 @@ export const NewPRForm = () => {
     department: '',
     projectCategory: '',
     description: '',
-    site: '',
+    sites: [],
     expenseType: '',
     vehicle: undefined,
     estimatedAmount: 0,
@@ -262,12 +262,13 @@ export const NewPRForm = () => {
       console.log('Loading reference data for organization:', formState.organization);
 
       try {
-        // Use organization name or id for department loading (getDepartments accepts both)
-        const orgParam = formState.organization.name || formState.organization.id;
+        // Use organization ID for all reference data loading (consistent across all calls)
+        // Pass the full organization object so normalization can use code/id/name as fallback
         const orgId = formState.organization.id || formState.organization.name;
 
-        // Load departments first
-        const deptItems = await referenceDataService.getDepartments(orgParam);
+        // Load departments first - pass the full organization object for better normalization
+        console.log('[NewPRForm] Loading departments for organization:', formState.organization);
+        const deptItems = await referenceDataService.getDepartments(formState.organization);
         console.log('Loaded departments:', deptItems);
         setDepartments(deptItems);
 
@@ -310,7 +311,7 @@ export const NewPRForm = () => {
           ...prev,
           department: '',
           projectCategory: '',
-          site: '',
+          sites: [],
           expenseType: '',
           vehicle: undefined,
           approvers: [], // Clear approvers when org changes
@@ -418,7 +419,7 @@ export const NewPRForm = () => {
           formState.department &&
           formState.projectCategory &&
           formState.description &&
-          formState.site &&
+          formState.sites.length > 0 &&
           formState.expenseType
         );
       case 1: // Line Items
@@ -1004,7 +1005,7 @@ export const NewPRForm = () => {
         department: formState.department,
         projectCategory: formState.projectCategory,
         description: formState.description,
-        site: formState.site,
+        sites: formState.sites,
         expenseType: formState.expenseType,
         estimatedAmount: amount,
         currency: formState.currency,

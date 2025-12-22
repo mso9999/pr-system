@@ -432,8 +432,18 @@ export async function generateNewPREmail(context: NotificationContext): Promise<
   const requestorDept = await resolveReferenceData(pr.department || '', 'department', pr.organization);
   console.debug(`Resolved department '${pr.department}' to '${requestorDept}'`);
   
-  const requestorSite = await resolveReferenceData(pr.site || '', 'site', pr.organization);
-  console.debug(`Resolved site '${pr.site}' to '${requestorSite}'`);
+  // Handle multiple sites or legacy single site
+  let requestorSite = 'Not specified';
+  if (pr.sites && pr.sites.length > 0) {
+    const resolvedSites = await Promise.all(
+      pr.sites.map(siteId => resolveReferenceData(siteId, 'site', pr.organization))
+    );
+    requestorSite = resolvedSites.join(', ');
+    console.debug(`Resolved sites '${pr.sites.join(', ')}' to '${requestorSite}'`);
+  } else if (pr.site) {
+    requestorSite = await resolveReferenceData(pr.site, 'site', pr.organization);
+    console.debug(`Resolved site '${pr.site}' to '${requestorSite}'`);
+  }
   
   const categoryName = await resolveReferenceData(pr.projectCategory || pr.category || '', 'category', pr.organization);
   console.debug(`Resolved category '${pr.projectCategory || pr.category}' to '${categoryName}'`);

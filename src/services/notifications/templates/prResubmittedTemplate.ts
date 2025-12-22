@@ -1,6 +1,6 @@
 import { NotificationContext, EmailContent } from '../types';
 import { generateEmailHeaders } from '../types/emailHeaders';
-import { generateTable } from './baseTemplate';
+import { generateTable, formatSites } from './baseTemplate';
 import { styles } from './styles';
 
 export function generateResubmittedEmail(context: NotificationContext): EmailContent {
@@ -15,7 +15,7 @@ export function generateResubmittedEmail(context: NotificationContext): EmailCon
       `${pr.requestor.firstName} ${pr.requestor.lastName}` : 'Not specified'],
     ['Email', pr?.requestor?.email || 'Not specified'],
     ['Department', pr?.requestor?.department || 'Not specified'],
-    ['Site', pr?.site || 'Not specified'],
+    ['Site', formatSites(pr || {})],
   ];
 
   const prSummary = [

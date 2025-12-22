@@ -127,9 +127,14 @@ export const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
       filtered = filtered.filter(pr => pr.department === filters.departmentId);
     }
 
-    // Site filter
+    // Site filter - show PR if ANY selected site matches (or legacy site field matches)
     if (filters.siteId) {
-      filtered = filtered.filter(pr => pr.site === filters.siteId);
+      filtered = filtered.filter(pr => {
+        if (pr.sites && pr.sites.length > 0) {
+          return pr.sites.some(site => site === filters.siteId);
+        }
+        return pr.site === filters.siteId;
+      });
     }
 
     // Vehicle filter

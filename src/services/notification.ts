@@ -630,7 +630,11 @@ export class NotificationService {
         plainText += `Name: ${pr.requestor?.firstName || ''} ${pr.requestor?.lastName || ''}\n`;
         plainText += `Email: ${pr.requestorEmail || pr.requestor?.email || ''}\n`;
         plainText += `Department: ${pr.department || ''}\n`;
-        plainText += `Site: ${pr.site || ''}\n\n`;
+        // Format sites (handle both sites array and legacy site field)
+        const sitesText = pr.sites && pr.sites.length > 0 
+          ? pr.sites.join(', ') 
+          : (pr.site || '');
+        plainText += `Site: ${sitesText}\n\n`;
         plainText += `PR Details:\n`;
         plainText += `PR Number: ${prNumber}\n`;
         plainText += `Category: ${pr.projectCategory || ''}\n`;
@@ -732,7 +736,7 @@ export class NotificationService {
           <td style="
     padding: 8px;
     border: 1px solid #ddd;
-  ">${pr.site || ''}</td>
+  ">${(pr.sites && pr.sites.length > 0 ? pr.sites.join(', ') : (pr.site || ''))}</td>
         </tr>
      
     </table>

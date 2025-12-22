@@ -1,6 +1,6 @@
 import { NotificationContext, EmailContent } from '../types';
 import { generateEmailHeaders } from '../types/emailHeaders';
-import { generateTable } from './baseTemplate';
+import { generateTable, formatSites } from './baseTemplate';
 import { styles } from './styles';
 
 export function generateReviseAndResubmitEmail(context: NotificationContext): EmailContent {
@@ -14,7 +14,7 @@ export function generateReviseAndResubmitEmail(context: NotificationContext): Em
     ['Requestor', `${pr.requestor.firstName} ${pr.requestor.lastName}`],
     ['Category', pr.category],
     ['Expense Type', pr.expenseType],
-    ['Site', pr.site],
+    ['Site', formatSites(pr)],
     ['Amount', pr.amount.toLocaleString('en-US', { style: 'currency', currency: pr.currency })],
     ['Vendor', pr.vendor || 'Not specified'],
     ['Required Date', new Date(pr.requiredDate).toLocaleDateString()],

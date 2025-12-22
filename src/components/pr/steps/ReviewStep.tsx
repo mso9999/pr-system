@@ -96,12 +96,18 @@ export const ReviewStep: React.FC<ReviewStepProps> = ({
     return categoryObj ? categoryObj.name : formState.projectCategory;
   };
 
-  // Get site name for display
+  // Get site names for display (comma-separated)
   const getSiteName = () => {
-    if (!formState.site) return 'Not specified';
+    if (!formState.sites || formState.sites.length === 0) return 'Not specified';
     
-    const siteObj = sites.find(s => s.id === formState.site);
-    return siteObj ? siteObj.name : formState.site;
+    const siteNames = formState.sites
+      .map(siteId => {
+        const siteObj = sites.find(s => s.id === siteId);
+        return siteObj ? siteObj.name : siteId;
+      })
+      .filter(name => name); // Remove any undefined/null values
+    
+    return siteNames.length > 0 ? siteNames.join(', ') : 'Not specified';
   };
 
   // Format file size
