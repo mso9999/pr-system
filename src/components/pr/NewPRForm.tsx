@@ -568,6 +568,7 @@ export const NewPRForm = () => {
         // Special handling for sites array
         if (field === 'sites') {
           isEmpty = !Array.isArray(value) || value.length === 0;
+          console.log(`[VALIDATION] Checking sites array:`, { value, isArray: Array.isArray(value), length: Array.isArray(value) ? value.length : 'N/A', isEmpty });
         } else {
           isEmpty = value === undefined || value === null || value === '' || 
                    (typeof value === 'number' && value <= 0);
