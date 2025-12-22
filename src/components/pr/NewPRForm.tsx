@@ -554,7 +554,7 @@ export const NewPRForm = () => {
         'department',
         'projectCategory',
         'description',
-        'site',
+        'sites',
         'expenseType',
         'estimatedAmount',
         'requiredDate'
@@ -563,8 +563,16 @@ export const NewPRForm = () => {
       // Check for empty required fields
       const missingFields = requiredFields.filter(field => {
         const value = formState[field as keyof FormState];
-        const isEmpty = value === undefined || value === null || value === '' || 
-                     (typeof value === 'number' && value <= 0);
+        let isEmpty: boolean;
+        
+        // Special handling for sites array
+        if (field === 'sites') {
+          isEmpty = !Array.isArray(value) || value.length === 0;
+        } else {
+          isEmpty = value === undefined || value === null || value === '' || 
+                   (typeof value === 'number' && value <= 0);
+        }
+        
         if (isEmpty) {
           console.log(`Field ${field} is empty:`, value);
         }
@@ -796,13 +804,20 @@ export const NewPRForm = () => {
         'email',
         'department',
         'description',
-        'site',
+        'sites',
         'expenseType',
         'currency',
         'requiredDate'
       ];
 
-      const missingFields = requiredFields.filter(field => !formState[field as keyof FormState]);
+      const missingFields = requiredFields.filter(field => {
+        const value = formState[field as keyof FormState];
+        // Special handling for sites array
+        if (field === 'sites') {
+          return !Array.isArray(value) || value.length === 0;
+        }
+        return !value;
+      });
       
       if (missingFields.length > 0) {
         console.log('Missing required fields:', missingFields);
