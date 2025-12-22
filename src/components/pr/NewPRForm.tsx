@@ -221,7 +221,7 @@ export const NewPRForm = () => {
     expenseType: '',
     vehicle: undefined,
     estimatedAmount: 0,
-    currency: 'LSL',
+    currency: '', // Will be set based on organization's baseCurrency
     requiredDate: null,
     approvers: [],
     preferredVendor: undefined,
@@ -305,8 +305,22 @@ export const NewPRForm = () => {
         setRules(rulesItems);
         console.log('Rules loaded in NewPRForm:', rulesItems);
 
+        // Get full organization object to access baseCurrency
+        let orgBaseCurrency = 'LSL'; // Default fallback
+        try {
+          const organizationService = (await import('../../services/organizationService')).organizationService;
+          const fullOrg = await organizationService.getOrganizationById(formState.organization.id);
+          if (fullOrg?.baseCurrency) {
+            orgBaseCurrency = fullOrg.baseCurrency;
+            console.log(`[NewPRForm] Setting currency to organization's baseCurrency: ${orgBaseCurrency}`);
+          }
+        } catch (error) {
+          console.warn('[NewPRForm] Could not load organization baseCurrency, using default:', error);
+        }
+
         // Clear organization-specific form fields when organization changes
         // This prevents invalid selections from previous organization
+        // Also set currency to organization's baseCurrency
         setFormState(prev => ({
           ...prev,
           department: '',
@@ -315,6 +329,7 @@ export const NewPRForm = () => {
           expenseType: '',
           vehicle: undefined,
           approvers: [], // Clear approvers when org changes
+          currency: orgBaseCurrency, // Set to organization's baseCurrency
         }));
 
       } catch (error) {

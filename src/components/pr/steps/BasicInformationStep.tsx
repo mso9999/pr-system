@@ -308,10 +308,24 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       <Grid item xs={12}>
         <OrganizationSelector
           value={formState.organization}
-          onChange={(org) => {
+          onChange={async (org) => {
+            // Get organization's baseCurrency when organization changes
+            let orgBaseCurrency = formState.currency || 'LSL'; // Keep current or default
+            try {
+              const organizationService = (await import('../../../services/organizationService')).organizationService;
+              const fullOrg = await organizationService.getOrganizationById(org.id);
+              if (fullOrg?.baseCurrency) {
+                orgBaseCurrency = fullOrg.baseCurrency;
+                console.log(`[BasicInformationStep] Setting currency to organization's baseCurrency: ${orgBaseCurrency}`);
+              }
+            } catch (error) {
+              console.warn('[BasicInformationStep] Could not load organization baseCurrency:', error);
+            }
+            
             setFormState(prev => ({
               ...prev,
-              organization: org
+              organization: org,
+              currency: orgBaseCurrency // Set to organization's baseCurrency
             }));
           }}
           restrictToUserOrgs={true}
