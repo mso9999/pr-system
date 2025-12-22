@@ -439,11 +439,25 @@ export const NewPRForm = () => {
           formState.expenseType
         );
       case 1: // Line Items
-        return formState.lineItems.length > 0 && formState.lineItems.every(item => 
-          item.description && 
-          item.quantity > 0 && 
-          item.uom
-        );
+        const hasItems = formState.lineItems.length > 0;
+        const allValid = formState.lineItems.every(item => {
+          const hasDescription = !!item.description && item.description.trim().length > 0;
+          const hasValidQuantity = typeof item.quantity === 'number' && item.quantity > 0;
+          const hasUom = !!item.uom && item.uom.trim().length > 0;
+          return hasDescription && hasValidQuantity && hasUom;
+        });
+        console.log('[isStepValid] Line items validation:', {
+          hasItems,
+          itemCount: formState.lineItems.length,
+          allValid,
+          items: formState.lineItems.map(item => ({
+            description: item.description,
+            quantity: item.quantity,
+            uom: item.uom,
+            valid: !!(item.description && item.quantity > 0 && item.uom)
+          }))
+        });
+        return hasItems && allValid;
       case 2: // Review
         return true;
       default:
@@ -526,10 +540,46 @@ export const NewPRForm = () => {
       console.log('Basic info validation passed, moving to next step');
     } else if (activeStep === 1) {
       console.log('Validating line items...');
+      console.log('Current line items:', formState.lineItems);
+      
+      // Check if there are any line items
+      if (!formState.lineItems || formState.lineItems.length === 0) {
+        console.log('Line items validation failed: No line items');
+        enqueueSnackbar('Please add at least one line item', { variant: 'error' });
+        return;
+      }
+      
+      // Check each line item
+      const invalidItems = formState.lineItems.map((item, index) => {
+        const issues: string[] = [];
+        if (!item.description || item.description.trim().length === 0) {
+          issues.push('description');
+        }
+        const quantity = typeof item.quantity === 'number' ? item.quantity : Number(item.quantity);
+        if (!quantity || quantity <= 0 || isNaN(quantity)) {
+          issues.push('quantity');
+        }
+        if (!item.uom || item.uom.trim().length === 0) {
+          issues.push('UOM');
+        }
+        return { index, issues };
+      }).filter(item => item.issues.length > 0);
+      
+      if (invalidItems.length > 0) {
+        console.log('Line items validation failed:', invalidItems);
+        const errorMsg = `Line item ${invalidItems[0].index + 1} is missing: ${invalidItems[0].issues.join(', ')}`;
+        enqueueSnackbar(errorMsg, { variant: 'error', autoHideDuration: 5000 });
+        return;
+      }
+      
       const isValid = isStepValid(1);
       console.log('Line items validation result:', isValid);
       if (!isValid) {
-        console.log('Line items validation failed');
+        console.log('Line items validation failed after detailed check');
+        enqueueSnackbar('Please ensure all line items have description, quantity > 0, and unit of measure', { 
+          variant: 'error',
+          autoHideDuration: 5000
+        });
         return;
       }
       console.log('Line items validation passed, moving to next step');
