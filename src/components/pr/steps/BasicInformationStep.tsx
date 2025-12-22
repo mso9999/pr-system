@@ -310,22 +310,27 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
           value={formState.organization}
           onChange={async (org) => {
             // Get organization's baseCurrency when organization changes
+            // Only set currency if it's currently empty, otherwise preserve user's selection
             let orgBaseCurrency = formState.currency || 'LSL'; // Keep current or default
-            try {
-              const organizationService = (await import('../../../services/organizationService')).organizationService;
-              const fullOrg = await organizationService.getOrganizationById(org.id);
-              if (fullOrg?.baseCurrency) {
-                orgBaseCurrency = fullOrg.baseCurrency;
-                console.log(`[BasicInformationStep] Setting currency to organization's baseCurrency: ${orgBaseCurrency}`);
+            if (!formState.currency) {
+              // Only fetch and set baseCurrency if currency is not already set
+              try {
+                const organizationService = (await import('../../../services/organizationService')).organizationService;
+                const fullOrg = await organizationService.getOrganizationById(org.id);
+                if (fullOrg?.baseCurrency) {
+                  orgBaseCurrency = fullOrg.baseCurrency;
+                  console.log(`[BasicInformationStep] Setting currency to organization's baseCurrency: ${orgBaseCurrency}`);
+                }
+              } catch (error) {
+                console.warn('[BasicInformationStep] Could not load organization baseCurrency:', error);
               }
-            } catch (error) {
-              console.warn('[BasicInformationStep] Could not load organization baseCurrency:', error);
             }
             
             setFormState(prev => ({
               ...prev,
               organization: org,
-              currency: orgBaseCurrency // Set to organization's baseCurrency
+              // Only update currency if it was empty, otherwise keep user's selection
+              currency: prev.currency || orgBaseCurrency
             }));
           }}
           restrictToUserOrgs={true}

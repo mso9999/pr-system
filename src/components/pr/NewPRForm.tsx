@@ -320,7 +320,7 @@ export const NewPRForm = () => {
 
         // Clear organization-specific form fields when organization changes
         // This prevents invalid selections from previous organization
-        // Also set currency to organization's baseCurrency
+        // Only set currency if it's currently empty, otherwise preserve user's selection
         setFormState(prev => ({
           ...prev,
           department: '',
@@ -329,7 +329,8 @@ export const NewPRForm = () => {
           expenseType: '',
           vehicle: undefined,
           approvers: [], // Clear approvers when org changes
-          currency: orgBaseCurrency, // Set to organization's baseCurrency
+          // Only update currency if it was empty, otherwise keep user's selection
+          currency: prev.currency || orgBaseCurrency,
         }));
 
       } catch (error) {
