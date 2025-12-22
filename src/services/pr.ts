@@ -861,9 +861,13 @@ export async function createPR(
     const cleanedPRData = cleanUndefined(finalPRData) as Omit<PRRequest, 'id'>;
 
     // Validate required fields before attempting to save
-    const requiredFields = ['prNumber', 'organization', 'department', 'projectCategory', 'description', 'site', 'expenseType', 'estimatedAmount', 'currency', 'requiredDate', 'requestorId', 'requestorEmail', 'requestor', 'status'];
+    const requiredFields = ['prNumber', 'organization', 'department', 'projectCategory', 'description', 'sites', 'expenseType', 'estimatedAmount', 'currency', 'requiredDate', 'requestorId', 'requestorEmail', 'requestor', 'status'];
     const missingFields = requiredFields.filter(field => {
       const value = cleanedPRData[field as keyof typeof cleanedPRData];
+      // Special handling for sites array
+      if (field === 'sites') {
+        return !Array.isArray(value) || value.length === 0;
+      }
       return value === undefined || value === null || (typeof value === 'string' && value.trim() === '');
     });
 
