@@ -14,7 +14,6 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { PRRequest, PRStatus } from '@/types/pr';
-import { useResponsive } from '@/hooks/useResponsive';
 
 interface StatusProgressStepperProps {
   pr: PRRequest;
@@ -22,7 +21,6 @@ interface StatusProgressStepperProps {
 
 export const StatusProgressStepper: React.FC<StatusProgressStepperProps> = ({ pr }) => {
   const { t } = useTranslation();
-  const { isMobile } = useResponsive();
 
   // Standard workflow sequence
   const standardSequence: PRStatus[] = [
@@ -168,7 +166,7 @@ export const StatusProgressStepper: React.FC<StatusProgressStepperProps> = ({ pr
         />
       </Box>
       
-      <Stepper activeStep={activeStep} orientation={isMobile ? 'vertical' : 'vertical'} sx={{ width: '100%' }}>
+      <Stepper activeStep={activeStep} orientation="vertical" sx={{ width: '100%' }}>
         {steps.map((step, index) => {
           const isCompleted = isStepCompleted(step.status, index);
           const isCurrent = step.status === pr.status;
