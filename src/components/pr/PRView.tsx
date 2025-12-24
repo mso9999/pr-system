@@ -87,7 +87,8 @@ import { StatusProgressStepper } from './StatusProgressStepper';
 import { ExternalApprovalBypass } from './ExternalApprovalBypass';
 import { InQueueStatusActions } from './InQueueStatusActions';
 import { VendorSelectionDialog } from '../common/VendorSelectionDialog';
-import { useResponsive } from '@/hooks/useResponsive';
+import { useTheme } from '@mui/material/styles';
+import { useMediaQuery } from '@mui/material';
 
 interface EditablePRFields {
   department?: string;
@@ -451,7 +452,9 @@ export function PRView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const { isMobile, isTablet } = useResponsive();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   const isEditMode = location.pathname.endsWith('/edit');
   const [pr, setPr] = useState<PRRequest | null>(null);
   const [loading, setLoading] = useState(true);
