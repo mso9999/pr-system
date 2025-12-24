@@ -1,9 +1,19 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { sendEmail } from './utils/emailSender';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 
-// Version information
-const BACKEND_VERSION = '1.0.0';
+// Version information - read from package.json
+let BACKEND_VERSION = '1.0.0';
+try {
+  const packageJsonPath = join(__dirname, '../package.json');
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'));
+  BACKEND_VERSION = packageJson.version || '1.0.0';
+} catch (error) {
+  console.warn('Could not read package.json version, using default:', error);
+}
+
 console.log('=== Firebase Functions Initializing ===');
 console.log(`Backend Version: ${BACKEND_VERSION}`);
 console.log(`Initialization Date: ${new Date().toISOString()}`);

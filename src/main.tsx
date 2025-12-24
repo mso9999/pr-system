@@ -10,7 +10,8 @@ window.onunhandledrejection = function(event) {
 };
 
 // Version information
-const FRONTEND_VERSION = '1.0.0';
+// Note: In production, this will be replaced at build time via vite.config.ts
+const FRONTEND_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
 console.log('=== Application Starting ===');
 console.log(`Frontend Version: ${FRONTEND_VERSION}`);
 console.log(`Build Date: ${new Date().toISOString()}`);
