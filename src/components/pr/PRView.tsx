@@ -3158,7 +3158,13 @@ export function PRView() {
               </span>
             </Tooltip>
           ) : (
-            <Button onClick={handleNext} variant="contained" color="primary">
+            <Button 
+              onClick={handleNext} 
+              variant="contained" 
+              color="primary"
+              fullWidth={isMobile}
+              sx={{ minHeight: '44px' }}
+            >
               Next
             </Button>
           )}
