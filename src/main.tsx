@@ -9,7 +9,11 @@ window.onunhandledrejection = function(event) {
   console.error('Unhandled promise rejection:', event.reason);
 };
 
+// Version information
+const FRONTEND_VERSION = '1.0.0';
 console.log('=== Application Starting ===');
+console.log(`Frontend Version: ${FRONTEND_VERSION}`);
+console.log(`Build Date: ${new Date().toISOString()}`);
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

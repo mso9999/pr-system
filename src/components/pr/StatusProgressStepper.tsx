@@ -9,13 +9,12 @@ import {
   Typography,
   Box,
   Chip,
-  useMediaQuery,
 } from '@mui/material';
-import { useTheme } from '@mui/material/styles';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { PRRequest, PRStatus } from '@/types/pr';
+import { useResponsive } from '@/hooks/useResponsive';
 
 interface StatusProgressStepperProps {
   pr: PRRequest;
@@ -23,8 +22,7 @@ interface StatusProgressStepperProps {
 
 export const StatusProgressStepper: React.FC<StatusProgressStepperProps> = ({ pr }) => {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { isMobile } = useResponsive();
 
   // Standard workflow sequence
   const standardSequence: PRStatus[] = [

@@ -2,6 +2,12 @@ import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
 import { sendEmail } from './utils/emailSender';
 
+// Version information
+const BACKEND_VERSION = '1.0.0';
+console.log('=== Firebase Functions Initializing ===');
+console.log(`Backend Version: ${BACKEND_VERSION}`);
+console.log(`Initialization Date: ${new Date().toISOString()}`);
+
 // Initialize Firebase
 admin.initializeApp();
 const db = admin.firestore();
