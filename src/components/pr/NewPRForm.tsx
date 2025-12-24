@@ -92,6 +92,7 @@ import { BasicInformationStep } from './steps/BasicInformationStep';
 import { LineItemsStep } from './steps/LineItemsStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { createPR, getUserPRs } from '../../services/pr'; // Updated import
+import { useResponsive } from '../../hooks/useResponsive';
 
 // Type definitions for form data structures
 interface LineItem {
@@ -1201,8 +1202,8 @@ export const NewPRForm = () => {
   };
 
   return (
-    <Box sx={{ width: '100%', p: 3 }}>
-      <Typography variant="h4" gutterBottom>
+    <Box sx={{ width: '100%', p: { xs: 2, sm: 3 } }}>
+      <Typography variant="h4" gutterBottom sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' } }}>
         New Purchase Request
       </Typography>
 
@@ -1214,6 +1215,7 @@ export const NewPRForm = () => {
           <Button
             variant="contained"
             onClick={() => window.location.reload()}
+            sx={{ minHeight: '44px', mt: 2 }}
           >
             Try Again
           </Button>
@@ -1225,7 +1227,11 @@ export const NewPRForm = () => {
         </Box>
       ) : (
         <>
-          <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
+          <Stepper 
+            activeStep={activeStep} 
+            orientation={isMobile ? 'vertical' : 'horizontal'}
+            sx={{ mb: 4 }}
+          >
             {steps.map((label) => (
               <Step key={label}>
                 <StepLabel>{label}</StepLabel>
@@ -1235,18 +1241,33 @@ export const NewPRForm = () => {
 
           {renderStep()}
 
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            flexDirection: { xs: 'column-reverse', sm: 'row' },
+            justifyContent: 'flex-end', 
+            gap: 1,
+            mt: 2 
+          }}>
             <Button
               color="inherit"
               disabled={activeStep === 0}
               onClick={handleBack}
-              sx={{ mr: 1 }}
+              fullWidth={isMobile}
+              sx={{ 
+                mr: { xs: 0, sm: 1 },
+                minHeight: '44px'
+              }}
             >
               {t('common.back')}
             </Button>
 
             {activeStep === steps.length - 1 ? null : (
-              <Button onClick={handleNextStep}>
+              <Button 
+                onClick={handleNextStep}
+                variant="contained"
+                fullWidth={isMobile}
+                sx={{ minHeight: '44px' }}
+              >
                 {t('common.next')}
               </Button>
             )}

@@ -19,6 +19,10 @@ import {
   TableBody,
   TableCell,
   Badge,
+  Card,
+  CardContent,
+  CardActions,
+  Divider,
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon, PriorityHigh as PriorityHighIcon, Assignment as AssignmentIcon, Archive as ArchiveIcon } from '@mui/icons-material';
 import { RootState } from '../../store';
@@ -34,6 +38,7 @@ import { exportPRsToCSV } from '@/utils/exportUtils';
 import { Link } from 'react-router-dom';
 import { referenceDataService } from '../../services/referenceData';
 import { normalizeOrganizationId } from '@/utils/organization';
+import { useResponsive } from '../../hooks/useResponsive';
 
 interface StatusHistoryEntry {
   status: PRStatus;
@@ -62,6 +67,7 @@ export const Dashboard = () => {
   const dispatch = useDispatch();
   const location = useLocation();
   const { t } = useTranslation();
+  const { isMobile, isTablet } = useResponsive();
   const { user } = useSelector((state: RootState) => state.auth);
   const { userPRs, pendingApprovals, loading, showOnlyMyPRs, myActionsFilter } = useSelector(
     (state: RootState) => state.pr
@@ -652,52 +658,179 @@ export const Dashboard = () => {
     exportPRsToCSV(dataToExport, filterCriteria, baseCurrency);
   };
 
+  // PR Card Component for Mobile
+  const PRCard = ({ pr }: { pr: PRWithHistory }) => {
+    const isUrgent = Boolean(pr.isUrgent);
+    const requestorName = pr.requestor 
+      ? (typeof pr.requestor === 'string' 
+          ? pr.requestor
+          : pr.requestor.name 
+            ? pr.requestor.name
+            : pr.requestor.firstName && pr.requestor.lastName
+              ? `${pr.requestor.firstName} ${pr.requestor.lastName}`
+              : pr.requestor.name || pr.requestor.email || 'Unknown')
+      : 'Unknown';
+
+    return (
+      <Card 
+        sx={{ 
+          mb: 2,
+          border: isUrgent ? '2px solid' : '1px solid',
+          borderColor: isUrgent ? 'error.main' : 'divider',
+          backgroundColor: isUrgent ? 'error.light' : 'background.paper',
+          '&:hover': {
+            boxShadow: 3,
+            cursor: 'pointer'
+          }
+        }}
+        onClick={() => navigate(`/pr/${pr.id}`)}
+      >
+        <CardContent>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+            <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
+              {pr.prNumber}
+              {isUrgent && (
+                <Tooltip title="Urgent PR">
+                  <PriorityHighIcon
+                    color="error"
+                    sx={{ ml: 1, verticalAlign: 'middle', fontSize: '1.2rem' }}
+                  />
+                </Tooltip>
+              )}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteClick(e, pr);
+              }}
+              sx={{ minWidth: '44px', minHeight: '44px' }}
+            >
+              <DeleteIcon />
+            </IconButton>
+          </Box>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+            {pr.description}
+          </Typography>
+          <Divider sx={{ my: 1 }} />
+          <Grid container spacing={1}>
+            <Grid item xs={6}>
+              <Typography variant="caption" color="text.secondary">
+                {t('pr.submittedBy')}
+              </Typography>
+              <Typography variant="body2">
+                {requestorName}
+              </Typography>
+            </Grid>
+            <Grid item xs={6}>
+              <Typography variant="caption" color="text.secondary">
+                {t('dashboard.dateCreated')}
+              </Typography>
+              <Typography variant="body2">
+                {pr.createdAt 
+                  ? new Date(pr.createdAt).toLocaleDateString()
+                  : 'N/A'}
+              </Typography>
+            </Grid>
+            <Grid item xs={6}>
+              <Typography variant="caption" color="text.secondary">
+                {t('dashboard.daysOpen')}
+              </Typography>
+              <Typography variant="body2">
+                {calculateDaysOpen(pr)}
+              </Typography>
+            </Grid>
+            <Grid item xs={6}>
+              <Typography variant="caption" color="text.secondary">
+                {t('dashboard.urgency')}
+              </Typography>
+              <Chip
+                label={isUrgent ? 'URGENT' : 'NORMAL'}
+                color={isUrgent ? 'error' : 'default'}
+                size="small"
+                icon={isUrgent ? <PriorityHighIcon /> : undefined}
+              />
+            </Grid>
+            {selectedStatus === PRStatus.RESUBMITTED && (
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('dashboard.resubmittedDate')}
+                </Typography>
+                <Typography variant="body2">
+                  {pr.resubmittedAt 
+                    ? new Date(pr.resubmittedAt).toLocaleDateString()
+                    : '-'}
+                </Typography>
+              </Grid>
+            )}
+            {selectedStatus !== PRStatus.SUBMITTED && selectedStatus !== PRStatus.RESUBMITTED && (
+              <Grid item xs={12}>
+                <Typography variant="caption" color="text.secondary">
+                  {t('dashboard.statusChangeDate')}
+                </Typography>
+                <Typography variant="body2">
+                  {getStatusChangeDate(pr)}
+                </Typography>
+              </Grid>
+            )}
+          </Grid>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <Grid container spacing={3}>
         <Grid item xs={12}>
-          <Paper sx={{ p: 2, display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Grid item xs={12} md={4}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
+            <Box sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { md: 200 } }}>
               <OrganizationSelector
                 value={selectedOrg || ''}
                 includeAllOption
                 onOrganizationsLoaded={handleOrganizationsLoaded}
                 onChange={handleOrganizationChange}
               />
-            </Grid>
-            <Box sx={{ flexGrow: 1 }} />
-            {showMyActionsButton && (
+            </Box>
+            <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1, width: { xs: '100%', md: 'auto' } }}>
+              {showMyActionsButton && (
+                <Button
+                  variant={myActionsFilter ? "contained" : "outlined"}
+                  color="secondary"
+                  startIcon={<AssignmentIcon />}
+                  onClick={handleMyActionsToggle}
+                  fullWidth={isMobile}
+                  sx={{ minHeight: '44px' }}
+                >
+                  <Badge badgeContent={myActionsCount} color="error" max={99}>
+                    <Box sx={{ pr: myActionsCount > 0 ? 2 : 0 }}>
+                      {t('dashboard.needsMyApproval')}
+                    </Box>
+                  </Badge>
+                </Button>
+              )}
               <Button
-                variant={myActionsFilter ? "contained" : "outlined"}
-                color="secondary"
-                startIcon={<AssignmentIcon />}
-                onClick={handleMyActionsToggle}
-                sx={{ mr: 2 }}
+                variant="outlined"
+                color="primary"
+                startIcon={<ArchiveIcon />}
+                onClick={() => navigate('/archive')}
+                fullWidth={isMobile}
+                sx={{ minHeight: '44px' }}
               >
-                <Badge badgeContent={myActionsCount} color="error" max={99}>
-                  <Box sx={{ pr: myActionsCount > 0 ? 2 : 0 }}>
-                    {t('dashboard.needsMyApproval')}
-                  </Box>
-                </Badge>
+                Archive Dataroom
               </Button>
-            )}
-            <Button
-              variant="outlined"
-              color="primary"
-              startIcon={<ArchiveIcon />}
-              onClick={() => navigate('/archive')}
-              sx={{ mr: 2 }}
-            >
-              Archive Dataroom
-            </Button>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AddIcon />}
-              onClick={() => navigate('/pr/new')}
-            >
-              {t('nav.newPR')}
-            </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                startIcon={<AddIcon />}
+                onClick={() => navigate('/pr/new')}
+                fullWidth={isMobile}
+                sx={{ minHeight: '44px' }}
+              >
+                {t('nav.newPR')}
+              </Button>
+            </Box>
           </Paper>
         </Grid>
 
@@ -750,7 +883,12 @@ export const Dashboard = () => {
             </Box>
 
             <Box sx={{ mb: 2 }}>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ 
+                display: 'flex', 
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: 1,
+                flexWrap: 'wrap'
+              }}>
                 {Object.values(PRStatus)
                   .filter(status => status !== PRStatus.DRAFT) // Filter out DRAFT status
                   .map((status) => {
@@ -761,7 +899,11 @@ export const Dashboard = () => {
                       label={`${statusConfig[status]?.label} (${statusCount})`}
                       color={selectedStatus === status ? 'primary' : 'default'}
                       onClick={() => setSelectedStatus(status)}
-                      sx={{ cursor: 'pointer' }}
+                      sx={{ 
+                        cursor: 'pointer',
+                        minHeight: '44px',
+                        fontSize: { xs: '0.75rem', sm: '0.875rem' }
+                      }}
                     />
                   );
                 })}
@@ -772,100 +914,117 @@ export const Dashboard = () => {
               <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
                 <CircularProgress />
               </Box>
+            ) : isMobile ? (
+              // Mobile Card Layout
+              <Box>
+                {statusPRs.length === 0 ? (
+                  <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', p: 3 }}>
+                    {t('dashboard.noPRs')}
+                  </Typography>
+                ) : (
+                  statusPRs.map((pr: PRWithHistory) => (
+                    <PRCard key={pr.id} pr={pr} />
+                  ))
+                )}
+              </Box>
             ) : (
-              <Table>
-                <TableHead>
-                  <TableRow>
-                    <TableCell>{t('pr.prNumber')}</TableCell>
-                    <TableCell>{t('pr.description')}</TableCell>
-                    <TableCell>{t('pr.submittedBy')}</TableCell>
-                    <TableCell>{t('dashboard.dateCreated')}</TableCell>
-                    <TableCell>{t('dashboard.daysOpen')}</TableCell>
-                    <TableCell>{t('dashboard.urgency')}</TableCell>
-                    {selectedStatus === PRStatus.RESUBMITTED && (
-                      <TableCell>{t('dashboard.resubmittedDate')}</TableCell>
-                    )}
-                    {selectedStatus !== PRStatus.SUBMITTED && selectedStatus !== PRStatus.RESUBMITTED && (
-                      <TableCell>{t('dashboard.statusChangeDate')}</TableCell>
-                    )}
-                    <TableCell>{t('common.actions')}</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {statusPRs.map((pr: PRWithHistory) => {
-                    const isUrgent = Boolean(pr.isUrgent);
-                    const RowComponent = isUrgent ? UrgentTableRow : TableRow;
-                    return (
-                      <RowComponent
-                        key={pr.id}
-                        hover
-                        onClick={() => navigate(`/pr/${pr.id}`)}
-                        sx={{ cursor: 'pointer' }}
-                      >
-                        <TableCell>
-                          {pr.prNumber}
-                          {isUrgent && (
-                            <Tooltip title="Urgent PR">
-                              <PriorityHighIcon
-                                color="error"
-                                sx={{ ml: 1, verticalAlign: 'middle' }}
-                              />
-                            </Tooltip>
+              // Desktop Table Layout
+              <Box sx={{ overflowX: 'auto' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>{t('pr.prNumber')}</TableCell>
+                      <TableCell>{t('pr.description')}</TableCell>
+                      <TableCell>{t('pr.submittedBy')}</TableCell>
+                      <TableCell>{t('dashboard.dateCreated')}</TableCell>
+                      <TableCell>{t('dashboard.daysOpen')}</TableCell>
+                      <TableCell>{t('dashboard.urgency')}</TableCell>
+                      {selectedStatus === PRStatus.RESUBMITTED && (
+                        <TableCell>{t('dashboard.resubmittedDate')}</TableCell>
+                      )}
+                      {selectedStatus !== PRStatus.SUBMITTED && selectedStatus !== PRStatus.RESUBMITTED && (
+                        <TableCell>{t('dashboard.statusChangeDate')}</TableCell>
+                      )}
+                      <TableCell>{t('common.actions')}</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {statusPRs.map((pr: PRWithHistory) => {
+                      const isUrgent = Boolean(pr.isUrgent);
+                      const RowComponent = isUrgent ? UrgentTableRow : TableRow;
+                      return (
+                        <RowComponent
+                          key={pr.id}
+                          hover
+                          onClick={() => navigate(`/pr/${pr.id}`)}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell>
+                            {pr.prNumber}
+                            {isUrgent && (
+                              <Tooltip title="Urgent PR">
+                                <PriorityHighIcon
+                                  color="error"
+                                  sx={{ ml: 1, verticalAlign: 'middle' }}
+                                />
+                              </Tooltip>
+                            )}
+                          </TableCell>
+                          <TableCell>{pr.description}</TableCell>
+                          <TableCell>
+                            {pr.requestor ? (
+                              typeof pr.requestor === 'string' 
+                                ? pr.requestor
+                                : pr.requestor.name 
+                                  ? pr.requestor.name
+                                  : pr.requestor.firstName && pr.requestor.lastName
+                                    ? `${pr.requestor.firstName} ${pr.requestor.lastName}`
+                                    : pr.requestor.name || pr.requestor.email || 'Unknown'
+                            ) : 'Unknown'}
+                          </TableCell>
+                          <TableCell>
+                            {pr.createdAt 
+                              ? new Date(pr.createdAt).toLocaleDateString()
+                              : 'Date not available'}
+                          </TableCell>
+                          <TableCell>
+                            {calculateDaysOpen(pr)}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              label={isUrgent ? 'URGENT' : 'NORMAL'}
+                              color={isUrgent ? 'error' : 'default'}
+                              size="small"
+                              icon={isUrgent ? <PriorityHighIcon /> : undefined}
+                            />
+                          </TableCell>
+                          {selectedStatus === PRStatus.RESUBMITTED && (
+                            <TableCell>
+                              {pr.resubmittedAt 
+                                ? new Date(pr.resubmittedAt).toLocaleDateString()
+                                : '-'}
+                            </TableCell>
                           )}
-                        </TableCell>
-                        <TableCell>{pr.description}</TableCell>
-                        <TableCell>
-                          {pr.requestor ? (
-                            typeof pr.requestor === 'string' 
-                              ? pr.requestor
-                              : pr.requestor.name 
-                                ? pr.requestor.name
-                                : pr.requestor.firstName && pr.requestor.lastName
-                                  ? `${pr.requestor.firstName} ${pr.requestor.lastName}`
-                                  : pr.requestor.name || pr.requestor.email || 'Unknown'
-                          ) : 'Unknown'}
-                        </TableCell>
-                        <TableCell>
-                          {pr.createdAt 
-                            ? new Date(pr.createdAt).toLocaleDateString()
-                            : 'Date not available'}
-                        </TableCell>
-                        <TableCell>
-                          {calculateDaysOpen(pr)}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            label={isUrgent ? 'URGENT' : 'NORMAL'}
-                            color={isUrgent ? 'error' : 'default'}
-                            size="small"
-                            icon={isUrgent ? <PriorityHighIcon /> : undefined}
-                          />
-                        </TableCell>
-                        {selectedStatus === PRStatus.RESUBMITTED && (
+                          {selectedStatus !== PRStatus.SUBMITTED && selectedStatus !== PRStatus.RESUBMITTED && (
+                            <TableCell>
+                              {getStatusChangeDate(pr)}
+                            </TableCell>
+                          )}
                           <TableCell>
-                            {pr.resubmittedAt 
-                              ? new Date(pr.resubmittedAt).toLocaleDateString()
-                              : '-'}
+                            <IconButton
+                              onClick={(e) => handleDeleteClick(e, pr)}
+                              size="small"
+                              sx={{ minWidth: '44px', minHeight: '44px' }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
                           </TableCell>
-                        )}
-                        {selectedStatus !== PRStatus.SUBMITTED && selectedStatus !== PRStatus.RESUBMITTED && (
-                          <TableCell>
-                            {getStatusChangeDate(pr)}
-                          </TableCell>
-                        )}
-                        <TableCell>
-                          <IconButton
-                            onClick={(e) => handleDeleteClick(e, pr)}
-                            size="small"
-                          >
-                            <DeleteIcon />
-                          </IconButton>
-                        </TableCell>
-                      </RowComponent>
-                    );
-                  })}
-                </TableBody>
-              </Table>
+                        </RowComponent>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </Box>
             )}
           </Paper>
         </Grid>

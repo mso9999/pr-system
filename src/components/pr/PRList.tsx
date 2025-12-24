@@ -21,6 +21,10 @@ import {
   Select,
   Stack,
   Tooltip,
+  Card,
+  CardContent,
+  Grid,
+  Divider,
 } from '@mui/material';
 import {
   Search as SearchIcon,
@@ -33,6 +37,7 @@ import { setUserPRs, setLoading } from '../../store/slices/prSlice';
 import { PRRequest, PRStatus } from '../../types/pr';
 import { format } from 'date-fns';
 import { formatCurrency, calculateDaysOpen } from '../../utils/formatters';
+import { useResponsive } from '../../hooks/useResponsive';
 
 const statusColors: Record<PRStatus, 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'> = {
   [PRStatus.SUBMITTED]: 'warning',
@@ -47,6 +52,7 @@ const statusColors: Record<PRStatus, 'default' | 'primary' | 'secondary' | 'erro
 export const PRList = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { isMobile } = useResponsive();
   const { user } = useSelector((state: RootState) => state.auth);
   const { userPRs, loading } = useSelector((state: RootState) => state.pr);
 
@@ -271,115 +277,205 @@ export const PRList = () => {
         </Stack>
       </Paper>
 
-      {/* PR Table */}
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>PR ID</TableCell>
-              <TableCell>Created Date</TableCell>
-              <TableCell>Days Open</TableCell>
-              <TableCell>Requestor</TableCell>
-              <TableCell>Department</TableCell>
-              <TableCell>Category</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Total Amount</TableCell>
-              <TableCell align="center">Actions</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredPRs
-              .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-              .map((pr) => {
-                console.log('Processing PR:', {
-                  id: pr.id,
-                  prNumber: pr.prNumber,
-                  createdAt: pr.createdAt,
-                  createdAtType: typeof pr.createdAt,
-                  completedAt: pr.completedAt,
-                  completedAtType: typeof pr.completedAt,
-                  status: pr.status
-                });
-                
-                let daysOpen;
-                try {
-                  daysOpen = calculateDaysOpen(pr.createdAt);
-                  console.log('Calculated days open:', {
-                    id: pr.id,
-                    daysOpen,
-                    createdAt: new Date(pr.createdAt).toISOString(),
-                  });
-                } catch (error) {
-                  console.error('Error calculating days open:', error);
-                  daysOpen = 0;
-                }
-                
-                return (
-                  <TableRow key={pr.id} hover>
-                    <TableCell 
-                      sx={{ 
-                        color: 'primary.main', 
-                        cursor: 'pointer',
-                        '&:hover': { textDecoration: 'underline' }
-                      }}
-                      onClick={() => navigate(`/pr/${pr.id}`)}
-                    >
-                      {pr.prNumber || `#${pr.id.slice(-6)}`}
-                    </TableCell>
-                    <TableCell>
-                      {format(
-                        new Date(pr.createdAt),
-                        'MM/dd/yyyy'
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {daysOpen} days
-                    </TableCell>
-                    <TableCell>{pr.requestor?.name || 'Unknown'}</TableCell>
-                    <TableCell>{pr.department}</TableCell>
-                    <TableCell>{pr.projectCategory}</TableCell>
-                    <TableCell>
+      {/* PR Table/Cards */}
+      {isMobile ? (
+        // Mobile Card Layout
+        <Box>
+          {filteredPRs
+            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+            .map((pr) => {
+              let daysOpen;
+              try {
+                daysOpen = calculateDaysOpen(pr.createdAt);
+              } catch (error) {
+                daysOpen = 0;
+              }
+              
+              return (
+                <Card 
+                  key={pr.id}
+                  sx={{ 
+                    mb: 2,
+                    '&:hover': { boxShadow: 3, cursor: 'pointer' }
+                  }}
+                  onClick={() => navigate(`/pr/${pr.id}`)}
+                >
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                      <Typography variant="h6" component="div" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+                        {pr.prNumber || `#${pr.id.slice(-6)}`}
+                      </Typography>
                       <Chip
                         label={pr.status.replace(/_/g, ' ')}
                         color={statusColors[pr.status]}
                         size="small"
                       />
-                    </TableCell>
-                    <TableCell align="right">
-                      {formatCurrency(pr.totalAmount, pr.currency)}
-                    </TableCell>
-                    <TableCell align="center">
-                      <Tooltip title="View Details">
-                        <IconButton
-                          size="small"
-                          onClick={() => navigate(`/pr/${pr.id}`)}
-                        >
-                          <ViewIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            {filteredPRs.length === 0 && (
+                    </Box>
+                    <Divider sx={{ my: 1 }} />
+                    <Grid container spacing={1}>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Created Date
+                        </Typography>
+                        <Typography variant="body2">
+                          {format(new Date(pr.createdAt), 'MM/dd/yyyy')}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Days Open
+                        </Typography>
+                        <Typography variant="body2">
+                          {daysOpen} days
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Requestor
+                        </Typography>
+                        <Typography variant="body2">
+                          {pr.requestor?.name || 'Unknown'}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Department
+                        </Typography>
+                        <Typography variant="body2">
+                          {pr.department}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Category
+                        </Typography>
+                        <Typography variant="body2">
+                          {pr.projectCategory}
+                        </Typography>
+                      </Grid>
+                      <Grid item xs={6}>
+                        <Typography variant="caption" color="text.secondary">
+                          Total Amount
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                          {formatCurrency(pr.totalAmount, pr.currency)}
+                        </Typography>
+                      </Grid>
+                    </Grid>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          {filteredPRs.length === 0 && (
+            <Paper sx={{ p: 3, textAlign: 'center' }}>
+              <Typography color="textSecondary">
+                No purchase requests found
+              </Typography>
+            </Paper>
+          )}
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredPRs.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </Box>
+      ) : (
+        // Desktop Table Layout
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={9} align="center">
-                  No purchase requests found
-                </TableCell>
+                <TableCell>PR ID</TableCell>
+                <TableCell>Created Date</TableCell>
+                <TableCell>Days Open</TableCell>
+                <TableCell>Requestor</TableCell>
+                <TableCell>Department</TableCell>
+                <TableCell>Category</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Total Amount</TableCell>
+                <TableCell align="center">Actions</TableCell>
               </TableRow>
-            )}
-          </TableBody>
-        </Table>
-        <TablePagination
-          rowsPerPageOptions={[5, 10, 25]}
-          component="div"
-          count={filteredPRs.length}
-          rowsPerPage={rowsPerPage}
-          page={page}
-          onPageChange={handleChangePage}
-          onRowsPerPageChange={handleChangeRowsPerPage}
-        />
-      </TableContainer>
+            </TableHead>
+            <TableBody>
+              {filteredPRs
+                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                .map((pr) => {
+                  let daysOpen;
+                  try {
+                    daysOpen = calculateDaysOpen(pr.createdAt);
+                  } catch (error) {
+                    daysOpen = 0;
+                  }
+                  
+                  return (
+                    <TableRow key={pr.id} hover>
+                      <TableCell 
+                        sx={{ 
+                          color: 'primary.main', 
+                          cursor: 'pointer',
+                          '&:hover': { textDecoration: 'underline' }
+                        }}
+                        onClick={() => navigate(`/pr/${pr.id}`)}
+                      >
+                        {pr.prNumber || `#${pr.id.slice(-6)}`}
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(pr.createdAt), 'MM/dd/yyyy')}
+                      </TableCell>
+                      <TableCell>
+                        {daysOpen} days
+                      </TableCell>
+                      <TableCell>{pr.requestor?.name || 'Unknown'}</TableCell>
+                      <TableCell>{pr.department}</TableCell>
+                      <TableCell>{pr.projectCategory}</TableCell>
+                      <TableCell>
+                        <Chip
+                          label={pr.status.replace(/_/g, ' ')}
+                          color={statusColors[pr.status]}
+                          size="small"
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        {formatCurrency(pr.totalAmount, pr.currency)}
+                      </TableCell>
+                      <TableCell align="center">
+                        <Tooltip title="View Details">
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/pr/${pr.id}`)}
+                            sx={{ minWidth: '44px', minHeight: '44px' }}
+                          >
+                            <ViewIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              {filteredPRs.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={9} align="center">
+                    No purchase requests found
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25]}
+            component="div"
+            count={filteredPRs.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </TableContainer>
+      )}
     </Box>
   );
 };

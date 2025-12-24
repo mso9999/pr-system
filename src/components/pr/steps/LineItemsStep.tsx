@@ -45,6 +45,8 @@ import { FormState } from '../NewPRForm';
 import { StorageService } from '../../../services/storage';
 import { Attachment } from '../../../types/pr';
 import { referenceDataService } from '../../../services/referenceData';
+import { useResponsive } from '../../../hooks/useResponsive';
+import { Card, CardContent, Divider } from '@mui/material';
 
 interface LineItemsStepProps {
   formState: FormState;
@@ -65,6 +67,7 @@ export const LineItemsStep: React.FC<LineItemsStepProps> = ({
   setFormState,
   loading
 }) => {
+  const { isMobile } = useResponsive();
   const [deleteIndex, setDeleteIndex] = React.useState<number | null>(null);
   const [uomOptions, setUomOptions] = React.useState<string[]>([]);
 
@@ -194,8 +197,14 @@ export const LineItemsStep: React.FC<LineItemsStepProps> = ({
       </Grid>
 
       <Grid item xs={12}>
-        <TableContainer component={Paper}>
-          <Table>
+        <TableContainer 
+          component={Paper}
+          sx={{ 
+            maxWidth: '100%',
+            overflowX: isMobile ? 'auto' : 'visible'
+          }}
+        >
+          <Table sx={{ minWidth: isMobile ? 800 : 'auto' }}>
             <TableHead>
               <TableRow>
                 <TableCell>Description</TableCell>
@@ -299,6 +308,7 @@ export const LineItemsStep: React.FC<LineItemsStepProps> = ({
                               startIcon={<AttachFileIcon />}
                               size="small"
                               variant="outlined"
+                              sx={{ minHeight: '44px', minWidth: '44px' }}
                             >
                               Attach Files
                             </Button>
@@ -313,6 +323,7 @@ export const LineItemsStep: React.FC<LineItemsStepProps> = ({
                             <IconButton
                               size="small"
                               onClick={() => handleRemoveAttachment(index, fileIndex)}
+                              sx={{ minWidth: '44px', minHeight: '44px' }}
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>
@@ -352,6 +363,7 @@ export const LineItemsStep: React.FC<LineItemsStepProps> = ({
                         onClick={() => handleRemoveLineItem(index)}
                         disabled={loading}
                         aria-label="delete line item"
+                        sx={{ minWidth: '44px', minHeight: '44px' }}
                       >
                         <DeleteIcon />
                       </IconButton>

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate, Outlet } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
 import { PERMISSION_LEVELS } from '@/config/permissions';
@@ -19,7 +19,9 @@ import {
   MenuItem,
   styled,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  useMediaQuery,
+  useTheme
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -56,6 +58,9 @@ const NavItem = styled('div')(({ theme }) => ({
 export const Layout = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { t } = useTranslation();
   const user = useSelector((state: RootState) => state.auth.user);
   const showOnlyMyPRs = useSelector((state: RootState) => state.pr.showOnlyMyPRs);
@@ -64,8 +69,22 @@ export const Layout = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
 
+  // Auto-close drawer on mobile when route changes
+  useEffect(() => {
+    if (isMobile && mobileOpen) {
+      setMobileOpen(false);
+    }
+  }, [location.pathname, isMobile]);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
+  };
+
+  const handleNavigation = (path: string) => {
+    navigate(path);
+    if (isMobile) {
+      setMobileOpen(false);
+    }
   };
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
@@ -109,7 +128,7 @@ export const Layout = () => {
       </Box>
       <Divider />
       <List>
-        <NavItem onClick={() => navigate('/dashboard')}>
+        <NavItem onClick={() => handleNavigation('/dashboard')}>
           <ListItemIcon>
             <Dashboard />
           </ListItemIcon>
@@ -131,21 +150,21 @@ export const Layout = () => {
             label={t('nav.myPRs')}
           />
         </NavItem>
-        <NavItem onClick={() => navigate('/pr/list')}>
+        <NavItem onClick={() => handleNavigation('/pr/list')}>
           <ListItemIcon>
             <ListIcon />
           </ListItemIcon>
           <ListItemText primary="PRs" />
         </NavItem>
         <Divider />
-        <NavItem onClick={() => navigate('/archive')}>
+        <NavItem onClick={() => handleNavigation('/archive')}>
           <ListItemIcon>
             <ArchiveIcon />
           </ListItemIcon>
           <ListItemText primary="Archive Dataroom" />
         </NavItem>
         <Divider />
-        <NavItem onClick={() => navigate('/help')}>
+        <NavItem onClick={() => handleNavigation('/help')}>
           <ListItemIcon>
             <HelpOutline />
           </ListItemIcon>
@@ -154,7 +173,7 @@ export const Layout = () => {
         {hasAdminAccess && (
           <>
             <Divider />
-            <NavItem onClick={() => navigate('/admin')}>
+            <NavItem onClick={() => handleNavigation('/admin')}>
               <ListItemIcon>
                 <AdminPanelSettings />
               </ListItemIcon>
@@ -268,7 +287,7 @@ export const Layout = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: { xs: 2, sm: 3 },
           width: { sm: `calc(100% - 240px)` },
           mt: '64px',
         }}

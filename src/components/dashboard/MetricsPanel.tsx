@@ -87,11 +87,11 @@ export const MetricsPanel = ({ prs }: MetricsPanelProps) => {
   );
 
   return (
-    <Paper sx={{ p: 2, mb: 3 }}>
-      <Typography variant="h6" gutterBottom>
+    <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 3 }}>
+      <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
         {t('dashboard.metrics')}
       </Typography>
-      <Grid container spacing={2}>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }}>
         <MetricItem label={t('dashboard.totalPRs')} value={metrics.totalPRs} />
         <MetricItem label={t('dashboard.urgent')} value={metrics.urgentPRs} />
         <MetricItem label={t('dashboard.avgDaysOpen')} value={metrics.avgDaysOpen} />
