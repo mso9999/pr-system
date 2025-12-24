@@ -2526,8 +2526,11 @@ export function PRView() {
     <Box sx={{ 
       p: { xs: 1, sm: 2, md: 3 },
       width: '100%',
-      maxWidth: '100%',
-      overflowX: 'hidden'
+      maxWidth: '100vw',
+      boxSizing: 'border-box',
+      overflowX: 'hidden',
+      ml: 0,
+      mr: 0,
     }}>
       {/* Debug Information - Commented out after fixing procurement workflow */}
       {/* <UserDebug />

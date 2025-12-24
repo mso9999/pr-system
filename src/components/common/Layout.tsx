@@ -186,7 +186,7 @@ export const Layout = () => {
   );
 
   return (
-    <Box sx={{ display: 'flex' }}>
+    <Box sx={{ display: 'flex', overflow: 'hidden', maxWidth: '100vw' }}>
       <CssBaseline />
       <AppBar
         position="fixed"
@@ -290,8 +290,9 @@ export const Layout = () => {
           p: { xs: 1, sm: 2, md: 3 },
           width: { xs: '100%', sm: `calc(100% - 240px)` },
           mt: '64px',
-          maxWidth: '100%',
+          maxWidth: { xs: '100vw', sm: `calc(100vw - 240px)` },
           overflowX: 'hidden',
+          boxSizing: 'border-box',
         }}
       >
         <Outlet />
