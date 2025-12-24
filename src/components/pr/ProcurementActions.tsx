@@ -450,11 +450,13 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   if ((isProcurement || isAdmin) && (currentStatus === PRStatus.SUBMITTED || currentStatus === PRStatus.RESUBMITTED)) {
     return (
       <>
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 2 }, mb: 3 }}>
           <Button
             variant="contained"
             color="primary"
             onClick={() => handleActionClick('queue' as const)}
+            fullWidth
+            sx={{ minHeight: '44px' }}
           >
             Move to Queue
           </Button>
@@ -462,6 +464,8 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             variant="contained"
             color="error"
             onClick={() => handleActionClick('reject')}
+            fullWidth
+            sx={{ minHeight: '44px' }}
           >
             Reject
           </Button>
@@ -469,6 +473,8 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             variant="contained"
             color="warning"
             onClick={() => handleActionClick('revise')}
+            fullWidth
+            sx={{ minHeight: '44px' }}
           >
             Revise & Resubmit
           </Button>
@@ -524,11 +530,13 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   if (currentStatus === PRStatus.IN_QUEUE && (isProcurement || isAdmin)) {
     return (
       <>
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 2 }, mb: 3 }}>
           <Button
             variant="contained"
             color="primary"
             onClick={() => handleActionClick('approve')}
+            fullWidth
+            sx={{ minHeight: '44px' }}
           >
             {t('pr.pushToApprover')}
           </Button>
@@ -536,6 +544,8 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             variant="contained"
             color="error"
             onClick={() => handleActionClick('reject')}
+            fullWidth
+            sx={{ minHeight: '44px' }}
           >
             {t('pr.rejectPR')}
           </Button>
@@ -543,6 +553,8 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             variant="contained"
             color="warning"
             onClick={() => handleActionClick('revise')}
+            fullWidth
+            sx={{ minHeight: '44px' }}
           >
             {t('pr.reviseAndResubmit')}
           </Button>
@@ -662,11 +674,13 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   if (currentStatus === PRStatus.REVISION_REQUIRED && (isProcurement || isAdmin)) {
     return (
       <>
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 2 }, mb: 3 }}>
           <Button
             variant="contained"
             color="primary"
             onClick={() => handleActionClick('revert')}
+            fullWidth
+            sx={{ minHeight: '44px' }}
           >
             Revert to Previous Status
           </Button>
@@ -674,6 +688,8 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             variant="contained"
             color="error"
             onClick={() => handleActionClick('reject')}
+            fullWidth
+            sx={{ minHeight: '44px' }}
           >
             Reject PR
           </Button>

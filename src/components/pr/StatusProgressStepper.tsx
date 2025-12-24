@@ -9,6 +9,8 @@ import {
   Typography,
   Box,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -21,6 +23,8 @@ interface StatusProgressStepperProps {
 
 export const StatusProgressStepper: React.FC<StatusProgressStepperProps> = ({ pr }) => {
   const { t } = useTranslation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
   // Standard workflow sequence
   const standardSequence: PRStatus[] = [
@@ -149,9 +153,9 @@ export const StatusProgressStepper: React.FC<StatusProgressStepperProps> = ({ pr
   }
 
   return (
-    <Paper elevation={2} sx={{ p: 3, mb: 3 }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6" sx={{ flexGrow: 1 }}>
+    <Paper elevation={2} sx={{ p: { xs: 1.5, sm: 2, md: 3 }, mb: 3, overflowX: 'hidden' }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, mb: 2, gap: 1 }}>
+        <Typography variant="h6" sx={{ flexGrow: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
           {t('pr.orderProgress')}
         </Typography>
         <Chip 
@@ -166,7 +170,7 @@ export const StatusProgressStepper: React.FC<StatusProgressStepperProps> = ({ pr
         />
       </Box>
       
-      <Stepper activeStep={activeStep} orientation="vertical">
+      <Stepper activeStep={activeStep} orientation={isMobile ? 'vertical' : 'vertical'} sx={{ width: '100%' }}>
         {steps.map((step, index) => {
           const isCompleted = isStepCompleted(step.status, index);
           const isCurrent = step.status === pr.status;

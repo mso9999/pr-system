@@ -1373,7 +1373,7 @@ export function PRView() {
               {t('pr.basicInformation')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            <Grid container spacing={2}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               <Grid item xs={12}>
                 <TextField
                   fullWidth
@@ -1385,7 +1385,7 @@ export function PRView() {
                   rows={3}
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <FormControl fullWidth disabled={!isEditMode}>
                   <InputLabel>{t('pr.department')}</InputLabel>
                   <Select
@@ -1405,7 +1405,7 @@ export function PRView() {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <FormControl fullWidth disabled={!isEditMode || !canEditFinancialFields}>
                   <InputLabel>{t('pr.category')}</InputLabel>
                   <Select
@@ -1434,7 +1434,7 @@ export function PRView() {
                   )}
                 </FormControl>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 {isEditMode ? (
                   <Autocomplete
                     multiple
@@ -1477,7 +1477,7 @@ export function PRView() {
                   />
                 )}
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <FormControl fullWidth disabled={!isEditMode || !canEditFinancialFields}>
                   <InputLabel>{t('pr.expenseType')}</InputLabel>
                   <Select
@@ -1507,7 +1507,7 @@ export function PRView() {
                 </FormControl>
               </Grid>
               {(isEditMode ? editedPR.expenseType || pr?.expenseType : pr?.expenseType) && (
-                <Grid item xs={6}>
+                <Grid item xs={12} sm={6}>
                   {(() => {
                     const currentExpenseType = isEditMode 
                       ? expenseTypes.find(t => t.id === (editedPR.expenseType || pr?.expenseType))
@@ -1541,7 +1541,7 @@ export function PRView() {
                   })()}
                 </Grid>
               )}
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 {isEditMode && !isLockedInApprovedStatus('preferredVendor') ? (
                   <Box>
                     <Button
@@ -1612,7 +1612,7 @@ export function PRView() {
                   </FormControl>
                 )}
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label={t('pr.estimatedAmount')}
@@ -1637,7 +1637,7 @@ export function PRView() {
                   }
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
                   label={t('pr.requiredDate')}
@@ -1659,7 +1659,7 @@ export function PRView() {
                       pr.status === PRStatus.COMPLETED || 
                       pr.status === PRStatus.CANCELED ||
                       pr.status === PRStatus.REVISION_REQUIRED) && (
-                <Grid item xs={6}>
+                <Grid item xs={12} sm={6}>
                   <FormControl 
                     fullWidth 
                     disabled={!isEditMode || (
@@ -1706,7 +1706,7 @@ export function PRView() {
                   rows={2}
                 />
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <FormControl 
                   fullWidth 
                   disabled={!isEditMode || (
@@ -1756,7 +1756,7 @@ export function PRView() {
                 if (!requiresDualApproval) return null;
 
                 return (
-                  <Grid item xs={6}>
+                  <Grid item xs={12} sm={6}>
                     <FormControl 
                       fullWidth 
                       disabled={!isEditMode || (
@@ -1810,8 +1810,8 @@ export function PRView() {
               {t('pr.additionalInformation')}
             </Typography>
             <Divider sx={{ mb: 2 }} />
-            <Grid container spacing={2}>
-              <Grid item xs={6}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
+              <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">{t('pr.createdBy')}</Typography>
                 <Typography>
                   {pr?.requestor?.firstName && pr?.requestor?.lastName 
@@ -1820,13 +1820,13 @@ export function PRView() {
                   }
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">{t('pr.createdDate')}</Typography>
                 <Typography>
                   {pr?.createdAt ? new Date(pr.createdAt).toLocaleDateString() : 'N/A'}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">Time Since Submitted [DD_HH_MM]</Typography>
                 <Typography sx={{ fontFamily: 'monospace', fontSize: '1.1rem', fontWeight: 'bold', color: 'primary.main' }}>
                   {pr?.createdAt ? (() => {
@@ -1840,17 +1840,17 @@ export function PRView() {
                   })() : 'N/A'}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">{t('pr.lastUpdated')}</Typography>
                 <Typography>
                   {pr?.updatedAt ? new Date(pr.updatedAt).toLocaleDateString() : 'N/A'}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">{t('pr.organization')}</Typography>
                 <Typography>{pr?.organization || 'N/A'}</Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 {currentUser && pr ? (
                   <UrgencyControl
                     pr={pr}
@@ -1869,19 +1869,19 @@ export function PRView() {
                   </Box>
                 )}
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">{t('pr.requiredDate')}</Typography>
                 <Typography>
                   {pr?.requiredDate ? new Date(pr.requiredDate).toLocaleDateString() : t('pr.notSpecified')}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">{t('pr.estimatedAmount')}</Typography>
                 <Typography>
                   {pr?.currency} {pr?.estimatedAmount?.toLocaleString() || t('pr.notSpecified')}
                 </Typography>
               </Grid>
-              <Grid item xs={6}>
+              <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">{t('pr.preferredVendor')}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Typography>
@@ -2848,7 +2848,7 @@ export function PRView() {
               </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ bgcolor: 'warning.lighter', p: 2 }}>
-            <Grid container spacing={2}>
+            <Grid container spacing={{ xs: 1.5, sm: 2 }}>
               {pr.ruleValidationOverride && (
                 <Grid item xs={12}>
                   <Card variant="outlined">
