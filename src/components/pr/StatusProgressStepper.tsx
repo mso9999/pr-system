@@ -10,8 +10,8 @@ import {
   Box,
   Chip,
   useMediaQuery,
-  useTheme,
 } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
