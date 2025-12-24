@@ -83,8 +83,10 @@ import { OrderedStatusActions } from './OrderedStatusActions';
 import { CompletedStatusView } from './CompletedStatusView';
 import { ResurrectionActions } from './ResurrectionActions';
 import { UrgencyControl } from './UrgencyControl';
-import { StatusProgressStepper } from './StatusProgressStepper';
 import { ExternalApprovalBypass } from './ExternalApprovalBypass';
+import { lazy, Suspense } from 'react';
+
+const StatusProgressStepper = lazy(() => import('./StatusProgressStepper').then(module => ({ default: module.StatusProgressStepper })));
 import { InQueueStatusActions } from './InQueueStatusActions';
 import { VendorSelectionDialog } from '../common/VendorSelectionDialog';
 import { useTheme } from '@mui/material/styles';
