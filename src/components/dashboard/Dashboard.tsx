@@ -780,8 +780,13 @@ export const Dashboard = () => {
   };
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <Grid container spacing={3}>
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      width: '100%',
+      maxWidth: '100%',
+      overflowX: 'hidden'
+    }}>
+      <Grid container spacing={{ xs: 2, sm: 3 }}>
         <Grid item xs={12}>
           <Paper sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
             <Box sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { md: 200 } }}>

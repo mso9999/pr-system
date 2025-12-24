@@ -287,9 +287,11 @@ export const Layout = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, sm: 3 },
-          width: { sm: `calc(100% - 240px)` },
+          p: { xs: 1, sm: 2, md: 3 },
+          width: { xs: '100%', sm: `calc(100% - 240px)` },
           mt: '64px',
+          maxWidth: '100%',
+          overflowX: 'hidden',
         }}
       >
         <Outlet />
