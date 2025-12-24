@@ -87,6 +87,7 @@ import { StatusProgressStepper } from './StatusProgressStepper';
 import { ExternalApprovalBypass } from './ExternalApprovalBypass';
 import { InQueueStatusActions } from './InQueueStatusActions';
 import { VendorSelectionDialog } from '../common/VendorSelectionDialog';
+import { useResponsive } from '@/hooks/useResponsive';
 
 interface EditablePRFields {
   department?: string;
@@ -450,6 +451,7 @@ export function PRView() {
   const { id } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { isMobile, isTablet } = useResponsive();
   const isEditMode = location.pathname.endsWith('/edit');
   const [pr, setPr] = useState<PRRequest | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1354,7 +1356,7 @@ export function PRView() {
 
   const renderBasicInformation = () => {
     return (
-      <Grid container spacing={2}>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }}>
         {/* Validation Error Alert */}
         {approverAmountError && (
           <Grid item xs={12}>
@@ -1366,7 +1368,7 @@ export function PRView() {
         
         {/* Editable Information - Left Side */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2, md: 3 }, overflowX: 'hidden' }}>
             <Typography variant="h6" gutterBottom>
               {t('pr.basicInformation')}
             </Typography>
@@ -1803,7 +1805,7 @@ export function PRView() {
 
         {/* Additional Information - Right Side */}
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 3, height: '100%' }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2, md: 3 }, height: '100%', overflowX: 'hidden' }}>
             <Typography variant="h6" gutterBottom>
               {t('pr.additionalInformation')}
             </Typography>
@@ -2074,24 +2076,33 @@ export function PRView() {
 
   const renderLineItems = () => {
     return (
-      <Grid container spacing={2}>
+      <Grid container spacing={{ xs: 1.5, sm: 2 }}>
         <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
-            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2 }, overflowX: 'hidden' }}>
+            <Box sx={{ 
+              mb: 2, 
+              display: 'flex', 
+              flexDirection: { xs: 'column', sm: 'row' },
+              justifyContent: 'space-between', 
+              alignItems: { xs: 'flex-start', sm: 'center' },
+              gap: 1
+            }}>
               <Typography variant="h6">{t('pr.lineItems')}</Typography>
               {isEditMode && (
                 <Button
                   variant="contained"
                   startIcon={<AddIcon />}
                   onClick={handleAddLineItem}
+                  fullWidth={isMobile}
+                  sx={{ minHeight: '44px' }}
                 >
                   {t('pr.addLineItem')}
                 </Button>
               )}
             </Box>
             <Divider sx={{ mb: 2 }} />
-            <TableContainer>
-              <Table>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: isMobile ? 800 : 'auto' }}>
                 <TableHead>
                   <TableRow>
                     <TableCell>{t('pr.description')}</TableCell>
@@ -2507,21 +2518,40 @@ export function PRView() {
   })();
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ 
+      p: { xs: 1, sm: 2, md: 3 },
+      width: '100%',
+      maxWidth: '100%',
+      overflowX: 'hidden'
+    }}>
       {/* Debug Information - Commented out after fixing procurement workflow */}
       {/* <UserDebug />
       <ForceUserRefresh /> */}
       
       {/* Header with Title and Actions */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1">
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        mb: 3,
+        gap: 2
+      }}>
+        <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' } }}>
           {pr?.status === PRStatus.APPROVED || pr?.status === PRStatus.ORDERED || pr?.status === PRStatus.DELIVERED ? 'PO' : 'PR'} Details: {pr?.prNumber}
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 1,
+          width: { xs: '100%', sm: 'auto' }
+        }}>
           <Button
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate('/dashboard')}
             variant="outlined"
+            fullWidth={isMobile}
+            sx={{ minHeight: '44px' }}
           >
             Back to Dashboard
           </Button>
@@ -2530,6 +2560,8 @@ export function PRView() {
               startIcon={<EditIcon />}
               onClick={() => navigate(`/pr/${id}/edit`)}
               variant="contained"
+              fullWidth={isMobile}
+              sx={{ minHeight: '44px' }}
             >
               Edit PR
             </Button>
@@ -2541,6 +2573,8 @@ export function PRView() {
               variant="contained"
               color="primary"
               disabled={loading}
+              fullWidth={isMobile}
+              sx={{ minHeight: '44px' }}
             >
               Resubmit PR
             </Button>
@@ -2662,7 +2696,7 @@ export function PRView() {
           <Typography variant="h6" gutterBottom>
             Workflow History
           </Typography>
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2 }, overflowX: 'hidden' }}>
             {pr.workflowHistory.map((history, index) => (
               <Box key={index} sx={{ mb: index !== pr.workflowHistory.length - 1 ? 2 : 0 }}>
                 <Typography variant="subtitle2" color="primary">
@@ -2709,8 +2743,8 @@ export function PRView() {
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
-              <TableContainer>
-                <Table size="small">
+              <TableContainer sx={{ overflowX: 'auto' }}>
+                <Table size="small" sx={{ minWidth: isMobile ? 600 : 'auto' }}>
                   <TableHead>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 'bold' }}>{t('pr.dateTime')}</TableCell>
@@ -2725,7 +2759,7 @@ export function PRView() {
                       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
                       .map((historyItem, index) => (
                         <TableRow key={index} hover>
-                          <TableCell sx={{ verticalAlign: 'top', whiteSpace: 'nowrap' }}>
+                          <TableCell sx={{ verticalAlign: 'top', whiteSpace: isMobile ? 'normal' : 'nowrap' }}>
                             <Typography variant="body2">
                               {new Date(historyItem.timestamp).toLocaleString('en-US', {
                                 year: 'numeric',
@@ -3038,8 +3072,12 @@ export function PRView() {
 
       {/* Stepper */}
       {isEditMode && (
-        <Box sx={{ width: '100%', mb: 4 }}>
-          <Stepper activeStep={activeStep} alternativeLabel>
+        <Box sx={{ width: '100%', mb: 4, overflowX: 'auto' }}>
+          <Stepper 
+            activeStep={activeStep} 
+            orientation={isMobile ? 'vertical' : 'horizontal'}
+            alternativeLabel={!isMobile}
+          >
             {steps.map((label) => (
               <Step key={label}>
                 <StepLabel>{label}</StepLabel>
@@ -3072,20 +3110,33 @@ export function PRView() {
 
       {/* Navigation Buttons */}
       {isEditMode && (
-        <Box sx={{ display: 'flex', flexDirection: 'row', pt: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column-reverse', sm: 'row' }, 
+          pt: 2,
+          gap: 1
+        }}>
           <Button
             color="inherit"
             onClick={handleCancel}
-            sx={{ mr: 1 }}
+            fullWidth={isMobile}
+            sx={{ 
+              mr: { xs: 0, sm: 1 },
+              minHeight: '44px'
+            }}
           >
             Cancel
           </Button>
-          <Box sx={{ flex: '1 1 auto' }} />
+          <Box sx={{ flex: { xs: 'none', sm: '1 1 auto' } }} />
           <Button
             color="inherit"
             disabled={activeStep === 0}
             onClick={handleBack}
-            sx={{ mr: 1 }}
+            fullWidth={isMobile}
+            sx={{ 
+              mr: { xs: 0, sm: 1 },
+              minHeight: '44px'
+            }}
           >
             Back
           </Button>
