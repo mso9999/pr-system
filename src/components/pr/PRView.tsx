@@ -466,6 +466,8 @@ export function PRView() {
   const [lineItems, setLineItems] = useState<Array<ExtendedLineItem>>([]);
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const isProcurement = currentUser?.permissionLevel === 3; // Level 3 = Procurement Officer
+  const isAdmin = currentUser?.permissionLevel === 1 || currentUser?.role === 'admin'; // Level 1 = Admin
+  const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
   const bulkImportAllowedStatuses = new Set<PRStatus>([
     PRStatus.IN_QUEUE,
     PRStatus.PENDING_APPROVAL,
@@ -473,8 +475,6 @@ export function PRView() {
   ]);
   const canShowBulkImportTools =
     Boolean((isProcurement || isAdmin) && pr?.status && bulkImportAllowedStatuses.has(pr.status as PRStatus));
-  const isAdmin = currentUser?.permissionLevel === 1 || currentUser?.role === 'admin'; // Level 1 = Admin
-  const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
   const canProcessPR = isProcurement || isAdmin || (isRequestor && (
     pr?.status === PRStatus.IN_QUEUE ||
     pr?.status === PRStatus.SUBMITTED ||
