@@ -467,10 +467,10 @@ export function PRView() {
     PRStatus.APPROVED,
   ]);
   const canShowBulkImportTools =
-    Boolean(isProcurement && pr?.status && bulkImportAllowedStatuses.has(pr.status as PRStatus));
+    Boolean((isProcurement || isAdmin) && pr?.status && bulkImportAllowedStatuses.has(pr.status as PRStatus));
   const isAdmin = currentUser?.permissionLevel === 1 || currentUser?.role === 'admin'; // Level 1 = Admin
   const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
-  const canProcessPR = isProcurement || (isRequestor && (
+  const canProcessPR = isProcurement || isAdmin || (isRequestor && (
     pr?.status === PRStatus.IN_QUEUE ||
     pr?.status === PRStatus.SUBMITTED ||
     pr?.status === PRStatus.RESUBMITTED ||
