@@ -2589,7 +2589,9 @@ export function PRView() {
 
       {/* Status Progress Stepper */}
       {pr && pr.status !== PRStatus.DRAFT && (
-        <StatusProgressStepper pr={pr} />
+        <Suspense fallback={<CircularProgress />}>
+          <StatusProgressStepper pr={pr} />
+        </Suspense>
       )}
 
       {/* Procurement Actions */}
