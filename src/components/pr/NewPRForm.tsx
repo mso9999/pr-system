@@ -168,6 +168,7 @@ export const NewPRForm = () => {
   const dispatch = useDispatch();
   const { enqueueSnackbar } = useSnackbar();
   const { t } = useTranslation();
+  const { isMobile } = useResponsive();
   
   // Form steps definition (translated)
   const steps = [t('pr.basicInformation'), t('pr.lineItems'), t('pr.reviewSubmit')];
