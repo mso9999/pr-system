@@ -46,8 +46,11 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
   // Dual approval detection
   const isDualApproval = pr.requiresDualApproval || pr.approvalWorkflow?.requiresDualApproval;
-  // Check both new field (approver) and legacy array (approvers[0])
-  const isFirstApprover = currentUser.id === pr.approver || currentUser.id === pr.approvers?.[0];
+  // Check both new field (approver), legacy array (approvers[0]), and email fallback via assignedApprover
+  const isFirstApprover = currentUser.id === pr.approver || 
+                          currentUser.id === pr.approvers?.[0] ||
+                          (assignedApprover?.email && currentUser.email && 
+                           assignedApprover.email.toLowerCase() === currentUser.email.toLowerCase());
   const isSecondApprover = currentUser.id === pr.approver2 || currentUser.id === pr.approvers?.[1];
   const hasFirstApproved = pr.approvalWorkflow?.firstApprovalComplete || false;
   const hasSecondApproved = pr.approvalWorkflow?.secondApprovalComplete || false;
@@ -145,17 +148,25 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   // Check if user has permission to take actions
   const canTakeAction = useMemo(() => {
     const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
-    // Check both new fields (approver, approver2) and legacy array (approvers)
-    const isApprover = currentUser.id === pr.approver || 
-                       currentUser.id === pr.approver2 || 
-                       pr.approvers?.includes(currentUser.id) ||
-                       currentUser.id === assignedApprover?.id;
+    // Check both new fields (approver, approver2), legacy array (approvers), and email match as fallback
+    // Email matching handles cases where user document ID doesn't match Firebase Auth UID
+    const isApproverById = currentUser.id === pr.approver || 
+                           currentUser.id === pr.approver2 || 
+                           pr.approvers?.includes(currentUser.id) ||
+                           currentUser.id === assignedApprover?.id;
+    // Fallback: Check if the assigned approver's email matches current user's email
+    const isApproverByEmail = assignedApprover?.email && 
+                              currentUser.email && 
+                              assignedApprover.email.toLowerCase() === currentUser.email.toLowerCase();
+    const isApprover = isApproverById || isApproverByEmail;
     const isAdmin = currentUser.permissionLevel === 1;
     const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
 
     console.log('Permission check:', {
       userId: currentUser.id,
+      userEmail: currentUser.email,
       assignedApproverId: assignedApprover?.id,
+      assignedApproverEmail: assignedApprover?.email,
       prApprover: pr.approver,
       prApprover2: pr.approver2,
       prApprovers: pr.approvers,
@@ -166,6 +177,8 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       hasSecondApproved,
       quoteConflict: pr.approvalWorkflow?.quoteConflict,
       isProcurement,
+      isApproverById,
+      isApproverByEmail,
       isApprover,
       isAdmin,
       status: pr.status
@@ -196,11 +209,15 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
   const getAvailableActions = () => {
     const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
-    // Check both new fields (approver, approver2) and legacy array (approvers)
-    const isApprover = currentUser.id === assignedApprover?.id || 
-                       currentUser.id === pr.approver || 
-                       currentUser.id === pr.approver2 ||
-                       pr.approvers?.includes(currentUser.id);
+    // Check both new fields (approver, approver2), legacy array (approvers), and email match as fallback
+    const isApproverById = currentUser.id === assignedApprover?.id || 
+                           currentUser.id === pr.approver || 
+                           currentUser.id === pr.approver2 ||
+                           pr.approvers?.includes(currentUser.id);
+    const isApproverByEmail = assignedApprover?.email && 
+                              currentUser.email && 
+                              assignedApprover.email.toLowerCase() === currentUser.email.toLowerCase();
+    const isApprover = isApproverById || isApproverByEmail;
     const isAdmin = currentUser.permissionLevel === 1;
     const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
     
