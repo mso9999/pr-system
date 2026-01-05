@@ -162,27 +162,28 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     const isAdmin = currentUser.permissionLevel === 1;
     const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
 
-    console.log('Permission check:', {
+    console.log('=== Permission check DEBUG ===', JSON.stringify({
       userId: currentUser.id,
       userEmail: currentUser.email,
-      assignedApproverId: assignedApprover?.id,
-      assignedApproverEmail: assignedApprover?.email,
-      prApprover: pr.approver,
-      prApprover2: pr.approver2,
-      prApprovers: pr.approvers,
+      assignedApproverId: assignedApprover?.id || 'UNDEFINED',
+      assignedApproverEmail: assignedApprover?.email || 'UNDEFINED',
+      prApprover: pr.approver || 'UNDEFINED',
+      prApprover2: pr.approver2 || 'UNDEFINED',
+      prApproversArray: pr.approvers || 'UNDEFINED',
       isDualApproval,
       isFirstApprover,
       isSecondApprover,
       hasFirstApproved,
       hasSecondApproved,
-      quoteConflict: pr.approvalWorkflow?.quoteConflict,
+      quoteConflict: pr.approvalWorkflow?.quoteConflict || false,
       isProcurement,
       isApproverById,
       isApproverByEmail,
       isApprover,
       isAdmin,
+      canTakeAction: isApprover || isProcurement || isAdmin,
       status: pr.status
-    });
+    }, null, 2));
 
     // In PENDING_APPROVAL, assigned approvers can approve, procurement can reject/R&R, finance approvers can approve
     if (pr.status === PRStatus.PENDING_APPROVAL) {

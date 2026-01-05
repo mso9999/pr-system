@@ -770,6 +770,13 @@ export function PRView() {
       const approverId = pr?.approver || pr?.approvers?.[0] || pr?.approvalWorkflow?.currentApprover;
       const approver2Id = pr?.approver2 || pr?.approvers?.[1] || pr?.approvalWorkflow?.secondApprover;
       
+      console.log('=== Loading Current Approver DEBUG ===', JSON.stringify({
+        prApprover: pr?.approver || 'UNDEFINED',
+        prApproversArray: pr?.approvers || 'UNDEFINED',
+        workflowApprover: pr?.approvalWorkflow?.currentApprover || 'UNDEFINED',
+        resolvedApproverId: approverId || 'UNDEFINED'
+      }, null, 2));
+      
       // Update selectedApprover state for the edit form
       setSelectedApprover(approverId || undefined);
       setSelectedApprover2(approver2Id || undefined);
@@ -777,7 +784,13 @@ export function PRView() {
       if (approverId) {
         try {
           setIsLoadingApprover(true);
+          console.log('Fetching approver details for ID:', approverId);
           const user = await auth.getUserDetails(approverId);
+          console.log('Approver details loaded:', JSON.stringify({
+            id: user?.id || 'UNDEFINED',
+            email: user?.email || 'UNDEFINED',
+            name: user?.name || `${user?.firstName} ${user?.lastName}` || 'UNDEFINED'
+          }, null, 2));
           if (user) {
             setAssignedApprover(user);
             // Also set currentApprover for consistency
@@ -786,9 +799,11 @@ export function PRView() {
           setIsLoadingApprover(false);
         } catch (error) {
           console.error('Error fetching approver details:', error);
+          console.error('Failed to load approver with ID:', approverId);
           setIsLoadingApprover(false);
         }
       } else {
+        console.log('No approverId found, skipping approver load');
         setIsLoadingApprover(false);
       }
     };
