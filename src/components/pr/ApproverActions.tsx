@@ -46,8 +46,9 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
   // Dual approval detection
   const isDualApproval = pr.requiresDualApproval || pr.approvalWorkflow?.requiresDualApproval;
-  const isFirstApprover = currentUser.id === pr.approver;
-  const isSecondApprover = currentUser.id === pr.approver2;
+  // Check both new field (approver) and legacy array (approvers[0])
+  const isFirstApprover = currentUser.id === pr.approver || currentUser.id === pr.approvers?.[0];
+  const isSecondApprover = currentUser.id === pr.approver2 || currentUser.id === pr.approvers?.[1];
   const hasFirstApproved = pr.approvalWorkflow?.firstApprovalComplete || false;
   const hasSecondApproved = pr.approvalWorkflow?.secondApprovalComplete || false;
 
@@ -144,7 +145,11 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   // Check if user has permission to take actions
   const canTakeAction = useMemo(() => {
     const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
-    const isApprover = currentUser.id === pr.approver || currentUser.id === pr.approver2;
+    // Check both new fields (approver, approver2) and legacy array (approvers)
+    const isApprover = currentUser.id === pr.approver || 
+                       currentUser.id === pr.approver2 || 
+                       pr.approvers?.includes(currentUser.id) ||
+                       currentUser.id === assignedApprover?.id;
     const isAdmin = currentUser.permissionLevel === 1;
     const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
 
@@ -153,6 +158,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       assignedApproverId: assignedApprover?.id,
       prApprover: pr.approver,
       prApprover2: pr.approver2,
+      prApprovers: pr.approvers,
       isDualApproval,
       isFirstApprover,
       isSecondApprover,
@@ -182,7 +188,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
     }
 
     return isProcurement || isApprover || isFinanceApprover || isAdmin;
-  }, [currentUser, pr.approver, pr.approver2, pr.status, pr.approvalWorkflow?.quoteConflict, isDualApproval, isFirstApprover, isSecondApprover, hasFirstApproved, hasSecondApproved]);
+  }, [currentUser, pr.approver, pr.approver2, pr.approvers, pr.status, pr.approvalWorkflow?.quoteConflict, isDualApproval, isFirstApprover, isSecondApprover, hasFirstApproved, hasSecondApproved, assignedApprover?.id]);
 
   if (!canTakeAction) {
     return null;
@@ -190,7 +196,11 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
   const getAvailableActions = () => {
     const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
-    const isApprover = currentUser.id === assignedApprover?.id || currentUser.id === pr.approver || currentUser.id === pr.approver2;
+    // Check both new fields (approver, approver2) and legacy array (approvers)
+    const isApprover = currentUser.id === assignedApprover?.id || 
+                       currentUser.id === pr.approver || 
+                       currentUser.id === pr.approver2 ||
+                       pr.approvers?.includes(currentUser.id);
     const isAdmin = currentUser.permissionLevel === 1;
     const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
     

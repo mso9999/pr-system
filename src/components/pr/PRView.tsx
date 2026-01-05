@@ -766,9 +766,9 @@ export function PRView() {
 
   useEffect(() => {
     const loadCurrentApprover = async () => {
-      // Check pr.approver first as it's the single source of truth
-      const approverId = pr?.approver || pr?.approvalWorkflow?.currentApprover;
-      const approver2Id = pr?.approver2 || pr?.approvalWorkflow?.secondApprover;
+      // Check pr.approver first, then legacy approvers array, then workflow
+      const approverId = pr?.approver || pr?.approvers?.[0] || pr?.approvalWorkflow?.currentApprover;
+      const approver2Id = pr?.approver2 || pr?.approvers?.[1] || pr?.approvalWorkflow?.secondApprover;
       
       // Update selectedApprover state for the edit form
       setSelectedApprover(approverId || undefined);
