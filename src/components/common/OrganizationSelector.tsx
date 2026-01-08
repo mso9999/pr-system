@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { Select, MenuItem, FormControl, InputLabel, CircularProgress, FormHelperText } from '@mui/material';
 import { referenceDataService } from '../../services/referenceData';
@@ -22,7 +22,17 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalError, setInternalError] = useState<string | null>(null);
+  const [hasSetDefault, setHasSetDefault] = useState(false);
   const user = useSelector((state: RootState) => state.auth.user);
+  
+  // Use refs for callbacks to avoid infinite loops in useEffect
+  const onChangeRef = useRef(onChange);
+  const onOrganizationsLoadedRef = useRef(onOrganizationsLoaded);
+  useEffect(() => {
+    onChangeRef.current = onChange;
+    onOrganizationsLoadedRef.current = onOrganizationsLoaded;
+  });
+  
   const userOrgIds = useMemo(() => {
     if (!user) return new Set<string>();
     const orgEntries = [
@@ -35,14 +45,17 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
     return new Set(normalized);
   }, [user]);
 
+  // Normalize value to string for comparison (prevent re-runs on object reference changes)
+  const valueId = useMemo(() => {
+    if (!value) return null;
+    if (typeof value === 'object') return value.id;
+    return value;
+  }, [value]);
+
   useEffect(() => {
     const loadOrganizations = async () => {
       try {
         setInternalError(null);
-        console.log('Loading organizations for user:', {
-          user,
-          currentValue: value
-        });
         
         const allOrgs = await referenceDataService.getOrganizations();
         console.log('All organizations loaded:', allOrgs.map(org => ({
@@ -105,25 +118,30 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
           code: org.code
         })));
         setOrganizations(filteredOrgs);
-        onOrganizationsLoaded?.(filteredOrgs.map(org => ({ id: org.id, name: org.name })));
+        onOrganizationsLoadedRef.current?.(filteredOrgs.map(org => ({ id: org.id, name: org.name })));
 
-        const shouldDefaultToAll = includeAllOption && !value;
+        // Only set default once to prevent infinite loops
+        if (!hasSetDefault && !valueId) {
+          const shouldDefaultToAll = includeAllOption;
 
-        if (shouldDefaultToAll) {
-          console.log('Setting default organization to ALL');
-          onChange(ALL_ORGANIZATIONS_OPTION);
-          return;
-        }
+          if (shouldDefaultToAll) {
+            console.log('Setting default organization to ALL');
+            setHasSetDefault(true);
+            onChangeRef.current(ALL_ORGANIZATIONS_OPTION);
+            return;
+          }
 
-        // Set default organization if no value is selected and user has an organization
-        if (!value && user?.organization && filteredOrgs.length > 0) {
-          // Try to find org by normalized ID
-          const targetId = normalizeOrganizationId(user.organization as any);
-          const userOrg = filteredOrgs.find(org => normalizeOrganizationId(org) === targetId);
-          
-          if (userOrg) {
-            console.log('Setting default organization:', userOrg);
-            onChange({ id: userOrg.id, name: userOrg.name });
+          // Set default organization if no value is selected and user has an organization
+          if (user?.organization && filteredOrgs.length > 0) {
+            // Try to find org by normalized ID
+            const targetId = normalizeOrganizationId(user.organization as any);
+            const userOrg = filteredOrgs.find(org => normalizeOrganizationId(org) === targetId);
+            
+            if (userOrg) {
+              console.log('Setting default organization:', userOrg);
+              setHasSetDefault(true);
+              onChangeRef.current({ id: userOrg.id, name: userOrg.name });
+            }
           }
         }
       } catch (error) {
@@ -135,7 +153,9 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
       }
     };
     loadOrganizations();
-  }, [user, value, onChange]);
+    // Only re-run when user changes - not when value or callbacks change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userOrgIds, restrictToUserOrgs, includeAllOption]);
 
   // Convert organization object or string to display value
   const organizationOptions = useMemo(() => {

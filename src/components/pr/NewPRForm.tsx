@@ -163,7 +163,6 @@ const PR_AMOUNT_THRESHOLDS = {
  * )
  */
 export const NewPRForm = () => {
-  console.log('NewPRForm: Component mounting');
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const { enqueueSnackbar } = useSnackbar();
@@ -175,7 +174,6 @@ export const NewPRForm = () => {
 
   // Memoize selector to prevent unnecessary re-renders
   const { user, loading: authLoading } = useSelector((state: RootState) => {
-    console.log('NewPRForm: Getting user from state:', state.auth);
     return {
       user: state.auth.user,
       loading: state.auth.loading
