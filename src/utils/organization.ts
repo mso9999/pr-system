@@ -33,6 +33,12 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   'sotho_minigrid_portfolio': 'smp',
   'sotho minigrid portfolio': 'smp',
   'sotho_minigrid': 'smp',
+  mgb: 'mgb',
+  'mionwa_gen': 'mgb',
+  'mionwa gen': 'mgb',
+  mionwa: 'mgb',
+  'mionwa_generation': 'mgb',
+  'mionwa generation': 'mgb',
 };
 
 const normalizeRawValue = (value: string | null | undefined): string => {
