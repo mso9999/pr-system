@@ -242,7 +242,7 @@ export async function validatePRForApproval(
       if (isApprovedVendor) {
         // Should not happen since requiredQuotes = 0
       } else {
-        quoteErrors.push(`At least one quote with attachment is required for amounts between ${rule1Threshold} and ${rule1xRule2Threshold} ${rule1.currency}.`);
+        quoteErrors.push(`At least one quote with attachment is required for amounts between ${rule1Threshold} and ${rule1xRule2Threshold} ${pr.currency || 'LSL'}.`);
       }
     }
   } else if (lowestQuoteAmount < rule3Threshold) {
@@ -255,9 +255,9 @@ export async function validatePRForApproval(
     
     if (validQuotes.length < requiredQuotes) {
       if (isApprovedVendor) {
-        quoteErrors.push(`At least one quote with attachment is required for amounts between ${rule1xRule2Threshold} and ${rule3Threshold} ${rule1.currency} when using an approved vendor.`);
+        quoteErrors.push(`At least one quote with attachment is required for amounts between ${rule1xRule2Threshold} and ${rule3Threshold} ${pr.currency || 'LSL'} when using an approved vendor.`);
       } else {
-        quoteErrors.push(`At least ${quotesRequired} quotes with attachments are required for amounts between ${rule1xRule2Threshold} and ${rule3Threshold} ${rule1.currency}. (Use an approved vendor to reduce to 1 quote.)`);
+        quoteErrors.push(`At least ${quotesRequired} quotes with attachments are required for amounts between ${rule1xRule2Threshold} and ${rule3Threshold} ${pr.currency || 'LSL'}. (Use an approved vendor to reduce to 1 quote.)`);
       }
     }
   } else {
@@ -270,9 +270,9 @@ export async function validatePRForApproval(
     
     if (validQuotes.length < requiredQuotes) {
       if (isApprovedVendor) {
-        quoteErrors.push(`At least ${quotesRequired - 1} quotes with attachments are required for amounts above ${rule3Threshold} ${rule3.currency} when using an approved vendor.`);
+        quoteErrors.push(`At least ${quotesRequired - 1} quotes with attachments are required for amounts above ${rule3Threshold} ${pr.currency || 'LSL'} when using an approved vendor.`);
       } else {
-        quoteErrors.push(`At least ${quotesRequired} quotes with attachments are required for amounts above ${rule3Threshold} ${rule3.currency}. (Use an approved vendor to reduce to ${quotesRequired - 1} quotes.)`);
+        quoteErrors.push(`At least ${quotesRequired} quotes with attachments are required for amounts above ${rule3Threshold} ${pr.currency || 'LSL'}. (Use an approved vendor to reduce to ${quotesRequired - 1} quotes.)`);
       }
     }
     
@@ -293,7 +293,7 @@ export async function validatePRForApproval(
     });
     
     if (actualApproversCount < approversRequired) {
-      approverErrors.push(`At least ${approversRequired} unique approvers are required for amounts above ${rule3Threshold} ${rule3.currency}. Please assign a second approver before pushing to approval.`);
+      approverErrors.push(`At least ${approversRequired} unique approvers are required for amounts above ${rule3Threshold} ${pr.currency || 'LSL'}. Please assign a second approver before pushing to approval.`);
     }
   }
 
