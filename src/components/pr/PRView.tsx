@@ -58,6 +58,19 @@ import { prService } from '@/services/pr';
 import { PRRequest, PRStatus, LineItem, Quote, Attachment, ApprovalHistoryItem, WorkflowHistoryItem, UserReference as User, PRUpdateParams } from '@/types/pr';
 import { ReferenceDataItem } from '@/types/referenceData';
 import { formatCurrency } from '@/utils/formatters';
+
+// Helper to check if a string looks like a Firebase UID (should not be displayed)
+const isUidLike = (value: string | undefined): boolean => {
+  if (!value) return false;
+  // Firebase UIDs are typically 20-28 alphanumeric characters with no spaces
+  return /^[A-Za-z0-9]{20,28}$/.test(value);
+};
+
+// Helper to get displayable department (filters out UID-like values)
+const getDisplayDepartment = (department: string | undefined): string => {
+  if (!department || isUidLike(department)) return '';
+  return department;
+};
 import mammoth from 'mammoth';
 import { ProcurementActions } from './ProcurementActions';
 import { QuoteForm } from './QuoteForm';
@@ -1738,7 +1751,7 @@ export function PRView() {
                           if (level === 2) return `${approver.name} (Senior Approver)`;
                           if (level === 6) return `${approver.name} (Finance Approver)`;
                           return `${approver.name} (Level ${level} Approver)`;
-                        })()}{approver.department ? ` (${approver.department})` : ''}
+                        })()}{getDisplayDepartment(approver.department) ? ` (${getDisplayDepartment(approver.department)})` : ''}
                       </MenuItem>
                     ))}
                   </Select>
@@ -1789,7 +1802,7 @@ export function PRView() {
                               if (level === 2) return `${approver.name} (Senior Approver)`;
                               if (level === 6) return `${approver.name} (Finance Approver)`;
                               return `${approver.name} (Level ${level} Approver)`;
-                            })()}{approver.department ? ` (${approver.department})` : ''}
+                            })()}{getDisplayDepartment(approver.department) ? ` (${getDisplayDepartment(approver.department)})` : ''}
                           </MenuItem>
                         ))}
                       </Select>
@@ -1984,7 +1997,7 @@ export function PRView() {
 
                     return (
                       <Chip
-                        label={`${approver.name}${approver.department ? ` (${approver.department})` : ''}`}
+                        label={`${approver.name}${getDisplayDepartment(approver.department) ? ` (${getDisplayDepartment(approver.department)})` : ''}`}
                         color="primary"
                         size="small"
                         sx={{ mt: 1 }}
@@ -2003,7 +2016,7 @@ export function PRView() {
                           label={(() => {
                             const approver = approvers.find(a => a.id === history.approverId);
                             return approver ? 
-                              `${approver.name}${approver.department ? ` (${approver.department})` : ''}` : 
+                              `${approver.name}${getDisplayDepartment(approver.department) ? ` (${getDisplayDepartment(approver.department)})` : ''}` : 
                               t('common.loading');
                           })()}
                           color={history.approved ? "success" : "error"}
