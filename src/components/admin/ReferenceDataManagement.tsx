@@ -480,6 +480,16 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     return !ORG_INDEPENDENT_TYPES.includes(selectedType);
   }, [selectedType]);
 
+  // Only certain reference data types support importing items from another organization
+  const canImportFromOrganization = useMemo(() => {
+    return (
+      shouldShowOrgSelect &&
+      (selectedType === 'departments' ||
+        selectedType === 'expenseTypes' ||
+        selectedType === 'projectCategories')
+    );
+  }, [selectedType, shouldShowOrgSelect]);
+
   const loadOrganizations = useCallback(async () => {
     // Only load organizations if we need to show the selector
     if (!shouldShowOrgSelect) return;
@@ -1261,7 +1271,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   };
 
   const renderImportDialog = () => {
-    const isOrgDependent = shouldShowOrgSelect;
+    const isOrgDependent = canImportFromOrganization;
     
     if (!isOrgDependent) return null;
 
@@ -1478,7 +1488,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
         {!isReadOnly && canEdit && (
           <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
-            {shouldShowOrgSelect && (
+            {canImportFromOrganization && (
               <Button 
                 variant="outlined" 
                 startIcon={<ImportIcon />}
