@@ -35,14 +35,13 @@ import {
   Archive as ArchiveIcon,
   Assignment
 } from '@mui/icons-material';
-import { signOut, getIdToken } from '../../services/auth';
+import { signOut } from '../../services/auth';
 import { clearUser } from '../../store/slices/authSlice';
 import { clearPRState, setShowOnlyMyPRs } from '../../store/slices/prSlice';
 import { UserProfile } from '@/components/user/UserProfile';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from './LanguageToggle';
 import { CompanyLogo } from './CompanyLogo';
-import { getAuth } from 'firebase/auth';
 
 const NavItem = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -166,19 +165,20 @@ export const Layout = () => {
           <ListItemText primary="Archive Dataroom" />
         </NavItem>
         <Divider />
-        <NavItem onClick={async () => {
-          try {
-            const auth = getAuth();
-            const currentUser = auth.currentUser;
-            if (currentUser) {
-              const token = await getIdToken(currentUser);
-              const jobCardUrl = `https://prod.1pwrafrica.com?token=${encodeURIComponent(token)}`;
-              window.open(jobCardUrl, '_blank');
-            } else {
-              window.open('https://prod.1pwrafrica.com', '_blank');
-            }
-          } catch (error) {
-            console.error('Error getting auth token:', error);
+        <NavItem onClick={() => {
+          // Pass user info via URL parameters
+          if (user) {
+            const params = new URLSearchParams({
+              uid: user.id,
+              email: user.email,
+              firstName: user.firstName || '',
+              lastName: user.lastName || '',
+              name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email
+            });
+            const jobCardUrl = `https://prod.1pwrafrica.com?${params.toString()}`;
+            window.open(jobCardUrl, '_blank');
+          } else {
+            // No user info available, open without params
             window.open('https://prod.1pwrafrica.com', '_blank');
           }
         }}>
