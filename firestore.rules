@@ -54,6 +54,17 @@ service cloud.firestore {
       allow write: if request.auth != null; // Allow authenticated users to write (for import script)
     }
 
+    // Job Cards collection (for Production Job Card System)
+    match /jobCards/{jobCardId} {
+      // Allow read access to authenticated users only
+      allow read: if request.auth != null;
+      
+      // Allow write access to authenticated users only
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+      allow delete: if false; // Prevent deletion for data integrity
+    }
+
     // All other collections
     match /{document=**} {
       allow read, write: if request.auth != null;
