@@ -12,9 +12,27 @@ window.onunhandledrejection = function(event) {
 // Version information
 // Note: In production, this will be replaced at build time via vite.config.ts
 const FRONTEND_VERSION = import.meta.env.VITE_APP_VERSION || '1.0.0';
-console.log('=== Application Starting ===');
-console.log(`Frontend Version: ${FRONTEND_VERSION}`);
-console.log(`Build Date: ${new Date().toISOString()}`);
+const BUILD_DATE = import.meta.env.VITE_BUILD_DATE || new Date().toISOString();
+const BUILD_HASH = import.meta.env.VITE_BUILD_HASH || 'dev';
+const GIT_COMMIT = import.meta.env.VITE_GIT_COMMIT || 'local';
+
+// Prominent version logging
+console.log('%c═══════════════════════════════════════════════════════════', 'color: #1976d2; font-weight: bold; font-size: 14px;');
+console.log('%c🚀 PR SYSTEM - VERSION INFO', 'color: #1976d2; font-weight: bold; font-size: 16px;');
+console.log('%c═══════════════════════════════════════════════════════════', 'color: #1976d2; font-weight: bold; font-size: 14px;');
+console.log(`%cVersion: ${FRONTEND_VERSION}`, 'color: #10b981; font-weight: bold; font-size: 13px;');
+console.log(`%cBuild Date: ${BUILD_DATE}`, 'color: #64748b; font-size: 12px;');
+console.log(`%cBuild Hash: ${BUILD_HASH}`, 'color: #64748b; font-size: 12px;');
+console.log(`%cGit Commit: ${GIT_COMMIT.substring(0, 7)}`, 'color: #64748b; font-size: 12px;');
+console.log('%c═══════════════════════════════════════════════════════════', 'color: #1976d2; font-weight: bold; font-size: 14px;');
+
+// Store version info globally for UI access
+(window as any).__APP_VERSION__ = {
+  version: FRONTEND_VERSION,
+  buildDate: BUILD_DATE,
+  buildHash: BUILD_HASH,
+  gitCommit: GIT_COMMIT
+};
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';

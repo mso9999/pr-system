@@ -257,6 +257,19 @@ export const Layout = () => {
               }}>
                 {t('nav.settings')}
               </MenuItem>
+              <Divider />
+              <div style={{ padding: '8px 16px', minWidth: '200px' }}>
+                <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.7rem' }}>
+                  Version: {(window as any).__APP_VERSION__?.version || '1.0.9'}
+                </Typography>
+                <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.65rem', display: 'block', mt: 0.5 }}>
+                  Build: {(window as any).__APP_VERSION__?.buildHash?.substring(0, 8) || 'dev'}
+                </Typography>
+                <Typography variant="caption" color="textSecondary" sx={{ fontSize: '0.65rem', display: 'block', mt: 0.5 }}>
+                  Commit: {(window as any).__APP_VERSION__?.gitCommit?.substring(0, 7) || 'local'}
+                </Typography>
+              </div>
+              <Divider />
               <MenuItem onClick={handleSignOut}>{t('auth.signOut')}</MenuItem>
             </Menu>
           </div>
