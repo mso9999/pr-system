@@ -35,13 +35,14 @@ import {
   Archive as ArchiveIcon,
   Assignment
 } from '@mui/icons-material';
-import { signOut } from '../../services/auth';
+import { signOut, getIdToken } from '../../services/auth';
 import { clearUser } from '../../store/slices/authSlice';
 import { clearPRState, setShowOnlyMyPRs } from '../../store/slices/prSlice';
 import { UserProfile } from '@/components/user/UserProfile';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from './LanguageToggle';
 import { CompanyLogo } from './CompanyLogo';
+import { getAuth } from 'firebase/auth';
 
 const NavItem = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -165,7 +166,22 @@ export const Layout = () => {
           <ListItemText primary="Archive Dataroom" />
         </NavItem>
         <Divider />
-        <NavItem onClick={() => window.open('https://prod.1pwrafrica.com', '_blank')}>
+        <NavItem onClick={async () => {
+          try {
+            const auth = getAuth();
+            const currentUser = auth.currentUser;
+            if (currentUser) {
+              const token = await getIdToken(currentUser);
+              const jobCardUrl = `https://prod.1pwrafrica.com?token=${encodeURIComponent(token)}`;
+              window.open(jobCardUrl, '_blank');
+            } else {
+              window.open('https://prod.1pwrafrica.com', '_blank');
+            }
+          } catch (error) {
+            console.error('Error getting auth token:', error);
+            window.open('https://prod.1pwrafrica.com', '_blank');
+          }
+        }}>
           <ListItemIcon>
             <Assignment />
           </ListItemIcon>
