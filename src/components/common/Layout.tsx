@@ -32,7 +32,8 @@ import {
   AdminPanelSettings,
   FilterList,
   HelpOutline,
-  Archive as ArchiveIcon
+  Archive as ArchiveIcon,
+  Assignment
 } from '@mui/icons-material';
 import { signOut } from '../../services/auth';
 import { clearUser } from '../../store/slices/authSlice';
@@ -162,6 +163,13 @@ export const Layout = () => {
             <ArchiveIcon />
           </ListItemIcon>
           <ListItemText primary="Archive Dataroom" />
+        </NavItem>
+        <Divider />
+        <NavItem onClick={() => window.open('https://prod.1pwrafrica.com', '_blank')}>
+          <ListItemIcon>
+            <Assignment />
+          </ListItemIcon>
+          <ListItemText primary="Job Cards" />
         </NavItem>
         <Divider />
         <NavItem onClick={() => handleNavigation('/help')}>
