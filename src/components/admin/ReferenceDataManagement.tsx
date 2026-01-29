@@ -482,12 +482,21 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   // Only certain reference data types support importing items from another organization
   const canImportFromOrganization = useMemo(() => {
-    return (
+    const result = (
       shouldShowOrgSelect &&
       (selectedType === 'departments' ||
         selectedType === 'expenseTypes' ||
         selectedType === 'projectCategories')
     );
+    // Debug log to help troubleshoot
+    console.log('[Import Button Debug]', {
+      selectedType,
+      shouldShowOrgSelect,
+      canImport: result,
+      isReadOnly,
+      canEdit
+    });
+    return result;
   }, [selectedType, shouldShowOrgSelect]);
 
   const loadOrganizations = useCallback(async () => {
