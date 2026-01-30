@@ -1816,6 +1816,14 @@ For PRs/POs pending action for MORE than 2 business days:
 - Special category rules
 - Organization assignment
 
+#### Second Approver Selection Permissions
+When dual approval is required (above Rule 2 threshold), the second approver can be selected by:
+- **Procurement (Level 3):** Can select second approver in any status
+- **Requestor:** Can select second approver in SUBMITTED, IN_QUEUE statuses
+- **Administrator (Level 1):** Can select second approver in any status
+- **Designated First Approver:** Can select second approver when PR is in PENDING_APPROVAL status
+  - This allows the first approver to assign a colleague if a second approver wasn't pre-assigned
+
 #### Approval Notes Requirements
 
 Approvers provide notes through a **unified notes field** that adapts based on the approval scenario.

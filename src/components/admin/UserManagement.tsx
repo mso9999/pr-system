@@ -524,21 +524,52 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       setIsLoading(true);
       
       // If email is being updated AND it's different from the original, use special function to sync with Firebase Auth
-      if (updatedData.email && originalEmail && updatedData.email !== originalEmail) {
-        await updateUserEmail(userId, updatedData.email);
+      const emailChanged = updatedData.email && originalEmail && 
+        updatedData.email.trim().toLowerCase() !== originalEmail.trim().toLowerCase();
+      
+      if (emailChanged) {
+        try {
+          await updateUserEmail(userId, updatedData.email!);
+          // Email update also updates Firestore, so we can skip updating email below
+          // But we still need to update other fields
+        } catch (emailError: any) {
+          console.error('Error updating email:', emailError);
+          // Provide specific error messages for email update failures
+          let errorMessage = 'Failed to update email';
+          if (emailError?.code === 'functions/permission-denied') {
+            errorMessage = 'You do not have permission to update user emails. Only Superadmin or IT Support can update emails.';
+          } else if (emailError?.code === 'functions/already-exists') {
+            errorMessage = 'This email is already in use by another account';
+          } else if (emailError?.code === 'functions/invalid-argument') {
+            errorMessage = emailError.message || 'Invalid email format';
+          } else if (emailError?.message) {
+            errorMessage = emailError.message;
+          }
+          showSnackbar(errorMessage, 'error');
+          return; // Don't proceed with other updates if email update failed
+        }
       }
 
-      // Update other user data in Firestore
+      // Update other user data in Firestore (skip email if we just updated it via the cloud function)
       const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        ...updatedData,
-        updatedAt: new Date().toISOString()
-      });
+      const dataToUpdate = emailChanged 
+        ? { ...updatedData, email: undefined, updatedAt: new Date().toISOString() } // Skip email, already updated
+        : { ...updatedData, updatedAt: new Date().toISOString() };
+      
+      // Remove undefined values
+      const cleanData = Object.fromEntries(
+        Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
+      );
+      
+      await updateDoc(userRef, cleanData);
 
       // Refresh user list
       await loadUsers();
       
-      showSnackbar('User updated successfully', 'success');
+      const message = emailChanged 
+        ? 'User updated successfully (email synced to Firebase Auth)'
+        : 'User updated successfully';
+      showSnackbar(message, 'success');
     } catch (error) {
       console.error('Error updating user:', error);
       showSnackbar(error instanceof Error ? error.message : 'Failed to update user', 'error');

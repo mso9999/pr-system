@@ -37,6 +37,21 @@ exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequi
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
+const fs_1 = require("fs");
+const path_1 = require("path");
+// Version information - read from package.json
+let BACKEND_VERSION = '1.0.0';
+try {
+    const packageJsonPath = (0, path_1.join)(__dirname, '../package.json');
+    const packageJson = JSON.parse((0, fs_1.readFileSync)(packageJsonPath, 'utf-8'));
+    BACKEND_VERSION = packageJson.version || '1.0.0';
+}
+catch (error) {
+    console.warn('Could not read package.json version, using default:', error);
+}
+console.log('=== Firebase Functions Initializing ===');
+console.log(`Backend Version: ${BACKEND_VERSION}`);
+console.log(`Initialization Date: ${new Date().toISOString()}`);
 // Initialize Firebase
 admin.initializeApp();
 const db = admin.firestore();

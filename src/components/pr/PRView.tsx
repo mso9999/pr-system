@@ -481,6 +481,7 @@ export function PRView() {
   const isProcurement = currentUser?.permissionLevel === 3; // Level 3 = Procurement Officer
   const isAdmin = currentUser?.permissionLevel === 1 || currentUser?.role === 'admin'; // Level 1 = Admin
   const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
+  const isDesignatedApprover = currentUser?.id === pr?.approver || currentUser?.id === pr?.approvalWorkflow?.currentApprover;
   const bulkImportAllowedStatuses = new Set<PRStatus>([
     PRStatus.IN_QUEUE,
     PRStatus.PENDING_APPROVAL,
@@ -1780,7 +1781,7 @@ export function PRView() {
                       disabled={!isEditMode || (
                         pr?.status === PRStatus.REVISION_REQUIRED 
                           ? (!isProcurement && !isAdmin) // In R&R: only procurement and admin can edit
-                          : (!isProcurement && !isRequestor && !isAdmin) // Other statuses: procurement, requestor, or admin
+                          : (!isProcurement && !isRequestor && !isAdmin && !(isDesignatedApprover && pr?.status === PRStatus.PENDING_APPROVAL)) // Other statuses: procurement, requestor, admin, or designated approver in PENDING_APPROVAL
                       ) || isLockedInApprovedStatus('approver2')}
                     >
                       <InputLabel>{t('pr.secondApprover')}</InputLabel>
