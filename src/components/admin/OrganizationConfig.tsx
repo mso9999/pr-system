@@ -17,8 +17,14 @@ import {
   FormHelperText,
   SelectChangeEvent,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormGroup
 } from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useSnackbar } from 'notistack';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
@@ -55,6 +61,16 @@ export const OrganizationConfig: React.FC = () => {
   const [errors, setErrors] = useState<string[]>([]);
   const [currencies, setCurrencies] = useState<ReferenceDataItem[]>([]);
   const [loadingCurrencies, setLoadingCurrencies] = useState(true);
+  
+  // Copy configuration dialog state
+  const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [sourceOrgId, setSourceOrgId] = useState<string>('');
+  const [copyOptions, setCopyOptions] = useState({
+    emailConfig: true,
+    currencyConfig: true,
+    businessRules: true
+  });
+  const [copying, setCopying] = useState(false);
   
   // Rules state (single source of truth from referenceData_rules)
   const [rulesData, setRulesData] = useState<{
@@ -289,6 +305,85 @@ export const OrganizationConfig: React.FC = () => {
     }
   };
 
+  // Copy configuration from another organization
+  const handleCopyConfiguration = async () => {
+    if (!sourceOrgId || !selectedOrgId) {
+      enqueueSnackbar('Please select a source organization', { variant: 'error' });
+      return;
+    }
+
+    if (sourceOrgId === selectedOrgId) {
+      enqueueSnackbar('Cannot copy from the same organization', { variant: 'error' });
+      return;
+    }
+
+    if (!copyOptions.emailConfig && !copyOptions.currencyConfig && !copyOptions.businessRules) {
+      enqueueSnackbar('Please select at least one configuration to copy', { variant: 'error' });
+      return;
+    }
+
+    try {
+      setCopying(true);
+      
+      // Get source organization data
+      const sourceOrg = await organizationService.getOrganizationById(sourceOrgId);
+      const sourceRules = await getRuleThresholds(sourceOrgId);
+      
+      if (!sourceOrg) {
+        enqueueSnackbar('Source organization not found', { variant: 'error' });
+        return;
+      }
+
+      const updateData: Partial<Organization> = {};
+      
+      // Copy email configuration
+      if (copyOptions.emailConfig) {
+        updateData.procurementEmail = sourceOrg.procurementEmail || '';
+        updateData.assetManagementEmail = sourceOrg.assetManagementEmail || '';
+        updateData.adminEmail = sourceOrg.adminEmail || '';
+      }
+      
+      // Copy currency configuration
+      if (copyOptions.currencyConfig) {
+        updateData.baseCurrency = sourceOrg.baseCurrency || 'LSL';
+        updateData.allowedCurrencies = sourceOrg.allowedCurrencies || ['LSL', 'USD', 'ZAR'];
+      }
+      
+      // Save organization updates
+      if (Object.keys(updateData).length > 0) {
+        await organizationService.updateOrganization(selectedOrgId, updateData);
+      }
+      
+      // Copy business rules
+      if (copyOptions.businessRules && sourceRules) {
+        await updateOrganizationRules(selectedOrgId, {
+          rule1Threshold: sourceRules.rule1Threshold,
+          rule2Multiplier: sourceRules.rule2Multiplier,
+          rule3Threshold: sourceRules.rule3Threshold,
+          rule6UpwardVariance: sourceRules.rule6UpwardVariance,
+          rule7DownwardVariance: sourceRules.rule7DownwardVariance
+        });
+      }
+      
+      // Reload the current organization data to reflect changes
+      await loadOrganizationData(selectedOrgId);
+      
+      const copiedItems = [];
+      if (copyOptions.emailConfig) copiedItems.push('Email Configuration');
+      if (copyOptions.currencyConfig) copiedItems.push('Currency Configuration');
+      if (copyOptions.businessRules) copiedItems.push('Business Rules');
+      
+      enqueueSnackbar(`Successfully copied: ${copiedItems.join(', ')}`, { variant: 'success' });
+      setCopyDialogOpen(false);
+      setSourceOrgId('');
+    } catch (error: any) {
+      console.error('Error copying configuration:', error);
+      enqueueSnackbar('Failed to copy configuration', { variant: 'error' });
+    } finally {
+      setCopying(false);
+    }
+  };
+
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
@@ -319,21 +414,120 @@ export const OrganizationConfig: React.FC = () => {
 
       {/* Organization Selector */}
       <Paper sx={{ p: 2, mb: 2 }}>
-        <FormControl fullWidth>
-          <InputLabel>Select Organization</InputLabel>
-          <Select
-            value={selectedOrgId}
-            onChange={(e) => setSelectedOrgId(e.target.value)}
-            label="Select Organization"
-          >
-            {organizations.map((org) => (
-              <MenuItem key={org.id} value={org.id}>
-                {org.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start' }}>
+          <FormControl fullWidth>
+            <InputLabel>Select Organization</InputLabel>
+            <Select
+              value={selectedOrgId}
+              onChange={(e) => setSelectedOrgId(e.target.value)}
+              label="Select Organization"
+            >
+              {organizations.map((org) => (
+                <MenuItem key={org.id} value={org.id}>
+                  {org.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          {selectedOrgId && (
+            <Button
+              variant="outlined"
+              startIcon={<ContentCopyIcon />}
+              onClick={() => setCopyDialogOpen(true)}
+              sx={{ minWidth: 200, height: 56 }}
+            >
+              Copy Config From...
+            </Button>
+          )}
+        </Box>
       </Paper>
+
+      {/* Copy Configuration Dialog */}
+      <Dialog 
+        open={copyDialogOpen} 
+        onClose={() => setCopyDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Copy Configuration from Another Organization</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+            Select a source organization and choose which configurations to copy to <strong>{selectedOrg?.name}</strong>.
+          </Typography>
+          
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel>Source Organization</InputLabel>
+            <Select
+              value={sourceOrgId}
+              onChange={(e) => setSourceOrgId(e.target.value)}
+              label="Source Organization"
+            >
+              {organizations
+                .filter(org => org.id !== selectedOrgId)
+                .map((org) => (
+                  <MenuItem key={org.id} value={org.id}>
+                    {org.name}
+                  </MenuItem>
+                ))}
+            </Select>
+          </FormControl>
+          
+          <Typography variant="subtitle2" gutterBottom>
+            Select configurations to copy:
+          </Typography>
+          
+          <FormGroup>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={copyOptions.emailConfig}
+                  onChange={(e) => setCopyOptions(prev => ({ ...prev, emailConfig: e.target.checked }))}
+                />
+              }
+              label="Email Configuration (Procurement, Asset Management, Admin emails)"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={copyOptions.currencyConfig}
+                  onChange={(e) => setCopyOptions(prev => ({ ...prev, currencyConfig: e.target.checked }))}
+                />
+              }
+              label="Currency Configuration (Base currency, Allowed currencies)"
+            />
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={copyOptions.businessRules}
+                  onChange={(e) => setCopyOptions(prev => ({ ...prev, businessRules: e.target.checked }))}
+                />
+              }
+              label="Business Rules (Rule 1-3 thresholds, Rule 6-7 variance thresholds)"
+            />
+          </FormGroup>
+          
+          <Alert severity="warning" sx={{ mt: 2 }}>
+            <Typography variant="body2">
+              This will overwrite the selected configurations for <strong>{selectedOrg?.name}</strong>. 
+              This action cannot be undone.
+            </Typography>
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setCopyDialogOpen(false)} disabled={copying}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleCopyConfiguration} 
+            variant="contained" 
+            disabled={copying || !sourceOrgId}
+            startIcon={copying ? <CircularProgress size={20} /> : <ContentCopyIcon />}
+          >
+            {copying ? 'Copying...' : 'Copy Configuration'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {selectedOrg && (
         <Paper sx={{ p: 3 }}>

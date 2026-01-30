@@ -283,6 +283,15 @@ Each organization requires configuration of notification email addresses in the 
 - Changes logged in audit trail
 - Multiple emails can be separated by comma for group notifications
 
+#### Copy Configuration Feature
+Administrators can copy configuration from one organization to another using the "Copy Config From..." button:
+- **Available configurations to copy:**
+  - **Email Configuration:** Procurement, Asset Management, and Admin email addresses
+  - **Currency Configuration:** Base currency and allowed currencies
+  - **Business Rules:** Rule 1-3 thresholds, Rule 6-7 variance thresholds
+- **Usage:** Select target organization, click "Copy Config From...", select source organization and configurations to copy
+- **Warning:** Overwrites existing configuration in target organization (cannot be undone)
+
 ### Organization Data Model Fields
 Each organization document should include:
 - **Basic Information:**
