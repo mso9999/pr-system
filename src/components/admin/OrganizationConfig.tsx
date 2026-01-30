@@ -64,6 +64,7 @@ export const OrganizationConfig: React.FC = () => {
   
   // Copy configuration dialog state
   const [copyDialogOpen, setCopyDialogOpen] = useState(false);
+  const [copyDialogSection, setCopyDialogSection] = useState<'all' | 'email' | 'currency' | 'rules'>('all');
   const [sourceOrgId, setSourceOrgId] = useState<string>('');
   const [copyOptions, setCopyOptions] = useState({
     emailConfig: true,
@@ -71,6 +72,32 @@ export const OrganizationConfig: React.FC = () => {
     businessRules: true
   });
   const [copying, setCopying] = useState(false);
+
+  // Helper to open copy dialog for a specific section
+  const openCopyDialog = (section: 'all' | 'email' | 'currency' | 'rules') => {
+    setCopyDialogSection(section);
+    // Pre-select only the relevant option when opening for a specific section
+    if (section === 'email') {
+      setCopyOptions({ emailConfig: true, currencyConfig: false, businessRules: false });
+    } else if (section === 'currency') {
+      setCopyOptions({ emailConfig: false, currencyConfig: true, businessRules: false });
+    } else if (section === 'rules') {
+      setCopyOptions({ emailConfig: false, currencyConfig: false, businessRules: true });
+    } else {
+      setCopyOptions({ emailConfig: true, currencyConfig: true, businessRules: true });
+    }
+    setCopyDialogOpen(true);
+  };
+
+  // Get dialog title based on section
+  const getCopyDialogTitle = (): string => {
+    switch (copyDialogSection) {
+      case 'email': return 'Copy Email Configuration';
+      case 'currency': return 'Copy Currency Configuration';
+      case 'rules': return 'Copy Business Rules';
+      default: return 'Copy Configuration from Another Organization';
+    }
+  };
   
   // Rules state (single source of truth from referenceData_rules)
   const [rulesData, setRulesData] = useState<{
@@ -434,10 +461,10 @@ export const OrganizationConfig: React.FC = () => {
             <Button
               variant="outlined"
               startIcon={<ContentCopyIcon />}
-              onClick={() => setCopyDialogOpen(true)}
+              onClick={() => openCopyDialog('all')}
               sx={{ minWidth: 200, height: 56 }}
             >
-              Copy Config From...
+              Copy All Config From...
             </Button>
           )}
         </Box>
@@ -450,7 +477,7 @@ export const OrganizationConfig: React.FC = () => {
         maxWidth="sm"
         fullWidth
       >
-        <DialogTitle>Copy Configuration from Another Organization</DialogTitle>
+        <DialogTitle>{getCopyDialogTitle()}</DialogTitle>
         <DialogContent>
           <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
             Select a source organization and choose which configurations to copy to <strong>{selectedOrg?.name}</strong>.
@@ -473,39 +500,43 @@ export const OrganizationConfig: React.FC = () => {
             </Select>
           </FormControl>
           
-          <Typography variant="subtitle2" gutterBottom>
-            Select configurations to copy:
-          </Typography>
-          
-          <FormGroup>
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={copyOptions.emailConfig}
-                  onChange={(e) => setCopyOptions(prev => ({ ...prev, emailConfig: e.target.checked }))}
+          {copyDialogSection === 'all' && (
+            <>
+              <Typography variant="subtitle2" gutterBottom>
+                Select configurations to copy:
+              </Typography>
+              
+              <FormGroup>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={copyOptions.emailConfig}
+                      onChange={(e) => setCopyOptions(prev => ({ ...prev, emailConfig: e.target.checked }))}
+                    />
+                  }
+                  label="Email Configuration (Procurement, Asset Management, Admin emails)"
                 />
-              }
-              label="Email Configuration (Procurement, Asset Management, Admin emails)"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={copyOptions.currencyConfig}
-                  onChange={(e) => setCopyOptions(prev => ({ ...prev, currencyConfig: e.target.checked }))}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={copyOptions.currencyConfig}
+                      onChange={(e) => setCopyOptions(prev => ({ ...prev, currencyConfig: e.target.checked }))}
+                    />
+                  }
+                  label="Currency Configuration (Base currency, Allowed currencies)"
                 />
-              }
-              label="Currency Configuration (Base currency, Allowed currencies)"
-            />
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={copyOptions.businessRules}
-                  onChange={(e) => setCopyOptions(prev => ({ ...prev, businessRules: e.target.checked }))}
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={copyOptions.businessRules}
+                      onChange={(e) => setCopyOptions(prev => ({ ...prev, businessRules: e.target.checked }))}
+                    />
+                  }
+                  label="Business Rules (Rule 1-3 thresholds, Rule 6-7 variance thresholds)"
                 />
-              }
-              label="Business Rules (Rule 1-3 thresholds, Rule 6-7 variance thresholds)"
-            />
-          </FormGroup>
+              </FormGroup>
+            </>
+          )}
           
           <Alert severity="warning" sx={{ mt: 2 }}>
             <Typography variant="body2">
@@ -562,10 +593,20 @@ export const OrganizationConfig: React.FC = () => {
 
             {/* Email Configuration */}
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Email Configuration
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                  Email Configuration
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ContentCopyIcon />}
+                  onClick={() => openCopyDialog('email')}
+                >
+                  Copy From...
+                </Button>
+              </Box>
+              <Divider sx={{ mb: 2, mt: 1 }} />
             </Grid>
 
             <Grid item xs={12} md={4}>
@@ -603,10 +644,20 @@ export const OrganizationConfig: React.FC = () => {
 
             {/* Currency Configuration */}
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Currency Configuration
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                  Currency Configuration
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ContentCopyIcon />}
+                  onClick={() => openCopyDialog('currency')}
+                >
+                  Copy From...
+                </Button>
+              </Box>
+              <Divider sx={{ mb: 2, mt: 1 }} />
             </Grid>
 
             <Grid item xs={12} md={6}>
@@ -671,10 +722,20 @@ export const OrganizationConfig: React.FC = () => {
 
             {/* Business Rules */}
             <Grid item xs={12}>
-              <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-                Business Rules (Approval Thresholds)
-              </Typography>
-              <Alert severity="info" sx={{ mb: 2 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
+                <Typography variant="h6" gutterBottom sx={{ mb: 0 }}>
+                  Business Rules (Approval Thresholds)
+                </Typography>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<ContentCopyIcon />}
+                  onClick={() => openCopyDialog('rules')}
+                >
+                  Copy From...
+                </Button>
+              </Box>
+              <Alert severity="info" sx={{ mb: 2, mt: 1 }}>
                 <Typography variant="body2">
                   📋 <strong>Single Source of Truth:</strong> These rules are stored in <code>referenceData_rules</code> collection.
                   Changes here also update Reference Data Management.
