@@ -241,7 +241,7 @@ export const PODocument: React.FC<PODocumentProps> = ({ pr, organizationDetails,
   // Get supplier name from vendor details or PR
   const supplierName = vendorDetails?.name || pr.selectedVendor || pr.preferredVendor || pr.supplierName || 'Vendor Name';
   
-  // Calculate totals
+  // Calculate totals - use lineItemsWithSKU if available, otherwise use lineItems with their unitPrice values
   const lineItems = pr.lineItemsWithSKU && pr.lineItemsWithSKU.length > 0 
     ? pr.lineItemsWithSKU 
     : pr.lineItems?.map((item, idx) => ({
@@ -249,8 +249,8 @@ export const PODocument: React.FC<PODocumentProps> = ({ pr, organizationDetails,
         description: item.description,
         quantity: item.quantity,
         uom: item.uom,
-        unitPrice: 0, // To be filled from quote
-        totalAmount: 0,
+        unitPrice: item.unitPrice || 0, // Use unitPrice from line item (entered by procurement)
+        totalAmount: (item.quantity || 0) * (item.unitPrice || 0), // Calculate total from quantity × unitPrice
         currency: pr.currency || 'LSL',
       })) || [];
 

@@ -2127,6 +2127,8 @@ export function PRView() {
                     <TableCell>{t('pr.description')}</TableCell>
                     <TableCell align="right">{t('pr.quantity')}</TableCell>
                     <TableCell>{t('pr.uom')}</TableCell>
+                    <TableCell align="right">Unit Price</TableCell>
+                    <TableCell align="right">Total</TableCell>
                     <TableCell>{t('pr.notes')}</TableCell>
                     <TableCell>{t('pr.attachments')}</TableCell>
                     <TableCell align="right">{t('pr.actions')}</TableCell>
@@ -2182,6 +2184,30 @@ export function PRView() {
                             </MenuItem>
                           ))}
                         </Select>
+                      </TableCell>
+                      <TableCell align="right">
+                        <TextField
+                          type="number"
+                          value={item.unitPrice || ''}
+                          onChange={(e) => handleUpdateLineItem(index, { ...item, unitPrice: parseFloat(e.target.value) || 0 })}
+                          disabled={!isEditMode || !(
+                            (isProcurement || isAdmin) && 
+                            (pr?.status === PRStatus.IN_QUEUE || pr?.status === PRStatus.APPROVED || pr?.status === PRStatus.PENDING_APPROVAL)
+                          )}
+                          placeholder="0.00"
+                          inputProps={{ min: 0, step: 0.01 }}
+                          sx={{ 
+                            width: 100,
+                            '& .MuiInputBase-input.Mui-disabled': {
+                              WebkitTextFillColor: 'rgba(0, 0, 0, 0.6)',
+                            }
+                          }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {formatCurrency((item.quantity || 0) * (item.unitPrice || 0), pr?.currency || 'LSL')}
+                        </Typography>
                       </TableCell>
                       <TableCell>
                         <TextField
@@ -2258,6 +2284,27 @@ export function PRView() {
                     </TableRow>
                   ))}
                 </TableBody>
+                {/* Line Items Total Row */}
+                {lineItems.length > 0 && lineItems.some(item => item.unitPrice > 0) && (
+                  <tfoot>
+                    <TableRow sx={{ backgroundColor: 'grey.100' }}>
+                      <TableCell colSpan={4} align="right">
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          Line Items Total:
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          {formatCurrency(
+                            lineItems.reduce((sum, item) => sum + ((item.quantity || 0) * (item.unitPrice || 0)), 0),
+                            pr?.currency || 'LSL'
+                          )}
+                        </Typography>
+                      </TableCell>
+                      <TableCell colSpan={3} />
+                    </TableRow>
+                  </tfoot>
+                )}
               </Table>
             </TableContainer>
           </Paper>

@@ -1045,10 +1045,18 @@ Users assigned to the Asset Management department have special permissions:
   - **description**: Description of the item
   - **quantity**: Number of items requested
   - **uom**: Unit of measure
-  - **unitPrice**: Price per unit (from selected quote)
-  - **totalPrice**: Total price for line item (quantity × unitPrice)
+  - **unitPrice**: Price per unit (entered by procurement during IN_QUEUE, PENDING_APPROVAL, or APPROVED status)
+  - **totalPrice**: Total price for line item (auto-calculated: quantity × unitPrice)
   - **notes**: Optional additional information
   - **attachments**: Array of file attachments
+
+#### Line Item Pricing Entry
+- **Who Can Enter:** Procurement (Level 3) and Administrator (Level 1)
+- **When:** During IN_QUEUE, PENDING_APPROVAL, or APPROVED status (edit mode required)
+- **UI:** Unit Price column in Line Items table with editable number input
+- **Auto-Calculation:** Total column automatically calculates quantity × unitPrice
+- **Line Items Total:** Displayed at bottom of table when any line item has pricing
+- **PO Document:** Uses line item unit prices when generating PO document
 
 ### Approval Workflow Structure
 - PRs use the `approver` field as the single source of truth for the designated approver:

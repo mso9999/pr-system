@@ -537,6 +537,8 @@ export interface LineItem {
   estimatedUnitPrice?: number;
   /** Estimated total price for the item */
   estimatedTotal?: number;
+  /** Unit price for the item (entered by procurement during IN_QUEUE/APPROVED status) */
+  unitPrice?: number;
 }
 
 /**
