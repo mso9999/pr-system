@@ -283,6 +283,13 @@ class ReferenceDataService {
 
   async getVendorById(vendorId: string): Promise<ReferenceData | null> {
     try {
+      // If vendorId contains a slash, it will break Firestore document paths
+      // In this case, query by name instead of using it as a document ID
+      if (vendorId.includes('/')) {
+        console.log('Vendor ID contains slash, querying by name instead:', vendorId);
+        return this.getVendorByName(vendorId);
+      }
+      
       const docRef = doc(this.db, this.getCollectionName('vendors'), vendorId);
       const docSnap = await getDoc(docRef);
       
@@ -293,9 +300,44 @@ class ReferenceDataService {
         } as ReferenceData;
       }
       
-      return null;
+      // If not found by ID, try querying by name as fallback
+      return this.getVendorByName(vendorId);
     } catch (error) {
       return this.handleError(error, 'getting vendor by ID');
+    }
+  }
+
+  async getVendorByName(vendorName: string): Promise<ReferenceData | null> {
+    try {
+      const vendorsCollection = collection(this.db, this.getCollectionName('vendors'));
+      const q = query(vendorsCollection, where('name', '==', vendorName));
+      const querySnapshot = await getDocs(q);
+      
+      if (!querySnapshot.empty) {
+        const docSnap = querySnapshot.docs[0];
+        return {
+          id: docSnap.id,
+          ...docSnap.data()
+        } as ReferenceData;
+      }
+      
+      // Try case-insensitive search by getting all and filtering
+      const allVendorsSnapshot = await getDocs(vendorsCollection);
+      const normalizedSearch = vendorName.toLowerCase().trim();
+      
+      for (const docSnap of allVendorsSnapshot.docs) {
+        const data = docSnap.data();
+        if (data.name && data.name.toLowerCase().trim() === normalizedSearch) {
+          return {
+            id: docSnap.id,
+            ...data
+          } as ReferenceData;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      return this.handleError(error, 'getting vendor by name');
     }
   }
 
