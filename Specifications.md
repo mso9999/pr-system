@@ -19,8 +19,13 @@
 - Organization selector (dropdown, supports multiple organizations)
 - MY ACTIONS button (filters to PRs/POs requiring user's action)
   - Shows count badge with number of pending actions
-  - Not available for Procurement (they see all)
-  - Available for: Requestors, Approvers, Finance/Admin, Asset Management
+  - Available for all user roles (Levels 1-6)
+  - **Role-based filtering:**
+    - **Approvers (Level 2):** POs in PENDING_APPROVAL assigned to them
+    - **Finance (Level 4, 6):** POs in APPROVED status (need to move to ORDERED)
+    - **Procurement (Level 3):** All statuses EXCEPT PENDING_APPROVAL, REVISION_REQUIRED, CANCELED, REJECTED
+    - **Requestor (Level 5):** REVISION_REQUIRED only (their own PRs)
+    - **Admin (Level 1):** All actionable items (combination of all above)
 - NEW PR button (top right)
 - User profile icon (top right)
 
@@ -217,7 +222,7 @@
   - New PR
   - My PRs
 - Header Buttons:
-  - MY ACTIONS (personalized action filter - not for Procurement)
+  - MY ACTIONS (personalized action filter - available for all roles)
   - NEW PR
 
 ## Project Directory Structure

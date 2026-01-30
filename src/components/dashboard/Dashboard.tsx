@@ -560,30 +560,59 @@ export const Dashboard = () => {
   };
 
   // Filter PRs for MY ACTIONS based on user role
+  // Business Rules:
+  // - Approvers (Level 2): POs in PENDING_APPROVAL assigned to them
+  // - Finance (Level 4, 6): POs in APPROVED status (need to move to ORDERED)
+  // - Procurement (Level 3): All statuses EXCEPT PENDING_APPROVAL, REVISION_REQUIRED, CANCELED, REJECTED
+  // - Requestor (Level 5): REVISION_REQUIRED only (their own PRs)
+  // - Admin (Level 1): All actionable items (combination of all above)
   const getMyActionsPRs = (): PRRequest[] => {
     if (!user) return [];
 
+    // Statuses that procurement can act on
+    const procurementActionableStatuses = [
+      PRStatus.SUBMITTED,
+      PRStatus.RESUBMITTED,
+      PRStatus.IN_QUEUE,
+      PRStatus.APPROVED,
+      PRStatus.ORDERED,
+      PRStatus.COMPLETED,
+    ];
+
     return userPRs.filter(pr => {
-      // Requestors: Own PRs in REVISION_REQUIRED
+      // Requestors (Level 5): Own PRs in REVISION_REQUIRED only
       if (user.permissionLevel === 5) {
         return pr.status === PRStatus.REVISION_REQUIRED && 
                pr.requestorEmail?.toLowerCase() === user.email?.toLowerCase();
       }
 
-      // Approvers (Level 2, 4): PRs in PENDING_APPROVAL assigned to them
-      if (user.permissionLevel === 2 || user.permissionLevel === 4) {
+      // Approvers (Level 2): PRs in PENDING_APPROVAL assigned to them
+      if (user.permissionLevel === 2) {
         return pr.status === PRStatus.PENDING_APPROVAL && 
                (pr.approver === user.id || pr.approver2 === user.id);
       }
 
-      // Finance/Admin (Level 4): POs in APPROVED status needing documents
-      if (user.permissionLevel === 4) {
+      // Finance (Level 4, 6): POs in APPROVED status (need to move to ORDERED)
+      if (user.permissionLevel === 4 || user.permissionLevel === 6) {
         return pr.status === PRStatus.APPROVED;
       }
 
-      // Asset Management Department: POs in ORDERED needing delivery docs
-      if (user.department?.toLowerCase().includes('asset')) {
-        return pr.status === PRStatus.ORDERED;
+      // Procurement (Level 3): All statuses EXCEPT PENDING_APPROVAL, REVISION_REQUIRED, CANCELED, REJECTED
+      if (user.permissionLevel === 3) {
+        return procurementActionableStatuses.includes(pr.status as PRStatus);
+      }
+
+      // Admin (Level 1): See all actionable items - combination of above
+      if (user.permissionLevel === 1) {
+        // PRs assigned to them for approval
+        const isAssignedApprover = pr.status === PRStatus.PENDING_APPROVAL && 
+                                   (pr.approver === user.id || pr.approver2 === user.id);
+        // PRs in procurement-actionable statuses
+        const isProcurementActionable = procurementActionableStatuses.includes(pr.status as PRStatus);
+        // PRs in APPROVED needing finance action
+        const isFinanceActionable = pr.status === PRStatus.APPROVED;
+        
+        return isAssignedApprover || isProcurementActionable || isFinanceActionable;
       }
 
       return false;
@@ -598,8 +627,9 @@ export const Dashboard = () => {
     dispatch(setMyActionsFilter(!myActionsFilter));
   };
 
-  // Check if user should see MY ACTIONS button (not Procurement Level 3)
-  const showMyActionsButton = user?.permissionLevel !== 3;
+  // Check if user should see MY ACTIONS button
+  // All users with actionable items should see the button (Levels 1-6)
+  const showMyActionsButton = user?.permissionLevel !== undefined && user.permissionLevel <= 6;
 
   // Determine which PRs to display based on active filters
   let statusPRs: PRRequest[];
