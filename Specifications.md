@@ -1140,7 +1140,12 @@ Approvals are automatically rescinded (reset) under the following conditions to 
 2. SUBMITTED → Procurement review (status remains SUBMITTED, can edit most fields)
 3. SUBMITTED → [IN_QUEUE | REVISION_REQUIRED | REJECTED (by procurement)] (procurement decisions)
 4. SUBMITTED → CANCELED (requestor only)
-5. IN_QUEUE → PENDING_APPROVAL (procurement pushes to approver after quote validation)
+5. IN_QUEUE → PENDING_APPROVAL (procurement pushes to approver after quote and approver validation)
+   - **Validation Requirements:**
+     - Payment Type must be set
+     - Quote requirements must be met (based on amount thresholds)
+     - For dual approval PRs (above Rule 3 threshold): Both approvers must be assigned
+     - Second approver cannot be placeholder values like "(not set)"
 6. IN_QUEUE → CANCELED (requestor only)
 7. PENDING_APPROVAL → [APPROVED | REJECTED (by approver) | REVISION_REQUIRED]
 8. PENDING_APPROVAL → CANCELED (requestor only - up to and including this stage)

@@ -270,8 +270,47 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           const rule5 = rules?.find((r: Rule) => (r as any).number === 5 || (r as any).number === '5');
           const requiresDualApproval = rule3 && rule5 && pr.estimatedAmount >= rule3.threshold;
 
-          // Note: The validation in validatePRForApproval will catch if dual approvers aren't assigned
-          // This is just for determining approval workflow settings
+          // Helper to check if an approver value is valid (not null, undefined, empty, or placeholder)
+          const isValidApprover = (approverId: string | null | undefined): boolean => {
+            if (!approverId) return false;
+            const trimmed = approverId.trim().toLowerCase();
+            return trimmed !== '' && 
+                   trimmed !== '(not set)' && 
+                   trimmed !== 'not set' && 
+                   trimmed !== 'none' &&
+                   trimmed !== 'null' &&
+                   trimmed !== 'undefined';
+          };
+
+          // Validate second approver is set for dual approval PRs
+          if (requiresDualApproval) {
+            const hasValidApprover1 = isValidApprover(pr.approver);
+            const hasValidApprover2 = isValidApprover(pr.approver2);
+            
+            console.log('[ProcurementActions] Dual approval validation:', {
+              requiresDualApproval,
+              approver: pr.approver,
+              approver2: pr.approver2,
+              hasValidApprover1,
+              hasValidApprover2,
+              rule3Threshold: rule3?.threshold,
+              estimatedAmount: pr.estimatedAmount
+            });
+
+            if (!hasValidApprover1) {
+              setError('A primary approver must be assigned before pushing to approval.');
+              return;
+            }
+
+            if (!hasValidApprover2) {
+              setError(
+                `SECOND APPROVER REQUIRED:\n\n` +
+                `This PR amount (${pr.estimatedAmount?.toLocaleString()} ${pr.currency}) exceeds the dual approval threshold (${rule3?.threshold?.toLocaleString()} ${pr.currency}).\n\n` +
+                `Please assign a second approver before pushing to approval. You can do this by editing the PR and selecting a second approver from the dropdown.`
+              );
+              return;
+            }
+          }
 
           // Change designation from PR to PO
           const poNumber = pr.prNumber.replace('PR', 'PO');

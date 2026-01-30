@@ -8,6 +8,18 @@ import { approverService } from '../services/approver';
 
 const VENDORS_COLLECTION = 'referenceData_vendors';
 
+// Helper to check if an approver value is valid (not null, undefined, empty, or placeholder)
+function isValidApprover(approverId: string | null | undefined): boolean {
+  if (!approverId) return false;
+  const trimmed = approverId.trim().toLowerCase();
+  return trimmed !== '' && 
+         trimmed !== '(not set)' && 
+         trimmed !== 'not set' && 
+         trimmed !== 'none' &&
+         trimmed !== 'null' &&
+         trimmed !== 'undefined';
+}
+
 interface ValidationResult {
   isValid: boolean;
   errors: string[];
@@ -278,13 +290,18 @@ export async function validatePRForApproval(
     
     // Check dual approval requirement for high-value PRs
     // Check both new format (approver + approver2) and old format (approvers array)
-    const assignedApproversCount = pr.approver2 ? 2 : (pr.approver ? 1 : 0);
-    const oldFormatCount = pr.approvers?.length || 0;
+    // Use isValidApprover to properly check for placeholder values like '(not set)'
+    const hasValidApprover1 = isValidApprover(pr.approver);
+    const hasValidApprover2 = isValidApprover(pr.approver2);
+    const assignedApproversCount = (hasValidApprover1 ? 1 : 0) + (hasValidApprover2 ? 1 : 0);
+    const oldFormatCount = pr.approvers?.filter(a => isValidApprover(a)).length || 0;
     const actualApproversCount = Math.max(assignedApproversCount, oldFormatCount);
     
     console.log('Dual approver check:', {
       approver: pr.approver,
       approver2: pr.approver2,
+      hasValidApprover1,
+      hasValidApprover2,
       approvers: pr.approvers,
       assignedApproversCount,
       oldFormatCount,
