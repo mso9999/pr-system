@@ -1413,49 +1413,63 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     );
   };
 
-  // Handle CSV download for vehicles
-  const handleDownloadVehiclesCSV = () => {
+  // Handle CSV download for vehicles - fetches ALL vehicles across all organizations
+  const handleDownloadVehiclesCSV = async () => {
     if (selectedType !== 'vehicles') return;
     
-    const headers = ['Code', 'Registration Number', 'Year', 'Make', 'Model', 'VIN Number', 'Engine Number', 'Active'];
-    
-    const rows = items.map(item => [
-      item.code || item.name || '',
-      item.registrationNumber || '',
-      item.year || '',
-      item.make || '',
-      item.model || '',
-      item.vinNumber || '',
-      item.engineNumber || '',
-      item.isActive !== false ? 'Y' : 'N'
-    ]);
-    
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => {
-        const cellStr = String(cell);
-        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
-          return `"${cellStr.replace(/"/g, '""')}"`;
-        }
-        return cellStr;
-      }).join(','))
-    ].join('\n');
-    
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `vehicles_${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    
-    setSnackbar({
-      open: true,
-      message: `Downloaded ${items.length} vehicles to CSV`,
-      severity: 'success'
-    });
+    try {
+      // Fetch all vehicles without organization filter
+      const allVehicles = await referenceDataAdminService.getItems('vehicles');
+      
+      const headers = ['Code', 'Registration Number', 'Year', 'Make', 'Model', 'VIN Number', 'Engine Number', 'Organization', 'Organization ID', 'Active'];
+      
+      const rows = allVehicles.map(item => [
+        item.code || item.name || '',
+        item.registrationNumber || '',
+        item.year || '',
+        item.make || '',
+        item.model || '',
+        item.vinNumber || '',
+        item.engineNumber || '',
+        item.organization?.name || '',
+        item.organizationId || item.organization?.id || '',
+        item.isActive !== false ? 'Y' : 'N'
+      ]);
+      
+      const csvContent = [
+        headers.join(','),
+        ...rows.map(row => row.map(cell => {
+          const cellStr = String(cell);
+          if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+            return `"${cellStr.replace(/"/g, '""')}"`;
+          }
+          return cellStr;
+        }).join(','))
+      ].join('\n');
+      
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `vehicles_all_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      setSnackbar({
+        open: true,
+        message: `Downloaded ${allVehicles.length} vehicles to CSV (all organizations)`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error downloading vehicles CSV:', error);
+      setSnackbar({
+        open: true,
+        message: 'Failed to download vehicles CSV',
+        severity: 'error'
+      });
+    }
   };
 
   // Convert date from "DD-MMM-YY" to "YYYY-MM-DD"
