@@ -32,7 +32,7 @@ import {
   CircularProgress,
   Divider
 } from "@mui/material"
-import { Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon, FileDownload as ImportIcon } from "@mui/icons-material"
+import { Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon, FileDownload as ImportIcon, Download as DownloadIcon } from "@mui/icons-material"
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import { ReferenceDataItem } from "@/types/referenceData"
@@ -1413,6 +1413,51 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     );
   };
 
+  // Handle CSV download for vehicles
+  const handleDownloadVehiclesCSV = () => {
+    if (selectedType !== 'vehicles') return;
+    
+    const headers = ['Code', 'Registration Number', 'Year', 'Make', 'Model', 'VIN Number', 'Engine Number', 'Active'];
+    
+    const rows = items.map(item => [
+      item.code || item.name || '',
+      item.registrationNumber || '',
+      item.year || '',
+      item.make || '',
+      item.model || '',
+      item.vinNumber || '',
+      item.engineNumber || '',
+      item.isActive !== false ? 'Y' : 'N'
+    ]);
+    
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => {
+        const cellStr = String(cell);
+        if (cellStr.includes(',') || cellStr.includes('"') || cellStr.includes('\n')) {
+          return `"${cellStr.replace(/"/g, '""')}"`;
+        }
+        return cellStr;
+      }).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `vehicles_${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    setSnackbar({
+      open: true,
+      message: `Downloaded ${items.length} vehicles to CSV`,
+      severity: 'success'
+    });
+  };
+
   // Convert date from "DD-MMM-YY" to "YYYY-MM-DD"
   const formatDateForInput = (dateStr: string): string => {
     if (!dateStr) return '';
@@ -1476,25 +1521,36 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
           </FormControl>
         )}
 
-        {!isReadOnly && canEdit && (
-          <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
-            {shouldShowOrgSelect && (
-              <Button 
-                variant="outlined" 
-                startIcon={<ImportIcon />}
-                onClick={() => setImportDialogOpen(true)}
-              >
-                Import from Organization
-              </Button>
-            )}
+        <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+          {selectedType === 'vehicles' && (
             <Button 
-              variant="contained" 
-              onClick={handleAddNew}
+              variant="outlined" 
+              startIcon={<DownloadIcon />}
+              onClick={handleDownloadVehiclesCSV}
             >
-              Add {REFERENCE_DATA_TYPE_LABELS[selectedType]}
+              Download CSV
             </Button>
-          </Box>
-        )}
+          )}
+          {!isReadOnly && canEdit && (
+            <>
+              {shouldShowOrgSelect && (
+                <Button 
+                  variant="outlined" 
+                  startIcon={<ImportIcon />}
+                  onClick={() => setImportDialogOpen(true)}
+                >
+                  Import from Organization
+                </Button>
+              )}
+              <Button 
+                variant="contained" 
+                onClick={handleAddNew}
+              >
+                Add {REFERENCE_DATA_TYPE_LABELS[selectedType]}
+              </Button>
+            </>
+          )}
+        </Box>
       </Box>
 
       <TableContainer component={Paper}>

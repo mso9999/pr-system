@@ -1480,3 +1480,12 @@ Side paths:
 
 *This manual is a living document and will be updated as the system evolves.*
 
+
+#### Export Vehicles to CSV
+1. Go to **Admin** → **Reference Data**
+2. Select **"Vehicles"**
+3. Click **"Download CSV"** button
+4. CSV includes: Code, Registration Number, Year, Make, Model, VIN Number, Engine Number, Active status
+5. Use this export to update vehicle details offline, then re-import to Asset Management system
+
+> **Note**: The Asset Management system (AM) is the single source of truth for vehicle data. Vehicle updates should be made in AM and will sync to the PR system.
