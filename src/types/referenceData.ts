@@ -24,7 +24,7 @@ export interface ReferenceDataItem {
   isApproved?: boolean;
   approvalDate?: string;
   approvalExpiryDate?: string;
-  approvalReason?: 'auto_3quote' | 'auto_completed' | 'manual';
+  approvalReason?: 'auto_3quote' | 'auto_completed' | 'manual' | 'manual_procurement' | 'manual_finance' | 'manual_both';
   approvedBy?: string;
   approvalNote?: string;
   associatedPONumber?: string;
@@ -69,7 +69,16 @@ export interface ReferenceDataItem {
   number?: string;
   description?: string;
   threshold?: number;
+  uom?: string;
   active?: boolean;
+
+  // Vendor dual-approval fields (Vendor extends ReferenceDataItem)
+  procurementApproved?: boolean;
+  financeApproved?: boolean;
+  procurementApprovalDate?: string;
+  procurementApprovalNote?: string;
+  financeApprovalDate?: string;
+  financeApprovalNote?: string;
 }
 
 export interface Rule {

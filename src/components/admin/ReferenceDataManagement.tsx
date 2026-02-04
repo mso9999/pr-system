@@ -25,14 +25,12 @@ import {
   Typography,
   Snackbar,
   Alert,
-  Tooltip,
   IconButton,
-  Chip,
   Checkbox,
   CircularProgress,
   Divider
 } from "@mui/material"
-import { Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon, FileDownload as ImportIcon } from "@mui/icons-material"
+import { Edit as EditIcon, Delete as DeleteIcon, FileDownload as ImportIcon } from "@mui/icons-material"
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import { ReferenceDataItem } from "@/types/referenceData"
@@ -42,10 +40,11 @@ import {
   REFERENCE_DATA_ACCESS, 
   hasEditAccess, 
   PERMISSION_NAMES,
-  REFERENCE_DATA_TYPES
+  PERMISSION_LEVELS
 } from '@/config/permissions'
 import { referenceDataAdminService } from '@/services/referenceDataAdmin'
-import { organizationService, Organization } from '@/services/organizationService'
+import { organizationService } from '@/services/organizationService'
+import type { Organization } from '@/types/organization'
 import { ORG_INDEPENDENT_TYPES } from '@/services/referenceData'
 
 const REFERENCE_DATA_TYPE_LABELS = {
@@ -390,7 +389,7 @@ function getDisplayFields(type: ReferenceDataType): ReferenceDataField[] {
         { name: 'uom', label: 'UOM' },
         { name: 'active', label: 'Active', type: 'boolean' },
         // Only show organization field for rules that require it
-        ...(type === 'rules' ? [{ name: 'organization', label: 'Organization', type: 'organization' }] : [])
+        ...(type === 'rules' ? [{ name: 'organization' as const, label: 'Organization', type: 'organization' }] : [])
       ];
     case 'currencies':
     case 'uom':
@@ -446,7 +445,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   const [isCurrenciesLoading, setIsCurrenciesLoading] = useState(false);
   const [selectedOrganization, setSelectedOrganization] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editItem, setEditItem] = useState<ReferenceDataItem | null>(null);
+  const [editItem, setEditItem] = useState<Partial<ReferenceDataItem> | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
@@ -482,22 +481,23 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   // Only certain reference data types support importing items from another organization
   const canImportFromOrganization = useMemo(() => {
-    const result = (
+    return (
       shouldShowOrgSelect &&
       (selectedType === 'departments' ||
         selectedType === 'expenseTypes' ||
         selectedType === 'projectCategories')
     );
-    // Debug log to help troubleshoot
-    console.log('[Import Button Debug]', {
-      selectedType,
-      shouldShowOrgSelect,
-      canImport: result,
-      isReadOnly,
-      canEdit
-    });
-    return result;
   }, [selectedType, shouldShowOrgSelect]);
+
+  // Show Import button for Admin on Expense Types / Project Category even if canEdit
+  // would otherwise hide it (e.g. when edit access differs from Dept).
+  const showImportFromOrgButton = useMemo(() => {
+    if (!canImportFromOrganization) return false;
+    if (canEdit) return true;
+    const isAdmin = user?.permissionLevel === PERMISSION_LEVELS.ADMIN;
+    const importableTypes = selectedType === 'expenseTypes' || selectedType === 'projectCategories';
+    return !!(isAdmin && importableTypes);
+  }, [canImportFromOrganization, canEdit, user?.permissionLevel, selectedType]);
 
   const loadOrganizations = useCallback(async () => {
     // Only load organizations if we need to show the selector
@@ -640,12 +640,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   const handleSave = async () => {
     try {
-      if (!editItem) {
-        console.log('No editItem found');
-        return;
-      }
-
-      console.log('Starting save process with item:', editItem);
+      if (!editItem) return;
 
       // Validate required fields
       const fields = getFormFields(selectedType);
@@ -656,8 +651,6 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
           errors[field.name] = `${field.label} is required`;
         }
       });
-
-      console.log('Validation errors:', errors);
 
       if (Object.keys(errors).length > 0) {
         setFormErrors(errors);
@@ -705,20 +698,18 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
         }
       }
 
-      console.log('Saving with updates:', updates);
-      
       if (id) {
         // Update existing item
-        console.log('Updating existing item:', id);
         await referenceDataAdminService.updateItem(selectedType, id, updates);
       } else {
-        // Add new item
-        console.log('Adding new item');
-        await referenceDataAdminService.addItem(selectedType, updates);
+        // Add new item - validation ensures required fields (e.g. name) are present
+        if (!updates.name?.trim()) {
+          throw new Error('Name is required');
+        }
+        const itemToAdd: Omit<ReferenceDataItem, 'id'> = { ...updates, name: updates.name };
+        await referenceDataAdminService.addItem(selectedType, itemToAdd);
       }
-      
-      console.log('Save successful');
-      
+
       setSnackbar({
         open: true,
         message: id ? 'Item updated successfully' : 'Item added successfully',
@@ -747,9 +738,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   const handleDelete = async (id: string) => {
     try {
-      console.log(`Attempting to delete ${selectedType} item with id: ${id}`);
       await referenceDataAdminService.deleteItem(selectedType, id);
-      console.log('Delete successful');
       
       // Refresh the items list
       const updatedItems = await referenceDataAdminService.getItems(selectedType, selectedOrganization);
@@ -1114,7 +1103,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     );
   };
 
-  const getDefaultValues = (type: ReferenceDataType, item?: ReferenceDataItem) => {
+  const getDefaultValues = (type: ReferenceDataType, item?: ReferenceDataItem): Partial<ReferenceDataItem> => {
     if (item) {
       return {
         ...item,
@@ -1122,12 +1111,12 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       };
     }
 
-    const defaults: Record<string, any> = {};
+    const defaults: Partial<ReferenceDataItem> = {};
     const fields = getFormFields(type);
   
     fields.forEach(field => {
       if (field.defaultValue !== undefined) {
-        defaults[field.name] = field.defaultValue;
+        (defaults as Record<string, unknown>)[field.name] = field.defaultValue;
       }
     });
 
@@ -1159,19 +1148,16 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   );
 
   const handleAddNew = () => {
-    console.log('Opening add dialog for type:', selectedType);
     setEditItem(getDefaultValues(selectedType));
     setIsDialogOpen(true);
   };
 
   const handleEdit = (item: ReferenceDataItem) => {
-    console.log('Opening edit dialog for item:', item);
     setEditItem(getDefaultValues(selectedType, item));
     setIsDialogOpen(true);
   };
 
   const handleCloseDialog = () => {
-    console.log('Closing dialog');
     setIsDialogOpen(false);
     setEditItem(null);
     setFormErrors({});
@@ -1495,9 +1481,9 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
           </FormControl>
         )}
 
-        {!isReadOnly && canEdit && (
+        {!isReadOnly && (canEdit || showImportFromOrgButton) && (
           <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
-            {canImportFromOrganization && (
+            {showImportFromOrgButton && (
               <Button 
                 variant="outlined" 
                 startIcon={<ImportIcon />}
@@ -1506,12 +1492,14 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
                 Import from Organization
               </Button>
             )}
-            <Button 
-              variant="contained" 
-              onClick={handleAddNew}
-            >
-              Add {REFERENCE_DATA_TYPE_LABELS[selectedType]}
-            </Button>
+            {canEdit && (
+              <Button 
+                variant="contained" 
+                onClick={handleAddNew}
+              >
+                Add {REFERENCE_DATA_TYPE_LABELS[selectedType]}
+              </Button>
+            )}
           </Box>
         )}
       </Box>

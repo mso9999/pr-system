@@ -2,7 +2,7 @@ import { useEffect, useState, useMemo, useRef } from 'react';
 import { useSelector } from 'react-redux';
 import { Select, MenuItem, FormControl, InputLabel, CircularProgress, FormHelperText } from '@mui/material';
 import { referenceDataService } from '../../services/referenceData';
-import { ReferenceData } from '@/types/referenceData';
+import { ReferenceDataItem } from '@/types/referenceData';
 import { RootState } from '@/store';
 import { normalizeOrganizationId, organizationMatchesUser } from '@/utils/organization';
 
@@ -19,7 +19,7 @@ interface OrganizationSelectorProps {
 }
 
 export const OrganizationSelector = ({ value, onChange, includeAllOption = false, restrictToUserOrgs = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
-  const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
+  const [organizations, setOrganizations] = useState<ReferenceDataItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalError, setInternalError] = useState<string | null>(null);
   const [hasSetDefault, setHasSetDefault] = useState(false);
@@ -58,15 +58,8 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
         setInternalError(null);
         
         const allOrgs = await referenceDataService.getOrganizations();
-        console.log('All organizations loaded:', allOrgs.map(org => ({
-          id: org.id,
-          name: org.name,
-          code: org.code,
-          type: org.type
-        })));
 
         if (allOrgs.length === 0) {
-          console.error('No organizations found in the database');
           setInternalError('No organizations available');
           setOrganizations([]);
           return;
@@ -81,7 +74,6 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
           if (restrictToUserOrgs) {
             filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
             if (filteredOrgs.length === 0) {
-              console.error('User has no matching organizations');
               setInternalError('No organizations available for your account');
             }
           } else {
@@ -105,18 +97,12 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
               filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
 
               if (filteredOrgs.length === 0) {
-                console.error('User has no matching organizations');
                 setInternalError('No organizations available for your account');
               }
             }
           }
         }
-        
-        console.log('Filtered organizations:', filteredOrgs.map(org => ({
-          id: org.id,
-          name: org.name,
-          code: org.code
-        })));
+
         setOrganizations(filteredOrgs);
         onOrganizationsLoadedRef.current?.(filteredOrgs.map(org => ({ id: org.id, name: org.name })));
 
@@ -125,7 +111,6 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
           const shouldDefaultToAll = includeAllOption;
 
           if (shouldDefaultToAll) {
-            console.log('Setting default organization to ALL');
             setHasSetDefault(true);
             onChangeRef.current(ALL_ORGANIZATIONS_OPTION);
             return;
@@ -138,14 +123,12 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
             const userOrg = filteredOrgs.find(org => normalizeOrganizationId(org) === targetId);
             
             if (userOrg) {
-              console.log('Setting default organization:', userOrg);
               setHasSetDefault(true);
               onChangeRef.current({ id: userOrg.id, name: userOrg.name });
             }
           }
         }
-      } catch (error) {
-        console.error('Error loading organizations:', error);
+      } catch {
         setInternalError('Failed to load organizations');
         setOrganizations([]);
       } finally {
@@ -197,13 +180,11 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
         onChange={(e) => {
           // Find the selected organization object
           if (includeAllOption && e.target.value === ALL_ORGANIZATIONS_OPTION.name) {
-            console.log('Organization selected: ALL');
             onChange(ALL_ORGANIZATIONS_OPTION);
             return;
           }
           const selectedOrg = organizations.find(org => org.name === e.target.value);
           if (selectedOrg) {
-            console.log('Organization selected:', selectedOrg);
             onChange({ id: selectedOrg.id, name: selectedOrg.name });
           }
         }}

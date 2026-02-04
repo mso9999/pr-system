@@ -15,7 +15,8 @@ import {
   Typography,
 } from '@mui/material';
 import StoreIcon from '@mui/icons-material/Store';
-import { Quote, ReferenceDataItem } from '@/types/pr';
+import { Quote } from '@/types/pr';
+import { ReferenceDataItem } from '@/types/referenceData';
 import { StorageService } from '@/services/storage';
 import { VendorSelectionDialog } from '../common/VendorSelectionDialog';
 

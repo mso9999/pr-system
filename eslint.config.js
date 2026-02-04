@@ -23,6 +23,12 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
+  },
+  // Allow console in services and scripts (often needed for debugging)
+  {
+    files: ['src/services/**', 'src/utils/**', 'src/scripts/**', 'src/store/**'],
+    rules: { 'no-console': 'off' },
   },
 )

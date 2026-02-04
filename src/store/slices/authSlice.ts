@@ -52,6 +52,7 @@ export interface User {
   lastName: string;
   role: string;
   organization: string;
+  department?: string;
   isActive: boolean;
   permissionLevel: number;
   additionalOrganizations?: string[];

@@ -38,7 +38,8 @@ import AttachFileIcon from '@mui/icons-material/AttachFile';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StoreIcon from '@mui/icons-material/Store';
 import { StorageService } from '../../../services/storage';
-import { Quote, ReferenceDataItem, PRStatus } from '../../../types/pr';
+import { Quote, PRStatus } from '../../../types/pr';
+import { ReferenceDataItem } from '../../../types/referenceData';
 import { auth } from '../../../config/firebase';
 import { VendorSelectionDialog } from '../../common/VendorSelectionDialog';
 

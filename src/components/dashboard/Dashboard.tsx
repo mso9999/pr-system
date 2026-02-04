@@ -37,6 +37,7 @@ import { SearchResultsAnalytics } from './SearchResultsAnalytics';
 import { exportPRsToCSV } from '@/utils/exportUtils';
 import { Link } from 'react-router-dom';
 import { referenceDataService } from '../../services/referenceData';
+import { ReferenceDataItem } from '../../types/referenceData';
 import { normalizeOrganizationId } from '@/utils/organization';
 import { useResponsive } from '../../hooks/useResponsive';
 
@@ -75,7 +76,6 @@ export const Dashboard = () => {
   const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string } | null>(ALL_ORGANIZATIONS_OPTION);
   const [availableOrgs, setAvailableOrgs] = useState<{ id: string; name: string }[]>([]);
   const handleOrganizationChange = useCallback((org: { id: string; name: string }) => {
-    console.log('Organization selected:', org);
     setSelectedOrg(org);
   }, []);
 
@@ -135,8 +135,8 @@ export const Dashboard = () => {
           expenseTypes: expTypes,
           vendors: vends
         });
-      } catch (error) {
-        console.error('Error loading reference data:', error);
+      } catch {
+        // Error loading reference data
       }
     };
 
@@ -146,14 +146,10 @@ export const Dashboard = () => {
   // Load PRs when organization is selected or filter changes
   useEffect(() => {
     const loadPRs = async () => {
-      if (!userId || !selectedOrg) {
-        console.log('Dashboard: No user ID or organization available', { userId, selectedOrg, userOrg: user?.organization });
-        return;
-      }
+      if (!userId || !selectedOrg) return;
 
       const isAllOrganizations = selectedOrg.id === ALL_ORGANIZATIONS_OPTION.id;
 
-      console.log('Dashboard: Loading data for user:', { userId, organization: selectedOrg, showOnlyMyPRs, isAllOrganizations });
       try {
         setIsLoading(true);
         let combinedPRs: PRRequest[] = [];
@@ -162,12 +158,6 @@ export const Dashboard = () => {
           // Get user's assigned organizations (primary + additional)
           // Need to resolve normalized IDs to actual organization names for PR queries
           const userAssignedOrgIds: string[] = [];
-          
-          console.log('Dashboard: User organization data:', {
-            primaryOrg: user?.organization,
-            additionalOrgs: user?.additionalOrganizations,
-            userPermissionLevel: user?.permissionLevel
-          });
 
           // Collect normalized organization IDs from user
           if (user?.organization) {
@@ -199,7 +189,6 @@ export const Dashboard = () => {
           }
 
           if (userAssignedOrgIds.length === 0) {
-            console.log('Dashboard: User has no assigned organizations');
             setIsLoading(false);
             return;
           }
@@ -218,40 +207,26 @@ export const Dashboard = () => {
               }
             });
 
-            console.log('Dashboard: Organization name mapping:', {
-              userAssignedOrgIds,
-              orgMapEntries: Array.from(orgMap.entries())
-            });
-
             // Get organization names for user's assigned org IDs (PRIMARY - use names)
             userAssignedOrgIds.forEach(normalizedId => {
               const orgName = orgMap.get(normalizedId);
               if (orgName && !organizationNames.includes(orgName)) {
                 organizationNames.push(orgName);
-              } else if (!orgName) {
-                console.warn(`Dashboard: Could not find organization name for normalized ID: ${normalizedId}`);
               }
             });
 
             // Only add normalized IDs as fallback if we didn't get names (shouldn't happen normally)
             if (organizationNames.length === 0) {
-              console.warn('Dashboard: No organization names found, falling back to normalized IDs');
               userAssignedOrgIds.forEach(normalizedId => {
                 if (!organizationNames.includes(normalizedId)) {
                   organizationNames.push(normalizedId);
                 }
               });
             }
-          } catch (orgLoadError) {
-            console.error('Error loading organizations for name resolution:', orgLoadError);
+          } catch {
             // Fallback to using normalized IDs directly
             organizationNames = [...userAssignedOrgIds];
           }
-
-          console.log('Dashboard: Loading PRs for user assigned organizations:', {
-            normalizedIds: userAssignedOrgIds,
-            organizationNames: organizationNames
-          });
 
           if (!showOnlyMyPRs) {
             // Fetch PRs for each organization (try both name and normalized ID)
@@ -272,8 +247,8 @@ export const Dashboard = () => {
                       merged.push(pr);
                     }
                   });
-                } catch (altError) {
-                  console.error(`Error loading PRs by alternate identifier (${alternateIdentifier})`, altError);
+                } catch {
+                  // Skip alternate identifier on error
                 }
               }
               
@@ -308,8 +283,8 @@ export const Dashboard = () => {
                   }
                 });
               }
-            } catch (secondaryError) {
-              console.error('Error loading PRs by organization ID, continuing with primary results:', secondaryError);
+            } catch {
+              // Continue with primary results
             }
           }
         }
@@ -335,17 +310,6 @@ export const Dashboard = () => {
 
   // Get PRs for the selected status
   const getStatusPRs = (status: PRStatus) => {
-    console.log('Getting status PRs:', {
-      selectedStatus,
-      userPRs: userPRs.map(pr => ({
-        id: pr.id,
-        prNumber: pr.prNumber,
-        isUrgent: pr.isUrgent,
-        status: pr.status,
-        organization: pr.organization
-      }))
-    });
-    
     // Add default createdAt if missing
     const prs = userPRs.map(pr => ({
       ...pr,
@@ -355,24 +319,10 @@ export const Dashboard = () => {
     const statusPRs = prs.filter(pr => {
       return pr.status === selectedStatus;
     });
-    
-    // Log PRs before sorting
-    console.log('Status PRs before sorting:', statusPRs.map(pr => ({
-      id: pr.id,
-      prNumber: pr.prNumber,
-      isUrgent: pr.isUrgent,
-      status: pr.status,
-      organization: pr.organization
-    })));
-    
+
     const sortedPRs = statusPRs.sort((a, b) => {
       // First sort by urgency
       if (Boolean(a.isUrgent) !== Boolean(b.isUrgent)) {
-        console.log('Sorting by urgency:', {
-          a: { id: a.id, prNumber: a.prNumber, isUrgent: a.isUrgent },
-          b: { id: b.id, prNumber: b.prNumber, isUrgent: b.isUrgent },
-          result: Boolean(a.isUrgent) ? -1 : 1
-        });
         return Boolean(a.isUrgent) ? -1 : 1;
       }
       
@@ -388,15 +338,6 @@ export const Dashboard = () => {
           return new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime();
       }
     });
-
-    // Log PRs after sorting
-    console.log('Status PRs after sorting:', sortedPRs.map(pr => ({
-      id: pr.id,
-      prNumber: pr.prNumber,
-      isUrgent: pr.isUrgent,
-      status: pr.status,
-      organization: pr.organization
-    })));
 
     return sortedPRs;
   };
@@ -477,14 +418,14 @@ export const Dashboard = () => {
       const statusChange = pr.statusHistory?.find(history => history.status === pr.status);
       if (statusChange?.timestamp) {
         // Handle both Date objects and Firestore Timestamps
-        const timestamp = statusChange.timestamp;
+        const timestamp = statusChange.timestamp as unknown;
         if (typeof timestamp === 'object' && timestamp !== null) {
-          if ('getTime' in timestamp) {
+          if ('getTime' in (timestamp as object)) {
             // It's a Date object
             endDate = timestamp as Date;
-          } else if ('seconds' in timestamp) {
+          } else if ('seconds' in (timestamp as object)) {
             // It's a Firestore Timestamp-like object
-            endDate = new Date((timestamp as any).seconds * 1000);
+            endDate = new Date((timestamp as { seconds: number }).seconds * 1000);
           } else {
             // Default fallback
             endDate = new Date();
@@ -508,31 +449,14 @@ export const Dashboard = () => {
   };
 
   const getStatusChangeDate = (pr: PRWithHistory): string => {
-    console.log('Getting status change date:', {
-      prNumber: pr.prNumber,
-      status: pr.status,
-      statusHistory: pr.statusHistory,
-      hasHistory: Boolean(pr.statusHistory?.length)
-    });
-
     if (pr.status === PRStatus.SUBMITTED) return '';
     
     // Get the latest status history entry for the current status
     const statusChange = pr.statusHistory?.find(history => history.status === pr.status);
-    console.log('Found status change:', {
-      prNumber: pr.prNumber,
-      status: pr.status,
-      statusChange,
-      timestamp: statusChange?.timestamp
-    });
 
     if (!statusChange?.timestamp) {
       // Fallback to updatedAt if no status history
       if (pr.updatedAt) {
-        console.log('Using updatedAt as fallback:', {
-          prNumber: pr.prNumber,
-          updatedAt: pr.updatedAt
-        });
         return new Date(pr.updatedAt).toLocaleDateString();
       }
       return '-';
@@ -540,21 +464,19 @@ export const Dashboard = () => {
 
     try {
       // Handle different timestamp formats
-      const timestamp = statusChange.timestamp;
+      const timestamp = statusChange.timestamp as unknown;
       if (typeof timestamp === 'object' && timestamp !== null) {
-        if ('getTime' in timestamp) {
-          // It's a Date object
+        if ('getTime' in (timestamp as object)) {
           return (timestamp as Date).toLocaleDateString();
-        } else if ('seconds' in timestamp) {
-          // It's a Firestore Timestamp-like object
-          return new Date((timestamp as any).seconds * 1000).toLocaleDateString();
+        }
+        if ('seconds' in (timestamp as object)) {
+          return new Date((timestamp as { seconds: number }).seconds * 1000).toLocaleDateString();
         }
       } else if (typeof timestamp === 'string') {
         return new Date(timestamp).toLocaleDateString();
       }
       return '-';
-    } catch (error) {
-      console.error('Error formatting status change date:', error);
+    } catch {
       return '-';
     }
   };
@@ -582,7 +504,8 @@ export const Dashboard = () => {
       }
 
       // Asset Management Department: POs in ORDERED needing delivery docs
-      if (user.department?.toLowerCase().includes('asset')) {
+      const dept = (user as { department?: string }).department;
+      if (dept && dept.toLowerCase().includes('asset')) {
         return pr.status === PRStatus.ORDERED;
       }
 
@@ -629,9 +552,8 @@ export const Dashboard = () => {
       dispatch(removePR(prToDelete.id));
       setDeleteDialogOpen(false);
       setPrToDelete(null);
-      console.log(`PR ${prToDelete.prNumber || prToDelete.id} deleted successfully.`);
-    } catch (error) {
-      console.error('Error deleting PR:', error);
+    } catch {
+      // Error deleting PR - show snackbar if needed
     }
   };
 

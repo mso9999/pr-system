@@ -34,8 +34,11 @@ import {
   Stepper,
   Autocomplete,
   Chip,
-} from '@mui/material';
-import {
+  CircularProgress,
+  Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   TableContainer,
   Table,
   TableHead,
@@ -82,7 +85,6 @@ import { Card as CustomCard, CardContent as CustomCardContent, CardDescription, 
 import { PlusIcon, EyeIcon, FileIcon } from 'lucide-react';
 import { QuoteCard } from './QuoteCard';
 import { StorageService } from "@/services/storage";
-import { CircularProgress, Chip, Alert, Accordion, AccordionSummary, AccordionDetails } from "@mui/material";
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { db } from "@/config/firebase";
 import { collection, doc, getDoc, query, where, getDocs, updateDoc } from "firebase/firestore";

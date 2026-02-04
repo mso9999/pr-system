@@ -39,7 +39,7 @@ import { User } from '../../types/user';
 import { updateUserEmail, createUser, updateUserPassword } from '../../services/auth';
 import { useSnackbar } from '../../contexts/SnackbarContext';
 import { referenceDataService } from '../../services/referenceData';
-import { ReferenceData } from '../../types/referenceData';
+import { ReferenceDataItem } from '../../types/referenceData';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { PERMISSION_LEVELS, PERMISSION_NAMES } from '../../config/permissions';
@@ -119,9 +119,9 @@ type SortDirection = 'asc' | 'desc';
 export function UserManagement({ isReadOnly }: UserManagementProps) {
   const currentUser = useSelector((state: RootState) => state.auth.user);
   const [users, setUsers] = useState<User[]>([]);
-  const [departments, setDepartments] = useState<ReferenceData[]>([]);
-  const [allDepartments, setAllDepartments] = useState<ReferenceData[]>([]);
-  const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
+  const [departments, setDepartments] = useState<ReferenceDataItem[]>([]);
+  const [allDepartments, setAllDepartments] = useState<ReferenceDataItem[]>([]);
+  const [organizations, setOrganizations] = useState<ReferenceDataItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState<SortField>('name');
@@ -189,10 +189,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
 
       activeItems.forEach(item => {
         const rawLevel = typeof item.level === 'number' ? item.level : Number(item.level ?? item.code);
-        if (!rawLevel || Number.isNaN(rawLevel)) {
-          console.warn('[UserManagement] Skipping permission with invalid level', item);
-          return;
-        }
+        if (!rawLevel || Number.isNaN(rawLevel)) return;
         if (seenLevels.has(rawLevel)) {
           duplicateLevels.add(rawLevel);
           return;
@@ -214,7 +211,6 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         const warningMsg = normalized.length === 0
           ? 'Reference permissions are empty; using fallback levels.'
           : 'Reference permissions missing required levels; using fallback.';
-        console.warn('[UserManagement] ' + warningMsg, { normalized, requiredLevels });
         setPermissionsWarning(warningMsg);
         setPermissionOptions(fallbackPermissionOptions);
         setUsingFallbackPermissions(true);
@@ -223,7 +219,6 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
 
       if (duplicateLevels.size > 0) {
         const warningMsg = `Duplicate permission levels detected (${Array.from(duplicateLevels).join(', ')}); using fallback.`;
-        console.warn('[UserManagement] ' + warningMsg);
         setPermissionsWarning(warningMsg);
         setPermissionOptions(fallbackPermissionOptions);
         setUsingFallbackPermissions(true);
@@ -233,8 +228,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       normalized.sort((a, b) => a.level - b.level);
       setPermissionOptions(normalized);
       setUsingFallbackPermissions(false);
-    } catch (error) {
-      console.error('Error loading permissions reference data:', error);
+    } catch {
       setPermissionsWarning('Failed to load permissions reference data; using fallback levels.');
       setPermissionOptions(fallbackPermissionOptions);
       setUsingFallbackPermissions(true);
@@ -268,16 +262,6 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       querySnapshot.forEach((doc) => {
         const data = doc.data();
         
-        // Log user data for debugging (development only)
-        if (import.meta.env.MODE === 'development') {
-          console.log('Loading user data:', {
-            id: doc.id,
-            rawPermissionLevel: data.permissionLevel,
-            convertedPermissionLevel: typeof data.permissionLevel === 'number' ? data.permissionLevel : 
-              typeof data.permissionLevel === 'string' ? Number(data.permissionLevel) : 5
-          });
-        }
-        
         loadedUsers.push({
           id: doc.id,
           firstName: data.firstName || '',
@@ -294,17 +278,9 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           isActive: data.isActive !== false
         });
       });
-      
-      // Log all loaded users
-      console.log('All loaded users:', loadedUsers.map(u => ({ 
-        id: u.id, 
-        email: u.email,
-        permissionLevel: u.permissionLevel 
-      })));
-      
       setUsers(loadedUsers);
-    } catch (error) {
-      console.error('Error loading users:', error);
+    } catch {
+      // Error loading users - state remains unchanged
     }
   };
 
@@ -325,34 +301,24 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   };
 
   // Helper function to find department by name (case insensitive)
-  const findDepartmentByName = (deptName: string): ReferenceData | undefined => {
+  const findDepartmentByName = (deptName: string): ReferenceDataItem | undefined => {
     return departments.find(d => 
       d.name.toLowerCase() === deptName.toLowerCase()
     );
   };
 
   // Helper function to find department by ID
-  const findDepartmentById = (deptId: string): ReferenceData | undefined => {
+  const findDepartmentById = (deptId: string): ReferenceDataItem | undefined => {
     return departments.find(d => d.id === deptId);
   };
 
   // Load departments for a specific organization
   const loadDepartmentsForOrg = async (organization: string) => {
-    console.log('Loading departments for organization:', organization);
     setIsDepartmentsLoading(true);
-    
     try {
       const loadedDepartments = await referenceDataService.getDepartments(organization);
-      console.log('Loaded departments:', loadedDepartments);
-      console.log('Available department values:', loadedDepartments.map(dept => ({
-        id: dept.id,
-        name: dept.name,
-        organization: dept.organization
-      })));
-      
       setDepartments(loadedDepartments);
-    } catch (error) {
-      console.error('Error loading departments:', error);
+    } catch {
       setDepartments([]);
     } finally {
       setIsDepartmentsLoading(false);
@@ -361,27 +327,23 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
 
   const loadOrganizations = async () => {
     try {
-      console.log('Loading organizations...');
       // Load all organizations from reference data without filtering by active status
       // This ensures all organizations are available for selection in user management
       const collectionRef = collection(db, 'referenceData_organizations');
       const querySnapshot = await getDocs(collectionRef);
-      const loadedOrganizations: ReferenceData[] = querySnapshot.docs.map(doc => ({
+      const loadedOrganizations: ReferenceDataItem[] = querySnapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })) as ReferenceData[];
-      console.log('Loaded organizations:', loadedOrganizations);
+      })) as ReferenceDataItem[];
       setOrganizations(loadedOrganizations);
-    } catch (error) {
-      console.error('Error loading organizations:', error);
+    } catch {
       showSnackbar('Error loading organizations', 'error');
     }
   };
 
   const loadAllDepartments = async () => {
     try {
-      console.log('Loading all departments...');
-      const allDepts: ReferenceData[] = [];
+      const allDepts: ReferenceDataItem[] = [];
       
       // First get organizations, then load departments for each
       const loadedOrganizations = await referenceDataService.getOrganizations();
@@ -391,15 +353,12 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         try {
           const orgDepartments = await referenceDataService.getDepartments(org.id);
           allDepts.push(...orgDepartments);
-        } catch (error) {
-          console.error(`Error loading departments for organization ${org.id}:`, error);
+        } catch {
+          // Skip org on error
         }
       }
-      
-      console.log('Loaded all departments:', allDepts);
       setAllDepartments(allDepts);
-    } catch (error) {
-      console.error('Error loading all departments:', error);
+    } catch {
       showSnackbar('Error loading departments', 'error');
     }
   };
@@ -457,18 +416,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       return;
     }
 
-    console.log('Editing user:', user);
-    
     const normalizedOrg = normalizeOrgId(user.organization);
     const dept = findDepartmentByName(user.department);
-    
-    console.log('Normalized values:', {
-      originalOrg: user.organization,
-      normalizedOrg,
-      originalDept: user.department,
-      foundDept: dept
-    });
-    
     setEditingUser(user);
     setFormData({
       firstName: user.firstName,
