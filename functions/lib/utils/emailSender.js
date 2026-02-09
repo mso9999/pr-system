@@ -73,7 +73,7 @@ async function sendEmail(mailOptions) {
     const transporter = createTransporter();
     // Set default FROM address if not provided
     const emailOptions = {
-        from: mailOptions.from || '"1PWR System" <noreply@1pwrafrica.com>',
+        from: mailOptions.from || '"1PWR System" <notifications@1pwrafrica.com>',
         to: mailOptions.to,
         cc: mailOptions.cc,
         subject: mailOptions.subject,

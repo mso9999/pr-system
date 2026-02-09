@@ -180,7 +180,7 @@ View PR: ${((_q = functions.config().app) === null || _q === void 0 ? void 0 : _
                     ccList.push(pr.requestorEmail);
                 }
                 await (0, emailSender_1.sendEmail)({
-                    from: 'noreply@1pwrafrica.com',
+                    from: '"1PWR System" <notifications@1pwrafrica.com>',
                     to: recipients,
                     cc: ccList,
                     subject,

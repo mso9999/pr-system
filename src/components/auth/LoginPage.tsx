@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { Box, Button, TextField, Typography, CircularProgress, Link } from '@mui/material';
 import { signIn, resetPassword } from '../../services/auth';
 import { setError } from '../../store/slices/authSlice';
@@ -10,6 +11,10 @@ import LanguageToggle from '../common/LanguageToggle';
 export const LoginPage = () => {
   const dispatch = useDispatch();
   const { t } = useTranslation();
+  const location = useLocation();
+  const navigate = useNavigate();
+  // If redirected from PrivateRoute, capture the intended destination
+  const from = (location.state as any)?.from?.pathname || '/dashboard';
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -31,7 +36,9 @@ export const LoginPage = () => {
     try {
       console.log('LoginPage: Attempting login with email:', email);
       await signIn(email, password);
-      console.log('LoginPage: Login successful');
+      console.log('LoginPage: Login successful, redirecting to:', from);
+      // Navigate to the intended destination (e.g. /jobcards or /dashboard)
+      navigate(from, { replace: true });
     } catch (error) {
       console.error('LoginPage: Login error:', error);
       const errorMessage = error instanceof Error ? error.message : 'Login failed';

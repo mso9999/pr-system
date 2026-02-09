@@ -168,7 +168,7 @@ View PR: ${functions.config().app?.url || 'https://pr-system.1pwrafrica.com'}/pr
           }
 
           await sendEmail({
-            from: 'noreply@1pwrafrica.com',
+            from: '"1PWR System" <notifications@1pwrafrica.com>',
             to: recipients,
             cc: ccList,
             subject,

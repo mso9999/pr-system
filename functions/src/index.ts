@@ -179,7 +179,7 @@ export const sendRevisionRequiredNotification = functions.https.onCall(
     try {
         // Prepare email options
         const mailOptions: any = {
-            from: '"1PWR System" <noreply@1pwrafrica.com>',
+            from: '"1PWR System" <notifications@1pwrafrica.com>',
             to: recipients,
             subject: getEmailSubject(notification, emailBody),
             text: emailBody.text,
@@ -302,7 +302,7 @@ export const processNotifications = functions.firestore
       
       // Prepare email options for nodemailer
       const mailOptions: any = {
-        from: '"1PWR System" <noreply@1pwrafrica.com>',
+        from: '"1PWR System" <notifications@1pwrafrica.com>',
         to: recipients,
         subject: subject || `PR #${prNumber} Notification`,
         text: text,
@@ -424,7 +424,7 @@ export const sendTestEmail = functions.https.onCall(async (data, context) => {
         
         // Use SMTP
         const mailOptions = {
-            from: '"1PWR System" <noreply@1pwrafrica.com>',
+            from: '"1PWR System" <notifications@1pwrafrica.com>',
             to: to,
             subject: subject,
             text: message,

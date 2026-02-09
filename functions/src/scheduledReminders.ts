@@ -21,7 +21,7 @@ const transporter = nodemailer.createTransport({
   port: parseInt(functions.config().smtp?.port || '465'),
   secure: functions.config().smtp?.secure === 'true',
   auth: {
-    user: functions.config().smtp?.user || 'noreply@1pwrafrica.com',
+    user: functions.config().smtp?.user || 'notifications@1pwrafrica.com',
     pass: functions.config().smtp?.password || ''
   },
   tls: {
@@ -489,7 +489,7 @@ async function sendDelayNotification(po: PRDocument, daysOverdue: number): Promi
       const mailOptions = {
         to: recipients,
         cc: cc,
-        from: '"1PWR System" <noreply@1pwrafrica.com>',
+        from: '"1PWR System" <notifications@1pwrafrica.com>',
         subject: subject,
         text: message,
         html: `<pre>${message}</pre>`
@@ -557,7 +557,7 @@ async function sendReminderEmail(
   try {
     const mailOptions = {
       to: recipient,
-      from: '"1PWR System" <noreply@1pwrafrica.com>',
+      from: '"1PWR System" <notifications@1pwrafrica.com>',
       subject: subject,
       text: message,
       html: `<pre>${message}</pre>`

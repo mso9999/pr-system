@@ -18,6 +18,7 @@ import { PrivateRoute } from './components/common/PrivateRoute';
 import { AdminRoute } from './components/common/AdminRoute';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 import { Layout } from './components/common/Layout';
+import { JobCardRedirect } from './components/common/JobCardRedirect';
 import { ArchiveList } from './components/archive/ArchiveList';
 import { ArchiveView } from './components/archive/ArchiveView';
 import { ErrorBoundary } from './components/common/ErrorBoundary';
@@ -96,6 +97,7 @@ function App() {
                 )
               } />
               <Route element={<PrivateRoute />}>
+                <Route path="/jobcards" element={<JobCardRedirect />} />
                 <Route element={<Layout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/pr/new" element={<NewPRForm />} />

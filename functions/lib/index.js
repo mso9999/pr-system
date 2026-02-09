@@ -162,7 +162,7 @@ async (data, context) => {
     try {
         // Prepare email options
         const mailOptions = {
-            from: '"1PWR System" <noreply@1pwrafrica.com>',
+            from: '"1PWR System" <notifications@1pwrafrica.com>',
             to: recipients,
             subject: getEmailSubject(notification, emailBody),
             text: emailBody.text,
@@ -258,7 +258,7 @@ exports.processNotifications = functions.firestore
         // Add more specific replacements if needed
         // Prepare email options for nodemailer
         const mailOptions = {
-            from: '"1PWR System" <noreply@1pwrafrica.com>',
+            from: '"1PWR System" <notifications@1pwrafrica.com>',
             to: recipients,
             subject: subject || `PR #${prNumber} Notification`,
             text: text,
@@ -366,7 +366,7 @@ exports.sendTestEmail = functions.https.onCall(async (data, context) => {
         }
         // Use SMTP
         const mailOptions = {
-            from: '"1PWR System" <noreply@1pwrafrica.com>',
+            from: '"1PWR System" <notifications@1pwrafrica.com>',
             to: to,
             subject: subject,
             text: message,
