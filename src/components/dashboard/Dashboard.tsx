@@ -62,6 +62,41 @@ const UrgentTableRow = styled(TableRow)(({ theme }) => ({
   },
 }));
 
+// localStorage key for persisting selected organization
+const SELECTED_ORG_STORAGE_KEY = 'dashboard_selected_organization';
+
+// Helper to load selected org from localStorage
+const loadSelectedOrgFromStorage = (): { id: string; name: string } | null => {
+  try {
+    const stored = localStorage.getItem(SELECTED_ORG_STORAGE_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      // Validate the structure
+      if (parsed && typeof parsed.id === 'string' && typeof parsed.name === 'string') {
+        console.log('[Dashboard] Loaded saved organization from storage:', parsed);
+        return parsed;
+      }
+    }
+  } catch (e) {
+    console.warn('[Dashboard] Error loading organization from storage:', e);
+  }
+  return null;
+};
+
+// Helper to save selected org to localStorage
+const saveSelectedOrgToStorage = (org: { id: string; name: string } | null) => {
+  try {
+    if (org) {
+      localStorage.setItem(SELECTED_ORG_STORAGE_KEY, JSON.stringify(org));
+      console.log('[Dashboard] Saved organization to storage:', org);
+    } else {
+      localStorage.removeItem(SELECTED_ORG_STORAGE_KEY);
+    }
+  } catch (e) {
+    console.warn('[Dashboard] Error saving organization to storage:', e);
+  }
+};
+
 export const Dashboard = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
@@ -72,16 +107,31 @@ export const Dashboard = () => {
   const { userPRs, pendingApprovals, loading, showOnlyMyPRs, myActionsFilter } = useSelector(
     (state: RootState) => state.pr
   );
-  const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string } | null>(ALL_ORGANIZATIONS_OPTION);
+  // Initialize from localStorage, fall back to ALL_ORGANIZATIONS_OPTION
+  const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string } | null>(() => {
+    return loadSelectedOrgFromStorage() || ALL_ORGANIZATIONS_OPTION;
+  });
   const [availableOrgs, setAvailableOrgs] = useState<{ id: string; name: string }[]>([]);
   const handleOrganizationChange = useCallback((org: { id: string; name: string }) => {
     console.log('Organization selected:', org);
     setSelectedOrg(org);
+    // Persist to localStorage
+    saveSelectedOrgToStorage(org);
   }, []);
 
   const handleOrganizationsLoaded = useCallback((orgs: { id: string; name: string }[]) => {
     setAvailableOrgs(orgs);
-  }, []);
+    
+    // Validate that the currently selected org (from localStorage) is still valid
+    if (selectedOrg && selectedOrg.id !== ALL_ORGANIZATIONS_OPTION.id) {
+      const isValidOrg = orgs.some(org => org.id === selectedOrg.id || org.name === selectedOrg.name);
+      if (!isValidOrg) {
+        console.log('[Dashboard] Stored organization no longer available, resetting to All Organizations:', selectedOrg);
+        setSelectedOrg(ALL_ORGANIZATIONS_OPTION);
+        saveSelectedOrgToStorage(ALL_ORGANIZATIONS_OPTION);
+      }
+    }
+  }, [selectedOrg]);
   const [selectedStatus, setSelectedStatus] = useState<PRStatus>(PRStatus.SUBMITTED);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [prToDelete, setPrToDelete] = useState<PRRequest | null>(null);
