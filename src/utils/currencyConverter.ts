@@ -407,9 +407,65 @@ export async function isAmountAboveThreshold(
 }
 
 /**
- * Get the currency from a rule object (handles both 'uom' and 'currency' fields)
+ * Organization ID to currency mapping
+ * Used to auto-detect the correct currency when a rule doesn't have one set
  */
-export function getRuleCurrency(rule: { uom?: string; currency?: string } | null | undefined): string {
+const ORG_CURRENCY_MAP: Record<string, string> = {
+  // Lesotho organizations → LSL (Lesotho Loti)
+  '1pwr_lesotho': 'LSL',
+  '1PWR LESOTHO': 'LSL',
+  'pueco_lesotho': 'LSL',
+  'PUECO LESOTHO': 'LSL',
+  'smp': 'LSL',
+  'Sotho Minigrid Portfolio': 'LSL',
+  
+  // Benin organizations → XOF (CFA Franc BCEAO)
+  'mgb': 'XOF',
+  'Mionwa Gen': 'XOF',
+  '1pwr_benin': 'XOF',
+  '1PWR BENIN': 'XOF',
+  'pueco_benin': 'XOF',
+  'Inclusive/PUECO BENIN': 'XOF',
+  
+  // Zambia organizations → ZMW (Zambian Kwacha)
+  '1pwr_zambia': 'ZMW',
+  '1PWR ZAMBIA': 'ZMW',
+  
+  // NEO1 - USD (international)
+  'neo1': 'USD',
+  'NEO1': 'USD',
+};
+
+/**
+ * Get the currency from a rule object (handles both 'uom' and 'currency' fields)
+ * Now also auto-detects based on organization ID if the rule doesn't have a currency set
+ */
+export function getRuleCurrency(rule: { uom?: string; currency?: string; organizationId?: string; organization?: string } | null | undefined): string {
   if (!rule) return 'LSL';
-  return rule.uom || rule.currency || 'LSL';
+  
+  // First, check if the rule has an explicit currency
+  const explicitCurrency = rule.uom || rule.currency;
+  if (explicitCurrency) {
+    return explicitCurrency;
+  }
+  
+  // If no explicit currency, try to detect from organization
+  const orgId = rule.organizationId || rule.organization;
+  if (orgId && ORG_CURRENCY_MAP[orgId]) {
+    console.log(`[getRuleCurrency] Auto-detected currency ${ORG_CURRENCY_MAP[orgId]} for organization ${orgId}`);
+    return ORG_CURRENCY_MAP[orgId];
+  }
+  
+  // Default fallback
+  console.warn(`[getRuleCurrency] No currency found for rule, defaulting to LSL. Rule:`, rule);
+  return 'LSL';
+}
+
+/**
+ * Get the currency for an organization by its ID
+ * Useful when you have the organization but not a rule
+ */
+export function getOrganizationCurrency(organizationId: string | null | undefined): string {
+  if (!organizationId) return 'LSL';
+  return ORG_CURRENCY_MAP[organizationId] || 'LSL';
 }
