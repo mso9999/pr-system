@@ -50,10 +50,12 @@ export const CompletedStatusView: React.FC<CompletedStatusViewProps> = ({ pr }) 
     setPreviewOpen(true);
   };
 
-  // Download handler
+  // Download handler - opens in new tab to avoid CORS issues with Firebase Storage
   const handleDownloadQuoteAttachment = (attachment: { name: string; url: string }) => {
     const link = document.createElement('a');
     link.href = attachment.url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
     link.download = attachment.name;
     document.body.appendChild(link);
     link.click();

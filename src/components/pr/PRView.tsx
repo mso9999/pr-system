@@ -310,6 +310,8 @@ const FilePreviewDialog: React.FC<{
             onClick={() => {
               const link = document.createElement('a');
               link.href = file.url;
+              link.target = '_blank';
+              link.rel = 'noopener noreferrer';
               link.setAttribute('download', file.name);
               document.body.appendChild(link);
               link.click();
@@ -384,6 +386,8 @@ const FilePreviewDialog: React.FC<{
               onClick={() => {
                 const link = document.createElement('a');
                 link.href = file.url;
+                link.target = '_blank';
+                link.rel = 'noopener noreferrer';
                 link.setAttribute('download', file.name);
                 document.body.appendChild(link);
                 link.click();
@@ -426,6 +430,8 @@ const FilePreviewDialog: React.FC<{
           onClick={() => {
             const link = document.createElement('a');
             link.href = file.url;
+            link.target = '_blank';
+            link.rel = 'noopener noreferrer';
             link.setAttribute('download', file.name);
             document.body.appendChild(link);
             link.click();
@@ -2652,18 +2658,20 @@ export function PRView() {
   };
 
   // Function to handle downloading quote attachments
+  // Uses direct link navigation to avoid CORS issues with Firebase Storage
   const handleDownloadQuoteAttachment = async (attachment: { name: string; url: string }) => {
     try {
-      const response = await fetch(attachment.url);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = attachment.name;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      // For Firebase Storage URLs, open directly in new tab to trigger download
+      // This avoids CORS issues that occur with fetch()
+      const link = document.createElement('a');
+      link.href = attachment.url;
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      // Setting download attribute may not work cross-origin, but the file will still open/download
+      link.download = attachment.name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     } catch (error) {
       console.error('Error downloading file:', error);
       enqueueSnackbar('Error downloading file', { variant: 'error' });
