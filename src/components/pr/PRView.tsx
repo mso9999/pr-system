@@ -5,6 +5,7 @@ import { useSnackbar } from "notistack";
 import { useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
 import { referenceDataService } from '@/services/referenceData';
+import { organizationService } from '@/services/organizationService';
 import {
   Box,
   Paper,
@@ -510,6 +511,7 @@ export function PRView() {
   const [vendors, setVendors] = useState<ReferenceDataItem[]>([]);
   const [currencies, setCurrencies] = useState<ReferenceDataItem[]>([]);
   const [rules, setRules] = useState<any[]>([]);
+  const [organizationBaseCurrency, setOrganizationBaseCurrency] = useState<string>('LSL');
   const [loadingReference, setLoadingReference] = useState(true);
   const [approvers, setApprovers] = useState<User[]>([]);
   const [selectedApprover, setSelectedApprover] = useState<string | undefined>(
@@ -593,7 +595,7 @@ export function PRView() {
           }
         }
 
-        // Load reference data
+        // Load reference data and organization details
         const [
           depts,
           categories,
@@ -604,6 +606,7 @@ export function PRView() {
           currencyList,
           paymentTypeList,
           rulesList,
+          orgDetails,
         ] = await Promise.all([
           referenceDataService.getDepartments(organization),
           referenceDataService.getItemsByType('projectCategories', organization),
@@ -614,6 +617,7 @@ export function PRView() {
           referenceDataService.getItemsByType('currencies'),
           referenceDataService.getItemsByType('paymentTypes'),
           referenceDataService.getItemsByType('rules', organization),
+          organizationService.getOrganizationByName(organization).catch(() => null),
         ]);
 
         setDepartments(depts);
@@ -625,6 +629,12 @@ export function PRView() {
         setCurrencies(currencyList);
         setPaymentTypes(paymentTypeList);
         setRules(rulesList);
+        
+        // Set organization's base currency for threshold comparisons
+        if (orgDetails?.baseCurrency) {
+          setOrganizationBaseCurrency(orgDetails.baseCurrency);
+          console.log(`[PRView] Organization base currency: ${orgDetails.baseCurrency}`);
+        }
         
         console.log('💳 Payment Types loaded from reference data:', {
           count: paymentTypeList.length,
@@ -1128,21 +1138,23 @@ export function PRView() {
       return 'Cannot validate approver permissions. Approval rules not properly configured. Please contact system administrator.';
     }
 
-    // Get the rule's currency (supports both 'currency' and 'uom' fields)
-    const ruleCurrency = getRuleCurrency(rule1);
+    // Use organization's base currency for threshold comparison (most authoritative source)
+    // Fall back to getRuleCurrency if org base currency is not set
+    const thresholdCurrency = organizationBaseCurrency || getRuleCurrency(rule1);
     
-    // Convert amount to rule currency for proper threshold comparison
-    const convertedAmount = await convertAmount(amount, currentCurrency, ruleCurrency);
+    // Convert amount to threshold currency for proper comparison
+    const convertedAmount = await convertAmount(amount, currentCurrency, thresholdCurrency);
     const isAboveRule1Threshold = rule1 && convertedAmount > rule1.threshold;
     
     console.log('Threshold checks with currency conversion:', { 
       originalAmount: amount,
       originalCurrency: currentCurrency,
       convertedAmount,
-      ruleCurrency,
+      thresholdCurrency,
+      organizationBaseCurrency,
       isAboveRule1Threshold,
       rule1Threshold: rule1?.threshold,
-      note: 'Rule 2 is a multiplier, not a threshold'
+      note: 'Using organization baseCurrency for threshold comparison'
     });
 
     // Find the approver in the approvers list
@@ -1185,14 +1197,14 @@ export function PRView() {
           amount,
           convertedAmount,
           rule1Threshold: rule1.threshold,
-          ruleCurrency,
+          thresholdCurrency,
           approverName: approver.name
         });
         // Show both original and converted amounts if currencies differ
-        const amountDisplay = currentCurrency !== ruleCurrency 
-          ? `${amount.toLocaleString()} ${currentCurrency} (${convertedAmount.toLocaleString()} ${ruleCurrency})`
-          : `${amount.toLocaleString()} ${ruleCurrency}`;
-        return `Selected approver (${approver.name}) cannot approve amounts above ${rule1.threshold.toLocaleString()} ${ruleCurrency}. This PR amount is ${amountDisplay}. Only Level 1 or 2 approvers can approve this amount.`;
+        const amountDisplay = currentCurrency !== thresholdCurrency 
+          ? `${amount.toLocaleString()} ${currentCurrency} (${convertedAmount.toLocaleString()} ${thresholdCurrency})`
+          : `${amount.toLocaleString()} ${thresholdCurrency}`;
+        return `Selected approver (${approver.name}) cannot approve amounts above ${rule1.threshold.toLocaleString()} ${thresholdCurrency}. This PR amount is ${amountDisplay}. Only Level 1 or 2 approvers can approve this amount.`;
       }
       console.log(`Validation PASSED: Level ${permissionLevel} approver within Rule 1 threshold`);
       return null;

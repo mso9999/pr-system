@@ -20,6 +20,7 @@ import { notificationService } from '@/services/notification';
 import { User } from '@/types/user';
 import { validatePRForApproval } from '@/utils/prValidation';
 import { referenceDataService } from '@/services/referenceData';
+import { organizationService } from '@/services/organizationService';
 import { Rule } from '@/types/referenceData';
 import { convertAmountWithMetadata, getRuleCurrency, ConversionResult } from '@/utils/currencyConverter';
 
@@ -106,12 +107,26 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
         setError('PR not found');
         return;
       }
+      
+      // Fetch organization's base currency for threshold comparisons
+      let organizationBaseCurrency = 'LSL'; // Default fallback
+      try {
+        const orgDetails = await organizationService.getOrganizationByName(pr.organization);
+        if (orgDetails?.baseCurrency) {
+          organizationBaseCurrency = orgDetails.baseCurrency;
+          console.log(`[ProcurementActions] Organization base currency: ${organizationBaseCurrency}`);
+        }
+      } catch (orgError) {
+        console.warn('[ProcurementActions] Could not fetch organization base currency:', orgError);
+      }
+      
       console.log('[ProcurementActions] PR data fetched:', {
         id: pr.id,
         status: pr.status,
         paymentType: pr.paymentType,
         quoteRequirementOverride: pr.quoteRequirementOverride,
-        approver: pr.approver
+        approver: pr.approver,
+        organizationBaseCurrency
       });
 
       let newStatus: PRStatus;
@@ -270,16 +285,16 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           const rule3 = rules?.find((r: Rule) => (r as any).number === 3 || (r as any).number === '3');
           const rule5 = rules?.find((r: Rule) => (r as any).number === 5 || (r as any).number === '5');
           
-          // Convert PR amount to rule currency for proper threshold comparison
+          // Use organization's base currency for threshold comparison (most authoritative source)
           let requiresDualApproval = false;
           let conversionResult: ConversionResult | null = null;
-          const rule3Currency = rule3 ? getRuleCurrency(rule3) : 'LSL';
+          const thresholdCurrency = organizationBaseCurrency || getRuleCurrency(rule3);
           
           if (rule3 && rule5) {
             conversionResult = await convertAmountWithMetadata(
               pr.estimatedAmount || 0,
               pr.currency || 'LSL',
-              rule3Currency
+              thresholdCurrency
             );
             requiresDualApproval = conversionResult.convertedAmount >= rule3.threshold;
             
@@ -287,7 +302,8 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               originalAmount: conversionResult.originalAmount,
               originalCurrency: conversionResult.originalCurrency,
               convertedAmount: conversionResult.convertedAmount,
-              ruleCurrency: conversionResult.targetCurrency,
+              thresholdCurrency,
+              organizationBaseCurrency,
               exchangeRate: conversionResult.exchangeRate,
               rateSource: conversionResult.rateSource,
               apiProvider: conversionResult.apiProvider,
@@ -320,7 +336,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               hasValidApprover1,
               hasValidApprover2,
               rule3Threshold: rule3?.threshold,
-              rule3Currency,
+              thresholdCurrency,
               estimatedAmount: pr.estimatedAmount,
               convertedAmount: conversionResult?.convertedAmount
             });
@@ -334,12 +350,12 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               // Show both original and converted amounts if currencies differ
               const prCurrency = pr.currency || 'LSL';
               const convertedAmount = conversionResult?.convertedAmount || pr.estimatedAmount || 0;
-              const amountDisplay = prCurrency !== rule3Currency 
-                ? `${pr.estimatedAmount?.toLocaleString()} ${prCurrency} (${convertedAmount.toLocaleString()} ${rule3Currency})`
-                : `${pr.estimatedAmount?.toLocaleString()} ${rule3Currency}`;
+              const amountDisplay = prCurrency !== thresholdCurrency 
+                ? `${pr.estimatedAmount?.toLocaleString()} ${prCurrency} (${convertedAmount.toLocaleString()} ${thresholdCurrency})`
+                : `${pr.estimatedAmount?.toLocaleString()} ${thresholdCurrency}`;
               setError(
                 `SECOND APPROVER REQUIRED:\n\n` +
-                `This PR amount (${amountDisplay}) exceeds the dual approval threshold (${rule3?.threshold?.toLocaleString()} ${rule3Currency}).\n\n` +
+                `This PR amount (${amountDisplay}) exceeds the dual approval threshold (${rule3?.threshold?.toLocaleString()} ${thresholdCurrency}).\n\n` +
                 `Please assign a second approver before pushing to approval. You can do this by editing the PR and selecting a second approver from the dropdown.`
               );
               return;
