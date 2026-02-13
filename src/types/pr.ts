@@ -441,6 +441,27 @@ export interface PRRequest {
   canceledAt?: string;
   /** Additional notes */
   notes?: string;
+  
+  // Exchange Rate Tracking (for cross-currency threshold enforcement)
+  /** Exchange rate used for threshold validation */
+  thresholdExchangeRate?: {
+    /** Source currency (PR currency) */
+    fromCurrency: string;
+    /** Target currency (rule currency) */
+    toCurrency: string;
+    /** Exchange rate used */
+    rate: number;
+    /** Source of the rate (live_api, fallback_static, firestore, etc.) */
+    source: string;
+    /** API provider if live rate was used */
+    apiProvider?: string;
+    /** When the rate was fetched */
+    fetchedAt: string;
+    /** Original amount in PR currency */
+    originalAmount: number;
+    /** Converted amount in rule currency */
+    convertedAmount: number;
+  };
 }
 
 /**

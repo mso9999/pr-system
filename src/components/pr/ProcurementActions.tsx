@@ -21,7 +21,7 @@ import { User } from '@/types/user';
 import { validatePRForApproval } from '@/utils/prValidation';
 import { referenceDataService } from '@/services/referenceData';
 import { Rule } from '@/types/referenceData';
-import { convertAmount, getRuleCurrency } from '@/utils/currencyConverter';
+import { convertAmountWithMetadata, getRuleCurrency, ConversionResult } from '@/utils/currencyConverter';
 
 interface ProcurementActionsProps {
   prId: string;
@@ -272,22 +272,25 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           
           // Convert PR amount to rule currency for proper threshold comparison
           let requiresDualApproval = false;
-          let convertedAmountForRule3 = pr.estimatedAmount || 0;
+          let conversionResult: ConversionResult | null = null;
           const rule3Currency = rule3 ? getRuleCurrency(rule3) : 'LSL';
           
           if (rule3 && rule5) {
-            convertedAmountForRule3 = await convertAmount(
+            conversionResult = await convertAmountWithMetadata(
               pr.estimatedAmount || 0,
               pr.currency || 'LSL',
               rule3Currency
             );
-            requiresDualApproval = convertedAmountForRule3 >= rule3.threshold;
+            requiresDualApproval = conversionResult.convertedAmount >= rule3.threshold;
             
             console.log('[ProcurementActions] Dual approval threshold check with currency conversion:', {
-              originalAmount: pr.estimatedAmount,
-              originalCurrency: pr.currency,
-              convertedAmount: convertedAmountForRule3,
-              ruleCurrency: rule3Currency,
+              originalAmount: conversionResult.originalAmount,
+              originalCurrency: conversionResult.originalCurrency,
+              convertedAmount: conversionResult.convertedAmount,
+              ruleCurrency: conversionResult.targetCurrency,
+              exchangeRate: conversionResult.exchangeRate,
+              rateSource: conversionResult.rateSource,
+              apiProvider: conversionResult.apiProvider,
               rule3Threshold: rule3.threshold,
               requiresDualApproval
             });
@@ -319,7 +322,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               rule3Threshold: rule3?.threshold,
               rule3Currency,
               estimatedAmount: pr.estimatedAmount,
-              convertedAmount: convertedAmountForRule3
+              convertedAmount: conversionResult?.convertedAmount
             });
 
             if (!hasValidApprover1) {
@@ -330,8 +333,9 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             if (!hasValidApprover2) {
               // Show both original and converted amounts if currencies differ
               const prCurrency = pr.currency || 'LSL';
+              const convertedAmount = conversionResult?.convertedAmount || pr.estimatedAmount || 0;
               const amountDisplay = prCurrency !== rule3Currency 
-                ? `${pr.estimatedAmount?.toLocaleString()} ${prCurrency} (${convertedAmountForRule3.toLocaleString()} ${rule3Currency})`
+                ? `${pr.estimatedAmount?.toLocaleString()} ${prCurrency} (${convertedAmount.toLocaleString()} ${rule3Currency})`
                 : `${pr.estimatedAmount?.toLocaleString()} ${rule3Currency}`;
               setError(
                 `SECOND APPROVER REQUIRED:\n\n` +
@@ -355,9 +359,9 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           });
 
           console.log('[ProcurementActions] Calling prService.updatePR...');
-          // Update PR with PO number, dual approval settings, and approver information
+          // Update PR with PO number, dual approval settings, approver information, and exchange rate audit trail
           // This must happen BEFORE sending notifications so handlers can fetch the updated PR
-          await prService.updatePR(prId, {
+          const updateData: any = {
             prNumber: poNumber,
             status: newStatus,
             approver: pr.approver || null,  // Top-level approver field for notification handler
@@ -373,7 +377,24 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               approvalHistory: [],
               lastUpdated: new Date().toISOString()
             }
-          });
+          };
+          
+          // Add exchange rate audit trail if currency conversion was performed
+          if (conversionResult && conversionResult.originalCurrency !== conversionResult.targetCurrency) {
+            updateData.thresholdExchangeRate = {
+              fromCurrency: conversionResult.originalCurrency,
+              toCurrency: conversionResult.targetCurrency,
+              rate: conversionResult.exchangeRate,
+              source: conversionResult.rateSource,
+              apiProvider: conversionResult.apiProvider || undefined,
+              fetchedAt: conversionResult.rateTimestamp,
+              originalAmount: conversionResult.originalAmount,
+              convertedAmount: conversionResult.convertedAmount
+            };
+            console.log('[ProcurementActions] Recording exchange rate for audit trail:', updateData.thresholdExchangeRate);
+          }
+          
+          await prService.updatePR(prId, updateData);
           console.log('[ProcurementActions] PR updated successfully, now updating status history...');
 
           // Update status history separately
