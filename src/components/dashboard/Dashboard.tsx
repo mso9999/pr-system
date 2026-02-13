@@ -62,8 +62,33 @@ const UrgentTableRow = styled(TableRow)(({ theme }) => ({
   },
 }));
 
-// localStorage key for persisting selected organization
+// localStorage keys for persisting dashboard state
 const SELECTED_ORG_STORAGE_KEY = 'dashboard_selected_organization';
+const SELECTED_STATUS_STORAGE_KEY = 'dashboard_selected_status';
+
+// Helper to load selected status from localStorage
+const loadSelectedStatusFromStorage = (): PRStatus | null => {
+  try {
+    const stored = localStorage.getItem(SELECTED_STATUS_STORAGE_KEY);
+    if (stored && Object.values(PRStatus).includes(stored as PRStatus)) {
+      console.log('[Dashboard] Loaded saved status from storage:', stored);
+      return stored as PRStatus;
+    }
+  } catch (e) {
+    console.warn('[Dashboard] Error loading status from storage:', e);
+  }
+  return null;
+};
+
+// Helper to save selected status to localStorage
+const saveSelectedStatusToStorage = (status: PRStatus) => {
+  try {
+    localStorage.setItem(SELECTED_STATUS_STORAGE_KEY, status);
+    console.log('[Dashboard] Saved status to storage:', status);
+  } catch (e) {
+    console.warn('[Dashboard] Error saving status to storage:', e);
+  }
+};
 
 // Helper to load selected org from localStorage
 const loadSelectedOrgFromStorage = (): { id: string; name: string } | null => {
@@ -173,7 +198,19 @@ export const Dashboard = () => {
       }
     }
   }, [selectedOrg]);
-  const [selectedStatus, setSelectedStatus] = useState<PRStatus>(PRStatus.SUBMITTED);
+  
+  // Initialize status from localStorage, fall back to SUBMITTED
+  const [selectedStatus, setSelectedStatus] = useState<PRStatus>(() => {
+    const stored = loadSelectedStatusFromStorage();
+    return stored || PRStatus.SUBMITTED;
+  });
+  
+  // Handler for status changes that also persists to localStorage
+  const handleStatusChange = useCallback((status: PRStatus) => {
+    console.log('[Dashboard] Status selected:', status);
+    setSelectedStatus(status);
+    saveSelectedStatusToStorage(status);
+  }, []);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [prToDelete, setPrToDelete] = useState<PRRequest | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -1024,7 +1061,7 @@ export const Dashboard = () => {
                       key={status}
                       label={`${statusConfig[status]?.label} (${statusCount})`}
                       color={selectedStatus === status ? 'primary' : 'default'}
-                      onClick={() => setSelectedStatus(status)}
+                      onClick={() => handleStatusChange(status)}
                       sx={{ 
                         cursor: 'pointer',
                         minHeight: '44px',
