@@ -1,6 +1,7 @@
 import { 
   doc, 
-  getDoc, 
+  getDoc,
+  getDocFromServer,
   getDocs, 
   updateDoc, 
   collection, 
@@ -136,8 +137,10 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
 
   try {
     const prDocRef = doc(db, PR_COLLECTION, prId);
-    // Note: Firestore v9+ doesn't support source option in getDoc
-    const docSnap = await getDoc(prDocRef);
+    // Use getDocFromServer when we need fresh data, otherwise use cached getDoc
+    const docSnap = forceServerFetch 
+      ? await getDocFromServer(prDocRef)
+      : await getDoc(prDocRef);
 
     if (!docSnap.exists()) {
       console.warn(`PR with ID ${prId} not found.`);
