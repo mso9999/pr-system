@@ -111,11 +111,12 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     // Trigger validation if amount changes
     if (field === 'estimatedAmount') {
       setTimeout(() => {
-        const error = validateApproverAmount();
-        setApproverAmountError(error);
-        if (error) {
-          console.log('Approver amount validation error:', error);
-        }
+        validateApproverAmount().then(error => {
+          setApproverAmountError(error);
+          if (error) {
+            console.log('Approver amount validation error:', error);
+          }
+        });
       }, 100);
     }
   };
@@ -128,11 +129,12 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     
     // Trigger validation after approver change
     setTimeout(() => {
-      const error = validateApproverAmount();
-      setApproverAmountError(error);
-      if (error) {
-        console.log('Approver amount validation error:', error);
-      }
+      validateApproverAmount().then(error => {
+        setApproverAmountError(error);
+        if (error) {
+          console.log('Approver amount validation error:', error);
+        }
+      });
     }, 100);
   };
 
