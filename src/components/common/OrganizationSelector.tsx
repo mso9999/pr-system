@@ -121,26 +121,48 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
         onOrganizationsLoadedRef.current?.(filteredOrgs.map(org => ({ id: org.id, name: org.name })));
 
         // Only set default once to prevent infinite loops
-        if (!hasSetDefault && !valueId) {
-          const shouldDefaultToAll = includeAllOption;
-
-          if (shouldDefaultToAll) {
-            console.log('Setting default organization to ALL');
+        // Also check if value is already a valid organization to avoid overriding persisted selections
+        if (!hasSetDefault) {
+          // Check if current value is a valid organization in the filtered list
+          const currentValueIsValid = valueId && (
+            valueId === ALL_ORGANIZATIONS_OPTION.id ||
+            filteredOrgs.some(org => org.id === valueId || org.name === valueId)
+          );
+          
+          console.log('[OrganizationSelector] Default check:', { 
+            hasSetDefault, 
+            valueId, 
+            currentValueIsValid,
+            includeAllOption,
+            filteredOrgsCount: filteredOrgs.length 
+          });
+          
+          if (currentValueIsValid) {
+            // Value is already valid, don't override
+            console.log('[OrganizationSelector] Current value is valid, not overriding:', valueId);
             setHasSetDefault(true);
-            onChangeRef.current(ALL_ORGANIZATIONS_OPTION);
-            return;
-          }
+          } else if (!valueId) {
+            // No value set, apply defaults
+            const shouldDefaultToAll = includeAllOption;
 
-          // Set default organization if no value is selected and user has an organization
-          if (user?.organization && filteredOrgs.length > 0) {
-            // Try to find org by normalized ID
-            const targetId = normalizeOrganizationId(user.organization as any);
-            const userOrg = filteredOrgs.find(org => normalizeOrganizationId(org) === targetId);
-            
-            if (userOrg) {
-              console.log('Setting default organization:', userOrg);
+            if (shouldDefaultToAll) {
+              console.log('[OrganizationSelector] Setting default organization to ALL');
               setHasSetDefault(true);
-              onChangeRef.current({ id: userOrg.id, name: userOrg.name });
+              onChangeRef.current(ALL_ORGANIZATIONS_OPTION);
+              return;
+            }
+
+            // Set default organization if no value is selected and user has an organization
+            if (user?.organization && filteredOrgs.length > 0) {
+              // Try to find org by normalized ID
+              const targetId = normalizeOrganizationId(user.organization as any);
+              const userOrg = filteredOrgs.find(org => normalizeOrganizationId(org) === targetId);
+              
+              if (userOrg) {
+                console.log('[OrganizationSelector] Setting default organization:', userOrg);
+                setHasSetDefault(true);
+                onChangeRef.current({ id: userOrg.id, name: userOrg.name });
+              }
             }
           }
         }

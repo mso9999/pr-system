@@ -69,6 +69,7 @@ const SELECTED_ORG_STORAGE_KEY = 'dashboard_selected_organization';
 const loadSelectedOrgFromStorage = (): { id: string; name: string } | null => {
   try {
     const stored = localStorage.getItem(SELECTED_ORG_STORAGE_KEY);
+    console.log('[Dashboard] Reading from localStorage:', { key: SELECTED_ORG_STORAGE_KEY, stored });
     if (stored) {
       const parsed = JSON.parse(stored);
       // Validate the structure
@@ -76,6 +77,7 @@ const loadSelectedOrgFromStorage = (): { id: string; name: string } | null => {
         console.log('[Dashboard] Loaded saved organization from storage:', parsed);
         return parsed;
       }
+      console.warn('[Dashboard] Invalid organization structure in storage:', parsed);
     }
   } catch (e) {
     console.warn('[Dashboard] Error loading organization from storage:', e);
@@ -87,10 +89,12 @@ const loadSelectedOrgFromStorage = (): { id: string; name: string } | null => {
 const saveSelectedOrgToStorage = (org: { id: string; name: string } | null) => {
   try {
     if (org) {
-      localStorage.setItem(SELECTED_ORG_STORAGE_KEY, JSON.stringify(org));
-      console.log('[Dashboard] Saved organization to storage:', org);
+      const toStore = { id: org.id, name: org.name };
+      localStorage.setItem(SELECTED_ORG_STORAGE_KEY, JSON.stringify(toStore));
+      console.log('[Dashboard] Saved organization to storage:', toStore);
     } else {
       localStorage.removeItem(SELECTED_ORG_STORAGE_KEY);
+      console.log('[Dashboard] Removed organization from storage');
     }
   } catch (e) {
     console.warn('[Dashboard] Error saving organization to storage:', e);
@@ -109,9 +113,29 @@ export const Dashboard = () => {
   );
   // Initialize from localStorage, fall back to ALL_ORGANIZATIONS_OPTION
   const [selectedOrg, setSelectedOrg] = useState<{ id: string; name: string } | null>(() => {
-    return loadSelectedOrgFromStorage() || ALL_ORGANIZATIONS_OPTION;
+    const stored = loadSelectedOrgFromStorage();
+    console.log('[Dashboard] Initial state from localStorage:', stored);
+    return stored || ALL_ORGANIZATIONS_OPTION;
   });
   const [availableOrgs, setAvailableOrgs] = useState<{ id: string; name: string }[]>([]);
+  const [hasRestoredFromStorage, setHasRestoredFromStorage] = useState(false);
+  
+  // Re-check localStorage after mount to handle any timing issues
+  useEffect(() => {
+    if (!hasRestoredFromStorage) {
+      const stored = loadSelectedOrgFromStorage();
+      console.log('[Dashboard] Post-mount localStorage check:', { stored, currentOrg: selectedOrg });
+      if (stored && stored.id !== ALL_ORGANIZATIONS_OPTION.id) {
+        // Only update if we have a stored value that's different from current
+        if (!selectedOrg || selectedOrg.id === ALL_ORGANIZATIONS_OPTION.id || selectedOrg.id !== stored.id) {
+          console.log('[Dashboard] Restoring organization from localStorage:', stored);
+          setSelectedOrg(stored);
+        }
+      }
+      setHasRestoredFromStorage(true);
+    }
+  }, [hasRestoredFromStorage, selectedOrg]);
+  
   const handleOrganizationChange = useCallback((org: { id: string; name: string }) => {
     console.log('Organization selected:', org);
     setSelectedOrg(org);
@@ -122,11 +146,28 @@ export const Dashboard = () => {
   const handleOrganizationsLoaded = useCallback((orgs: { id: string; name: string }[]) => {
     setAvailableOrgs(orgs);
     
+    // Re-read from localStorage to get the most current stored value
+    const storedOrg = loadSelectedOrgFromStorage();
+    const currentOrg = storedOrg || selectedOrg;
+    
+    console.log('[Dashboard] Organizations loaded, validating selection:', { 
+      storedOrg, 
+      selectedOrg, 
+      currentOrg,
+      availableOrgIds: orgs.map(o => o.id)
+    });
+    
     // Validate that the currently selected org (from localStorage) is still valid
-    if (selectedOrg && selectedOrg.id !== ALL_ORGANIZATIONS_OPTION.id) {
-      const isValidOrg = orgs.some(org => org.id === selectedOrg.id || org.name === selectedOrg.name);
-      if (!isValidOrg) {
-        console.log('[Dashboard] Stored organization no longer available, resetting to All Organizations:', selectedOrg);
+    if (currentOrg && currentOrg.id !== ALL_ORGANIZATIONS_OPTION.id) {
+      const isValidOrg = orgs.some(org => org.id === currentOrg.id || org.name === currentOrg.name);
+      if (isValidOrg) {
+        // Org is valid - make sure state matches localStorage
+        if (!selectedOrg || selectedOrg.id !== currentOrg.id) {
+          console.log('[Dashboard] Restoring valid organization from storage:', currentOrg);
+          setSelectedOrg(currentOrg);
+        }
+      } else {
+        console.log('[Dashboard] Stored organization no longer available, resetting to All Organizations:', currentOrg);
         setSelectedOrg(ALL_ORGANIZATIONS_OPTION);
         saveSelectedOrgToStorage(ALL_ORGANIZATIONS_OPTION);
       }
