@@ -1123,10 +1123,34 @@ export function PRView() {
       rule.id === 'rule_2' ||
       rule.description?.toLowerCase().includes('second approval threshold')
     );
+    
+    // Find Rule 3 (dual approval threshold) and Rule 5 (requires 2 approvers)
+    const rule3 = rules.find((rule: any) => 
+      rule.number === 3 || 
+      rule.number === '3' ||
+      rule.ruleNumber === 3 ||
+      rule.ruleNumber === '3' ||
+      rule.name === 'Rule 3' ||
+      rule.id === 'rule_3' ||
+      rule.description?.toLowerCase().includes('high value threshold') ||
+      rule.description?.toLowerCase().includes('dual approval')
+    );
+    
+    const rule5 = rules.find((rule: any) => 
+      rule.number === 5 || 
+      rule.number === '5' ||
+      rule.ruleNumber === 5 ||
+      rule.ruleNumber === '5' ||
+      rule.name === 'Rule 5' ||
+      rule.id === 'rule_5' ||
+      rule.description?.toLowerCase().includes('requires 2 approvers')
+    );
 
     console.log('Rules found:', { 
       rule1: rule1 ? { name: rule1.name, threshold: rule1.threshold, currency: rule1.currency, uom: rule1.uom, organizationId: rule1.organizationId } : null,
-      rule2: rule2 ? { name: rule2.name, threshold: rule2.threshold, currency: rule2.currency, uom: rule2.uom, organizationId: rule2.organizationId } : null
+      rule2: rule2 ? { name: rule2.name, threshold: rule2.threshold, currency: rule2.currency, uom: rule2.uom, organizationId: rule2.organizationId } : null,
+      rule3: rule3 ? { name: rule3.name, threshold: rule3.threshold, currency: rule3.currency, uom: rule3.uom, organizationId: rule3.organizationId } : null,
+      rule5: rule5 ? { name: rule5.name, threshold: rule5.threshold } : null
     });
 
     // CRITICAL: If Rule 1 is not found, we CANNOT validate - must fail
@@ -1146,6 +1170,9 @@ export function PRView() {
     const convertedAmount = await convertAmount(amount, currentCurrency, thresholdCurrency);
     const isAboveRule1Threshold = rule1 && convertedAmount > rule1.threshold;
     
+    // Check if dual approval is required (Rule 3 threshold)
+    const isAboveRule3Threshold = rule3 && rule5 && convertedAmount >= rule3.threshold;
+    
     console.log('Threshold checks with currency conversion:', { 
       originalAmount: amount,
       originalCurrency: currentCurrency,
@@ -1154,8 +1181,35 @@ export function PRView() {
       organizationBaseCurrency,
       isAboveRule1Threshold,
       rule1Threshold: rule1?.threshold,
+      isAboveRule3Threshold,
+      rule3Threshold: rule3?.threshold,
       note: 'Using organization baseCurrency for threshold comparison'
     });
+    
+    // Check if dual approval is required but second approver is not set
+    if (isAboveRule3Threshold) {
+      const currentApprover2 = selectedApprover2 || editedPR.approver2 || pr?.approver2;
+      const hasValidSecondApprover = currentApprover2 && 
+        currentApprover2.trim() !== '' && 
+        currentApprover2.trim().toLowerCase() !== '(not set)' &&
+        currentApprover2.trim().toLowerCase() !== 'not set';
+      
+      console.log('Dual approval check:', {
+        isAboveRule3Threshold,
+        rule3Threshold: rule3?.threshold,
+        convertedAmount,
+        thresholdCurrency,
+        currentApprover2,
+        hasValidSecondApprover
+      });
+      
+      if (!hasValidSecondApprover) {
+        const amountDisplay = currentCurrency !== thresholdCurrency 
+          ? `${amount.toLocaleString()} ${currentCurrency} (${convertedAmount.toLocaleString()} ${thresholdCurrency})`
+          : `${convertedAmount.toLocaleString()} ${thresholdCurrency}`;
+        return `SECOND APPROVER REQUIRED: This PR amount (${amountDisplay}) exceeds the dual approval threshold (${rule3?.threshold?.toLocaleString()} ${thresholdCurrency}). Please assign a second approver.`;
+      }
+    }
 
     // Find the approver in the approvers list
     const approver = approvers.find(a => a.id === currentApprover);
@@ -1240,7 +1294,21 @@ export function PRView() {
     handleFieldChange('approver2', approverId);
   };
   
-  // Auto-validate whenever approver or amount changes
+  // Validate on PR load (for dual approval check in view mode)
+  useEffect(() => {
+    // Validate when PR and rules are loaded (even in view mode for dual approval warning)
+    if (pr && rules.length > 0 && pr.estimatedAmount && organizationBaseCurrency) {
+      validateApproverAmount().then(error => {
+        setApproverAmountError(error);
+        
+        if (error) {
+          console.log('PR validation issue detected on load:', error);
+        }
+      });
+    }
+  }, [pr?.id, rules.length, organizationBaseCurrency]);
+  
+  // Auto-validate whenever approver or amount changes in edit mode
   useEffect(() => {
     // Only validate when rules are loaded and we're in edit mode
     if (rules.length > 0 && (selectedApprover || editedPR.estimatedAmount)) {
