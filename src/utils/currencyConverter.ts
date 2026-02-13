@@ -438,22 +438,27 @@ const ORG_CURRENCY_MAP: Record<string, string> = {
 
 /**
  * Get the currency from a rule object (handles both 'uom' and 'currency' fields)
- * Now also auto-detects based on organization ID if the rule doesn't have a currency set
+ * PRIORITY ORDER:
+ * 1. Organization-based detection (most reliable - org determines currency)
+ * 2. Explicit currency field (if not 'LSL' which is the old default)
+ * 3. Default fallback to 'LSL'
  */
 export function getRuleCurrency(rule: { uom?: string; currency?: string; organizationId?: string; organization?: string } | null | undefined): string {
   if (!rule) return 'LSL';
   
-  // First, check if the rule has an explicit currency
-  const explicitCurrency = rule.uom || rule.currency;
-  if (explicitCurrency) {
-    return explicitCurrency;
-  }
-  
-  // If no explicit currency, try to detect from organization
+  // PRIORITY 1: Check organization - this is the most authoritative source
   const orgId = rule.organizationId || rule.organization;
   if (orgId && ORG_CURRENCY_MAP[orgId]) {
-    console.log(`[getRuleCurrency] Auto-detected currency ${ORG_CURRENCY_MAP[orgId]} for organization ${orgId}`);
-    return ORG_CURRENCY_MAP[orgId];
+    const orgCurrency = ORG_CURRENCY_MAP[orgId];
+    console.log(`[getRuleCurrency] Using organization-based currency: ${orgCurrency} for org ${orgId}`);
+    return orgCurrency;
+  }
+  
+  // PRIORITY 2: Check explicit currency (for unknown organizations)
+  const explicitCurrency = rule.currency || rule.uom;
+  if (explicitCurrency) {
+    console.log(`[getRuleCurrency] Using explicit currency: ${explicitCurrency} (org: ${orgId || 'unknown'})`);
+    return explicitCurrency;
   }
   
   // Default fallback

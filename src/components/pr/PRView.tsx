@@ -1115,8 +1115,8 @@ export function PRView() {
     );
 
     console.log('Rules found:', { 
-      rule1: rule1 ? { name: rule1.name, threshold: rule1.threshold, currency: rule1.currency, uom: rule1.uom } : null,
-      rule2: rule2 ? { name: rule2.name, threshold: rule2.threshold, currency: rule2.currency, uom: rule2.uom } : null
+      rule1: rule1 ? { name: rule1.name, threshold: rule1.threshold, currency: rule1.currency, uom: rule1.uom, organizationId: rule1.organizationId } : null,
+      rule2: rule2 ? { name: rule2.name, threshold: rule2.threshold, currency: rule2.currency, uom: rule2.uom, organizationId: rule2.organizationId } : null
     });
 
     // CRITICAL: If Rule 1 is not found, we CANNOT validate - must fail
