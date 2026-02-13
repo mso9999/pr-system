@@ -21,6 +21,7 @@ import { User } from '@/types/user';
 import { validatePRForApproval } from '@/utils/prValidation';
 import { referenceDataService } from '@/services/referenceData';
 import { Rule } from '@/types/referenceData';
+import { convertAmount, getRuleCurrency } from '@/utils/currencyConverter';
 
 interface ProcurementActionsProps {
   prId: string;
@@ -268,7 +269,29 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           // Rule 3 is the high-value threshold that triggers dual approval requirement (Rule 5)
           const rule3 = rules?.find((r: Rule) => (r as any).number === 3 || (r as any).number === '3');
           const rule5 = rules?.find((r: Rule) => (r as any).number === 5 || (r as any).number === '5');
-          const requiresDualApproval = rule3 && rule5 && pr.estimatedAmount >= rule3.threshold;
+          
+          // Convert PR amount to rule currency for proper threshold comparison
+          let requiresDualApproval = false;
+          let convertedAmountForRule3 = pr.estimatedAmount || 0;
+          const rule3Currency = rule3 ? getRuleCurrency(rule3) : 'LSL';
+          
+          if (rule3 && rule5) {
+            convertedAmountForRule3 = await convertAmount(
+              pr.estimatedAmount || 0,
+              pr.currency || 'LSL',
+              rule3Currency
+            );
+            requiresDualApproval = convertedAmountForRule3 >= rule3.threshold;
+            
+            console.log('[ProcurementActions] Dual approval threshold check with currency conversion:', {
+              originalAmount: pr.estimatedAmount,
+              originalCurrency: pr.currency,
+              convertedAmount: convertedAmountForRule3,
+              ruleCurrency: rule3Currency,
+              rule3Threshold: rule3.threshold,
+              requiresDualApproval
+            });
+          }
 
           // Helper to check if an approver value is valid (not null, undefined, empty, or placeholder)
           const isValidApprover = (approverId: string | null | undefined): boolean => {
@@ -294,7 +317,9 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               hasValidApprover1,
               hasValidApprover2,
               rule3Threshold: rule3?.threshold,
-              estimatedAmount: pr.estimatedAmount
+              rule3Currency,
+              estimatedAmount: pr.estimatedAmount,
+              convertedAmount: convertedAmountForRule3
             });
 
             if (!hasValidApprover1) {
@@ -303,9 +328,14 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             }
 
             if (!hasValidApprover2) {
+              // Show both original and converted amounts if currencies differ
+              const prCurrency = pr.currency || 'LSL';
+              const amountDisplay = prCurrency !== rule3Currency 
+                ? `${pr.estimatedAmount?.toLocaleString()} ${prCurrency} (${convertedAmountForRule3.toLocaleString()} ${rule3Currency})`
+                : `${pr.estimatedAmount?.toLocaleString()} ${rule3Currency}`;
               setError(
                 `SECOND APPROVER REQUIRED:\n\n` +
-                `This PR amount (${pr.estimatedAmount?.toLocaleString()} ${pr.currency}) exceeds the dual approval threshold (${rule3?.threshold?.toLocaleString()} ${pr.currency}).\n\n` +
+                `This PR amount (${amountDisplay}) exceeds the dual approval threshold (${rule3?.threshold?.toLocaleString()} ${rule3Currency}).\n\n` +
                 `Please assign a second approver before pushing to approval. You can do this by editing the PR and selecting a second approver from the dropdown.`
               );
               return;

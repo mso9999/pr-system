@@ -300,7 +300,7 @@ export const PRDetails = () => {
       {/* Action Buttons */}
       {canApprove && isPendingApproval && (
         <Paper sx={{ p: 3 }}>
-          <Stack direction="row" spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap>
             <Button
               variant="contained"
               color="success"

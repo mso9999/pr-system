@@ -208,8 +208,20 @@ export async function validatePRForApproval(
     }
   }
   // If no quotes or amounts, use estimated amount for threshold comparison
+  // IMPORTANT: Convert estimated amount to rule currency for proper comparison
   if (lowestQuoteAmount === 0) {
-    lowestQuoteAmount = pr.estimatedAmount || 0;
+    const estimatedInRuleCurrency = await convertAmount(
+      pr.estimatedAmount || 0,
+      pr.currency || 'LSL',
+      rule1?.currency || rule1?.uom || 'LSL'
+    );
+    lowestQuoteAmount = estimatedInRuleCurrency;
+    console.log('Using converted estimated amount for threshold comparison:', {
+      originalAmount: pr.estimatedAmount,
+      originalCurrency: pr.currency,
+      targetCurrency: rule1?.currency || rule1?.uom || 'LSL',
+      convertedAmount: lowestQuoteAmount
+    });
   }
 
   // Calculate the key thresholds

@@ -1116,10 +1116,10 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   };
 
   const renderDialog = () => (
-    <Dialog 
-      open={isDialogOpen} 
+    <Dialog
+      open={isDialogOpen}
       onClose={handleCloseDialog}
-      maxWidth="sm"
+      maxWidth={selectedType === 'vendors' ? 'md' : 'sm'}
       fullWidth
     >
       <DialogTitle>

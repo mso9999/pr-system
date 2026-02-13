@@ -33,6 +33,7 @@ import { ReferenceDataItem } from '../../../types/referenceData';
 import { organizations } from '../../../services/localReferenceData';
 import { OrganizationSelector } from '../../common/OrganizationSelector';
 import { VendorSelectionDialog } from '../../common/VendorSelectionDialog';
+import { convertAmount, getRuleCurrency } from '../../../utils/currencyConverter';
 
 interface BasicInformationStepProps {
   formState: FormState;
@@ -136,9 +137,10 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
   };
 
   // Validation function to check if selected approvers can approve the amount
-  const validateApproverAmount = (): string | null => {
+  const validateApproverAmount = async (): Promise<string | null> => {
     console.log('validateApproverAmount called:', {
       estimatedAmount: formState.estimatedAmount,
+      currency: formState.currency,
       approvers: formState.approvers,
       rules: rules,
       rulesLength: rules?.length
@@ -152,6 +154,7 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     const amount = typeof formState.estimatedAmount === 'string' 
       ? parseFloat(formState.estimatedAmount) 
       : formState.estimatedAmount;
+    const prCurrency = formState.currency || 'LSL';
 
     if (isNaN(amount) || amount <= 0) {
       return null;
@@ -167,6 +170,7 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       number: r.number, 
       threshold: r.threshold,
       currency: r.currency,
+      uom: r.uom,
       description: r.description
     })));
     
@@ -194,12 +198,25 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     const effectiveRule1 = rule1;
     const effectiveRule3 = rule3;
     
-    console.log('Effective rules:', { effectiveRule1, effectiveRule3, amount });
+    // Get rule currency and convert amount for comparison
+    const rule1Currency = getRuleCurrency(effectiveRule1);
+    const convertedAmount = await convertAmount(amount, prCurrency, rule1Currency);
+    
+    console.log('Effective rules with currency conversion:', { 
+      effectiveRule1, 
+      effectiveRule3, 
+      originalAmount: amount,
+      originalCurrency: prCurrency,
+      convertedAmount,
+      ruleCurrency: rule1Currency
+    });
 
     // Check if amount is above Rule 1 threshold (Finance Approver limit)
-    const isAboveRule1Threshold = effectiveRule1 ? amount > effectiveRule1.threshold : false;
+    const isAboveRule1Threshold = effectiveRule1 ? convertedAmount > effectiveRule1.threshold : false;
     // Rule 3 is the high-value threshold for dual approval
-    const isAboveRule3Threshold = effectiveRule3 ? amount > effectiveRule3.threshold : false;
+    const rule3Currency = effectiveRule3 ? getRuleCurrency(effectiveRule3) : rule1Currency;
+    const convertedAmountForRule3 = effectiveRule3 ? await convertAmount(amount, prCurrency, rule3Currency) : convertedAmount;
+    const isAboveRule3Threshold = effectiveRule3 ? convertedAmountForRule3 > effectiveRule3.threshold : false;
 
     // Check if any selected approver cannot approve this amount
     const invalidApprovers = formState.approvers.filter(approverId => {
@@ -236,8 +253,12 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       });
 
       if (isAboveRule1Threshold && effectiveRule1) {
-        console.log('Rule 1 error:', { effectiveRule1, amount, isAboveRule1Threshold });
-        return `Selected approver(s) (${invalidApproverNames.join(', ')}) cannot approve amounts above ${effectiveRule1.threshold} ${effectiveRule1.currency}. Only Level 1 or 2 approvers can approve this amount.`;
+        console.log('Rule 1 error:', { effectiveRule1, amount, convertedAmount, isAboveRule1Threshold });
+        // Show both original and converted amounts if currencies differ
+        const amountDisplay = prCurrency !== rule1Currency 
+          ? `${amount.toLocaleString()} ${prCurrency} (${convertedAmount.toLocaleString()} ${rule1Currency})`
+          : `${amount.toLocaleString()} ${rule1Currency}`;
+        return `Selected approver(s) (${invalidApproverNames.join(', ')}) cannot approve amounts above ${effectiveRule1.threshold.toLocaleString()} ${rule1Currency}. This PR amount is ${amountDisplay}. Only Level 1 or 2 approvers can approve this amount.`;
       }
       
       // Generic error for invalid approvers (Level 3, 5)
@@ -251,14 +272,15 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
   React.useEffect(() => {
     // Only validate when rules are loaded and we have approvers or amount
     if (rules.length > 0 && (formState.approvers.length > 0 || formState.estimatedAmount)) {
-      const error = validateApproverAmount();
-      setApproverAmountError(error);
-      
-      if (error) {
-        console.log('Approver-amount validation error detected:', error);
-      }
+      validateApproverAmount().then(error => {
+        setApproverAmountError(error);
+        
+        if (error) {
+          console.log('Approver-amount validation error detected:', error);
+        }
+      });
     }
-  }, [formState.approvers, formState.estimatedAmount, rules.length]);
+  }, [formState.approvers, formState.estimatedAmount, formState.currency, rules.length]);
 
   // Show vehicle field only for vehicle expense type
   const showVehicleField = expenseTypes.find(type => type.id === formState.expenseType)?.code === '4';

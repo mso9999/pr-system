@@ -40,6 +40,8 @@ import { organizationService } from '@/services/organizationService';
 import { referenceDataService } from '@/services/referenceData';
 import { imageUrlToBase64, imageUrlToBase64ViaImage } from '@/utils/imageUtils';
 import { FileUploadManager } from '@/components/common/FileUploadManager';
+import { convertAmount, getRuleCurrency } from '@/utils/currencyConverter';
+import { Rule } from '@/types/referenceData';
 
 interface ApprovedStatusActionsProps {
   pr: PRRequest;
@@ -64,6 +66,11 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   const [popOverride, setPopOverride] = useState(pr.popOverride || false);
   const [popJustification, setPopJustification] = useState(pr.popOverrideJustification || '');
   const [etd, setEtd] = useState(pr.estimatedDeliveryDate || '');
+  
+  // State for organization rules and thresholds (with currency conversion)
+  const [rules, setRules] = useState<Rule[]>([]);
+  const [convertedRule1Threshold, setConvertedRule1Threshold] = useState<{ threshold: number; currency: string } | null>(null);
+  const [convertedRule3Threshold, setConvertedRule3Threshold] = useState<{ threshold: number; currency: string } | null>(null);
   
   // State for final price entry
   const [finalPrice, setFinalPrice] = useState(pr.finalPrice?.toString() || '');
@@ -135,6 +142,84 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     setFinalPriceNotes(pr.finalPriceVarianceNotes || '');
   }, [pr]);
 
+  // Load organization rules and calculate currency-converted thresholds
+  useEffect(() => {
+    const loadRulesAndCalculateThresholds = async () => {
+      if (!pr.organization) return;
+      
+      try {
+        // Get organization ID from pr.organization (handle both string and object formats)
+        const orgId = typeof pr.organization === 'string' 
+          ? pr.organization 
+          : (pr.organization as any)?.id || pr.organization;
+        
+        // Load rules for this organization
+        const orgRules = await referenceDataService.getRulesByOrganization(orgId);
+        setRules(orgRules);
+        
+        // Find Rule 1 and Rule 3
+        const rule1 = orgRules.find((r: Rule) => 
+          (r as any).number === 1 || (r as any).number === '1'
+        );
+        const rule3 = orgRules.find((r: Rule) => 
+          (r as any).number === 3 || (r as any).number === '3'
+        );
+        
+        const prCurrency = pr.currency || 'LSL';
+        
+        // Convert PR amount to rule currencies for threshold comparison
+        if (rule1) {
+          const rule1Currency = getRuleCurrency(rule1);
+          const convertedAmount = await convertAmount(
+            pr.estimatedAmount || 0,
+            prCurrency,
+            rule1Currency
+          );
+          setConvertedRule1Threshold({
+            threshold: rule1.threshold,
+            currency: rule1Currency
+          });
+          console.log('ApprovedStatusActions: Rule 1 threshold check', {
+            prAmount: pr.estimatedAmount,
+            prCurrency,
+            convertedAmount,
+            rule1Threshold: rule1.threshold,
+            rule1Currency,
+            isAbove: convertedAmount > rule1.threshold
+          });
+        }
+        
+        if (rule3) {
+          const rule3Currency = getRuleCurrency(rule3);
+          const convertedAmount = await convertAmount(
+            pr.estimatedAmount || 0,
+            prCurrency,
+            rule3Currency
+          );
+          setConvertedRule3Threshold({
+            threshold: rule3.threshold,
+            currency: rule3Currency
+          });
+          console.log('ApprovedStatusActions: Rule 3 threshold check', {
+            prAmount: pr.estimatedAmount,
+            prCurrency,
+            convertedAmount,
+            rule3Threshold: rule3.threshold,
+            rule3Currency,
+            isAbove: convertedAmount > rule3.threshold
+          });
+        }
+      } catch (error) {
+        console.error('ApprovedStatusActions: Error loading rules', error);
+        // Fallback to defaults if rules can't be loaded
+        setConvertedRule1Threshold({ threshold: 5000, currency: 'LSL' });
+        setConvertedRule3Threshold({ threshold: 50000, currency: 'LSL' });
+      }
+    };
+    
+    loadRulesAndCalculateThresholds();
+  }, [pr.organization, pr.estimatedAmount, pr.currency]);
+
   // Permission checks (normalize permissionLevel to number in case it's stored as string)
   const permissionLevel = typeof currentUser.permissionLevel === 'number'
     ? currentUser.permissionLevel
@@ -150,17 +235,51 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   // Finance Admin (Level 4) can upload PoP, Proforma, and move PO to ORDERED status
   const canTakeAction = isProcurement || isFinanceAdmin || isFinanceApprover || isAdmin;
 
-  // Get rule thresholds from organization (will need to fetch from org config)
-  // For now, using a placeholder - should fetch from organization settings
-  const rule1Threshold = pr.organization ? 5000 : 5000; // TODO: Fetch from org config
-  const rule3Threshold = pr.organization ? 50000 : 50000; // TODO: Fetch from org config (high-value threshold for PO doc requirement)
+  // Use loaded rule thresholds with currency conversion (with fallbacks)
+  const rule1Threshold = convertedRule1Threshold?.threshold ?? 5000;
+  const rule1Currency = convertedRule1Threshold?.currency ?? 'LSL';
+  const rule3Threshold = convertedRule3Threshold?.threshold ?? 50000;
+  const rule3Currency = convertedRule3Threshold?.currency ?? 'LSL';
+
+  // Check if proforma and PoP are required by converting PR amount to rule currency
+  // Note: The actual comparison is done in the useEffect where we have async access to convertAmount
+  // Here we use a simplified check - the useEffect logs the proper converted comparison
+  const [isAboveRule1, setIsAboveRule1] = useState(false);
+  const [isAboveRule3, setIsAboveRule3] = useState(false);
+  
+  // Calculate threshold comparisons when rules are loaded
+  useEffect(() => {
+    const calculateThresholds = async () => {
+      if (!convertedRule1Threshold || !convertedRule3Threshold) return;
+      
+      const prCurrency = pr.currency || 'LSL';
+      
+      // Convert PR amount to Rule 1 currency and check
+      const amountInRule1Currency = await convertAmount(
+        pr.estimatedAmount || 0,
+        prCurrency,
+        rule1Currency
+      );
+      setIsAboveRule1(amountInRule1Currency > rule1Threshold);
+      
+      // Convert PR amount to Rule 3 currency and check  
+      const amountInRule3Currency = await convertAmount(
+        pr.estimatedAmount || 0,
+        prCurrency,
+        rule3Currency
+      );
+      setIsAboveRule3(amountInRule3Currency > rule3Threshold);
+    };
+    
+    calculateThresholds();
+  }, [convertedRule1Threshold, convertedRule3Threshold, pr.estimatedAmount, pr.currency, rule1Threshold, rule1Currency, rule3Threshold, rule3Currency]);
 
   // Check if proforma and PoP are required
-  const proformaRequired = (pr.estimatedAmount || 0) > rule1Threshold;
-  const popRequired = (pr.estimatedAmount || 0) > rule1Threshold;
+  const proformaRequired = isAboveRule1;
+  const popRequired = isAboveRule1;
   
   // Check if PO document is required (high-value PRs above Rule 3)
-  const poDocRequired = (pr.estimatedAmount || 0) > rule3Threshold;
+  const poDocRequired = isAboveRule3;
 
   if (!canTakeAction) {
     return null;
@@ -1313,7 +1432,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
                       })}
                     </Typography>
                   </Alert>
-                  <Stack direction="row" spacing={2}>
+                  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap>
                     <Button
                       variant="contained"
                       startIcon={<DownloadIcon />}
@@ -1379,7 +1498,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
               <Typography variant="subtitle1" gutterBottom>
                 Inter-team Notifications
               </Typography>
-              <Stack direction="row" spacing={2}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap>
                 {isProcurement && (
                   <Button
                     variant="outlined"

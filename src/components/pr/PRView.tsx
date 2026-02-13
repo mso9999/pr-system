@@ -58,6 +58,7 @@ import { prService } from '@/services/pr';
 import { PRRequest, PRStatus, LineItem, Quote, Attachment, ApprovalHistoryItem, WorkflowHistoryItem, UserReference as User, PRUpdateParams } from '@/types/pr';
 import { ReferenceDataItem } from '@/types/referenceData';
 import { formatCurrency } from '@/utils/formatters';
+import { convertAmount, getRuleCurrency } from '@/utils/currencyConverter';
 
 // Helper to check if a string looks like a Firebase UID (should not be displayed)
 const isUidLike = (value: string | undefined): boolean => {
@@ -1039,14 +1040,14 @@ export function PRView() {
     // Trigger validation if amount changes
     // Note: Don't validate on 'approver' change here because handleApproverChange already does it
     if (field === 'estimatedAmount') {
-      setTimeout(() => {
-        const error = validateApproverAmount();
+      setTimeout(async () => {
+        const error = await validateApproverAmount();
         setApproverAmountError(error);
       }, 100);
     }
   };
 
-  const validateApproverAmount = (): string | null => {
+  const validateApproverAmount = async (): Promise<string | null> => {
     // Don't validate if rules haven't loaded yet - show warning instead
     if (!rules || rules.length === 0) {
       console.warn('Rules not loaded yet - validation skipped');
@@ -1055,6 +1056,7 @@ export function PRView() {
 
     const currentAmount = editedPR.estimatedAmount || pr?.estimatedAmount;
     const currentApprover = selectedApprover || editedPR.approver || pr?.approver;
+    const currentCurrency = editedPR.currency || pr?.currency || 'LSL';
 
     // If we have both amount and approver, we MUST validate
     if (!currentAmount || !currentApprover) {
@@ -1071,6 +1073,7 @@ export function PRView() {
     
     console.log('Validating approver-amount combination:', { 
       amount, 
+      currency: currentCurrency,
       approverId: currentApprover, 
       rulesCount: rules.length,
       approversCount: approvers.length
@@ -1084,6 +1087,7 @@ export function PRView() {
       ruleNumber: r.ruleNumber,
       threshold: r.threshold,
       currency: r.currency,
+      uom: r.uom,
       description: r.description,
       allFields: Object.keys(r)
     })));
@@ -1111,8 +1115,8 @@ export function PRView() {
     );
 
     console.log('Rules found:', { 
-      rule1: rule1 ? { name: rule1.name, threshold: rule1.threshold, currency: rule1.currency } : null,
-      rule2: rule2 ? { name: rule2.name, threshold: rule2.threshold, currency: rule2.currency } : null
+      rule1: rule1 ? { name: rule1.name, threshold: rule1.threshold, currency: rule1.currency, uom: rule1.uom } : null,
+      rule2: rule2 ? { name: rule2.name, threshold: rule2.threshold, currency: rule2.currency, uom: rule2.uom } : null
     });
 
     // CRITICAL: If Rule 1 is not found, we CANNOT validate - must fail
@@ -1124,9 +1128,18 @@ export function PRView() {
       return 'Cannot validate approver permissions. Approval rules not properly configured. Please contact system administrator.';
     }
 
-    const isAboveRule1Threshold = rule1 && amount > rule1.threshold;
+    // Get the rule's currency (supports both 'currency' and 'uom' fields)
+    const ruleCurrency = getRuleCurrency(rule1);
     
-    console.log('Threshold checks:', { 
+    // Convert amount to rule currency for proper threshold comparison
+    const convertedAmount = await convertAmount(amount, currentCurrency, ruleCurrency);
+    const isAboveRule1Threshold = rule1 && convertedAmount > rule1.threshold;
+    
+    console.log('Threshold checks with currency conversion:', { 
+      originalAmount: amount,
+      originalCurrency: currentCurrency,
+      convertedAmount,
+      ruleCurrency,
       isAboveRule1Threshold,
       rule1Threshold: rule1?.threshold,
       note: 'Rule 2 is a multiplier, not a threshold'
@@ -1170,10 +1183,16 @@ export function PRView() {
       if (isAboveRule1Threshold && rule1) {
         console.error(`Validation FAILED: Level ${permissionLevel} cannot approve above Rule 1 threshold`, {
           amount,
+          convertedAmount,
           rule1Threshold: rule1.threshold,
+          ruleCurrency,
           approverName: approver.name
         });
-        return `Selected approver (${approver.name}) cannot approve amounts above ${rule1.threshold} ${rule1.currency}. Only Level 1 or 2 approvers can approve this amount.`;
+        // Show both original and converted amounts if currencies differ
+        const amountDisplay = currentCurrency !== ruleCurrency 
+          ? `${amount.toLocaleString()} ${currentCurrency} (${convertedAmount.toLocaleString()} ${ruleCurrency})`
+          : `${amount.toLocaleString()} ${ruleCurrency}`;
+        return `Selected approver (${approver.name}) cannot approve amounts above ${rule1.threshold.toLocaleString()} ${ruleCurrency}. This PR amount is ${amountDisplay}. Only Level 1 or 2 approvers can approve this amount.`;
       }
       console.log(`Validation PASSED: Level ${permissionLevel} approver within Rule 1 threshold`);
       return null;
@@ -1213,12 +1232,13 @@ export function PRView() {
   useEffect(() => {
     // Only validate when rules are loaded and we're in edit mode
     if (rules.length > 0 && (selectedApprover || editedPR.estimatedAmount)) {
-      const error = validateApproverAmount();
-      setApproverAmountError(error);
-      
-      if (error) {
-        console.log('Approver-amount validation error detected:', error);
-      }
+      validateApproverAmount().then(error => {
+        setApproverAmountError(error);
+        
+        if (error) {
+          console.log('Approver-amount validation error detected:', error);
+        }
+      });
     }
   }, [selectedApprover, editedPR.estimatedAmount, rules.length]);
 
@@ -1268,7 +1288,7 @@ export function PRView() {
     }
     
     // Validate approver vs amount before saving (unless override is in place)
-    const approverAmountError = validateApproverAmount();
+    const approverAmountError = await validateApproverAmount();
     if (approverAmountError && !pr.ruleValidationOverride) {
       // Show override dialog instead of blocking immediately
       setApproverAmountError(approverAmountError);
@@ -2359,12 +2379,12 @@ export function PRView() {
     if (!pr) return null;
 
     // Allow editing quotes in edit mode for appropriate statuses
-    // Procurement (level 3) and admins (level 1) can edit in SUBMITTED, IN_QUEUE
+    // Procurement (level 3) and admins (level 1) can edit in SUBMITTED, IN_QUEUE, PENDING_APPROVAL
     // Requestors (level 5) can edit in SUBMITTED, REVISION_REQUIRED (their own PRs)
     const canEditQuotes = isEditMode && (
-      (isProcurement && (pr.status === PRStatus.SUBMITTED || pr.status === PRStatus.IN_QUEUE)) ||
+      (isProcurement && (pr.status === PRStatus.SUBMITTED || pr.status === PRStatus.IN_QUEUE || pr.status === PRStatus.PENDING_APPROVAL)) ||
       (isAdmin) ||
-      (isRequestor && pr.requestorId === currentUser?.id && 
+      (isRequestor && pr.requestorId === currentUser?.id &&
         (pr.status === PRStatus.SUBMITTED || pr.status === PRStatus.REVISION_REQUIRED))
     );
 

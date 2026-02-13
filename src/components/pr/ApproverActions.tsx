@@ -865,7 +865,7 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
       )}
 
       {/* Action buttons */}
-      <Stack direction="row" spacing={2} mb={2}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} flexWrap="wrap" useFlexGap sx={{ mb: 2 }}>
         {actions.includes('approve') && (
           <Button
             variant="contained"
