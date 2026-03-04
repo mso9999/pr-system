@@ -93,7 +93,7 @@ export const LoginPage = () => {
         onSubmit={handleLogin}
         sx={{
           width: '100%',
-          maxWidth: 400,
+          maxWidth: 560,
           p: 4,
           borderRadius: 2,
           bgcolor: 'background.paper',
@@ -101,7 +101,7 @@ export const LoginPage = () => {
         }}
       >
         <Typography component="h1" variant="h5" sx={{ mb: 3 }}>
-          {t('auth.signIn')}
+          {t('auth.signInTitle')}
         </Typography>
 
         {(localError || globalError) && (
@@ -144,15 +144,36 @@ export const LoginPage = () => {
           disabled={loading}
         />
 
-        <Button
-          type="submit"
-          fullWidth
-          variant="contained"
-          sx={{ mt: 3, mb: 2 }}
-          disabled={loading}
-        >
-          {loading ? <CircularProgress size={24} /> : t('auth.signIn')}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'stretch', mt: 3, mb: 2 }}>
+          <Button
+            component="a"
+            href="http://am.1pwrafrica.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="contained"
+            sx={{ flex: 1, justifyContent: 'center' }}
+          >
+            {t('auth.assetManagement')}
+          </Button>
+          <Button
+            type="submit"
+            variant="contained"
+            sx={{ flex: 1, justifyContent: 'center' }}
+            disabled={loading}
+          >
+            {loading ? <CircularProgress size={24} /> : t('auth.procurement')}
+          </Button>
+          <Button
+            component="a"
+            href="http://prod.1pwrafrica.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            variant="contained"
+            sx={{ flex: 1, justifyContent: 'center' }}
+          >
+            {t('auth.jobCards')}
+          </Button>
+        </Box>
 
         <Box sx={{ mt: 2, textAlign: 'center' }}>
           <Link

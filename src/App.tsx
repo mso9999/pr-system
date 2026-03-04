@@ -38,10 +38,16 @@ function App() {
   useEffect(() => {
     console.log('App: Setting up auth state listener');
     dispatch(setLoading(true));
-    
+
+    // Safety: if auth doesn't resolve within 8s (e.g. offline/slow Firebase), show login so the app doesn't hang
+    const timeoutId = setTimeout(() => {
+      dispatch(setLoading(false));
+      console.warn('App: Auth resolution timeout – showing login.');
+    }, 8000);
+
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       console.log('App: Auth state changed:', { email: firebaseUser?.email, loading });
-      
+
       try {
         if (firebaseUser) {
           console.log('App: Getting user details for:', firebaseUser.uid);
@@ -67,6 +73,7 @@ function App() {
     });
 
     return () => {
+      clearTimeout(timeoutId);
       console.log('App: Cleaning up auth state listener');
       unsubscribe();
     };

@@ -142,10 +142,13 @@ console.log('Firebase storage initialized successfully');
 
 // Initialize Firebase Functions with the correct region and custom domain
 export const functions = getFunctions(app, 'us-central1');
-if (import.meta.env.DEV) {
+// Only connect to emulator when explicitly enabled (avoids hanging when emulator isn't running)
+if (import.meta.env.DEV && import.meta.env.VITE_USE_FUNCTIONS_EMULATOR === 'true') {
   console.log('🔧 Connecting to Functions emulator at http://localhost:5001');
   connectFunctionsEmulator(functions, 'localhost', 5001);
   console.log('✅ Functions emulator connected successfully');
+} else if (import.meta.env.DEV) {
+  console.log('🌐 Using production functions (set VITE_USE_FUNCTIONS_EMULATOR=true to use emulator)');
 } else {
   console.log('🌐 Using production functions');
 }
