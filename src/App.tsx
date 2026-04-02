@@ -27,6 +27,7 @@ import { Box, Typography, CircularProgress } from '@mui/material';
 import { SnackbarProvider } from './contexts/SnackbarContext';
 import "./App.css";
 import { TestEmail } from './components/TestEmail';
+import { SupplierHistoryView } from './components/suppliers/SupplierHistoryView';
 
 function App() {
   console.log('App: Component rendering');
@@ -106,6 +107,7 @@ function App() {
                   <Route path="/pr/:id/edit" element={<PRView />} />
                   <Route path="/archive" element={<ArchiveList />} />
                   <Route path="/archive/:id" element={<ArchiveView />} />
+                  <Route path="/suppliers" element={<SupplierHistoryView />} />
                   <Route path="/help" element={<UserManual />} />
                   <Route path="/test-email" element={<TestEmail />} />
                   <Route path="/" element={<Navigate to="/dashboard" replace />} />

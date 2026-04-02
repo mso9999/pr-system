@@ -33,7 +33,8 @@ import {
   FilterList,
   HelpOutline,
   Archive as ArchiveIcon,
-  Assignment
+  Assignment,
+  Business
 } from '@mui/icons-material';
 import { signOut } from '../../services/auth';
 import { clearUser } from '../../store/slices/authSlice';
@@ -158,6 +159,12 @@ export const Layout = () => {
           <ListItemText primary="PRs" />
         </NavItem>
         <Divider />
+        <NavItem onClick={() => handleNavigation('/suppliers')}>
+          <ListItemIcon>
+            <Business />
+          </ListItemIcon>
+          <ListItemText primary="Suppliers" />
+        </NavItem>
         <NavItem onClick={() => handleNavigation('/archive')}>
           <ListItemIcon>
             <ArchiveIcon />
