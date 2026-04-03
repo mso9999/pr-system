@@ -167,11 +167,21 @@ function extractAttachments(pr: any, prNumber: string): SupplierAttachment[] {
 // ─── Main Service ────────────────────────────────────────────────────
 
 class SupplierHistoryService {
+  // In-memory cache with 5-minute TTL
+  private cache = new Map<string, { data: SupplierIndex; ts: number }>();
+  private CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
   /**
    * Build the full supplier transaction index from purchaseRequests.
    * Groups transactions by vendor name and returns sorted summaries.
+   * Results are cached for 5 minutes per organization filter.
    */
   async getSupplierIndex(organizationFilter?: string): Promise<SupplierIndex> {
+    const cacheKey = organizationFilter || "__all__";
+    const cached = this.cache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < this.CACHE_TTL) {
+      return cached.data;
+    }
     const prRef = collection(db, "purchaseRequests");
 
     // Fetch all PRs (optionally filtered by org)
@@ -285,12 +295,17 @@ class SupplierHistoryService {
       })
       .sort((a, b) => b.transactionCount - a.transactionCount);
 
-    return {
+    const result: SupplierIndex = {
       totalSuppliers: suppliers.length,
       totalTransactions: suppliers.reduce((sum, s) => sum + s.transactionCount, 0),
       suppliers,
       lastUpdated: new Date().toISOString(),
     };
+
+    // Store in cache
+    this.cache.set(cacheKey, { data: result, ts: Date.now() });
+
+    return result;
   }
 
   /**
