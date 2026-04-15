@@ -714,10 +714,17 @@ export const Dashboard = () => {
                pr.requestorEmail?.toLowerCase() === user.email?.toLowerCase();
       }
 
-      // Approvers (Level 2): PRs in PENDING_APPROVAL assigned to them
+      // Approvers (Level 2): PRs in PENDING_APPROVAL assigned to them and not yet approved by them
       if (user.permissionLevel === 2) {
-        return pr.status === PRStatus.PENDING_APPROVAL && 
-               (pr.approver === user.id || pr.approver2 === user.id);
+        if (pr.status !== PRStatus.PENDING_APPROVAL) return false;
+        const isFirstApprover = pr.approver === user.id;
+        const isSecondApprover = pr.approver2 === user.id;
+        if (!isFirstApprover && !isSecondApprover) return false;
+        // Exclude if this user has already approved
+        const workflow = pr.approvalWorkflow;
+        if (isFirstApprover && workflow?.firstApprovalComplete) return false;
+        if (isSecondApprover && workflow?.secondApprovalComplete) return false;
+        return true;
       }
 
       // Finance (Level 4, 6): POs in APPROVED status (need to move to ORDERED)
@@ -732,9 +739,15 @@ export const Dashboard = () => {
 
       // Admin (Level 1): See all actionable items - combination of above
       if (user.permissionLevel === 1) {
-        // PRs assigned to them for approval
-        const isAssignedApprover = pr.status === PRStatus.PENDING_APPROVAL && 
-                                   (pr.approver === user.id || pr.approver2 === user.id);
+        // PRs assigned to them for approval and not yet approved by them
+        const workflow = pr.approvalWorkflow;
+        const isFirstApprover = pr.approver === user.id;
+        const isSecondApprover = pr.approver2 === user.id;
+        const alreadyApproved = (isFirstApprover && workflow?.firstApprovalComplete) ||
+                                (isSecondApprover && workflow?.secondApprovalComplete);
+        const isAssignedApprover = pr.status === PRStatus.PENDING_APPROVAL &&
+                                   (isFirstApprover || isSecondApprover) &&
+                                   !alreadyApproved;
         // PRs in procurement-actionable statuses
         const isProcurementActionable = procurementActionableStatuses.includes(pr.status as PRStatus);
         // PRs in APPROVED needing finance action
@@ -946,8 +959,11 @@ export const Dashboard = () => {
     }}>
       <Grid container spacing={{ xs: 2, sm: 3 }}>
         <Grid item xs={12}>
-          <Paper sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}>
-            <Box sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { md: 200 } }}>
+          <Paper
+            data-tutorial="dashboard-toolbar"
+            sx={{ p: { xs: 1.5, sm: 2 }, display: 'flex', flexDirection: { xs: 'column', md: 'row' }, alignItems: { xs: 'stretch', md: 'center' }, gap: 2 }}
+          >
+            <Box data-tutorial="dashboard-org" sx={{ width: { xs: '100%', md: 'auto' }, minWidth: { md: 200 } }}>
               <OrganizationSelector
                 value={selectedOrg || ''}
                 includeAllOption
@@ -956,15 +972,19 @@ export const Dashboard = () => {
               />
             </Box>
             <Box sx={{ flexGrow: 1, display: { xs: 'none', md: 'block' } }} />
-            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 1, width: { xs: '100%', md: 'auto' } }}>
+            <Box
+              data-tutorial="dashboard-actions"
+              sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap', gap: 1, width: { xs: '100%', md: 'auto' }, maxWidth: '100%' }}
+            >
               {showMyActionsButton && (
                 <Button
+                  data-tutorial="dashboard-my-actions"
                   variant={myActionsFilter ? "contained" : "outlined"}
                   color="secondary"
                   startIcon={<AssignmentIcon />}
                   onClick={handleMyActionsToggle}
                   fullWidth={isMobile}
-                  sx={{ minHeight: '44px' }}
+                  sx={{ minHeight: '44px', flexShrink: 0 }}
                 >
                   <Badge badgeContent={myActionsCount} color="error" max={99}>
                     <Box sx={{ pr: myActionsCount > 0 ? 2 : 0 }}>
@@ -979,17 +999,18 @@ export const Dashboard = () => {
                 startIcon={<ArchiveIcon />}
                 onClick={() => navigate('/archive')}
                 fullWidth={isMobile}
-                sx={{ minHeight: '44px' }}
+                sx={{ minHeight: '44px', flexShrink: 0 }}
               >
                 Archive Dataroom
               </Button>
               <Button
+                data-tutorial="dashboard-new-pr"
                 variant="contained"
                 color="primary"
                 startIcon={<AddIcon />}
                 onClick={() => navigate('/pr/new')}
                 fullWidth={isMobile}
-                sx={{ minHeight: '44px' }}
+                sx={{ minHeight: '44px', flexShrink: 0 }}
               >
                 {t('nav.newPR')}
               </Button>
@@ -1029,7 +1050,7 @@ export const Dashboard = () => {
         )}
 
         <Grid item xs={12}>
-          <Paper sx={{ p: 2 }}>
+          <Paper data-tutorial="dashboard-table" sx={{ p: 2 }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                 <Typography variant="h5" component="h1">
@@ -1046,12 +1067,15 @@ export const Dashboard = () => {
             </Box>
 
             <Box sx={{ mb: 2 }}>
-              <Box sx={{ 
-                display: 'flex', 
-                flexDirection: { xs: 'column', sm: 'row' },
-                gap: 1,
-                flexWrap: 'wrap'
-              }}>
+              <Box
+                data-tutorial="dashboard-status-row"
+                sx={{
+                  display: 'flex',
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: 1,
+                  flexWrap: 'wrap',
+                }}
+              >
                 {Object.values(PRStatus)
                   .filter(status => status !== PRStatus.DRAFT) // Filter out DRAFT status
                   .map((status) => {

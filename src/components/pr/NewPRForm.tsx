@@ -312,7 +312,6 @@ export const NewPRForm = () => {
           const fullOrg = await organizationService.getOrganizationById(formState.organization.id);
           if (fullOrg?.baseCurrency) {
             orgBaseCurrency = fullOrg.baseCurrency;
-            console.log(`[NewPRForm] Setting currency to organization's baseCurrency: ${orgBaseCurrency}`);
           }
         } catch (error) {
           console.warn('[NewPRForm] Could not load organization baseCurrency, using default:', error);
@@ -321,17 +320,26 @@ export const NewPRForm = () => {
         // Clear organization-specific form fields when organization changes
         // This prevents invalid selections from previous organization
         // Only set currency if it's currently empty, otherwise preserve user's selection
-        setFormState(prev => ({
-          ...prev,
-          department: '',
-          projectCategory: '',
-          sites: [],
-          expenseType: '',
-          vehicle: undefined,
-          approvers: [], // Clear approvers when org changes
-          // Only update currency if it was empty, otherwise keep user's selection
-          currency: prev.currency || orgBaseCurrency,
-        }));
+        setFormState(prev => {
+          // Check prev.currency inside callback to get current value
+          const shouldSetCurrency = !prev.currency;
+          if (shouldSetCurrency) {
+            console.log(`[NewPRForm] Setting currency to organization's baseCurrency: ${orgBaseCurrency}`);
+          } else {
+            console.log(`[NewPRForm] Preserving user's currency selection: ${prev.currency}`);
+          }
+          return {
+            ...prev,
+            department: '',
+            projectCategory: '',
+            sites: [],
+            expenseType: '',
+            vehicle: undefined,
+            approvers: [], // Clear approvers when org changes
+            // Only update currency if it was empty, otherwise keep user's selection
+            currency: shouldSetCurrency ? orgBaseCurrency : prev.currency,
+          };
+        });
 
       } catch (error) {
         console.error('Error loading reference data:', error);
@@ -1226,27 +1234,28 @@ export const NewPRForm = () => {
         </Box>
       ) : (
         <>
-          <Stepper 
-            activeStep={activeStep} 
-            orientation={isMobile ? 'vertical' : 'horizontal'}
-            sx={{ mb: 4 }}
-          >
-            {steps.map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+          <Box data-tutorial="newpr-stepper" sx={{ mb: 4 }}>
+            <Stepper activeStep={activeStep} orientation={isMobile ? 'vertical' : 'horizontal'}>
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+          </Box>
 
           {renderStep()}
 
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: { xs: 'column-reverse', sm: 'row' },
-            justifyContent: 'flex-end', 
-            gap: 1,
-            mt: 2 
-          }}>
+          <Box
+            data-tutorial="newpr-nav"
+            sx={{
+              display: 'flex',
+              flexDirection: { xs: 'column-reverse', sm: 'row' },
+              justifyContent: 'flex-end',
+              gap: 1,
+              mt: 2,
+            }}
+          >
             <Button
               color="inherit"
               disabled={activeStep === 0}

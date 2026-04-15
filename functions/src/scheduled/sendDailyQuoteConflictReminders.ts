@@ -133,7 +133,7 @@ export const sendDailyQuoteConflictReminders = functions.pubsub
 </ol>
 
 <p style="margin-top: 30px;">
-  <a href="${functions.config().app?.url || 'https://pr-system.1pwrafrica.com'}/pr/${prId}" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+  <a href="${process.env.APP_URL || 'https://pr-system.1pwrafrica.com'}/pr/${prId}" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
     View PR and Resolve Conflict
   </a>
 </p>
@@ -155,7 +155,7 @@ Conflicting Selections:
 
 Action Required: One or both approvers must change their selection to match.
 
-View PR: ${functions.config().app?.url || 'https://pr-system.1pwrafrica.com'}/pr/${prId}
+View PR: ${process.env.APP_URL || 'https://pr-system.1pwrafrica.com'}/pr/${prId}
           `.trim();
 
           // Send email to both approvers

@@ -87,61 +87,63 @@ export const Layout: React.FC = () => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+        <Toolbar sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1, minWidth: 'fit-content' }}>
             {t('pr.purchaseRequest')} System
           </Typography>
-          <Button color="inherit" onClick={() => navigate('/dashboard')}>
-            {t('nav.dashboard')}
-          </Button>
-          <Button color="inherit" onClick={() => navigate('/pr/new')}>
-            {t('nav.newPR')}
-          </Button>
-          {user && user.permissionLevel && user.permissionLevel <= 4 && (
-            <Button color="inherit" onClick={() => navigate('/admin')}>
-              {t('nav.admin')}
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, alignItems: 'center' }}>
+            <Button color="inherit" onClick={() => navigate('/dashboard')} sx={{ flexShrink: 0 }}>
+              {t('nav.dashboard')}
             </Button>
-          )}
-          <Box sx={{ mx: 2 }}>
-            <LanguageToggle />
+            <Button color="inherit" onClick={() => navigate('/pr/new')} sx={{ flexShrink: 0 }}>
+              {t('nav.newPR')}
+            </Button>
+            {user && user.permissionLevel && user.permissionLevel <= 4 && (
+              <Button color="inherit" onClick={() => navigate('/admin')} sx={{ flexShrink: 0 }}>
+                {t('nav.admin')}
+              </Button>
+            )}
+            <Box sx={{ mx: 1 }}>
+              <LanguageToggle />
+            </Box>
+            {user && (
+              <>
+                <IconButton
+                  size="large"
+                  aria-label="account of current user"
+                  aria-controls="menu-appbar"
+                  aria-haspopup="true"
+                  onClick={handleMenu}
+                  color="inherit"
+                >
+                  <AccountCircle />
+                </IconButton>
+                <Menu
+                  id="menu-appbar"
+                  anchorEl={anchorEl}
+                  anchorOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                  keepMounted
+                  transformOrigin={{
+                    vertical: 'top',
+                    horizontal: 'right',
+                  }}
+                  open={Boolean(anchorEl)}
+                  onClose={handleClose}
+                >
+                  <MenuItem disabled>
+                    {user.email} ({user.role})
+                  </MenuItem>
+                  <MenuItem onClick={handleLogout}>{t('auth.logout')}</MenuItem>
+                </Menu>
+              </>
+            )}
           </Box>
-          {user && (
-            <div>
-              <IconButton
-                size="large"
-                aria-label="account of current user"
-                aria-controls="menu-appbar"
-                aria-haspopup="true"
-                onClick={handleMenu}
-                color="inherit"
-              >
-                <AccountCircle />
-              </IconButton>
-              <Menu
-                id="menu-appbar"
-                anchorEl={anchorEl}
-                anchorOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                keepMounted
-                transformOrigin={{
-                  vertical: 'top',
-                  horizontal: 'right',
-                }}
-                open={Boolean(anchorEl)}
-                onClose={handleClose}
-              >
-                <MenuItem disabled>
-                  {user.email} ({user.role})
-                </MenuItem>
-                <MenuItem onClick={handleLogout}>{t('auth.logout')}</MenuItem>
-              </Menu>
-            </div>
-          )}
         </Toolbar>
       </AppBar>
-      <Container component="main" sx={{ flexGrow: 1, py: 3 }}>
+      <Container component="main" maxWidth={false} sx={{ flexGrow: 1, py: 3, px: { xs: 1, sm: 2, md: 3 } }}>
         <Outlet />
       </Container>
     </Box>

@@ -33,6 +33,8 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   'inclusive_pueco benin': 'pueco_benin',
   'inclusive pueco_benin': 'pueco_benin',
   'inclusive pueco benin': 'pueco_benin',
+  'inclusive_pue': 'pueco_benin',
+  'inclusive pue': 'pueco_benin',
   smp: 'smp',
   'sotho_minigrid_portfolio': 'smp',
   'sotho minigrid portfolio': 'smp',

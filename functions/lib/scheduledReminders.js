@@ -42,25 +42,21 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var _a, _b, _c, _d, _e;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const nodemailer = __importStar(require("nodemailer"));
 const db = admin.firestore();
-// Create nodemailer transporter for SMTP
 const transporter = nodemailer.createTransport({
-    host: ((_a = functions.config().smtp) === null || _a === void 0 ? void 0 : _a.host) || 'mail.1pwrafrica.com',
-    port: parseInt(((_b = functions.config().smtp) === null || _b === void 0 ? void 0 : _b.port) || '465'),
-    secure: ((_c = functions.config().smtp) === null || _c === void 0 ? void 0 : _c.secure) === 'true',
+    host: process.env.SMTP_HOST || 'mail.1pwrafrica.com',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: process.env.SMTP_SECURE !== 'false',
     auth: {
-        user: ((_d = functions.config().smtp) === null || _d === void 0 ? void 0 : _d.user) || 'notifications@1pwrafrica.com',
-        pass: ((_e = functions.config().smtp) === null || _e === void 0 ? void 0 : _e.password) || ''
+        user: process.env.SMTP_USER || 'notifications@1pwrafrica.com',
+        pass: process.env.SMTP_PASSWORD || ''
     },
-    tls: {
-        rejectUnauthorized: false
-    }
+    tls: { rejectUnauthorized: false }
 });
 /**
  * Calculate business days between two dates (excluding weekends)

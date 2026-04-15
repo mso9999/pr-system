@@ -71,7 +71,151 @@
     "departments": "Départements",
     "vendors": "Fournisseurs",
     "rules": "Règles",
-    "referenceData": "Données de référence"
+    "referenceData": "Données de référence",
+    "tutorials": "Tutoriels interactifs"
+  },
+  "tutorial": {
+    "pickerTitle": "Visites guidées",
+    "pickerIntro": "Choisissez une visite. L'application met en surbrillance les zones et les explique étape par étape. Vous pouvez quitter à tout moment.",
+    "sectionOrientation": "Orientation de l'application",
+    "sectionDashboard": "Tableau de bord",
+    "sectionWorkflows": "Parcours par rôle",
+    "back": "Retour",
+    "close": "Fermer",
+    "last": "Terminé",
+    "next": "Suivant",
+    "nextWithProgress": "Suivant ({current} sur {total})",
+    "skip": "Quitter la visite",
+    "tours": {
+      "orientation": {
+        "title": "Disposition de l'application",
+        "description": "Barre supérieure, menu latéral, zone principale et aide"
+      },
+      "dashboard": {
+        "title": "Parcours du tableau de bord",
+        "description": "Filtre d'organisation, actions, indicateurs, statuts et tableau"
+      },
+      "workflowRequestor": {
+        "title": "Parcours demandeur",
+        "description": "Créer et suivre vos demandes d'achat"
+      },
+      "workflowApprover": {
+        "title": "Parcours approbateur",
+        "description": "Trouver les BC en attente de votre approbation"
+      },
+      "workflowProcurement": {
+        "title": "Parcours approvisionnement",
+        "description": "Contexte d'organisation, liste des DR et file par statut"
+      },
+      "newPrForm": {
+        "title": "Formulaire nouvelle DR",
+        "description": "Étapes et navigation dans l'assistant de création"
+      }
+    },
+    "orientation": {
+      "step1": {
+        "title": "Barre supérieure",
+        "content": "Langue, menu du compte et déconnexion. Le titre indique que vous êtes dans le système de demandes d'achat."
+      },
+      "step2": {
+        "title": "Menu latéral (navigation)",
+        "content": "Sur ordinateur, utilisez le menu à gauche : Tableau de bord, Mes DR, Liste des DR, fournisseurs, archive, tutoriels, aide et admin (si autorisé). Sur mobile, ouvrez le menu avec l'icône en haut à gauche."
+      },
+      "step3": {
+        "title": "Contenu principal",
+        "content": "Chaque page s'affiche ici : tableau de bord, détail d'une DR, formulaires et administration."
+      },
+      "step4": {
+        "title": "Aide et manuel",
+        "content": "Ouvrez le guide utilisateur complet à tout moment. Pour une visite guidée, utilisez « Tutoriels interactifs » dans le menu latéral."
+      }
+    },
+    "dashboard": {
+      "step1": {
+        "title": "Barre d'outils",
+        "content": "Filtrer par organisation, passer à Mes actions, ouvrir l'archive ou créer une nouvelle DR."
+      },
+      "step2": {
+        "title": "Organisation",
+        "content": "Choisissez une organisation (ou Toutes) pour filtrer les DR et les indicateurs."
+      },
+      "step3": {
+        "title": "Actions rapides",
+        "content": "« Nécessite mon approbation » met en avant les DR qui vous attendent. « Nouvelle DR » ouvre l'assistant de création."
+      },
+      "step4": {
+        "title": "Indicateurs clés",
+        "content": "Totaux et moyennes pour les DR selon le filtre d'organisation actuel."
+      },
+      "step5": {
+        "title": "Filtres par statut",
+        "content": "Cliquez sur un statut pour n'afficher que les DR dans cet état (ex. En attente d'approbation, Approuvé)."
+      },
+      "step6": {
+        "title": "Liste des DR",
+        "content": "Ouvrez une ligne pour voir le détail, les devis, les approbations et les pièces jointes."
+      }
+    },
+    "wfRequestor": {
+      "step1": {
+        "title": "Votre organisation",
+        "content": "Sélectionnez votre entité pour voir les bons budgets et DR."
+      },
+      "step2": {
+        "title": "Créer une DR",
+        "content": "Cliquez sur « Nouvelle DR » pour l'assistant : informations de base, lignes, puis révision et envoi."
+      },
+      "step3": {
+        "title": "Suivre l'avancement",
+        "content": "Utilisez les indicateurs et le tableau ci-dessous. Activez « Mes DR » dans le menu pour vos demandes uniquement."
+      },
+      "step4": {
+        "title": "Ouvrir une DR",
+        "content": "Cliquez sur un numéro de DR pour voir le statut, les échanges et les demandes de révision."
+      }
+    },
+    "wfApprover": {
+      "step1": {
+        "title": "Nécessite mon approbation",
+        "content": "Avec ce filtre, le tableau montre les DR où vous êtes approbateur désigné et une action est requise."
+      },
+      "step2": {
+        "title": "Pastilles de statut",
+        "content": "Utilisez « En attente d'approbation » pour votre file ; les autres statuts pour le suivi."
+      },
+      "step3": {
+        "title": "Ouvrir et approuver",
+        "content": "Ouvrez une DR, vérifiez les devis et montants, puis Approuver, Rejeter ou Demander une révision."
+      }
+    },
+    "wfProcurement": {
+      "step1": {
+        "title": "Contexte d'organisation",
+        "content": "L'approvisionnement travaille dans l'organisation sélectionnée — devis, fournisseurs et règles suivent ce périmètre."
+      },
+      "step2": {
+        "title": "Raccourci liste des DR",
+        "content": "Utilisez « DR » dans le menu pour une vue liste dédiée si besoin."
+      },
+      "step3": {
+        "title": "File par statut",
+        "content": "Soumis, En file d'attente et Approuvé (étapes BC) sont courants — choisissez la pastille adaptée à votre tâche."
+      },
+      "step4": {
+        "title": "Ouvrir une DR",
+        "content": "Ouvrez une DR pour ajouter des devis, faire avancer les statuts, assigner les approbateurs et gérer le cycle du BC."
+      }
+    },
+    "newPrForm": {
+      "step1": {
+        "title": "Étapes",
+        "content": "Enchaînez Informations de base, Lignes et Révision. Remplissez les champs obligatoires avant de continuer."
+      },
+      "step2": {
+        "title": "Navigation",
+        "content": "Utilisez Retour et Suivant entre les étapes. Envoyez à la dernière étape lorsque tout est valide."
+      }
+    }
   },
   "dashboard": {
     "title": "Tableau de bord des demandes d'achat",
@@ -477,7 +621,7 @@
       "step5": "Étape 5 : Examiner et soumettre",
       "step5Desc": "Vérifiez toutes les informations et cliquez sur 'Soumettre la DR'",
       "important": "Important :",
-      "importantNote": "Tous les champs marqués d'un * sont obligatoires. Les DR ne peuvent pas être modifiées après soumission.",
+      "importantNote": "Tous les champs marqués d'un * sont obligatoires. Après approbation, les modifications du BC nécessitent un amendement approuvé par l'approbateur original.",
       "trackingPRs": "Suivre vos DR",
       "trackingDesc": "Pour voir vos DR :",
       "trackingStep1": "1. Activez le bascule 'Mes DR' dans la barre latérale",
@@ -538,7 +682,16 @@
       "quoteBetweenRulesDesc": "3 devis requis (ou 1 d'un fournisseur approuvé)",
       "quoteAboveRule2": "Au-dessus du seuil de la Règle 2",
       "quoteAboveRule2Desc": "3 devis + deuxième approbateur requis",
-      "quoteNote": "* Les seuils sont spécifiques à l'organisation. Contactez votre administrateur pour plus de détails."
+      "quoteNote": "* Les seuils sont spécifiques à l'organisation. Contactez votre administrateur pour plus de détails.",
+      "amendmentTitle": "Examiner les amendements de BC",
+      "amendmentDesc": "Lorsque l'approvisionnement soumet un amendement de BC, vous verrez une bannière d'avertissement sur le BC avec un bouton « Examiner l'amendement ». Cliquez dessus pour voir les modifications et décider d'approuver ou de rejeter.",
+      "amendReviewStep1": "1. Ouvrir le BC",
+      "amendReviewStep1Desc": "Une bannière jaune en haut affiche « Amendement de BC en attente ». Cliquez sur « Examiner l'amendement ».",
+      "amendReviewStep2": "2. Examiner les modifications",
+      "amendReviewStep2Desc": "Un tableau de comparaison affiche chaque champ modifié avec la valeur actuelle et la valeur proposée côte à côte.",
+      "amendReviewStep3": "3. Approuver ou rejeter",
+      "amendReviewStep3Desc": "Ajoutez des notes optionnelles, puis cliquez sur « Approuver l'amendement » pour appliquer les modifications ou « Rejeter l'amendement » pour les écarter.",
+      "amendDualNote": "Pour les BC de haute valeur nécessitant une double approbation, les deux approbateurs doivent approuver l'amendement. Si l'un rejette, l'amendement est écarté."
     },
     "procurement": {
       "title": "Guide d'approvisionnement",
@@ -610,7 +763,21 @@
       "orderStep4": "4. Cliquez sur 'Déplacer en commandé'",
       "orderStep5": "5. Entrez : Fournisseur sélectionné, Montant final, Numéro de BC, Date de livraison",
       "orderStep6": "6. Téléchargez la facture proforma (requis)",
-      "orderStep7": "7. Cliquez sur 'Confirmer'"
+      "orderStep7": "7. Cliquez sur 'Confirmer'",
+      "amendmentTitle": "Modifier un BC (après approbation)",
+      "amendmentInfo": "Les BC peuvent être modifiés après approbation. Les modifications sont provisoires jusqu'à ce que l'approbateur les valide.",
+      "amendmentDesc": "Si les détails d'un BC approuvé doivent changer (ex : quantité, montant, fournisseur, postes), l'approvisionnement peut soumettre un amendement que l'approbateur original doit examiner et approuver.",
+      "amendStep1": "1. Ouvrir le BC",
+      "amendStep1Desc": "Naviguez vers le BC en statut APPROUVÉ, COMMANDÉ ou TERMINÉ.",
+      "amendStep2": "2. Cliquez sur « Modifier la DR »",
+      "amendStep2Desc": "Tous les champs sont déverrouillés pour l'amendement. Effectuez les modifications nécessaires.",
+      "amendStep3": "3. Cliquez sur « Enregistrer »",
+      "amendStep3Desc": "Un dialogue de confirmation apparaît — vos modifications ne seront PAS appliquées directement.",
+      "amendStep4": "4. Fournir une raison",
+      "amendStep4Desc": "Expliquez pourquoi l'amendement est nécessaire (obligatoire). Puis cliquez sur « Soumettre l'amendement ».",
+      "amendStep5": "5. Attendre l'examen de l'approbateur",
+      "amendStep5Desc": "L'approbateur est notifié et verra un comparatif de vos modifications proposées. Vous pouvez annuler l'amendement si nécessaire.",
+      "amendNote": "Un seul amendement peut être en attente à la fois. Vous devez annuler ou attendre la résolution avant d'en soumettre un autre."
     },
     "finance": {
       "title": "Guide Finance/Admin",

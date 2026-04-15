@@ -53,6 +53,8 @@ import { ReferenceDataItem, VendorDocument } from '@/types/referenceData';
 import { PRWithVendorRelationship } from '@/services/pr';
 import { FileUploadManager } from '@/components/common/FileUploadManager';
 import { formatCurrency } from '@/utils/formatters';
+import { archiveService } from '@/services/archive';
+import { ArchivePR } from '@/types/archive';
 
 export const VendorView: React.FC = () => {
   const { vendorId } = useParams<{ vendorId: string }>();
@@ -65,6 +67,7 @@ export const VendorView: React.FC = () => {
   const [vendor, setVendor] = useState<ReferenceDataItem | null>(null);
   const [editedVendor, setEditedVendor] = useState<Partial<ReferenceDataItem>>({});
   const [associatedPRs, setAssociatedPRs] = useState<PRWithVendorRelationship[]>([]);
+  const [archivePRs, setArchivePRs] = useState<ArchivePR[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
@@ -124,6 +127,24 @@ export const VendorView: React.FC = () => {
           setAssociatedPRs(prs);
         } catch (error) {
           console.error('Error loading associated PRs:', error);
+        }
+
+        // Load archive transactions matching this vendor by name
+        try {
+          const allArchive = await archiveService.getArchivePRs(undefined, 'submittedDate', 'desc', 500);
+          const vendorNameLower = (vendorData.name || '').toLowerCase().trim();
+          const vendorCodeLower = (vendorData.code || vendorId || '').toLowerCase().trim();
+          const matched = allArchive.filter(apr => {
+            const aVendor = (apr.vendorName || apr.vendor || '').toLowerCase().trim();
+            return aVendor && (
+              aVendor.includes(vendorNameLower) ||
+              vendorNameLower.includes(aVendor) ||
+              aVendor.includes(vendorCodeLower)
+            );
+          });
+          setArchivePRs(matched);
+        } catch (error) {
+          console.error('Error loading archive transactions:', error);
         }
       }
     } catch (error) {
@@ -998,6 +1019,59 @@ export const VendorView: React.FC = () => {
             )}
           </Paper>
         </Grid>
+
+        {/* Archive Transactions Section */}
+        {archivePRs.length > 0 && (
+          <Grid item xs={12}>
+            <Paper sx={{ p: 3 }}>
+              <Typography variant="h6" gutterBottom>
+                Archive Transactions ({archivePRs.length})
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Requestor</TableCell>
+                      <TableCell>Description</TableCell>
+                      <TableCell>Department</TableCell>
+                      <TableCell>Vendor Name</TableCell>
+                      <TableCell align="right">Amount</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {archivePRs.map((apr) => (
+                      <TableRow
+                        key={apr.id}
+                        hover
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/archive/${apr.id}`)}
+                      >
+                        <TableCell>
+                          {apr.submittedDate
+                            ? new Date(apr.submittedDate).toLocaleDateString()
+                            : '—'}
+                        </TableCell>
+                        <TableCell>{apr.requestorName || '—'}</TableCell>
+                        <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {apr.description || apr.reason || '—'}
+                        </TableCell>
+                        <TableCell>{apr.department || '—'}</TableCell>
+                        <TableCell>{apr.vendorName || apr.vendor || '—'}</TableCell>
+                        <TableCell align="right">
+                          {apr.amount
+                            ? formatCurrency(apr.amount, apr.currency || 'LSL')
+                            : '—'}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+        )}
       </Grid>
 
       {/* Procurement Approval Dialog */}

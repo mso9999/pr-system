@@ -65,7 +65,7 @@ exports.sendDailyQuoteConflictReminders = functions.pubsub
         }
         // Process each conflicted PR
         const emailPromises = conflictedPRsSnapshot.docs.map(async (prDoc) => {
-            var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o, _p, _q;
+            var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k, _l, _m, _o;
             const pr = prDoc.data();
             const prId = prDoc.id;
             console.log(`Processing PR ${pr.prNumber} (${prId})`);
@@ -149,7 +149,7 @@ exports.sendDailyQuoteConflictReminders = functions.pubsub
 </ol>
 
 <p style="margin-top: 30px;">
-  <a href="${((_m = functions.config().app) === null || _m === void 0 ? void 0 : _m.url) || 'https://pr-system.1pwrafrica.com'}/pr/${prId}" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
+  <a href="${process.env.APP_URL || 'https://pr-system.1pwrafrica.com'}/pr/${prId}" style="background-color: #1976d2; color: white; padding: 12px 24px; text-decoration: none; border-radius: 4px; display: inline-block;">
     View PR and Resolve Conflict
   </a>
 </p>
@@ -165,12 +165,12 @@ exports.sendDailyQuoteConflictReminders = functions.pubsub
 Purchase Request ${pr.prNumber} is still waiting for approver agreement.
 
 Conflicting Selections:
-- ${approver1Name}: ${(firstQuote === null || firstQuote === void 0 ? void 0 : firstQuote.vendorName) || 'Unknown'} - ${((_o = firstQuote === null || firstQuote === void 0 ? void 0 : firstQuote.amount) === null || _o === void 0 ? void 0 : _o.toFixed(2)) || 'N/A'} ${(firstQuote === null || firstQuote === void 0 ? void 0 : firstQuote.currency) || ''}
-- ${approver2Name}: ${(secondQuote === null || secondQuote === void 0 ? void 0 : secondQuote.vendorName) || 'Unknown'} - ${((_p = secondQuote === null || secondQuote === void 0 ? void 0 : secondQuote.amount) === null || _p === void 0 ? void 0 : _p.toFixed(2)) || 'N/A'} ${(secondQuote === null || secondQuote === void 0 ? void 0 : secondQuote.currency) || ''}
+- ${approver1Name}: ${(firstQuote === null || firstQuote === void 0 ? void 0 : firstQuote.vendorName) || 'Unknown'} - ${((_m = firstQuote === null || firstQuote === void 0 ? void 0 : firstQuote.amount) === null || _m === void 0 ? void 0 : _m.toFixed(2)) || 'N/A'} ${(firstQuote === null || firstQuote === void 0 ? void 0 : firstQuote.currency) || ''}
+- ${approver2Name}: ${(secondQuote === null || secondQuote === void 0 ? void 0 : secondQuote.vendorName) || 'Unknown'} - ${((_o = secondQuote === null || secondQuote === void 0 ? void 0 : secondQuote.amount) === null || _o === void 0 ? void 0 : _o.toFixed(2)) || 'N/A'} ${(secondQuote === null || secondQuote === void 0 ? void 0 : secondQuote.currency) || ''}
 
 Action Required: One or both approvers must change their selection to match.
 
-View PR: ${((_q = functions.config().app) === null || _q === void 0 ? void 0 : _q.url) || 'https://pr-system.1pwrafrica.com'}/pr/${prId}
+View PR: ${process.env.APP_URL || 'https://pr-system.1pwrafrica.com'}/pr/${prId}
           `.trim();
                 // Send email to both approvers
                 const recipients = [approver1Email, approver2Email];

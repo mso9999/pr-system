@@ -22,7 +22,6 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error details
     console.error('ErrorBoundary: Uncaught error:', {
       error: {
         name: error.name,
@@ -32,7 +31,22 @@ export class ErrorBoundary extends Component<Props, State> {
       componentStack: errorInfo.componentStack
     });
 
-    // Check for specific error types
+    const isChunkError =
+      error.message.includes('Failed to fetch dynamically imported module') ||
+      error.message.includes('Loading chunk') ||
+      error.message.includes('Loading CSS chunk');
+
+    if (isChunkError) {
+      const reloadKey = 'chunk_error_reload';
+      const lastReload = sessionStorage.getItem(reloadKey);
+      const now = Date.now();
+      if (!lastReload || now - parseInt(lastReload, 10) > 10000) {
+        sessionStorage.setItem(reloadKey, String(now));
+        window.location.reload();
+        return;
+      }
+    }
+
     if (error instanceof TypeError) {
       console.error('ErrorBoundary: Type error detected. This might be due to undefined props or invalid data types.');
     } else if (error.message.includes('Firebase')) {

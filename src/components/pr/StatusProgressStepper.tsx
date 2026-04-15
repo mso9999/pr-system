@@ -149,9 +149,9 @@ export const StatusProgressStepper: React.FC<StatusProgressStepperProps> = ({ pr
   }
 
   return (
-    <Paper elevation={2} sx={{ p: { xs: 1.5, sm: 2, md: 3 }, mb: 3, overflowX: 'hidden' }}>
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, mb: 2, gap: 1 }}>
-        <Typography variant="h6" sx={{ flexGrow: 1, fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
+    <Paper elevation={2} sx={{ p: { xs: 1.5, sm: 2, md: 3 }, mb: 3 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: { xs: 'flex-start', sm: 'center' }, mb: 2, gap: 1 }}>
+        <Typography variant="h6" sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' }, minWidth: 0, flexShrink: 1 }}>
           {t('pr.orderProgress')}
         </Typography>
         <Chip 

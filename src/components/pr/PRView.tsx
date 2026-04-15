@@ -56,7 +56,7 @@ import SendIcon from '@mui/icons-material/Send';
 import StoreIcon from '@mui/icons-material/Store';
 import { RootState } from '@/store';
 import { prService } from '@/services/pr';
-import { PRRequest, PRStatus, LineItem, Quote, Attachment, ApprovalHistoryItem, WorkflowHistoryItem, UserReference as User, PRUpdateParams } from '@/types/pr';
+import { PRRequest, PRStatus, LineItem, Quote, Attachment, ApprovalHistoryItem, WorkflowHistoryItem, UserReference as User, PRUpdateParams, AmendmentHistoryItem } from '@/types/pr';
 import { ReferenceDataItem } from '@/types/referenceData';
 import { formatCurrency } from '@/utils/formatters';
 import { convertAmount, getRuleCurrency } from '@/utils/currencyConverter';
@@ -93,7 +93,10 @@ import { notificationService } from '@/services/notification';
 import { approverService } from '@/services/approver';
 import * as auth from '@/services/auth';
 import { ApproverActions } from './ApproverActions';
+import { OrganizationSelector } from '@/components/common/OrganizationSelector';
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import { ApprovedStatusActions } from './ApprovedStatusActions';
+import { AmendmentReview } from './AmendmentReview';
 import { OrderedStatusActions } from './OrderedStatusActions';
 import { CompletedStatusView } from './CompletedStatusView';
 import { ResurrectionActions } from './ResurrectionActions';
@@ -101,7 +104,14 @@ import { UrgencyControl } from './UrgencyControl';
 import { ExternalApprovalBypass } from './ExternalApprovalBypass';
 import { lazy, Suspense } from 'react';
 
-const StatusProgressStepper = lazy(() => import('./StatusProgressStepper').then(module => ({ default: module.StatusProgressStepper })));
+const StatusProgressStepper = lazy(() =>
+  import('./StatusProgressStepper')
+    .then(module => ({ default: module.StatusProgressStepper }))
+    .catch(() => {
+      window.location.reload();
+      return { default: () => null } as any;
+    })
+);
 import { InQueueStatusActions } from './InQueueStatusActions';
 import { VendorSelectionDialog } from '../common/VendorSelectionDialog';
 import { useTheme } from '@mui/material/styles';
@@ -535,10 +545,22 @@ export function PRView() {
   const [isExitingEditMode, setIsExitingEditMode] = React.useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = React.useState(false);
   const [approverAmountError, setApproverAmountError] = React.useState<string | null>(null);
+  const [needsDualApproval, setNeedsDualApproval] = React.useState(false); // Track if dual approval is needed (set by validation)
   const [showRuleOverrideDialog, setShowRuleOverrideDialog] = React.useState(false);
   const [ruleOverrideJustification, setRuleOverrideJustification] = React.useState('');
   const [currentTime, setCurrentTime] = React.useState(Date.now());
   const [userNameCache, setUserNameCache] = React.useState<Record<string, string>>({});
+
+  // PO Amendment workflow
+  const [showAmendmentConfirm, setShowAmendmentConfirm] = useState(false);
+  const [amendmentNotes, setAmendmentNotes] = useState('');
+  const [showAmendmentReview, setShowAmendmentReview] = useState(false);
+
+  // Organization reassignment (superadmin only)
+  const [showOrgReassignDialog, setShowOrgReassignDialog] = useState(false);
+  const [orgReassignTarget, setOrgReassignTarget] = useState<{ id: string; name: string } | null>(null);
+  const [orgReassignReason, setOrgReassignReason] = useState('');
+  const [orgReassignLoading, setOrgReassignLoading] = useState(false);
 
   // Fetch PR data
   const fetchPR = async () => {
@@ -562,6 +584,11 @@ export function PRView() {
       }
 
       setPr(prData);
+      
+      // Check if dual approval is flagged on the PR
+      if (prData.requiresDualApproval || prData.approvalWorkflow?.requiresDualApproval) {
+        setNeedsDualApproval(true);
+      }
 
       // Load requestor details if not already loaded
       if (prData.requestorId && (!prData.requestor || !prData.requestor.organization)) {
@@ -715,6 +742,36 @@ export function PRView() {
     }
   };
 
+  const handleOrgReassign = async () => {
+    if (!pr || !orgReassignTarget || !orgReassignReason.trim() || !currentUser) return;
+    try {
+      setOrgReassignLoading(true);
+      const result = await prService.reassignOrganization(
+        pr.id,
+        orgReassignTarget.name,
+        orgReassignReason.trim(),
+        currentUser as any
+      );
+      let msg = `Organization reassigned. PR number: ${result.newPrNumber}`;
+      if (result.approversCleared) {
+        msg += ' — Approvers cleared (not valid for new org).';
+      }
+      if (result.statusReverted) {
+        msg += ' Status reverted to IN_QUEUE.';
+      }
+      enqueueSnackbar(msg, { variant: 'success', autoHideDuration: 8000 });
+      setShowOrgReassignDialog(false);
+      setOrgReassignTarget(null);
+      setOrgReassignReason('');
+      await refreshPR();
+    } catch (err) {
+      console.error('Organization reassignment failed:', err);
+      enqueueSnackbar(err instanceof Error ? err.message : 'Failed to reassign organization', { variant: 'error' });
+    } finally {
+      setOrgReassignLoading(false);
+    }
+  };
+
   // Initial fetch
   useEffect(() => {
     fetchPR();
@@ -799,7 +856,12 @@ export function PRView() {
     const loadCurrentApprover = async () => {
       // Check pr.approver first, then legacy approvers array, then workflow
       const approverId = pr?.approver || pr?.approvers?.[0] || pr?.approvalWorkflow?.currentApprover;
-      const approver2Id = pr?.approver2 || pr?.approvers?.[1] || pr?.approvalWorkflow?.secondApprover;
+      const rawApprover2Id = pr?.approver2 || pr?.approvers?.[1] || pr?.approvalWorkflow?.secondApprover;
+      
+      // Sanitize placeholder values like "(not set)" that shouldn't be treated as real IDs
+      const isPlaceholder = (val: string | null | undefined) =>
+        !val || ['(not set)', 'not set', 'none', 'null', 'undefined'].includes(val.trim().toLowerCase());
+      const approver2Id = isPlaceholder(rawApprover2Id) ? undefined : rawApprover2Id;
       
       // Update selectedApprover state for the edit form
       setSelectedApprover(approverId || undefined);
@@ -973,12 +1035,17 @@ export function PRView() {
   };
 
   // Fields that are locked once PR reaches APPROVED status (PO phase)
+  // In edit mode, procurement/admin can edit these as a PO amendment (changes are provisional)
+  const isPOStatus = pr?.status && ['APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status);
+  const canAmendPO = isPOStatus && isEditMode && (isProcurement || isAdmin);
+  const hasPendingAmendment = pr?.pendingAmendment?.status === 'PENDING';
+
   const isLockedInApprovedStatus = (fieldName: string) => {
-    // Only lock these fields in APPROVED and later statuses (not in PENDING_APPROVAL)
     if (!pr?.status || !['APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status)) {
       return false;
     }
-    // Vendor, amount, and approver cannot be changed in APPROVED/ORDERED/COMPLETED
+    // When procurement/admin is in edit mode on a PO, unlock fields for amendment
+    if (canAmendPO) return false;
     return ['preferredVendor', 'estimatedAmount', 'currency', 'approver'].includes(fieldName);
   };
 
@@ -1294,10 +1361,36 @@ export function PRView() {
     // No need to manually trigger validation here
   };
 
-  const handleApprover2Change = (approverId: string) => {
+  const handleApprover2Change = async (approverId: string) => {
     console.log('Second approver changed to:', approverId);
     setSelectedApprover2(approverId || undefined);
-    handleFieldChange('approver2', approverId);
+
+    if (isEditMode) {
+      handleFieldChange('approver2', approverId);
+    } else if (pr) {
+      // In view mode, auto-save the second approver directly to Firestore
+      try {
+        await prService.updatePR(pr.id, {
+          approver2: approverId || null,
+          approvalWorkflow: {
+            ...pr.approvalWorkflow,
+            secondApprover: approverId || null,
+            lastUpdated: new Date().toISOString(),
+          },
+        });
+        setPr(prev => prev ? {
+          ...prev,
+          approver2: approverId || undefined,
+          approvalWorkflow: prev.approvalWorkflow
+            ? { ...prev.approvalWorkflow, secondApprover: approverId || null }
+            : undefined,
+        } : null);
+        enqueueSnackbar(approverId ? 'Second approver assigned' : 'Second approver removed', { variant: 'success' });
+      } catch (err) {
+        console.error('Failed to save second approver:', err);
+        enqueueSnackbar('Failed to save second approver', { variant: 'error' });
+      }
+    }
   };
   
   // Validate on PR load (for dual approval check in view mode)
@@ -1307,6 +1400,11 @@ export function PRView() {
       validateApproverAmount().then(error => {
         setApproverAmountError(error);
         
+        // Track if dual approval is needed (to show the second approver field)
+        if (error && error.includes('SECOND APPROVER')) {
+          setNeedsDualApproval(true);
+        }
+        
         if (error) {
           console.log('PR validation issue detected on load:', error);
         }
@@ -1314,19 +1412,27 @@ export function PRView() {
     }
   }, [pr?.id, rules.length, organizationBaseCurrency]);
   
-  // Auto-validate whenever approver or amount changes in edit mode
+  // Auto-validate whenever approver, second approver, or amount changes in edit mode
   useEffect(() => {
     // Only validate when rules are loaded and we're in edit mode
     if (rules.length > 0 && (selectedApprover || editedPR.estimatedAmount)) {
       validateApproverAmount().then(error => {
         setApproverAmountError(error);
         
+        // Track if dual approval is needed (to show the second approver field)
+        if (error && error.includes('SECOND APPROVER')) {
+          setNeedsDualApproval(true);
+        } else if (!error) {
+          // Clear the flag if validation passes (second approver was assigned)
+          setNeedsDualApproval(false);
+        }
+        
         if (error) {
           console.log('Approver-amount validation error detected:', error);
         }
       });
     }
-  }, [selectedApprover, editedPR.estimatedAmount, rules.length]);
+  }, [selectedApprover, selectedApprover2, editedPR.estimatedAmount, rules.length]);
 
   const handleCancel = (): void => {
     handleExitEditMode();
@@ -1367,16 +1473,76 @@ export function PRView() {
     }
   };
 
+  const buildUpdatedPR = (): PRUpdateParams => {
+    if (!pr) throw new Error('No PR data');
+    return {
+      ...pr,
+      ...editedPR,
+      approver: selectedApprover || editedPR.approver || pr.approver,
+      approver2: selectedApprover2 || editedPR.approver2 || pr.approver2,
+      lineItems: lineItems.map(item => ({
+        id: item.id,
+        description: item.description,
+        quantity: item.quantity,
+        uom: item.uom,
+        notes: item.notes || '',
+        unitPrice: item.unitPrice,
+        attachments: item.attachments || []
+      })),
+      quotes: pr.quotes || [],
+      updatedAt: new Date().toISOString(),
+      approvalWorkflow: {
+        currentApprover: selectedApprover || pr.approvalWorkflow?.currentApprover || null,
+        secondApprover: selectedApprover2 || pr.approvalWorkflow?.secondApprover || null,
+        approvalHistory: pr.approvalWorkflow?.approvalHistory || [],
+        lastUpdated: new Date().toISOString()
+      }
+    };
+  };
+
+  const handleSubmitAmendment = async () => {
+    if (!pr || !currentUser) return;
+    setLoading(true);
+    try {
+      const changes = buildUpdatedPR();
+      await prService.submitAmendment(
+        pr.id,
+        changes,
+        amendmentNotes,
+        { id: currentUser.id, email: currentUser.email, firstName: currentUser.firstName, lastName: currentUser.lastName }
+      );
+      enqueueSnackbar('Amendment submitted for approver review', { variant: 'success' });
+      setShowAmendmentConfirm(false);
+      setAmendmentNotes('');
+      await fetchPR();
+      navigate(`/pr/${pr.id}`);
+    } catch (err) {
+      console.error('Error submitting amendment:', err);
+      enqueueSnackbar(err instanceof Error ? err.message : 'Failed to submit amendment', { variant: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!pr) {
       enqueueSnackbar('No PR data to save', { variant: 'error' });
+      return;
+    }
+
+    // For PO statuses, route through amendment workflow
+    if (['APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status) && (isProcurement || isAdmin)) {
+      if (pr.pendingAmendment?.status === 'PENDING') {
+        enqueueSnackbar('This PO already has a pending amendment. Cancel it first.', { variant: 'warning' });
+        return;
+      }
+      setShowAmendmentConfirm(true);
       return;
     }
     
     // Validate approver vs amount before saving (unless override is in place)
     const approverAmountError = await validateApproverAmount();
     if (approverAmountError && !pr.ruleValidationOverride) {
-      // Show override dialog instead of blocking immediately
       setApproverAmountError(approverAmountError);
       setShowRuleOverrideDialog(true);
       return;
@@ -1385,15 +1551,7 @@ export function PRView() {
     setLoading(true);
     
     try {
-      // Debug: Log approver states before save
-      console.log('PRView handleSave - Approver states:', {
-        selectedApprover,
-        selectedApprover2,
-        'editedPR.approver': editedPR.approver,
-        'editedPR.approver2': editedPR.approver2,
-        'pr.approver': pr.approver,
-        'pr.approver2': pr.approver2
-      });
+      console.log('=== PRView handleSave START ===');
       
       // Check if amount has changed significantly and approvals should be rescinded
       const newAmount = editedPR.estimatedAmount ?? pr.estimatedAmount;
@@ -1417,47 +1575,16 @@ export function PRView() {
         }
       }
       
-      // Prepare the PR data for update
-      const updatedPR: PRUpdateParams = {
-        ...pr,
-        ...editedPR,
-        // Explicitly preserve approver fields
-        approver: selectedApprover || editedPR.approver || pr.approver,
-        approver2: selectedApprover2 || editedPR.approver2 || pr.approver2,
-        lineItems: lineItems.map(item => ({
-          id: item.id,
-          description: item.description,
-          quantity: item.quantity,
-          uom: item.uom,
-          notes: item.notes || '',
-          unitPrice: item.unitPrice,
-          attachments: item.attachments || []
-        })),
-        quotes: pr.quotes || [],
-        updatedAt: new Date().toISOString(),
-        approvalWorkflow: {
-          currentApprover: selectedApprover || pr.approvalWorkflow?.currentApprover || null,
-          secondApprover: selectedApprover2 || pr.approvalWorkflow?.secondApprover || null,
-          approvalHistory: pr.approvalWorkflow?.approvalHistory || [],
-          lastUpdated: new Date().toISOString()
-        }
-      };
+      const updatedPR = buildUpdatedPR();
       
-      console.log('PRView handleSave - Computed approver fields:', {
-        approver: updatedPR.approver,
-        approver2: updatedPR.approver2,
-        'approvalWorkflow.secondApprover': updatedPR.approvalWorkflow?.secondApprover
-      });
-      
-      // Update the PR
+      console.log('Calling prService.updatePR...');
       await prService.updatePR(pr.id, updatedPR);
+      console.log('prService.updatePR completed successfully');
       
-      // Refresh the PR data
       await fetchPR();
+      console.log('=== PRView handleSave END ===');
       
       enqueueSnackbar('PR saved successfully', { variant: 'success' });
-      
-      // Return to the PR detail view after save so editors can keep context
       navigate(`/pr/${pr.id}`);
     } catch (error) {
       console.error('Error saving PR:', error);
@@ -1875,20 +2002,43 @@ export function PRView() {
                 // Check if dual approval is required based on Rule 3 and Rule 5
                 const rule3 = rules.find(r => r.number === 3 || r.number === '3');
                 const rule5 = rules.find(r => r.number === 5 || r.number === '5');
-                const requiresDualApproval = rule3 && rule5 && 
-                  (pr?.estimatedAmount || editedPR.estimatedAmount || 0) >= rule3.threshold;
+                
+                // Show second approver field if:
+                // 1. The validation determined dual approval is needed (needsDualApproval state), OR
+                // 2. There's a validation error about needing a second approver, OR
+                // 3. A second approver is already assigned, OR
+                // 4. The PR is explicitly flagged as requiring dual approval
+                const hasApproverAmountError = approverAmountError && approverAmountError.includes('SECOND APPROVER');
+                const hasExistingSecondApprover = !!(selectedApprover2 || pr?.approver2 || pr?.approvalWorkflow?.secondApprover);
+                const prRequiresDualApproval = pr?.requiresDualApproval || pr?.approvalWorkflow?.requiresDualApproval;
+                
+                const requiresDualApproval = rule3 && rule5 && (
+                  needsDualApproval ||
+                  hasApproverAmountError || 
+                  hasExistingSecondApprover ||
+                  prRequiresDualApproval
+                );
 
                 if (!requiresDualApproval) return null;
+
+                // The second approver field is editable in view mode for procurement/admin
+                // so they can assign it before clicking "Push to Approver"
+                const canEditSecondApproverInViewMode = (isProcurement || isAdmin) && !isLockedInApprovedStatus('approver2');
+                const isSecondApproverDisabled = isEditMode
+                  ? (
+                      (pr?.status === PRStatus.REVISION_REQUIRED
+                        ? (!isProcurement && !isAdmin)
+                        : (!isProcurement && !isRequestor && !isAdmin && !(isDesignatedApprover && pr?.status === PRStatus.PENDING_APPROVAL))
+                      ) || isLockedInApprovedStatus('approver2')
+                    )
+                  : !canEditSecondApproverInViewMode;
 
                 return (
                   <Grid item xs={12} sm={6}>
                     <FormControl 
                       fullWidth 
-                      disabled={!isEditMode || (
-                        pr?.status === PRStatus.REVISION_REQUIRED 
-                          ? (!isProcurement && !isAdmin) // In R&R: only procurement and admin can edit
-                          : (!isProcurement && !isRequestor && !isAdmin && !(isDesignatedApprover && pr?.status === PRStatus.PENDING_APPROVAL)) // Other statuses: procurement, requestor, admin, or designated approver in PENDING_APPROVAL
-                      ) || isLockedInApprovedStatus('approver2')}
+                      disabled={isSecondApproverDisabled}
+                      error={!!approverAmountError && approverAmountError.includes('SECOND APPROVER')}
                     >
                       <InputLabel>{t('pr.secondApprover')}</InputLabel>
                       <Select
@@ -1900,7 +2050,7 @@ export function PRView() {
                           <em>None</em>
                         </MenuItem>
                         {approvers
-                          .filter(approver => approver.id !== selectedApprover) // Don't show same approver
+                          .filter(approver => approver.id !== selectedApprover)
                           .map((approver) => (
                           <MenuItem key={approver.id} value={approver.id}>
                             {(() => {
@@ -1913,11 +2063,14 @@ export function PRView() {
                           </MenuItem>
                         ))}
                       </Select>
-                      {isEditMode && isLockedInApprovedStatus('approver2') ? (
+                      {isLockedInApprovedStatus('approver2') ? (
                         <FormHelperText>Second approver cannot be changed after approval</FormHelperText>
+                      ) : approverAmountError && approverAmountError.includes('SECOND APPROVER') ? (
+                        <FormHelperText error>Please select a second approver</FormHelperText>
                       ) : (
                         <FormHelperText>
                           Required for amounts above {rule3.threshold.toLocaleString()} {rule3.currency}
+                          {!isEditMode && canEditSecondApproverInViewMode ? ' — saves automatically' : ''}
                         </FormHelperText>
                       )}
                     </FormControl>
@@ -1973,7 +2126,16 @@ export function PRView() {
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography color="textSecondary">{t('pr.organization')}</Typography>
-                <Typography>{pr?.organization || 'N/A'}</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography>{pr?.organization || 'N/A'}</Typography>
+                  {isAdmin && pr && (
+                    <Tooltip title="Reassign organization">
+                      <IconButton size="small" onClick={() => setShowOrgReassignDialog(true)}>
+                        <SwapHorizIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </Box>
               </Grid>
               <Grid item xs={12} sm={6}>
                 {currentUser && pr ? (
@@ -2695,9 +2857,8 @@ export function PRView() {
     <Box sx={{ 
       p: { xs: 1, sm: 2, md: 3 },
       width: '100%',
-      maxWidth: '100vw',
+      maxWidth: '100%',
       boxSizing: 'border-box',
-      overflowX: 'hidden',
       ml: 0,
       mr: 0,
     }}>
@@ -2705,30 +2866,69 @@ export function PRView() {
       {/* <UserDebug />
       <ForceUserRefresh /> */}
       
+      {/* Pending Amendment Banner */}
+      {hasPendingAmendment && pr?.pendingAmendment && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <>
+              {(isDesignatedApprover || isAdmin || currentUser?.id === pr.approver2 || currentUser?.id === pr.approvalWorkflow?.secondApprover) && (
+                <Button color="inherit" size="small" onClick={() => setShowAmendmentReview(true)}>
+                  Review Amendment
+                </Button>
+              )}
+              {(currentUser?.id === pr.pendingAmendment.requestedBy.id || isAdmin) && (
+                <Button color="inherit" size="small" onClick={async () => {
+                  try {
+                    await prService.cancelAmendment(pr.id, { id: currentUser!.id, email: currentUser!.email, firstName: currentUser?.firstName, lastName: currentUser?.lastName });
+                    enqueueSnackbar('Amendment cancelled', { variant: 'info' });
+                    await fetchPR();
+                  } catch (err) {
+                    enqueueSnackbar('Failed to cancel amendment', { variant: 'error' });
+                  }
+                }}>
+                  Cancel Amendment
+                </Button>
+              )}
+            </>
+          }
+        >
+          <Typography variant="body2">
+            <strong>PO Amendment Pending</strong> — {pr.pendingAmendment.requestedBy.firstName} {pr.pendingAmendment.requestedBy.lastName} proposed changes on {new Date(pr.pendingAmendment.requestedAt).toLocaleDateString()}.
+            {pr.pendingAmendment.notes && ` Reason: ${pr.pendingAmendment.notes}`}
+          </Typography>
+        </Alert>
+      )}
+
       {/* Header with Title and Actions */}
       <Box sx={{ 
         display: 'flex', 
-        flexDirection: { xs: 'column', sm: 'row' },
+        flexDirection: { xs: 'column', md: 'row' },
+        flexWrap: 'wrap',
         justifyContent: 'space-between', 
-        alignItems: { xs: 'flex-start', sm: 'center' }, 
+        alignItems: { xs: 'flex-start', md: 'center' }, 
         mb: 3,
-        gap: 2
+        gap: 2,
+        width: '100%',
       }}>
-        <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.5rem', sm: '2.125rem' } }}>
+        <Typography variant="h4" component="h1" sx={{ fontSize: { xs: '1.25rem', sm: '1.5rem', md: '2.125rem' }, minWidth: 0, flexShrink: 1 }}>
           {pr?.status === PRStatus.APPROVED || pr?.status === PRStatus.ORDERED || pr?.status === PRStatus.DELIVERED ? 'PO' : 'PR'} Details: {pr?.prNumber}
         </Typography>
         <Box sx={{ 
           display: 'flex', 
           flexDirection: { xs: 'column', sm: 'row' },
+          flexWrap: 'wrap',
           gap: 1,
-          width: { xs: '100%', sm: 'auto' }
+          width: { xs: '100%', sm: 'auto' },
+          flexShrink: 0,
         }}>
           <Button
             startIcon={<ArrowBackIcon />}
             onClick={() => navigate('/dashboard')}
             variant="outlined"
             fullWidth={isMobile}
-            sx={{ minHeight: '44px' }}
+            sx={{ minHeight: '44px', whiteSpace: 'nowrap' }}
           >
             Back to Dashboard
           </Button>
@@ -2738,7 +2938,7 @@ export function PRView() {
               onClick={() => navigate(`/pr/${id}/edit`)}
               variant="contained"
               fullWidth={isMobile}
-              sx={{ minHeight: '44px' }}
+              sx={{ minHeight: '44px', whiteSpace: 'nowrap' }}
             >
               Edit PR
             </Button>
@@ -2751,7 +2951,7 @@ export function PRView() {
               color="primary"
               disabled={loading}
               fullWidth={isMobile}
-              sx={{ minHeight: '44px' }}
+              sx={{ minHeight: '44px', whiteSpace: 'nowrap' }}
             >
               Resubmit PR
             </Button>
@@ -2899,6 +3099,48 @@ export function PRView() {
                 )}
                 {index !== pr.workflowHistory.length - 1 && <Divider sx={{ mt: 2 }} />}
               </Box>
+            ))}
+          </Paper>
+        </Box>
+      )}
+
+      {/* Amendment History */}
+      {pr?.amendmentHistory && pr.amendmentHistory.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Paper sx={{ p: { xs: 1.5, sm: 2, md: 3 } }}>
+            <Typography variant="h6" gutterBottom>Amendment History</Typography>
+            <Divider sx={{ mb: 2 }} />
+            {pr.amendmentHistory.map((entry: AmendmentHistoryItem, idx: number) => (
+              <Paper key={idx} variant="outlined" sx={{ p: 2, mb: 1.5, bgcolor: entry.resolution === 'APPROVED' ? 'success.50' : 'error.50' }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                  <Typography variant="subtitle2">
+                    Amendment #{pr.amendmentHistory!.length - idx}
+                  </Typography>
+                  <Chip
+                    label={entry.resolution}
+                    size="small"
+                    color={entry.resolution === 'APPROVED' ? 'success' : 'error'}
+                  />
+                </Box>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  Requested by {entry.requestedBy.firstName} {entry.requestedBy.lastName} on {new Date(entry.requestedAt).toLocaleDateString()}
+                  {entry.notes && ` — "${entry.notes}"`}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" gutterBottom>
+                  {entry.resolution === 'APPROVED' ? 'Approved' : 'Rejected'} by {entry.resolvedBy.firstName} {entry.resolvedBy.lastName} on {new Date(entry.resolvedAt).toLocaleDateString()}
+                  {entry.resolverNotes && ` — "${entry.resolverNotes}"`}
+                </Typography>
+                {Object.keys(entry.changes).length > 0 && (
+                  <Box sx={{ mt: 1 }}>
+                    <Typography variant="caption" color="text.secondary">Changes:</Typography>
+                    {Object.entries(entry.changes).map(([field, { from, to }]) => (
+                      <Typography key={field} variant="caption" display="block" sx={{ ml: 1 }}>
+                        <strong>{field}</strong>: {JSON.stringify(from)?.substring(0, 40)} → {JSON.stringify(to)?.substring(0, 40)}
+                      </Typography>
+                    ))}
+                  </Box>
+                )}
+              </Paper>
             ))}
           </Paper>
         </Box>
@@ -3435,6 +3677,114 @@ export function PRView() {
             disabled={!ruleOverrideJustification.trim()}
           >
             {t('pr.applyOverride')}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Amendment Confirmation Dialog (shown when procurement saves PO edits) */}
+      <Dialog open={showAmendmentConfirm} onClose={() => setShowAmendmentConfirm(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Submit PO Amendment</DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 2 }}>
+            This PO is in <strong>{pr?.status}</strong> status. Your changes will be submitted as a pending amendment and require approver approval before taking effect.
+          </Alert>
+          <TextField
+            label="Reason for amendment"
+            multiline
+            rows={3}
+            fullWidth
+            value={amendmentNotes}
+            onChange={(e) => setAmendmentNotes(e.target.value)}
+            required
+            error={!amendmentNotes.trim()}
+            helperText={!amendmentNotes.trim() ? 'Please explain why this amendment is needed' : ''}
+            sx={{ mt: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setShowAmendmentConfirm(false); setAmendmentNotes(''); }}>
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSubmitAmendment}
+            variant="contained"
+            color="primary"
+            disabled={!amendmentNotes.trim() || loading}
+          >
+            {loading ? 'Submitting...' : 'Submit Amendment'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Amendment Review Dialog (shown to approvers) */}
+      {pr && currentUser && (
+        <AmendmentReview
+          open={showAmendmentReview}
+          onClose={() => setShowAmendmentReview(false)}
+          pr={pr}
+          currentUser={currentUser}
+          onResolved={() => fetchPR()}
+        />
+      )}
+
+      {/* Organization Reassignment Dialog (Superadmin only) */}
+      <Dialog
+        open={showOrgReassignDialog}
+        onClose={() => {
+          if (!orgReassignLoading) {
+            setShowOrgReassignDialog(false);
+            setOrgReassignTarget(null);
+            setOrgReassignReason('');
+          }
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Reassign Organization</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Change the organization for <strong>{pr?.prNumber}</strong> (currently: <strong>{pr?.organization}</strong>).
+            The PR number will be updated to reflect the new organization.
+            If current approvers are not valid for the new organization, they will be cleared and the status will revert to IN_QUEUE.
+          </DialogContentText>
+          <Box sx={{ mb: 2, mt: 1 }}>
+            <OrganizationSelector
+              value={orgReassignTarget}
+              onChange={(val) => setOrgReassignTarget(val)}
+              error={!orgReassignTarget}
+              helperText={!orgReassignTarget ? 'Select the target organization' : ''}
+            />
+          </Box>
+          <TextField
+            label="Reason for reassignment"
+            value={orgReassignReason}
+            onChange={(e) => setOrgReassignReason(e.target.value)}
+            multiline
+            rows={3}
+            fullWidth
+            required
+            error={!orgReassignReason.trim()}
+            helperText={!orgReassignReason.trim() ? 'A reason is required for the audit trail' : ''}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button
+            onClick={() => {
+              setShowOrgReassignDialog(false);
+              setOrgReassignTarget(null);
+              setOrgReassignReason('');
+            }}
+            disabled={orgReassignLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleOrgReassign}
+            variant="contained"
+            color="primary"
+            disabled={!orgReassignTarget || !orgReassignReason.trim() || orgReassignLoading}
+          >
+            {orgReassignLoading ? 'Reassigning...' : 'Reassign'}
           </Button>
         </DialogActions>
       </Dialog>

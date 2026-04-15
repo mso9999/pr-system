@@ -1111,6 +1111,77 @@ export class NotificationService {
       console.error(`Error updating notification ${notificationId} status:`, error);
     }
   }
+
+  /**
+   * Handle PO amendment notifications (submitted, approved, rejected).
+   */
+  async handleAmendment(
+    prId: string,
+    action: 'submitted' | 'approved' | 'rejected',
+    user: UserReference,
+    notes?: string
+  ): Promise<void> {
+    try {
+      const prRef = doc(db, 'purchaseRequests', prId);
+      const prSnapshot = await getDoc(prRef);
+      if (!prSnapshot.exists()) return;
+
+      const pr = { id: prId, ...prSnapshot.data() } as PRRequest;
+      const prNumber = pr.prNumber || `ID-${prId.substring(0, 8)}`;
+      const prUrl = `https://pr.1pwrafrica.com/pr/${prId}`;
+
+      let subject = '';
+      let body = '';
+      const recipients: string[] = [];
+
+      if (action === 'submitted') {
+        subject = `PO Amendment Requested: ${prNumber}`;
+        body = `${user.firstName || ''} ${user.lastName || ''} has proposed an amendment to PO ${prNumber}. Please review and approve or reject.`;
+        if (pr.approver) {
+          const approverDoc = await getDoc(doc(db, 'users', pr.approver));
+          if (approverDoc.exists()) recipients.push(approverDoc.data().email);
+        }
+        if (pr.approver2) {
+          const approver2Doc = await getDoc(doc(db, 'users', pr.approver2));
+          if (approver2Doc.exists()) recipients.push(approver2Doc.data().email);
+        }
+      } else if (action === 'approved') {
+        subject = `PO Amendment Approved: ${prNumber}`;
+        body = `Your amendment to PO ${prNumber} has been approved by ${user.firstName || ''} ${user.lastName || ''}.`;
+        if (pr.pendingAmendment?.requestedBy?.email) {
+          recipients.push(pr.pendingAmendment.requestedBy.email);
+        }
+      } else if (action === 'rejected') {
+        subject = `PO Amendment Rejected: ${prNumber}`;
+        body = `Your amendment to PO ${prNumber} was rejected by ${user.firstName || ''} ${user.lastName || ''}.${notes ? ` Reason: ${notes}` : ''}`;
+        if (pr.pendingAmendment?.requestedBy?.email) {
+          recipients.push(pr.pendingAmendment.requestedBy.email);
+        }
+      }
+
+      if (recipients.length === 0) return;
+
+      const notificationDoc = {
+        type: 'AMENDMENT',
+        prId,
+        prNumber,
+        action,
+        recipients,
+        subject,
+        body,
+        html: `<p>${body}</p><p><a href="${prUrl}">View PO</a></p>`,
+        triggeredBy: user,
+        notes: notes || '',
+        timestamp: serverTimestamp(),
+        status: 'pending',
+      };
+
+      await addDoc(collection(db, this.notificationsCollection), notificationDoc);
+      console.log(`[Amendment Notification] ${action} notification created for PR ${prNumber}`);
+    } catch (error) {
+      console.error('[Amendment Notification] Error:', error);
+    }
+  }
 }
 
 /**

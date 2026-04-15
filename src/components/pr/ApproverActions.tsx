@@ -677,6 +677,8 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
                   `1 of 2 approvals complete. Waiting for second approver.`
                 );
               }
+
+              enqueueSnackbar('Your approval has been recorded. Waiting for the second approver.', { variant: 'info' });
             }
           } else {
             // Single approval - move directly to APPROVED
@@ -729,6 +731,8 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
               currentUser,
               `PR ${prData.prNumber} has been approved.`
             );
+
+            enqueueSnackbar(`PR ${prData.prNumber} has been approved!`, { variant: 'success' });
           }
           break;
 
@@ -748,10 +752,14 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
           return;
       }
 
-      // Update PR status
-      await handleStatusUpdate(newStatus, notes);
+      // The 'approve' case handles its own status updates, notifications, and snackbar
+      // internally (for both single and dual approval paths). Other actions need handleStatusUpdate.
+      if (selectedAction !== 'approve') {
+        await handleStatusUpdate(newStatus, notes);
+      }
 
-      // Navigate to dashboard after any successful status change
+      handleClose();
+      if (onStatusChange) onStatusChange();
       navigate('/dashboard');
     } catch (error) {
       console.error('Error updating PR status:', error);

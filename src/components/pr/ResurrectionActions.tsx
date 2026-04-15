@@ -51,13 +51,16 @@ export const ResurrectionActions: React.FC<ResurrectionActionsProps> = ({
   }
 
   // Determine resurrection target status
+  // IMPORTANT: Never resurrect directly to PENDING_APPROVAL - PRs must go through
+  // the procurement queue (IN_QUEUE) to ensure quote validation is performed
   const getResurrectionStatus = (): PRStatus => {
     if (pr.status === PRStatus.REJECTED) {
-      // Restore to highest previous status
-      // Check status history to find highest non-terminal status
+      // Restore to highest previous status, but cap at IN_QUEUE
+      // PRs cannot skip quote validation by resurrection
       if (pr.statusHistory && pr.statusHistory.length > 0) {
         // Find the last active status before rejection
-        const activeStatuses = [PRStatus.SUBMITTED, PRStatus.IN_QUEUE, PRStatus.PENDING_APPROVAL];
+        // Exclude PENDING_APPROVAL - must go through IN_QUEUE for quote validation
+        const activeStatuses = [PRStatus.SUBMITTED, PRStatus.IN_QUEUE];
         const previousStatus = pr.statusHistory
           .filter(h => activeStatuses.includes(h.status))
           .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())[0];
@@ -66,8 +69,8 @@ export const ResurrectionActions: React.FC<ResurrectionActionsProps> = ({
           return previousStatus.status;
         }
       }
-      // Default to SUBMITTED if no history
-      return PRStatus.SUBMITTED;
+      // Default to IN_QUEUE so procurement can re-validate and push to approver
+      return PRStatus.IN_QUEUE;
     } else {
       // CANCELED always returns to SUBMITTED
       return PRStatus.SUBMITTED;

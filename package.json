@@ -29,7 +29,8 @@
     "test:coverage": "vitest run --coverage",
     "test:emails": "tsx src/scripts/testEmails.ts",
     "test:mock-emails": "tsx src/scripts/mockTestEmails.ts",
-    "delete-test-pr": "tsx src/scripts/deleteTestPR.ts"
+    "delete-test-pr": "tsx src/scripts/deleteTestPR.ts",
+    "reconcile-dual-approval": "tsx src/scripts/reconcileDualApprovalViolations.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -68,6 +69,7 @@
     "react-dropzone": "^14.3.5",
     "react-hook-form": "^7.54.2",
     "react-i18next": "^16.2.1",
+    "react-joyride": "^3.0.2",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.1.0",
     "redux-persist": "^6.0.0",

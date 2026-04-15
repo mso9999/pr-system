@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -12,6 +12,12 @@ import {
   Typography,
   Alert,
   Stack,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  FormHelperText,
+  CircularProgress,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { PRStatus } from '@/types/pr';
@@ -23,6 +29,7 @@ import { referenceDataService } from '@/services/referenceData';
 import { organizationService } from '@/services/organizationService';
 import { Rule } from '@/types/referenceData';
 import { convertAmountWithMetadata, getRuleCurrency, ConversionResult } from '@/utils/currencyConverter';
+import { approverService } from '@/services/approver';
 
 interface ProcurementActionsProps {
   prId: string;
@@ -46,11 +53,74 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   const [quoteOverrideJustification, setQuoteOverrideJustification] = useState('');
   const [quoteErrorMessage, setQuoteErrorMessage] = useState('');
 
+  // Second approver state (for dual approval in "Push to Approver" flow)
+  const [dualApprovalNeeded, setDualApprovalNeeded] = useState(false);
+  const [approversList, setApproversList] = useState<User[]>([]);
+  const [loadingDualCheck, setLoadingDualCheck] = useState(false);
+  const [dialogSecondApprover, setDialogSecondApprover] = useState<string>('');
+  const [existingApprover, setExistingApprover] = useState<string>('');
+  const [dualApprovalThresholdInfo, setDualApprovalThresholdInfo] = useState<string>('');
+
+  const checkDualApprovalNeeded = useCallback(async () => {
+    setLoadingDualCheck(true);
+    try {
+      const pr = await prService.getPR(prId);
+      if (!pr) return;
+
+      setExistingApprover(pr.approver || '');
+
+      // Pre-fill with existing second approver if set (ignore placeholder values)
+      const raw2 = pr.approver2 || pr.approvalWorkflow?.secondApprover || '';
+      const placeholders = ['(not set)', 'not set', 'none', 'null', 'undefined', ''];
+      const existing2 = placeholders.includes(raw2.trim().toLowerCase()) ? '' : raw2;
+      if (existing2) setDialogSecondApprover(existing2);
+
+      let orgBaseCurrency = 'LSL';
+      try {
+        const orgDetails = await organizationService.getOrganizationByName(pr.organization);
+        if (orgDetails?.baseCurrency) orgBaseCurrency = orgDetails.baseCurrency;
+      } catch { /* use default */ }
+
+      const rulesData = await referenceDataService.getItemsByType('rules', pr.organization);
+      const rules = rulesData as unknown as Rule[];
+      const rule3 = rules?.find((r: any) => r.number === 3 || r.number === '3');
+      const rule5 = rules?.find((r: any) => r.number === 5 || r.number === '5');
+
+      if (rule3 && rule5) {
+        const thresholdCurrency = orgBaseCurrency || getRuleCurrency(rule3 as any);
+        const convResult = await convertAmountWithMetadata(
+          pr.estimatedAmount || 0,
+          pr.currency || 'LSL',
+          thresholdCurrency
+        );
+        const needsDual = convResult.convertedAmount >= rule3.threshold;
+
+        if (needsDual) {
+          setDualApprovalNeeded(true);
+          setDualApprovalThresholdInfo(
+            `Amount exceeds ${rule3.threshold.toLocaleString()} ${thresholdCurrency} dual approval threshold`
+          );
+
+          const approvers = await approverService.getApprovers(pr.organization);
+          setApproversList(approvers as unknown as User[]);
+        }
+      }
+    } catch (err) {
+      console.error('[ProcurementActions] Error checking dual approval:', err);
+    } finally {
+      setLoadingDualCheck(false);
+    }
+  }, [prId]);
+
   const handleActionClick = (action: 'approve' | 'reject' | 'revise' | 'cancel' | 'queue' | 'revert') => {
     setSelectedAction(action);
     setIsDialogOpen(true);
     setNotes('');
     setError(null);
+
+    if (action === 'approve') {
+      checkDualApprovalNeeded();
+    }
   };
 
   const handleClose = () => {
@@ -58,6 +128,10 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
     setSelectedAction(null);
     setNotes('');
     setError(null);
+    setDualApprovalNeeded(false);
+    setDialogSecondApprover('');
+    setApproversList([]);
+    setDualApprovalThresholdInfo('');
   };
 
   const handleQuoteOverrideConfirm = async () => {
@@ -325,14 +399,19 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           };
 
           // Validate second approver is set for dual approval PRs
+          // Use dialog-selected second approver if available, falling back to PR data
+          const effectiveApprover2 = dialogSecondApprover || pr.approver2;
+          
           if (requiresDualApproval) {
             const hasValidApprover1 = isValidApprover(pr.approver);
-            const hasValidApprover2 = isValidApprover(pr.approver2);
+            const hasValidApprover2 = isValidApprover(effectiveApprover2);
             
             console.log('[ProcurementActions] Dual approval validation:', {
               requiresDualApproval,
               approver: pr.approver,
               approver2: pr.approver2,
+              dialogSecondApprover,
+              effectiveApprover2,
               hasValidApprover1,
               hasValidApprover2,
               rule3Threshold: rule3?.threshold,
@@ -347,7 +426,6 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             }
 
             if (!hasValidApprover2) {
-              // Show both original and converted amounts if currencies differ
               const prCurrency = pr.currency || 'LSL';
               const convertedAmount = conversionResult?.convertedAmount || pr.estimatedAmount || 0;
               const amountDisplay = prCurrency !== thresholdCurrency 
@@ -356,9 +434,18 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               setError(
                 `SECOND APPROVER REQUIRED:\n\n` +
                 `This PR amount (${amountDisplay}) exceeds the dual approval threshold (${rule3?.threshold?.toLocaleString()} ${thresholdCurrency}).\n\n` +
-                `Please assign a second approver before pushing to approval. You can do this by editing the PR and selecting a second approver from the dropdown.`
+                `Please select a second approver below before confirming.`
               );
               return;
+            }
+            
+            // If the second approver was set via the dialog, save it to the PR now
+            if (dialogSecondApprover && dialogSecondApprover !== pr.approver2) {
+              console.log('[ProcurementActions] Saving dialog-selected second approver to PR:', dialogSecondApprover);
+              await prService.updatePR(prId, {
+                approver2: dialogSecondApprover,
+              });
+              pr.approver2 = dialogSecondApprover;
             }
           }
 
@@ -377,16 +464,17 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           console.log('[ProcurementActions] Calling prService.updatePR...');
           // Update PR with PO number, dual approval settings, approver information, and exchange rate audit trail
           // This must happen BEFORE sending notifications so handlers can fetch the updated PR
+          const finalApprover2 = dialogSecondApprover || pr.approver2 || null;
           const updateData: any = {
             prNumber: poNumber,
             status: newStatus,
-            approver: pr.approver || null,  // Top-level approver field for notification handler
-            approver2: pr.approver2 || null,  // Top-level approver2 field for notification handler
+            approver: pr.approver || null,
+            approver2: finalApprover2,
             requiresDualApproval: requiresDualApproval || false,
             updatedAt: new Date().toISOString(),
             approvalWorkflow: {
               currentApprover: pr.approver || null,
-              secondApprover: pr.approver2 || null,
+              secondApprover: finalApprover2,
               requiresDualApproval: requiresDualApproval || false,
               firstApprovalComplete: false,
               secondApprovalComplete: false,
@@ -469,11 +557,18 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
           );
           
-          const previousStatus = sortedHistory[1]?.status;
+          let previousStatus = sortedHistory[1]?.status;
           
           if (!previousStatus || previousStatus === PRStatus.REVISION_REQUIRED) {
             setError('Cannot revert: No valid previous status found.');
             return;
+          }
+          
+          // IMPORTANT: Cannot revert directly to PENDING_APPROVAL - must go through IN_QUEUE
+          // to ensure quote validation is performed before reaching approvers
+          if (previousStatus === PRStatus.PENDING_APPROVAL) {
+            console.log('Reverting to IN_QUEUE instead of PENDING_APPROVAL to enforce quote validation');
+            previousStatus = PRStatus.IN_QUEUE;
           }
           
           console.log('Reverting from REVISION_REQUIRED to:', previousStatus);
@@ -556,7 +651,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   if ((isProcurement || isAdmin) && (currentStatus === PRStatus.SUBMITTED || currentStatus === PRStatus.RESUBMITTED)) {
     return (
       <>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 2 }, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap', gap: { xs: 1, sm: 2 }, mb: 3, maxWidth: '100%' }}>
           <Button
             variant="contained"
             color="primary"
@@ -636,7 +731,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   if (currentStatus === PRStatus.IN_QUEUE && (isProcurement || isAdmin)) {
     return (
       <>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 2 }, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap', gap: { xs: 1, sm: 2 }, mb: 3, maxWidth: '100%' }}>
           <Button
             variant="contained"
             color="primary"
@@ -688,15 +783,76 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
                 {selectedAction === 'reject' && 'Please provide a reason for rejecting this PR.'}
                 {selectedAction === 'revise' && 'Please specify what changes are needed for this PR.'}
               </Typography>
+
+              {selectedAction === 'approve' && loadingDualCheck && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={18} />
+                  <Typography variant="body2" color="text.secondary">
+                    Checking approval requirements…
+                  </Typography>
+                </Box>
+              )}
+
+              {selectedAction === 'approve' && dualApprovalNeeded && !loadingDualCheck && (
+                <Alert severity="warning" sx={{ mb: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    Dual Approval Required
+                  </Typography>
+                  <Typography variant="body2">
+                    {dualApprovalThresholdInfo}. Please select a second approver below.
+                  </Typography>
+                </Alert>
+              )}
+
+              {selectedAction === 'approve' && dualApprovalNeeded && !loadingDualCheck && (
+                <FormControl fullWidth error={!!error && error.includes('SECOND APPROVER')}>
+                  <InputLabel>Second Approver</InputLabel>
+                  <Select
+                    value={dialogSecondApprover}
+                    onChange={(e) => {
+                      setDialogSecondApprover(e.target.value);
+                      if (error && error.includes('SECOND APPROVER')) {
+                        setError(null);
+                      }
+                    }}
+                    label="Second Approver"
+                  >
+                    <MenuItem value="">
+                      <em>Select second approver…</em>
+                    </MenuItem>
+                    {approversList
+                      .filter(a => a.id !== existingApprover)
+                      .map((approver) => {
+                        const level = parseInt(String(approver.permissionLevel));
+                        const displayName = approver.name || `${approver.firstName || ''} ${approver.lastName || ''}`.trim() || approver.email;
+                        let suffix = ` (Level ${level})`;
+                        if (level === 1) suffix = ' (Global Approver)';
+                        else if (level === 2) suffix = ' (Senior Approver)';
+                        else if (level === 6) suffix = ' (Finance Approver)';
+                        return (
+                          <MenuItem key={approver.id} value={approver.id}>
+                            {displayName}{suffix}
+                          </MenuItem>
+                        );
+                      })}
+                  </Select>
+                  <FormHelperText>
+                    {error && error.includes('SECOND APPROVER')
+                      ? 'A second approver is required for this amount'
+                      : 'Required for high-value PRs requiring dual approval'}
+                  </FormHelperText>
+                </FormControl>
+              )}
+
               <TextField
-                autoFocus
+                autoFocus={!dualApprovalNeeded}
                 multiline
                 rows={4}
                 label={t('pr.notes')}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 required={selectedAction === 'reject' || selectedAction === 'revise'}
-                error={!!error}
+                error={!!error && !error.includes('SECOND APPROVER')}
                 fullWidth
               />
             </Stack>
@@ -780,7 +936,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   if (currentStatus === PRStatus.REVISION_REQUIRED && (isProcurement || isAdmin)) {
     return (
       <>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1, sm: 2 }, mb: 3 }}>
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, flexWrap: 'wrap', gap: { xs: 1, sm: 2 }, mb: 3, maxWidth: '100%' }}>
           <Button
             variant="contained"
             color="primary"
@@ -853,7 +1009,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
     currentStatus === PRStatus.REVISION_REQUIRED
   )) {
     return (
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 3, maxWidth: '100%' }}>
         <Button
           variant="contained"
           color="error"

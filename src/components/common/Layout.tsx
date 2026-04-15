@@ -26,7 +26,6 @@ import {
 import {
   Menu as MenuIcon,
   Dashboard,
-  AddCircle,
   List as ListIcon,
   Person,
   AdminPanelSettings,
@@ -34,7 +33,8 @@ import {
   HelpOutline,
   Archive as ArchiveIcon,
   Assignment,
-  Business
+  Business,
+  School as SchoolIcon,
 } from '@mui/icons-material';
 import { signOut } from '../../services/auth';
 import { clearUser } from '../../store/slices/authSlice';
@@ -43,6 +43,9 @@ import { UserProfile } from '@/components/user/UserProfile';
 import { useTranslation } from 'react-i18next';
 import LanguageToggle from './LanguageToggle';
 import { CompanyLogo } from './CompanyLogo';
+import { SidebarSearch } from './SidebarSearch';
+import { TutorialProvider, useTutorial } from '@/contexts/TutorialContext';
+import { TutorialPickerDialog } from '@/components/tutorial/TutorialPickerDialog';
 
 const NavItem = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -57,7 +60,7 @@ const NavItem = styled('div')(({ theme }) => ({
   },
 }));
 
-export const Layout = () => {
+const LayoutInner = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const location = useLocation();
@@ -117,8 +120,10 @@ export const Layout = () => {
     (user?.permissionLevel &&
       (user.permissionLevel <= 4 || user.permissionLevel === PERMISSION_LEVELS.USER_ADMIN));
 
+  const { openPicker } = useTutorial();
+
   const drawer = (
-    <Box>
+    <Box data-tutorial="layout-sidebar">
       <Box sx={{ 
         p: 2, 
         display: 'flex', 
@@ -128,6 +133,8 @@ export const Layout = () => {
       }}>
         <CompanyLogo />
       </Box>
+      <Divider />
+      <SidebarSearch onNavigate={() => { if (isMobile) setMobileOpen(false); }} />
       <Divider />
       <List>
         <NavItem onClick={() => handleNavigation('/dashboard')}>
@@ -152,12 +159,14 @@ export const Layout = () => {
             label={t('nav.myPRs')}
           />
         </NavItem>
-        <NavItem onClick={() => handleNavigation('/pr/list')}>
-          <ListItemIcon>
-            <ListIcon />
-          </ListItemIcon>
-          <ListItemText primary="PRs" />
-        </NavItem>
+        <Box data-tutorial="layout-pr-list">
+          <NavItem onClick={() => handleNavigation('/pr/list')}>
+            <ListItemIcon>
+              <ListIcon />
+            </ListItemIcon>
+            <ListItemText primary="PRs" />
+          </NavItem>
+        </Box>
         <Divider />
         <NavItem onClick={() => handleNavigation('/suppliers')}>
           <ListItemIcon>
@@ -195,12 +204,25 @@ export const Layout = () => {
           <ListItemText primary="Job Cards" />
         </NavItem>
         <Divider />
-        <NavItem onClick={() => handleNavigation('/help')}>
+        <NavItem
+          onClick={() => {
+            openPicker();
+            if (isMobile) setMobileOpen(false);
+          }}
+        >
           <ListItemIcon>
-            <HelpOutline />
+            <SchoolIcon />
           </ListItemIcon>
-          <ListItemText primary={t('nav.help')} />
+          <ListItemText primary={t('nav.tutorials')} />
         </NavItem>
+        <Box data-tutorial="layout-help">
+          <NavItem onClick={() => handleNavigation('/help')}>
+            <ListItemIcon>
+              <HelpOutline />
+            </ListItemIcon>
+            <ListItemText primary={t('nav.help')} />
+          </NavItem>
+        </Box>
         {hasAdminAccess && (
           <>
             <Divider />
@@ -221,6 +243,7 @@ export const Layout = () => {
       <CssBaseline />
       <AppBar
         position="fixed"
+        data-tutorial="layout-appbar"
         sx={{
           width: { sm: `calc(100% - 240px)` },
           ml: { sm: `240px` },
@@ -232,6 +255,7 @@ export const Layout = () => {
             aria-label="open drawer"
             edge="start"
             onClick={handleDrawerToggle}
+            data-tutorial="layout-menu-button"
             sx={{ mr: 2, display: { sm: 'none' } }}
           >
             <MenuIcon />
@@ -329,6 +353,7 @@ export const Layout = () => {
       </Box>
       <Box
         component="main"
+        data-tutorial="layout-main"
         sx={{
           flexGrow: 1,
           p: { xs: 1, sm: 2, md: 3 },
@@ -341,6 +366,7 @@ export const Layout = () => {
       >
         <Outlet />
       </Box>
+      <TutorialPickerDialog />
       {isProfileOpen && (
         <UserProfile
           isOpen={isProfileOpen}
@@ -350,3 +376,9 @@ export const Layout = () => {
     </Box>
   );
 };
+
+export const Layout = () => (
+  <TutorialProvider>
+    <LayoutInner />
+  </TutorialProvider>
+);

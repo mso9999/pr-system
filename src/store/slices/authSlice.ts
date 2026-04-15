@@ -55,6 +55,10 @@ export interface User {
   isActive: boolean;
   permissionLevel: number;
   additionalOrganizations?: string[];
+  multiDepartmentAppointmentsEnabled?: boolean;
+  departmentMemberships?: { departmentId: string; isLead: boolean }[];
+  isHrLead?: boolean;
+  hrLeadCountryCodes?: string[];
 }
 
 /**

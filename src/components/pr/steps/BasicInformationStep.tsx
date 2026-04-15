@@ -334,28 +334,32 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
           value={formState.organization}
           onChange={async (org) => {
             // Get organization's baseCurrency when organization changes
-            // Only set currency if it's currently empty, otherwise preserve user's selection
-            let orgBaseCurrency = formState.currency || 'LSL'; // Keep current or default
-            if (!formState.currency) {
-              // Only fetch and set baseCurrency if currency is not already set
-              try {
-                const organizationService = (await import('../../../services/organizationService')).organizationService;
-                const fullOrg = await organizationService.getOrganizationById(org.id);
-                if (fullOrg?.baseCurrency) {
-                  orgBaseCurrency = fullOrg.baseCurrency;
-                  console.log(`[BasicInformationStep] Setting currency to organization's baseCurrency: ${orgBaseCurrency}`);
-                }
-              } catch (error) {
-                console.warn('[BasicInformationStep] Could not load organization baseCurrency:', error);
+            let orgBaseCurrency = 'LSL'; // Default fallback
+            try {
+              const organizationService = (await import('../../../services/organizationService')).organizationService;
+              const fullOrg = await organizationService.getOrganizationById(org.id);
+              if (fullOrg?.baseCurrency) {
+                orgBaseCurrency = fullOrg.baseCurrency;
               }
+            } catch (error) {
+              console.warn('[BasicInformationStep] Could not load organization baseCurrency:', error);
             }
             
-            setFormState(prev => ({
-              ...prev,
-              organization: org,
-              // Only update currency if it was empty, otherwise keep user's selection
-              currency: prev.currency || orgBaseCurrency
-            }));
+            // Use callback form to check current state value, not stale closure
+            setFormState(prev => {
+              const shouldSetCurrency = !prev.currency;
+              if (shouldSetCurrency) {
+                console.log(`[BasicInformationStep] Setting currency to organization's baseCurrency: ${orgBaseCurrency}`);
+              } else {
+                console.log(`[BasicInformationStep] Preserving user's currency selection: ${prev.currency}`);
+              }
+              return {
+                ...prev,
+                organization: org,
+                // Only update currency if it was empty, otherwise keep user's selection
+                currency: shouldSetCurrency ? orgBaseCurrency : prev.currency
+              };
+            });
           }}
           restrictToUserOrgs={true}
           error={isSubmitted && !formState.organization}

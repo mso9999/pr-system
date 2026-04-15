@@ -51,6 +51,7 @@ const FALLBACK_RATES: Record<string, Record<string, number>> = {
     ZAR: 18.5,    // South African Rand
     XOF: 605,     // CFA Franc BCEAO (West Africa)
     XAF: 605,     // CFA Franc BEAC (Central Africa)
+    ZMW: 27.5,    // Zambian Kwacha
     EUR: 0.92,
     GBP: 0.79,
   },
@@ -59,22 +60,33 @@ const FALLBACK_RATES: Record<string, Record<string, number>> = {
     ZAR: 20.1,
     XOF: 655.957, // Fixed rate (CFA is pegged to EUR)
     XAF: 655.957,
+    ZMW: 30.0,    // Zambian Kwacha
     USD: 1.09,
     GBP: 0.86,
   },
   ZAR: {
     LSL: 1.0,     // LSL is pegged 1:1 to ZAR
+    ZMW: 1.49,    // ZAR to Zambian Kwacha
     USD: 0.054,
     EUR: 0.050,
   },
   LSL: {
     ZAR: 1.0,     // LSL is pegged 1:1 to ZAR
+    ZMW: 1.49,    // LSL to Zambian Kwacha
     USD: 0.054,
     EUR: 0.050,
   },
   XOF: {
     EUR: 0.001524, // 1/655.957
     USD: 0.00165,
+    ZMW: 0.0455,  // XOF to Zambian Kwacha
+  },
+  ZMW: {
+    USD: 0.036,   // Zambian Kwacha to USD
+    EUR: 0.033,   // Zambian Kwacha to EUR
+    ZAR: 0.67,    // Zambian Kwacha to ZAR
+    LSL: 0.67,    // Zambian Kwacha to LSL (same as ZAR)
+    XOF: 22.0,    // Zambian Kwacha to XOF
   },
 };
 

@@ -2,70 +2,169 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Reference data collections
+
+    // ── Helper functions ────────────────────────────────────────
+    // permissionLevel in users collection:
+    //   6 = SuperAdmin, 5 = Admin → AM Admin
+    //   3-4 = Approver/Manager   → AM Manager
+    //   1-2 = Requester/Viewer   → AM Viewer
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function permLevel() {
+      return userDoc().permissionLevel;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && permLevel() >= 5;
+    }
+
+    function isManager() {
+      return isAuthenticated() && permLevel() >= 3;
+    }
+
+    function isViewer() {
+      return isAuthenticated();
+    }
+
+    // ── AM core collections ─────────────────────────────────────
+
+    match /am_core_assets/{docId} {
+      allow read:   if isViewer();
+      allow create: if isManager();
+      allow update: if isManager();
+      allow delete: if isAdmin();
+    }
+
+    match /am_core_allocations/{docId} {
+      allow read:   if isViewer();
+      allow create: if isManager();
+      allow update: if isManager();
+      allow delete: if isAdmin();
+    }
+
+    match /am_core_transactions/{docId} {
+      allow read:   if isViewer();
+      allow create: if isManager();
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    match /am_core_inventory_levels/{docId} {
+      allow read:   if isViewer();
+      allow create: if isManager();
+      allow update: if isManager();
+      allow delete: if isAdmin();
+    }
+
+    // ── AM PR master / shared collections ───────────────────────
+
+    match /pr_master_categories/{docId} {
+      allow read:   if isViewer();
+      allow write:  if isAdmin();
+    }
+
+    match /pr_master_countries/{docId} {
+      allow read:   if isViewer();
+      allow write:  if isAdmin();
+    }
+
+    match /pr_master_locations/{docId} {
+      allow read:   if isViewer();
+      allow write:  if isAdmin();
+    }
+
+    match /pr_master_requests/{docId} {
+      allow read:   if isViewer();
+      allow create: if isViewer();
+      allow update: if isManager();
+      allow delete: if isAdmin();
+    }
+
+    match /pr_master_employees/{docId} {
+      allow read:  if isViewer();
+      allow write: if isAdmin();
+    }
+
+    // ── User profiles ───────────────────────────────────────────
+
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      // Self-update, superadmin (PR permission level 1), or HR Lead managing other profiles
+      allow update: if request.auth.uid == userId
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissionLevel == 1
+        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isHrLead == true;
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // ── PR System reference data collections ────────────────────
+
     match /departments/{docId} {
       allow read, write: if true;
     }
-    
+
     match /projectCategories/{docId} {
       allow read, write: if true;
     }
-    
+
     match /sites/{docId} {
       allow read, write: if true;
     }
-    
+
     match /expenseTypes/{docId} {
       allow read, write: if true;
     }
-    
+
     match /vehicles/{docId} {
       allow read, write: if true;
     }
-    
+
     match /vendors/{docId} {
       allow read, write: if true;
     }
-    
+
     match /currencies/{docId} {
       allow read, write: if true;
     }
 
-    // Purchase Requests collection
+    // ── PR System purchase requests ─────────────────────────────
+
     match /purchaseRequests/{docId} {
       allow read: if request.auth != null;
-      // Allow create for any authenticated user
       allow create: if request.auth != null;
-      // Allow update if:
-      // - You are the requestor, OR
-      // - You have permissionLevel <= 4 (procurement, finance, admins)
-      // NOTE: Users are stored by email, not UID!
       allow update: if request.auth != null &&
         (resource.data.requestorId == request.auth.uid ||
          get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.permissionLevel <= 4);
-      // Only admins can delete (permissionLevel <= 2)
       allow delete: if request.auth != null &&
         get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.permissionLevel <= 2;
     }
 
-    // Archive PRs collection (read-only for users, write for authenticated import scripts)
+    // ── PR System archive ───────────────────────────────────────
+
     match /archivePRs/{docId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null; // Allow authenticated users to write (for import script)
+      allow write: if request.auth != null;
     }
 
-    // Job Cards collection (for Production Job Card System)
+    // ── Job Cards ───────────────────────────────────────────────
+
     match /jobCards/{jobCardId} {
-      // Allow read access to authenticated users only
       allow read: if request.auth != null;
-      
-      // Allow write access to authenticated users only
       allow create: if request.auth != null;
       allow update: if request.auth != null;
-      allow delete: if false; // Prevent deletion for data integrity
+      allow delete: if false;
     }
 
-    // All other collections
+    // ── Catch-all: allow authenticated access to any other
+    //    collection (referenceData_*, etc.) ───────────────────────
+
     match /{document=**} {
       allow read, write: if request.auth != null;
     }

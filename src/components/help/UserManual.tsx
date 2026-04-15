@@ -561,6 +561,40 @@ APPROVED → ORDERED → COMPLETED`}
               </Typography>
             </AccordionDetails>
           </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandIcon />}>
+              <Typography variant="h6">{t('manual.approver.amendmentTitle')}</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="body2" paragraph>
+                {t('manual.approver.amendmentDesc')}
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.approver.amendReviewStep1')}
+                    secondary={t('manual.approver.amendReviewStep1Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.approver.amendReviewStep2')}
+                    secondary={t('manual.approver.amendReviewStep2Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.approver.amendReviewStep3')}
+                    secondary={t('manual.approver.amendReviewStep3Desc')}
+                  />
+                </ListItem>
+              </List>
+              <Alert severity="info" sx={{ mt: 2 }}>
+                {t('manual.approver.amendDualNote')}
+              </Alert>
+            </AccordionDetails>
+          </Accordion>
         </TabPanel>
 
         {/* Procurement Guide */}
@@ -807,6 +841,55 @@ APPROVED → ORDERED → COMPLETED`}
                   <ListItemText primary={t('manual.procurement.orderStep7')} />
                 </ListItem>
               </List>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandIcon />}>
+              <Typography variant="h6">{t('manual.procurement.amendmentTitle')}</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {t('manual.procurement.amendmentInfo')}
+              </Alert>
+              <Typography variant="body2" paragraph>
+                {t('manual.procurement.amendmentDesc')}
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.procurement.amendStep1')}
+                    secondary={t('manual.procurement.amendStep1Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.procurement.amendStep2')}
+                    secondary={t('manual.procurement.amendStep2Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.procurement.amendStep3')}
+                    secondary={t('manual.procurement.amendStep3Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.procurement.amendStep4')}
+                    secondary={t('manual.procurement.amendStep4Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.procurement.amendStep5')}
+                    secondary={t('manual.procurement.amendStep5Desc')}
+                  />
+                </ListItem>
+              </List>
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                {t('manual.procurement.amendNote')}
+              </Alert>
             </AccordionDetails>
           </Accordion>
         </TabPanel>

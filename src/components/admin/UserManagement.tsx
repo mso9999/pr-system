@@ -32,7 +32,7 @@ import {
   Checkbox
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon, Visibility, VisibilityOff, Key as KeyIcon, Search as SearchIcon, ArrowUpward, ArrowDownward } from '@mui/icons-material';
-import { doc, collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, orderBy, setDoc } from 'firebase/firestore';
+import { doc, collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, orderBy, setDoc, deleteField } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../config/firebase';
 import { User } from '../../types/user';
@@ -43,6 +43,13 @@ import { ReferenceData } from '../../types/referenceData';
 import { useSelector } from 'react-redux';
 import { RootState } from '../../store';
 import { PERMISSION_LEVELS, PERMISSION_NAMES } from '../../config/permissions';
+import {
+  canManageHrLeadMeta,
+  canToggleMultiDepartmentAssignment,
+  validateDepartmentSlots,
+} from '@/utils/userDepartmentAccess';
+import { HR_COUNTRY_OPTIONS } from '@/config/hrCountries';
+import type { DepartmentMembership } from '@/types/user';
 
 // Helper function to generate random password
 function generateRandomPassword(): string {
@@ -147,6 +154,14 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isPasswordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const emptyDeptSlots = (): Array<{ departmentId: string; isLead: boolean }> => [
+    { departmentId: '', isLead: false },
+    { departmentId: '', isLead: false },
+    { departmentId: '', isLead: false },
+  ];
+
+  const [deptSlots, setDeptSlots] = useState(emptyDeptSlots);
+
   const [formData, setFormData] = useState<Partial<User>>({
     firstName: '',
     lastName: '',
@@ -155,7 +170,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     organization: '',
     additionalOrganizations: [],
     permissionLevel: undefined,
-    isActive: true
+    isActive: true,
+    multiDepartmentAppointmentsEnabled: false,
+    isHrLead: false,
+    hrLeadCountryCodes: [],
   });
   const { showSnackbar } = useSnackbar();
 
@@ -165,6 +183,19 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const canManageAllUsers = currentUser?.permissionLevel === 1; // Only Admin
   const isProtectedAdminAccount = (user?: User | null) =>
     !!user && user.permissionLevel === PERMISSION_LEVELS.ADMIN;
+
+  const selectedOrgCountry = useMemo(() => {
+    if (!formData.organization) return undefined;
+    const o = organizations.find((org) => org.id === formData.organization);
+    return (o as { country?: string })?.country;
+  }, [formData.organization, organizations]);
+
+  const canToggleMulti = useMemo(
+    () => canToggleMultiDepartmentAssignment(currentUser, selectedOrgCountry),
+    [currentUser, selectedOrgCountry]
+  );
+
+  const canEditHrMeta = useMemo(() => canManageHrLeadMeta(currentUser), [currentUser]);
 
   const fallbackPermissionOptions = useMemo(() => {
     return Object.entries(PERMISSION_LEVELS).map(([key, level]) => ({
@@ -291,7 +322,15 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           // Handle both string and number permission levels
           permissionLevel: typeof data.permissionLevel === 'number' ? data.permissionLevel : 
             typeof data.permissionLevel === 'string' ? Number(data.permissionLevel) : 5,
-          isActive: data.isActive !== false
+          isActive: data.isActive !== false,
+          multiDepartmentAppointmentsEnabled: data.multiDepartmentAppointmentsEnabled === true,
+          departmentMemberships: Array.isArray(data.departmentMemberships)
+            ? (data.departmentMemberships as DepartmentMembership[])
+            : undefined,
+          isHrLead: data.isHrLead === true,
+          hrLeadCountryCodes: Array.isArray(data.hrLeadCountryCodes)
+            ? (data.hrLeadCountryCodes as string[])
+            : undefined,
         });
       });
       
@@ -415,6 +454,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
 
   const handleAdd = () => {
     setEditingUser(null);
+    setDeptSlots(emptyDeptSlots());
     // Default to Requester when creating new users
     setFormData({
       firstName: '',
@@ -424,7 +464,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       organization: '',
       additionalOrganizations: [],
       permissionLevel: PERMISSION_LEVELS.REQ,
-      isActive: true
+      isActive: true,
+      multiDepartmentAppointmentsEnabled: false,
+      isHrLead: false,
+      hrLeadCountryCodes: [],
     });
     setIsDialogOpen(true);
   };
@@ -432,6 +475,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   const handleClose = () => {
     setIsDialogOpen(false);
     setEditingUser(null);
+    setDeptSlots(emptyDeptSlots());
     // Reset form data
     setFormData({
       firstName: '',
@@ -441,7 +485,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       organization: '',
       additionalOrganizations: [],
       permissionLevel: isProcurement || isUserAdmin ? PERMISSION_LEVELS.REQ : undefined,
-      isActive: true
+      isActive: true,
+      multiDepartmentAppointmentsEnabled: false,
+      isHrLead: false,
+      hrLeadCountryCodes: [],
     });
   };
 
@@ -469,6 +516,21 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       foundDept: dept
     });
     
+    const multi =
+      user.multiDepartmentAppointmentsEnabled === true &&
+      user.departmentMemberships &&
+      user.departmentMemberships.length >= 2;
+    const m = user.departmentMemberships;
+    setDeptSlots(
+      multi && m
+        ? [
+            { departmentId: m[0]?.departmentId || '', isLead: !!m[0]?.isLead },
+            { departmentId: m[1]?.departmentId || '', isLead: !!m[1]?.isLead },
+            { departmentId: m[2]?.departmentId || '', isLead: !!m[2]?.isLead },
+          ]
+        : emptyDeptSlots()
+    );
+
     setEditingUser(user);
     setFormData({
       firstName: user.firstName,
@@ -478,7 +540,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       organization: normalizedOrg,
       additionalOrganizations: user.additionalOrganizations || [],
       permissionLevel: user.permissionLevel || 5,
-      isActive: user.isActive
+      isActive: user.isActive,
+      multiDepartmentAppointmentsEnabled: !!multi,
+      isHrLead: user.isHrLead === true,
+      hrLeadCountryCodes: user.hrLeadCountryCodes || [],
     });
     setIsDialogOpen(true);
   };
@@ -556,12 +621,13 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         ? { ...updatedData, email: undefined, updatedAt: new Date().toISOString() } // Skip email, already updated
         : { ...updatedData, updatedAt: new Date().toISOString() };
       
-      // Remove undefined values
-      const cleanData = Object.fromEntries(
-        Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined)
-      );
-      
-      await updateDoc(userRef, cleanData);
+      const entries = Object.entries(dataToUpdate).filter(([_, v]) => v !== undefined) as [string, unknown][];
+      const cleanData = Object.fromEntries(entries) as Record<string, unknown>;
+      if (updatedData.multiDepartmentAppointmentsEnabled === false) {
+        cleanData.departmentMemberships = deleteField();
+      }
+
+      await updateDoc(userRef, cleanData as Parameters<typeof updateDoc>[1]);
 
       // Refresh user list
       await loadUsers();
@@ -613,9 +679,48 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   };
 
   const handleSubmit = async () => {
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.organization || !formData.department || !formData.permissionLevel) {
-      showSnackbar('Please fill in all required fields (including department)', 'error');
+    if (!formData.firstName || !formData.lastName || !formData.email || !formData.organization || formData.permissionLevel === undefined) {
+      showSnackbar('Please fill in all required fields', 'error');
       return;
+    }
+
+    const existingMulti =
+      !!editingUser?.multiDepartmentAppointmentsEnabled &&
+      (editingUser?.departmentMemberships?.length ?? 0) >= 2;
+
+    const wantsMultiForm = formData.multiDepartmentAppointmentsEnabled === true;
+
+    const useMulti =
+      existingMulti && !canToggleMulti ? true : wantsMultiForm && canToggleMulti;
+
+    let primaryDepartmentId = '';
+    let departmentMemberships: DepartmentMembership[] | undefined;
+    let multiDepartmentAppointmentsEnabled = false;
+
+    if (useMulti && canToggleMulti) {
+      const m = validateDepartmentSlots(deptSlots);
+      if (!m) {
+        showSnackbar(
+          'Multi-department mode requires 2 or 3 different departments. Mark Lead where applicable.',
+          'error'
+        );
+        return;
+      }
+      departmentMemberships = m;
+      multiDepartmentAppointmentsEnabled = true;
+      primaryDepartmentId = m[0].departmentId;
+    } else if (useMulti && existingMulti && !canToggleMulti) {
+      departmentMemberships = editingUser!.departmentMemberships!;
+      multiDepartmentAppointmentsEnabled = true;
+      primaryDepartmentId = departmentMemberships[0].departmentId;
+    } else {
+      if (!formData.department) {
+        showSnackbar('Please fill in all required fields (including department)', 'error');
+        return;
+      }
+      primaryDepartmentId = formData.department;
+      multiDepartmentAppointmentsEnabled = false;
+      departmentMemberships = undefined;
     }
 
     if (isUserAdmin) {
@@ -629,49 +734,64 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       }
     }
 
+    if (canEditHrMeta) {
+      if (formData.isHrLead && (!formData.hrLeadCountryCodes || formData.hrLeadCountryCodes.length === 0)) {
+        showSnackbar('Select at least one country for HR Lead scope, or turn off HR Lead.', 'error');
+        return;
+      }
+    }
+
     try {
       setIsLoading(true);
-      
+
+      const hrPayload: Partial<Pick<User, 'isHrLead' | 'hrLeadCountryCodes'>> = {};
+      if (canEditHrMeta) {
+        hrPayload.isHrLead = !!formData.isHrLead;
+        hrPayload.hrLeadCountryCodes = formData.isHrLead ? formData.hrLeadCountryCodes || [] : [];
+      }
+
       if (editingUser) {
-        await handleUserUpdate(editingUser.id, {
+        const updatePayload: Partial<User> = {
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
-          department: formData.department,
-          organization: formData.organization,
-          additionalOrganizations: formData.additionalOrganizations,
-          permissionLevel: formData.permissionLevel,
-          isActive: formData.isActive
-        }, editingUser.email);
-      } else {
-        // Create new user
-        const password = generateRandomPassword();
-        const newUserData = {
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          department: formData.department,
+          department: primaryDepartmentId,
           organization: formData.organization,
           additionalOrganizations: formData.additionalOrganizations,
           permissionLevel: formData.permissionLevel,
           isActive: formData.isActive,
-          createdAt: new Date().toISOString()
+          multiDepartmentAppointmentsEnabled,
+          ...hrPayload,
         };
+        if (multiDepartmentAppointmentsEnabled && departmentMemberships) {
+          updatePayload.departmentMemberships = departmentMemberships;
+        }
 
+        await handleUserUpdate(editingUser.id, updatePayload, editingUser.email);
+      } else {
+        const password = generateRandomPassword();
         await createUser({
           email: formData.email!,
-          password: password,
+          password,
           firstName: formData.firstName!,
           lastName: formData.lastName!,
-          department: formData.department || '',
+          department: primaryDepartmentId,
           organization: formData.organization!,
-          permissionLevel: formData.permissionLevel!
+          permissionLevel: formData.permissionLevel!,
+          additionalOrganizations: formData.additionalOrganizations,
+          ...(multiDepartmentAppointmentsEnabled && departmentMemberships
+            ? {
+                multiDepartmentAppointmentsEnabled: true,
+                departmentMemberships,
+              }
+            : {}),
+          ...hrPayload,
         });
         await loadUsers();
+        showSnackbar('User created successfully', 'success');
       }
 
       handleClose();
-      showSnackbar(editingUser ? 'User updated successfully' : 'User created successfully', 'success');
     } catch (error) {
       console.error('Error saving user:', error);
       showSnackbar(error instanceof Error ? error.message : 'Failed to save user', 'error');
@@ -771,6 +891,22 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     return dept?.name || id;
   };
 
+  const formatUserDepartmentsCell = (user: User): string => {
+    if (
+      user.multiDepartmentAppointmentsEnabled &&
+      user.departmentMemberships &&
+      user.departmentMemberships.length >= 2
+    ) {
+      return user.departmentMemberships
+        .map((m) => {
+          const name = getDepartmentName(m.departmentId);
+          return m.isLead ? `${name} (Lead)` : name;
+        })
+        .join(', ');
+    }
+    return getDepartmentName(user.department || '');
+  };
+
   const getPermissionName = (level: number): string => {
     // Use centralized permission names from config
     return PERMISSION_NAMES[level as keyof typeof PERMISSION_NAMES] || `Unknown Permission`;
@@ -787,7 +923,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         `${user.firstName} ${user.lastName}`.toLowerCase().includes(searchLower) ||
         user.email.toLowerCase().includes(searchLower) ||
         getOrganizationName(user.organization).toLowerCase().includes(searchLower) ||
-        getDepartmentName(user.department).toLowerCase().includes(searchLower) ||
+        formatUserDepartmentsCell(user).toLowerCase().includes(searchLower) ||
         getPermissionName(user.permissionLevel).toLowerCase().includes(searchLower)
       );
     }
@@ -811,8 +947,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           bValue = getOrganizationName(b.organization).toLowerCase();
           break;
         case 'department':
-          aValue = getDepartmentName(a.department).toLowerCase();
-          bValue = getDepartmentName(b.department).toLowerCase();
+          aValue = formatUserDepartmentsCell(a).toLowerCase();
+          bValue = formatUserDepartmentsCell(b).toLowerCase();
           break;
         case 'permissionLevel':
           aValue = a.permissionLevel || 0;
@@ -894,6 +1030,11 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     if (sortField !== field) return null;
     return sortDirection === 'asc' ? <ArrowUpward fontSize="small" /> : <ArrowDownward fontSize="small" />;
   };
+
+  const dialogExistingMulti =
+    !!editingUser?.multiDepartmentAppointmentsEnabled &&
+    (editingUser?.departmentMemberships?.length ?? 0) >= 2;
+  const showMultiDeptToggle = canToggleMulti || dialogExistingMulti;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -1047,7 +1188,9 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                       <TableCell>{`${user.firstName} ${user.lastName}`}</TableCell>
                       <TableCell>{user.email}</TableCell>
                       <TableCell>{getOrganizationName(user.organization)}</TableCell>
-                      <TableCell>{getDepartmentName(user.department)}</TableCell>
+                      <TableCell sx={{ maxWidth: 280, whiteSpace: 'normal', wordBreak: 'break-word' }}>
+                        {formatUserDepartmentsCell(user)}
+                      </TableCell>
                       <TableCell>{getPermissionName(user.permissionLevel)}</TableCell>
                       <TableCell>
                         <Chip 
@@ -1115,7 +1258,16 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                 <InputLabel>Organization</InputLabel>
                 <Select
                   value={formData.organization}
-                  onChange={(e) => setFormData({ ...formData, organization: e.target.value, department: '' })}
+                  onChange={(e) => {
+                    const v = e.target.value as string;
+                    setFormData((prev) => ({
+                      ...prev,
+                      organization: v,
+                      department: '',
+                      multiDepartmentAppointmentsEnabled: false,
+                    }));
+                    setDeptSlots(emptyDeptSlots());
+                  }}
                   label="Organization"
                 >
                   {organizations.map((org) => (
@@ -1126,27 +1278,182 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                 </Select>
               </FormControl>
 
-              <FormControl fullWidth margin="dense">
-                <InputLabel>Department</InputLabel>
-                <Select
-                  value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  label="Department"
-                  disabled={!formData.organization || isDepartmentsLoading}
-                >
-                  {isDepartmentsLoading ? (
-                    <MenuItem disabled>Loading departments...</MenuItem>
-                  ) : departments.length === 0 ? (
-                    <MenuItem disabled>No departments available</MenuItem>
-                  ) : (
-                    departments.map((dept) => (
-                      <MenuItem key={dept.id} value={dept.id}>
-                        {dept.name}
-                      </MenuItem>
-                    ))
+              {showMultiDeptToggle && (
+                <FormControl fullWidth margin="dense">
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.multiDepartmentAppointmentsEnabled === true}
+                        disabled={dialogExistingMulti && !canToggleMulti}
+                        onChange={(e) => {
+                          const on = e.target.checked;
+                          setFormData((prev) => ({ ...prev, multiDepartmentAppointmentsEnabled: on }));
+                          if (!on) setDeptSlots(emptyDeptSlots());
+                        }}
+                      />
+                    }
+                    label="Multiple department appointments (2–3 departments)"
+                  />
+                </FormControl>
+              )}
+
+              {dialogExistingMulti && !canToggleMulti && (
+                <Alert severity="info" sx={{ mb: 1 }}>
+                  Multi-department assignments are locked for your role. An administrator or a country HR Lead may
+                  change them.
+                </Alert>
+              )}
+
+              {formData.multiDepartmentAppointmentsEnabled ? (
+                <>
+                  {[0, 1, 2].map((idx) => (
+                    <Box
+                      key={idx}
+                      sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 0.5 }}
+                    >
+                      <FormControl fullWidth margin="dense" sx={{ flex: '1 1 200px', minWidth: 160 }}>
+                        <InputLabel>Department {idx + 1}</InputLabel>
+                        <Select
+                          value={deptSlots[idx]?.departmentId || ''}
+                          onChange={(e) => {
+                            const v = e.target.value as string;
+                            setDeptSlots((prev) => {
+                              const next = [...prev];
+                              next[idx] = { ...next[idx], departmentId: v };
+                              return next;
+                            });
+                          }}
+                          label={`Department ${idx + 1}`}
+                          disabled={
+                            !formData.organization || isDepartmentsLoading || (dialogExistingMulti && !canToggleMulti)
+                          }
+                        >
+                          {isDepartmentsLoading ? (
+                            <MenuItem disabled>Loading departments...</MenuItem>
+                          ) : departments.length === 0 ? (
+                            <MenuItem disabled>No departments available</MenuItem>
+                          ) : (
+                            departments.map((dept) => (
+                              <MenuItem key={dept.id} value={dept.id}>
+                                {dept.name}
+                              </MenuItem>
+                            ))
+                          )}
+                        </Select>
+                      </FormControl>
+                      <FormControlLabel
+                        sx={{ ml: 0 }}
+                        control={
+                          <Checkbox
+                            checked={!!deptSlots[idx]?.isLead}
+                            disabled={dialogExistingMulti && !canToggleMulti}
+                            onChange={(e) => {
+                              const c = e.target.checked;
+                              setDeptSlots((prev) => {
+                                const next = [...prev];
+                                next[idx] = { ...next[idx], isLead: c };
+                                return next;
+                              });
+                            }}
+                          />
+                        }
+                        label="Lead"
+                      />
+                    </Box>
+                  ))}
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                    Fill 2 or 3 rows with different departments. Primary department is the first row.
+                  </Typography>
+                </>
+              ) : (
+                <FormControl fullWidth margin="dense">
+                  <InputLabel>Department</InputLabel>
+                  <Select
+                    value={formData.department}
+                    onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                    label="Department"
+                    disabled={!formData.organization || isDepartmentsLoading}
+                  >
+                    {isDepartmentsLoading ? (
+                      <MenuItem disabled>Loading departments...</MenuItem>
+                    ) : departments.length === 0 ? (
+                      <MenuItem disabled>No departments available</MenuItem>
+                    ) : (
+                      departments.map((dept) => (
+                        <MenuItem key={dept.id} value={dept.id}>
+                          {dept.name}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
+              )}
+
+              {canEditHrMeta && (
+                <>
+                  <FormControl fullWidth margin="dense">
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={formData.isHrLead === true}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              isHrLead: e.target.checked,
+                              hrLeadCountryCodes: e.target.checked ? prev.hrLeadCountryCodes || [] : [],
+                            }))
+                          }
+                        />
+                      }
+                      label="HR Lead (country-scoped — can enable multi-department for employees in selected countries)"
+                    />
+                  </FormControl>
+                  {formData.isHrLead && (
+                    <FormControl fullWidth margin="dense">
+                      <InputLabel id="hr-lead-countries-label">HR Lead countries</InputLabel>
+                      <Select<string[]>
+                        labelId="hr-lead-countries-label"
+                        multiple
+                        value={formData.hrLeadCountryCodes || []}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            hrLeadCountryCodes: e.target.value as string[],
+                          }))
+                        }
+                        label="HR Lead countries"
+                        renderValue={(selected) => (
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                            {(selected as string[]).map((code) => (
+                              <Chip key={code} label={code} size="small" />
+                            ))}
+                          </Box>
+                        )}
+                      >
+                        {HR_COUNTRY_OPTIONS.map((opt) => (
+                          <MenuItem key={opt.code} value={opt.code}>
+                            {opt.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                   )}
-                </Select>
-              </FormControl>
+                </>
+              )}
+
+              {!canEditHrMeta && editingUser && (editingUser.isHrLead || (editingUser.hrLeadCountryCodes?.length ?? 0) > 0) && (
+                <Box sx={{ mt: 1, mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary" display="block">
+                    HR Lead
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+                    {(editingUser.hrLeadCountryCodes || []).map((c) => (
+                      <Chip key={c} label={c} size="small" />
+                    ))}
+                  </Box>
+                </Box>
+              )}
+
               <FormControl fullWidth margin="dense">
                 <InputLabel>Additional Organizations</InputLabel>
                 <Select

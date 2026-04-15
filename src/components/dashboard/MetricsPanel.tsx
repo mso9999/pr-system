@@ -87,7 +87,7 @@ export const MetricsPanel = ({ prs }: MetricsPanelProps) => {
   );
 
   return (
-    <Paper sx={{ p: { xs: 1.5, sm: 2 }, mb: 3 }}>
+    <Paper data-tutorial="dashboard-metrics" sx={{ p: { xs: 1.5, sm: 2 }, mb: 3 }}>
       <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: '1.1rem', sm: '1.25rem' } }}>
         {t('dashboard.metrics')}
       </Typography>

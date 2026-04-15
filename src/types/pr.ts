@@ -442,6 +442,12 @@ export interface PRRequest {
   /** Additional notes */
   notes?: string;
   
+  // PO Amendment Workflow
+  /** Pending amendment awaiting approver sign-off */
+  pendingAmendment?: PendingAmendment;
+  /** History of resolved amendments */
+  amendmentHistory?: AmendmentHistoryItem[];
+
   // Exchange Rate Tracking (for cross-currency threshold enforcement)
   /** Exchange rate used for threshold validation */
   thresholdExchangeRate?: {
@@ -773,6 +779,37 @@ export interface HistoryItem {
   user: UserReference;
   /** Comment about the action */
   comment?: string;
+}
+
+/**
+ * PO Amendment - proposed changes awaiting approver sign-off
+ */
+export interface PendingAmendment {
+  changes: Partial<PRRequest>;
+  requestedBy: UserReference;
+  requestedAt: string;
+  notes: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  firstApproverDecision?: AmendmentDecision;
+  secondApproverDecision?: AmendmentDecision;
+}
+
+export interface AmendmentDecision {
+  approverId: string;
+  approved: boolean;
+  at: string;
+  notes?: string;
+}
+
+export interface AmendmentHistoryItem {
+  changes: Record<string, { from: any; to: any }>;
+  requestedBy: UserReference;
+  requestedAt: string;
+  notes: string;
+  resolution: 'APPROVED' | 'REJECTED';
+  resolvedBy: UserReference;
+  resolvedAt: string;
+  resolverNotes?: string;
 }
 
 /**

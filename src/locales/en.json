@@ -71,7 +71,151 @@
     "departments": "Departments",
     "vendors": "Vendors",
     "rules": "Rules",
-    "referenceData": "Reference Data"
+    "referenceData": "Reference Data",
+    "tutorials": "Interactive tutorials"
+  },
+  "tutorial": {
+    "pickerTitle": "Guided tours",
+    "pickerIntro": "Choose a tour. The app will highlight areas and explain them step by step. You can skip anytime.",
+    "sectionOrientation": "App orientation",
+    "sectionDashboard": "Dashboard",
+    "sectionWorkflows": "Role workflows",
+    "back": "Back",
+    "close": "Close",
+    "last": "Done",
+    "next": "Next",
+    "nextWithProgress": "Next ({current} of {total})",
+    "skip": "Skip tour",
+    "tours": {
+      "orientation": {
+        "title": "App layout",
+        "description": "Top bar, sidebar, main area, and help"
+      },
+      "dashboard": {
+        "title": "Dashboard walkthrough",
+        "description": "Organization filter, actions, metrics, status chips, and table"
+      },
+      "workflowRequestor": {
+        "title": "Requestor workflow",
+        "description": "Create and track your purchase requests"
+      },
+      "workflowApprover": {
+        "title": "Approver workflow",
+        "description": "Find PRs waiting for your approval"
+      },
+      "workflowProcurement": {
+        "title": "Procurement workflow",
+        "description": "Org context, PR list, and queue by status"
+      },
+      "newPrForm": {
+        "title": "New PR form",
+        "description": "Steps and navigation in the create-PR wizard"
+      }
+    },
+    "orientation": {
+      "step1": {
+        "title": "Top bar",
+        "content": "Language, account menu, and sign out live here. The title shows you are in the Purchase Request system."
+      },
+      "step2": {
+        "title": "Sidebar (navigation)",
+        "content": "On desktop, use the left menu for Dashboard, My PRs, PR list, suppliers, archive, tutorials, help, and admin (if allowed). On mobile, open the menu with the icon in the top-left."
+      },
+      "step3": {
+        "title": "Main content",
+        "content": "Each page loads here—dashboard, PR details, forms, and admin screens."
+      },
+      "step4": {
+        "title": "Help & manual",
+        "content": "Open the full written user guide anytime. For a guided tour, use Interactive tutorials in the sidebar."
+      }
+    },
+    "dashboard": {
+      "step1": {
+        "title": "Toolbar",
+        "content": "Filter by organization, switch to My Actions, open archive, or start a new PR."
+      },
+      "step2": {
+        "title": "Organization",
+        "content": "Pick an organization (or All) to filter PRs and metrics for that scope."
+      },
+      "step3": {
+        "title": "Quick actions",
+        "content": "Needs My Approval highlights PRs awaiting you. New PR opens the creation wizard."
+      },
+      "step4": {
+        "title": "Key metrics",
+        "content": "Counts and averages for PRs in the current organization filter."
+      },
+      "step5": {
+        "title": "Status filters",
+        "content": "Click a status chip to show only PRs in that state (e.g. Pending Approval, Approved)."
+      },
+      "step6": {
+        "title": "PR list",
+        "content": "Open any row to see full PR details, quotes, approvals, and documents."
+      }
+    },
+    "wfRequestor": {
+      "step1": {
+        "title": "Your organization",
+        "content": "Select your org so you see the right PRs and budgets."
+      },
+      "step2": {
+        "title": "Create a PR",
+        "content": "Click New PR to start the wizard: basic info, line items, then review and submit."
+      },
+      "step3": {
+        "title": "Track progress",
+        "content": "Use metrics and the table below. Toggle My PRs in the sidebar to focus on requests you created."
+      },
+      "step4": {
+        "title": "Open a PR",
+        "content": "Click a PR number to view status, messages, and any revision requests."
+      }
+    },
+    "wfApprover": {
+      "step1": {
+        "title": "Needs My Approval",
+        "content": "When this filter is on, the table shows PRs where you are an assigned approver and action is required."
+      },
+      "step2": {
+        "title": "Status chips",
+        "content": "Use Pending Approval to see items in your queue; other statuses for oversight."
+      },
+      "step3": {
+        "title": "Open and approve",
+        "content": "Open a PR, review quotes and amounts, then use Approve, Reject, or Request revision from the actions panel."
+      }
+    },
+    "wfProcurement": {
+      "step1": {
+        "title": "Organization context",
+        "content": "Procurement works within the selected organization—quotes, vendors, and rules follow this scope."
+      },
+      "step2": {
+        "title": "PR list shortcut",
+        "content": "Use PRs in the sidebar for a dedicated list view when you need it."
+      },
+      "step3": {
+        "title": "Queue by status",
+        "content": "Submitted, In Queue, and Approved (for PO steps) are common—pick a chip to match your task."
+      },
+      "step4": {
+        "title": "Drill into a PR",
+        "content": "Open a PR to add quotes, move statuses, assign approvers, and manage the PO lifecycle."
+      }
+    },
+    "newPrForm": {
+      "step1": {
+        "title": "Steps",
+        "content": "Move through Basic Information, Line Items, and Review. Complete required fields before continuing."
+      },
+      "step2": {
+        "title": "Navigation",
+        "content": "Use Back and Next to move between steps. Submit on the last step when everything is valid."
+      }
+    }
   },
   "dashboard": {
     "title": "Purchase Request Dashboard",
@@ -477,7 +621,7 @@
       "step5": "Step 5: Review and Submit",
       "step5Desc": "Double-check all information and click 'Submit PR'",
       "important": "Important:",
-      "importantNote": "All fields marked with * are required. PRs cannot be edited after submission.",
+      "importantNote": "All fields marked with * are required. After approval, PO changes require an amendment approved by the original approver.",
       "trackingPRs": "Tracking Your PRs",
       "trackingDesc": "To view your PRs:",
       "trackingStep1": "1. Enable 'My PRs' toggle in sidebar",
@@ -538,7 +682,16 @@
       "quoteBetweenRulesDesc": "3 quotes required (or 1 from approved vendor)",
       "quoteAboveRule2": "Above Rule 2 threshold",
       "quoteAboveRule2Desc": "3 quotes + second approver required",
-      "quoteNote": "* Thresholds are organization-specific. Contact your administrator for details."
+      "quoteNote": "* Thresholds are organization-specific. Contact your administrator for details.",
+      "amendmentTitle": "Reviewing PO Amendments",
+      "amendmentDesc": "When procurement submits a PO amendment, you will see a warning banner on the PO with a 'Review Amendment' button. Click it to see what changed and decide whether to approve or reject.",
+      "amendReviewStep1": "1. Open the PO",
+      "amendReviewStep1Desc": "A yellow banner at the top shows 'PO Amendment Pending'. Click 'Review Amendment'.",
+      "amendReviewStep2": "2. Review the changes",
+      "amendReviewStep2Desc": "A diff table shows each changed field with the current value and the proposed value side by side.",
+      "amendReviewStep3": "3. Approve or Reject",
+      "amendReviewStep3Desc": "Add optional notes, then click 'Approve Amendment' to apply the changes or 'Reject Amendment' to discard them.",
+      "amendDualNote": "For high-value POs requiring dual approval, both approvers must approve the amendment. If either rejects, the amendment is discarded."
     },
     "procurement": {
       "title": "Procurement Guide",
@@ -610,7 +763,21 @@
       "orderStep4": "4. Click 'Move to Ordered'",
       "orderStep5": "5. Enter: Selected Vendor, Final Amount, PO Number, Delivery Date",
       "orderStep6": "6. Upload proforma invoice (required)",
-      "orderStep7": "7. Click 'Confirm'"
+      "orderStep7": "7. Click 'Confirm'",
+      "amendmentTitle": "Amending a PO (After Approval)",
+      "amendmentInfo": "POs can be amended after approval. Changes are provisional until the approver signs off.",
+      "amendmentDesc": "If details on an approved PO need to change (e.g. quantity, amount, vendor, line items), procurement can submit an amendment that the original approver must review and approve.",
+      "amendStep1": "1. Open the PO",
+      "amendStep1Desc": "Navigate to the PO in APPROVED, ORDERED, or COMPLETED status.",
+      "amendStep2": "2. Click 'Edit PR'",
+      "amendStep2Desc": "All fields are unlocked for amendment. Make the necessary changes.",
+      "amendStep3": "3. Click 'Save'",
+      "amendStep3Desc": "A confirmation dialog appears — your changes will NOT be applied directly.",
+      "amendStep4": "4. Provide a reason",
+      "amendStep4Desc": "Explain why the amendment is needed (required). Then click 'Submit Amendment'.",
+      "amendStep5": "5. Wait for approver review",
+      "amendStep5Desc": "The approver is notified and will see a diff of your proposed changes. You can cancel the amendment if needed.",
+      "amendNote": "Only one amendment can be pending at a time. You must cancel or wait for resolution before submitting another."
     },
     "finance": {
       "title": "Finance/Admin Guide",

@@ -15,18 +15,15 @@ import * as nodemailer from 'nodemailer';
 
 const db = admin.firestore();
 
-// Create nodemailer transporter for SMTP
 const transporter = nodemailer.createTransport({
-  host: functions.config().smtp?.host || 'mail.1pwrafrica.com',
-  port: parseInt(functions.config().smtp?.port || '465'),
-  secure: functions.config().smtp?.secure === 'true',
+  host: process.env.SMTP_HOST || 'mail.1pwrafrica.com',
+  port: parseInt(process.env.SMTP_PORT || '465'),
+  secure: process.env.SMTP_SECURE !== 'false',
   auth: {
-    user: functions.config().smtp?.user || 'notifications@1pwrafrica.com',
-    pass: functions.config().smtp?.password || ''
+    user: process.env.SMTP_USER || 'notifications@1pwrafrica.com',
+    pass: process.env.SMTP_PASSWORD || ''
   },
-  tls: {
-    rejectUnauthorized: false
-  }
+  tls: { rejectUnauthorized: false }
 });
 
 interface PRDocument {

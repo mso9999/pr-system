@@ -35,34 +35,23 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.sendEmail = sendEmail;
 exports.verifyConnection = verifyConnection;
-const functions = __importStar(require("firebase-functions"));
 const nodemailer = __importStar(require("nodemailer"));
-/**
- * Initialize nodemailer transporter with SMTP credentials from Firebase config
- */
 function createTransporter() {
-    const smtpConfig = functions.config().smtp;
-    if (!smtpConfig || !smtpConfig.host || !smtpConfig.user || !smtpConfig.password) {
-        throw new Error('SMTP configuration is missing. Please set smtp.host, smtp.user, and smtp.password in Firebase config.');
+    const host = process.env.SMTP_HOST;
+    const user = process.env.SMTP_USER;
+    const password = process.env.SMTP_PASSWORD;
+    if (!host || !user || !password) {
+        throw new Error('SMTP configuration is missing. Set SMTP_HOST, SMTP_USER, and SMTP_PASSWORD in functions/.env');
     }
-    console.log('Creating SMTP transporter with config:', {
-        host: smtpConfig.host,
-        port: smtpConfig.port || 465,
-        secure: smtpConfig.secure !== 'false', // Default to true
-        user: smtpConfig.user
-    });
+    const port = parseInt(process.env.SMTP_PORT || '465');
+    const secure = process.env.SMTP_SECURE !== 'false';
+    console.log('Creating SMTP transporter with config:', { host, port, secure, user });
     return nodemailer.createTransport({
-        host: smtpConfig.host,
-        port: parseInt(smtpConfig.port) || 465,
-        secure: smtpConfig.secure !== 'false', // true for 465, false for other ports
-        auth: {
-            user: smtpConfig.user,
-            pass: smtpConfig.password
-        },
-        tls: {
-            // Don't fail on invalid certs (some shared hosting)
-            rejectUnauthorized: false
-        }
+        host,
+        port,
+        secure,
+        auth: { user, pass: password },
+        tls: { rejectUnauthorized: false }
     });
 }
 /**

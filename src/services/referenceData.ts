@@ -370,6 +370,15 @@ class ReferenceDataService {
       return this.handleError(error, 'getting rules');
     }
   }
+
+  /**
+   * Alias for getRules - fetches rules for a specific organization
+   * @param organization - Organization ID or name
+   * @returns Promise<ReferenceData[]> - Array of rules
+   */
+  async getRulesByOrganization(organization: string | OrganizationData): Promise<ReferenceData[]> {
+    return this.getRules(organization);
+  }
 }
 
 export const referenceDataService = new ReferenceDataService();

@@ -24,11 +24,13 @@ import {
 import { getFirestore } from 'firebase/firestore'; 
 import { app, auth } from '@/config/firebase'; 
 // import { logger } from '@/utils/logger';
-import { PRRequest, PRStatus, UserReference, HistoryItem, LineItem, ApprovalWorkflow, StatusHistoryItem, ApprovalHistoryItem } from '@/types/pr'; 
+import { PRRequest, PRStatus, UserReference, HistoryItem, LineItem, ApprovalWorkflow, StatusHistoryItem, ApprovalHistoryItem, PendingAmendment, AmendmentHistoryItem } from '@/types/pr';
+import { approverService } from '@/services/approver';
 import { User } from '@/types/user'; 
 import { mapFirebaseUserToUserReference } from '@/utils/userMapper';
+import { normalizeOrganizationId } from '@/utils/organization';
 import { Notification } from '@/types/notification';
-import { SubmitPRNotificationHandler } from './notifications/handlers/submitPRNotification'; 
+import { SubmitPRNotificationHandler } from './notifications/handlers/submitPRNotification';
 
 const PR_COLLECTION = 'purchaseRequests';
 const COUNTER_COLLECTION = 'counters';
@@ -137,10 +139,17 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
 
   try {
     const prDocRef = doc(db, PR_COLLECTION, prId);
-    // Use getDocFromServer when we need fresh data, otherwise use cached getDoc
-    const docSnap = forceServerFetch 
-      ? await getDocFromServer(prDocRef)
-      : await getDoc(prDocRef);
+    let docSnap;
+    if (forceServerFetch) {
+      try {
+        docSnap = await getDocFromServer(prDocRef);
+      } catch (serverError) {
+        console.warn(`Server fetch failed for PR ${prId}, falling back to cache:`, serverError);
+        docSnap = await getDoc(prDocRef);
+      }
+    } else {
+      docSnap = await getDoc(prDocRef);
+    }
 
     if (!docSnap.exists()) {
       console.warn(`PR with ID ${prId} not found.`);
@@ -167,8 +176,9 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       requestorEmail: data.requestorEmail,
       submittedBy: data.submittedBy,
       approver: data.approver,
-      approver2: data.approver2, // Second approver for dual approval
-      requiredDate: data.requiredDate || '', // Simple date string from HTML input, no conversion needed
+      approver2: data.approver2,
+      requiresDualApproval: data.requiresDualApproval || false,
+      requiredDate: data.requiredDate || '',
       preferredVendor: data.preferredVendor || '',
       vehicle: data.vehicle || '',
       createdAt: safeTimestampToISO(data.createdAt) || new Date().toISOString(),
@@ -660,6 +670,112 @@ export async function rescindApprovals(
 }
 
 /**
+ * Reassigns a PR/PO to a different organization.
+ * Superadmin-only. Updates org, rewrites PR number segments, validates approvers,
+ * and records everything in statusHistory.
+ */
+export async function reassignOrganization(
+  prId: string,
+  newOrganization: string,
+  reason: string,
+  user: UserReference
+): Promise<{ approversCleared: boolean; statusReverted: boolean; newPrNumber: string }> {
+  if (!prId || !newOrganization || !reason) {
+    throw new Error('PR ID, new organization, and reason are required.');
+  }
+
+  const currentPR = await getPR(prId);
+  if (!currentPR) {
+    throw new Error(`PR with ID ${prId} not found.`);
+  }
+
+  const oldOrganization = currentPR.organization;
+  const oldPrNumber = currentPR.prNumber;
+
+  if (normalizeOrganizationId(oldOrganization) === normalizeOrganizationId(newOrganization)) {
+    throw new Error('New organization is the same as the current organization.');
+  }
+
+  // Rewrite org/country segments in PR number (format: YYMMDD-####-ORG-CC)
+  const { orgCode: newOrgCode, countryCode: newCountryCode } = getOrgCodes(newOrganization);
+  const parts = oldPrNumber.split('-');
+  let newPrNumber: string;
+  if (parts.length >= 4) {
+    parts[2] = newOrgCode;
+    parts[3] = newCountryCode;
+    newPrNumber = parts.join('-');
+  } else {
+    newPrNumber = oldPrNumber;
+  }
+
+  // Check approver validity for the new org
+  const validApprovers = await approverService.getApprovers(newOrganization);
+  const validApproverIds = new Set(validApprovers.map(a => a.id));
+
+  const approver1Valid = !currentPR.approver || validApproverIds.has(currentPR.approver);
+  const approver2Valid = !currentPR.approver2 || validApproverIds.has(currentPR.approver2);
+  const approversCleared = !approver1Valid || !approver2Valid;
+
+  const needsStatusRevert = approversCleared &&
+    (currentPR.status === PRStatus.PENDING_APPROVAL || currentPR.status === PRStatus.APPROVED);
+
+  // Build update payload
+  const updatePayload: Partial<PRRequest> = {
+    organization: newOrganization,
+    prNumber: newPrNumber,
+  };
+
+  if (approversCleared) {
+    updatePayload.approver = undefined as any;
+    updatePayload.approver2 = undefined as any;
+    updatePayload.requiresDualApproval = false;
+    updatePayload.approvalWorkflow = {
+      currentApprover: null,
+      secondApprover: null,
+      requiresDualApproval: false,
+      firstApprovalComplete: false,
+      secondApprovalComplete: false,
+      approvalHistory: [
+        ...(currentPR.approvalWorkflow?.approvalHistory || []),
+        {
+          approverId: user.id,
+          timestamp: new Date().toISOString(),
+          approved: false,
+          notes: `Approvers cleared: not valid for new organization (${newOrganization}). Previous org: ${oldOrganization}.`
+        }
+      ],
+      lastUpdated: new Date().toISOString()
+    };
+  }
+
+  await updatePR(prId, updatePayload);
+
+  // Record the org change in statusHistory
+  const targetStatus = needsStatusRevert ? PRStatus.IN_QUEUE : currentPR.status;
+  const noteParts = [
+    `Organization reassigned from ${oldOrganization} to ${newOrganization}.`,
+    `PR number updated: ${oldPrNumber} → ${newPrNumber}.`,
+    `Reason: ${reason}`,
+  ];
+  if (approversCleared) {
+    noteParts.push(`Approvers cleared (not valid for new organization).`);
+    if (needsStatusRevert) {
+      noteParts.push(`Status reverted from ${currentPR.status} to ${targetStatus}.`);
+    }
+  }
+
+  await updatePRStatus(prId, targetStatus, noteParts.join(' '), user);
+
+  console.log(`Organization reassigned for PR ${prId}: ${oldOrganization} → ${newOrganization}, number: ${oldPrNumber} → ${newPrNumber}`);
+
+  return {
+    approversCleared,
+    statusReverted: needsStatusRevert,
+    newPrNumber
+  };
+}
+
+/**
  * Checks if amount change exceeds rescinding thresholds
  * @param oldAmount - The previously approved amount
  * @param newAmount - The new amount being set
@@ -1056,6 +1172,48 @@ export async function getUserPRs(
     }
 }
 
+const ORG_CODE_MAP: Record<string, string> = {
+  '1pwr_lesotho': '1PL',
+  '1pwr_benin': '1PB',
+  '1pwr_zambia': '1PZ',
+  'neo1': 'NEO',
+  'pueco_benin': 'PCB',
+  'pueco_lesotho': 'PCL',
+  'smp': 'SMP',
+  'mgb': 'MIO',
+  'mionwa': 'MIO',
+  'mionwa_gen': 'MIO',
+  'lesotho': '1PL',
+  'benin': '1PB',
+  'zambia': '1PZ',
+  'sotho_minigrid_portfolio': 'SMP'
+};
+
+const COUNTRY_CODE_MAP: Record<string, string> = {
+  '1pwr_lesotho': 'LS',
+  '1pwr_benin': 'BN',
+  '1pwr_zambia': 'ZM',
+  'neo1': 'LS',
+  'pueco_benin': 'BN',
+  'pueco_lesotho': 'LS',
+  'smp': 'LS',
+  'mgb': 'BN',
+  'mionwa': 'BN',
+  'mionwa_gen': 'BN',
+  'lesotho': 'LS',
+  'benin': 'BN',
+  'zambia': 'ZM',
+  'sotho_minigrid_portfolio': 'LS'
+};
+
+export function getOrgCodes(organization: string): { orgCode: string; countryCode: string } {
+  const normalizedOrg = normalizeOrganizationId(organization);
+  return {
+    orgCode: ORG_CODE_MAP[normalizedOrg] || organization.substring(0, 3).toUpperCase(),
+    countryCode: COUNTRY_CODE_MAP[normalizedOrg] || 'XX'
+  };
+}
+
 /**
  * Generates a new PR number based on the organization and current date.
  * Uses a Firestore counter to ensure unique sequential numbers.
@@ -1063,50 +1221,14 @@ export async function getUserPRs(
  * @returns The next PR number
  */
 export async function generatePRNumber(organization: string = 'UNK'): Promise<string> {
-  // New format: [YYMMDD-####-ORG-CC]
   const now = new Date();
   const yy = now.getFullYear().toString().slice(-2);
   const mm = String(now.getMonth() + 1).padStart(2, '0');
   const dd = String(now.getDate()).padStart(2, '0');
   const currentYear = now.getFullYear();
   
-  // Normalize organization name (handle spaces, special chars, case)
-  const normalizedOrg = organization.toLowerCase().replace(/[^a-z0-9]/g, '_');
-  
-  // Get organization code mapping from actual database values
-  const orgCodeMap: { [key: string]: string } = {
-    '1pwr_lesotho': '1PL',
-    '1pwr_benin': '1PB',
-    '1pwr_zambia': '1PZ',
-    'neo1': 'NEO',
-    'pueco_benin': 'PCB',
-    'pueco_lesotho': 'PCL',
-    'smp': 'SMP',
-    // Legacy mappings for backward compatibility
-    'lesotho': '1PL',
-    'benin': '1PB',
-    'zambia': '1PZ',
-    'sotho_minigrid_portfolio': 'SMP'
-  };
-  
-  // Get country code mapping from actual database values
-  const countryCodeMap: { [key: string]: string } = {
-    '1pwr_lesotho': 'LS',
-    '1pwr_benin': 'BN', // Using BN instead of BJ as requested
-    '1pwr_zambia': 'ZM',
-    'neo1': 'LS',
-    'pueco_benin': 'BN', // Using BN instead of BJ as requested
-    'pueco_lesotho': 'LS',
-    'smp': 'LS',
-    // Legacy mappings for backward compatibility
-    'lesotho': 'LS',
-    'benin': 'BN', // Using BN instead of BJ as requested
-    'zambia': 'ZM',
-    'sotho_minigrid_portfolio': 'LS'
-  };
-  
-  const orgCode = orgCodeMap[normalizedOrg] || organization.substring(0, 3).toUpperCase();
-  const countryCode = countryCodeMap[normalizedOrg] || 'XX';
+  const normalizedOrg = normalizeOrganizationId(organization);
+  const { orgCode, countryCode } = getOrgCodes(organization);
   
   // Use Firestore transaction to get and increment counter atomically
   // Counter document is stored per year to enable annual reset
@@ -1386,6 +1508,211 @@ export async function getQuotesByVendor(vendorId: string, vendorName?: string): 
   }
 }
 
+// ─── PO Amendment Functions ──────────────────────────────────────────
+
+function computeAmendmentDiff(
+  original: PRRequest,
+  changes: Partial<PRRequest>
+): Record<string, { from: any; to: any }> {
+  const diff: Record<string, { from: any; to: any }> = {};
+  const ignore = new Set(['updatedAt', 'pendingAmendment', 'amendmentHistory', 'approvalWorkflow']);
+  
+  for (const [key, newVal] of Object.entries(changes)) {
+    if (ignore.has(key)) continue;
+    const oldVal = (original as any)[key];
+    const oldStr = JSON.stringify(oldVal ?? null);
+    const newStr = JSON.stringify(newVal ?? null);
+    if (oldStr !== newStr) {
+      diff[key] = { from: oldVal ?? null, to: newVal ?? null };
+    }
+  }
+  return diff;
+}
+
+export async function submitAmendment(
+  prId: string,
+  changes: Partial<PRRequest>,
+  notes: string,
+  user: UserReference
+): Promise<void> {
+  console.log(`[Amendment] Submitting amendment for PR ${prId}`);
+  const pr = await getPR(prId, true);
+  if (!pr) throw new Error('PR not found');
+
+  if (!['APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status)) {
+    throw new Error('Amendments can only be submitted for approved POs');
+  }
+  if (pr.pendingAmendment?.status === 'PENDING') {
+    throw new Error('This PO already has a pending amendment. Cancel or wait for resolution.');
+  }
+
+  const amendment: PendingAmendment = {
+    changes,
+    requestedBy: user,
+    requestedAt: new Date().toISOString(),
+    notes,
+    status: 'PENDING',
+  };
+
+  const prDocRef = doc(db, PR_COLLECTION, prId);
+  await updateDoc(prDocRef, {
+    pendingAmendment: amendment,
+    updatedAt: serverTimestamp(),
+  });
+  console.log(`[Amendment] Pending amendment saved for PR ${prId}`);
+
+  try {
+    const { notificationService } = await import('./notification');
+    await notificationService.handleAmendment(prId, 'submitted', user);
+  } catch (err) {
+    console.error('[Amendment] Notification failed (non-blocking):', err);
+  }
+}
+
+export async function resolveAmendment(
+  prId: string,
+  approved: boolean,
+  resolverNotes: string,
+  user: UserReference
+): Promise<void> {
+  console.log(`[Amendment] Resolving amendment for PR ${prId}: ${approved ? 'APPROVED' : 'REJECTED'}`);
+  const pr = await getPR(prId, true);
+  if (!pr) throw new Error('PR not found');
+  if (!pr.pendingAmendment || pr.pendingAmendment.status !== 'PENDING') {
+    throw new Error('No pending amendment to resolve');
+  }
+
+  const amendment = pr.pendingAmendment;
+  const isDualApproval = pr.requiresDualApproval || pr.approvalWorkflow?.requiresDualApproval;
+
+  if (isDualApproval) {
+    const isFirstApprover = user.id === pr.approver || user.id === pr.approvalWorkflow?.currentApprover;
+    const isSecondApprover = user.id === pr.approver2 || user.id === pr.approvalWorkflow?.secondApprover;
+    const decision = { approverId: user.id, approved, at: new Date().toISOString(), notes: resolverNotes };
+
+    if (isFirstApprover && !amendment.firstApproverDecision) {
+      amendment.firstApproverDecision = decision;
+    } else if (isSecondApprover && !amendment.secondApproverDecision) {
+      amendment.secondApproverDecision = decision;
+    } else if (!amendment.firstApproverDecision) {
+      amendment.firstApproverDecision = decision;
+    } else if (!amendment.secondApproverDecision) {
+      amendment.secondApproverDecision = decision;
+    }
+
+    // If either approver rejects, the amendment is rejected
+    if (amendment.firstApproverDecision?.approved === false || amendment.secondApproverDecision?.approved === false) {
+      await finalizeAmendment(pr, amendment, false, user, resolverNotes);
+      return;
+    }
+
+    // Both must approve
+    if (amendment.firstApproverDecision?.approved && amendment.secondApproverDecision?.approved) {
+      await finalizeAmendment(pr, amendment, true, user, resolverNotes);
+      return;
+    }
+
+    // Only one has decided so far — save partial decision
+    const prDocRef = doc(db, PR_COLLECTION, prId);
+    await updateDoc(prDocRef, {
+      pendingAmendment: amendment,
+      updatedAt: serverTimestamp(),
+    });
+    console.log(`[Amendment] Partial dual-approval decision recorded for PR ${prId}`);
+    return;
+  }
+
+  // Single approval
+  await finalizeAmendment(pr, amendment, approved, user, resolverNotes);
+}
+
+async function finalizeAmendment(
+  pr: PRRequest,
+  amendment: PendingAmendment,
+  approved: boolean,
+  resolver: UserReference,
+  resolverNotes: string
+): Promise<void> {
+  const diff = computeAmendmentDiff(pr, amendment.changes);
+
+  const historyEntry: AmendmentHistoryItem = {
+    changes: diff,
+    requestedBy: amendment.requestedBy,
+    requestedAt: amendment.requestedAt,
+    notes: amendment.notes,
+    resolution: approved ? 'APPROVED' : 'REJECTED',
+    resolvedBy: resolver,
+    resolvedAt: new Date().toISOString(),
+    resolverNotes,
+  };
+
+  const prDocRef = doc(db, PR_COLLECTION, pr.id);
+  const existingHistory: AmendmentHistoryItem[] = pr.amendmentHistory || [];
+
+  if (approved) {
+    // Apply changes + archive amendment + clear pending
+    const cleanChanges = { ...amendment.changes };
+    delete (cleanChanges as any).id;
+    delete (cleanChanges as any).prNumber;
+    delete (cleanChanges as any).status;
+
+    await updateDoc(prDocRef, {
+      ...cleanChanges,
+      pendingAmendment: null,
+      amendmentHistory: [...existingHistory, historyEntry],
+      updatedAt: serverTimestamp(),
+    });
+    console.log(`[Amendment] Amendment APPROVED and applied for PR ${pr.id}`);
+  } else {
+    await updateDoc(prDocRef, {
+      pendingAmendment: null,
+      amendmentHistory: [...existingHistory, historyEntry],
+      updatedAt: serverTimestamp(),
+    });
+    console.log(`[Amendment] Amendment REJECTED for PR ${pr.id}`);
+  }
+
+  try {
+    const { notificationService } = await import('./notification');
+    await notificationService.handleAmendment(pr.id, approved ? 'approved' : 'rejected', resolver, resolverNotes);
+  } catch (err) {
+    console.error('[Amendment] Notification failed (non-blocking):', err);
+  }
+}
+
+export async function cancelAmendment(
+  prId: string,
+  user: UserReference
+): Promise<void> {
+  console.log(`[Amendment] Cancelling amendment for PR ${prId}`);
+  const pr = await getPR(prId, true);
+  if (!pr) throw new Error('PR not found');
+  if (!pr.pendingAmendment || pr.pendingAmendment.status !== 'PENDING') {
+    throw new Error('No pending amendment to cancel');
+  }
+
+  const diff = computeAmendmentDiff(pr, pr.pendingAmendment.changes);
+  const historyEntry: AmendmentHistoryItem = {
+    changes: diff,
+    requestedBy: pr.pendingAmendment.requestedBy,
+    requestedAt: pr.pendingAmendment.requestedAt,
+    notes: pr.pendingAmendment.notes,
+    resolution: 'REJECTED',
+    resolvedBy: user,
+    resolvedAt: new Date().toISOString(),
+    resolverNotes: 'Cancelled by submitter',
+  };
+
+  const existingHistory: AmendmentHistoryItem[] = pr.amendmentHistory || [];
+  const prDocRef = doc(db, PR_COLLECTION, prId);
+  await updateDoc(prDocRef, {
+    pendingAmendment: null,
+    amendmentHistory: [...existingHistory, historyEntry],
+    updatedAt: serverTimestamp(),
+  });
+  console.log(`[Amendment] Amendment cancelled for PR ${prId}`);
+}
+
 // Aggregated service object for legacy compatibility
 export const prService = {
   getPR,
@@ -1398,4 +1725,9 @@ export const prService = {
   deletePR,
   getPRsByVendor,
   getQuotesByVendor,
+  reassignOrganization,
+  submitAmendment,
+  resolveAmendment,
+  cancelAmendment,
+  computeAmendmentDiff,
 };

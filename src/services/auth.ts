@@ -204,6 +204,14 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       isActive: userData.isActive,
       permissionLevel: userData.permissionLevel,
       additionalOrganizations: userData.additionalOrganizations || [],
+      multiDepartmentAppointmentsEnabled: userData.multiDepartmentAppointmentsEnabled === true,
+      departmentMemberships: Array.isArray(userData.departmentMemberships)
+        ? userData.departmentMemberships
+        : undefined,
+      isHrLead: userData.isHrLead === true,
+      hrLeadCountryCodes: Array.isArray(userData.hrLeadCountryCodes)
+        ? userData.hrLeadCountryCodes.map((c: string) => String(c).toUpperCase())
+        : undefined,
       permissions // Add permissions to user object
     };
   } catch (error) {
@@ -348,6 +356,11 @@ export const createUser = async (userData: {
   department: string;
   organization: string;
   permissionLevel: number;
+  additionalOrganizations?: string[];
+  multiDepartmentAppointmentsEnabled?: boolean;
+  departmentMemberships?: { departmentId: string; isLead: boolean }[];
+  isHrLead?: boolean;
+  hrLeadCountryCodes?: string[];
 }): Promise<User> => {
   try {
     const createUserFunction = httpsCallable(functions, 'createUser');

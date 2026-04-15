@@ -18,7 +18,14 @@
  * - src/components/auth/*: Auth UI components
  */
 
-import { Organization } from './organization';
+/**
+ * Department assignment with optional lead responsibility (per department).
+ */
+export interface DepartmentMembership {
+  departmentId: string;
+  /** True if this employee is a lead for this department */
+  isLead: boolean;
+}
 
 /**
  * User Role Enum
@@ -58,6 +65,14 @@ export interface User {
   permissionLevel?: number;
   /** Additional organizations */
   additionalOrganizations?: string[];
+  /** When true, user has 2–3 department assignments (see departmentMemberships). Default false. */
+  multiDepartmentAppointmentsEnabled?: boolean;
+  /** Used when multiDepartmentAppointmentsEnabled is true: 2–3 departments, each with optional Lead. */
+  departmentMemberships?: DepartmentMembership[];
+  /** HR Lead: may enable multi-department appointments for employees in countries listed in hrLeadCountryCodes. Set by admin only. */
+  isHrLead?: boolean;
+  /** ISO 3166-1 alpha-2 country codes (e.g. LS, ZM) where this HR Lead may manage employee department assignments. */
+  hrLeadCountryCodes?: string[];
   /** User permissions */
   permissions?: string[];
   /** User's name */

@@ -36,7 +36,7 @@
  */
 // Import Firebase core and service-specific modules
 import { initializeApp } from 'firebase/app';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
@@ -97,24 +97,10 @@ export const app = initializeApp(firebaseConfig);
 console.log('Firebase app initialized successfully');
 export const auth = getAuth(app);
 console.log('Firebase auth initialized successfully');
-export const db = getFirestore(app);
-console.log('Firebase Firestore initialized successfully');
-// Enable offline persistence
-enableIndexedDbPersistence(db)
-    .then(() => {
-    console.log('Firestore persistence enabled successfully');
-})
-    .catch((err) => {
-    if (err.code === 'failed-precondition') {
-        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
-    }
-    else if (err.code === 'unimplemented') {
-        console.warn('The current browser does not support persistence.');
-    }
-    else {
-        console.error('Error enabling persistence:', err);
-    }
+export const db = initializeFirestore(app, {
+    localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
 });
+console.log('Firebase Firestore initialized with multi-tab persistence');
 export const storage = getStorage(app);
 console.log('Firebase storage initialized successfully');
 // Initialize Firebase Functions with the correct region and custom domain
