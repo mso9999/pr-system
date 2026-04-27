@@ -270,11 +270,21 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
     }
   };
 
-  // Calculate totals for display (use lineItemsWithSKU if available, they have pricing)
-  const lineItems = pr.lineItemsWithSKU && pr.lineItemsWithSKU.length > 0 
-    ? pr.lineItemsWithSKU 
+  // Calculate totals for display.
+  // Prefer the structured PO line items (lineItemsWithSKU) when present — they have totalAmount.
+  // Otherwise fall back to the standard lineItems collection (qty + unitPrice from PRView edit) and
+  // derive each row total as quantity * unitPrice. (LineItem has no totalAmount field.)
+  const lineItems = pr.lineItemsWithSKU && pr.lineItemsWithSKU.length > 0
+    ? pr.lineItemsWithSKU
     : pr.lineItems || [];
-  const subtotal = lineItems.reduce((sum: number, item: any) => sum + (item.totalAmount || 0), 0);
+  const lineRowTotal = (item: any): number => {
+    const explicit = Number(item?.totalAmount);
+    if (Number.isFinite(explicit) && explicit > 0) return explicit;
+    const qty = Number(item?.quantity) || 0;
+    const unit = Number(item?.unitPrice ?? item?.estimatedUnitPrice) || 0;
+    return qty * unit;
+  };
+  const subtotal = lineItems.reduce((sum: number, item: any) => sum + lineRowTotal(item), 0);
   const taxAmount = pr.taxPercentage ? (subtotal * pr.taxPercentage / 100) : 0;
   const dutyAmount = pr.dutyPercentage ? (subtotal * pr.dutyPercentage / 100) : 0;
   const lineItemGrandTotal = subtotal + taxAmount + dutyAmount;
