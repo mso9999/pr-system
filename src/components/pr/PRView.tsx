@@ -2459,8 +2459,15 @@ export function PRView() {
                           value={item.unitPrice || ''}
                           onChange={(e) => handleUpdateLineItem(index, { ...item, unitPrice: parseFloat(e.target.value) || 0 })}
                           disabled={!isEditMode || !(
-                            (isProcurement || isAdmin) && 
-                            (pr?.status === PRStatus.IN_QUEUE || pr?.status === PRStatus.APPROVED || pr?.status === PRStatus.PENDING_APPROVAL)
+                            (isProcurement || isAdmin) &&
+                            (
+                              pr?.status === PRStatus.SUBMITTED ||
+                              pr?.status === PRStatus.RESUBMITTED ||
+                              pr?.status === PRStatus.REVISION_REQUIRED ||
+                              pr?.status === PRStatus.IN_QUEUE ||
+                              pr?.status === PRStatus.PENDING_APPROVAL ||
+                              pr?.status === PRStatus.APPROVED
+                            )
                           )}
                           placeholder="0.00"
                           inputProps={{ min: 0, step: 0.01 }}
