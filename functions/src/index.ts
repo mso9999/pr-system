@@ -32,6 +32,10 @@ export { sendDailyQuoteConflictReminders } from './scheduled/sendDailyQuoteConfl
 export { updateUserPassword } from './updateUserPassword';
 export { createUser } from './createUser';
 
+// User-sync drift detection
+export { weeklyUserSyncAudit, runUserSyncAudit } from './userSyncAudit';
+export { authUserCreated } from './authUserCreated';
+
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
     console.log('ensureRequestorName input:', { user, requestorEmail });

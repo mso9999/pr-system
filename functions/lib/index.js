@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.createUser = exports.updateUserPassword = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
@@ -70,6 +70,12 @@ var updateUserPassword_1 = require("./updateUserPassword");
 Object.defineProperty(exports, "updateUserPassword", { enumerable: true, get: function () { return updateUserPassword_1.updateUserPassword; } });
 var createUser_1 = require("./createUser");
 Object.defineProperty(exports, "createUser", { enumerable: true, get: function () { return createUser_1.createUser; } });
+// User-sync drift detection
+var userSyncAudit_1 = require("./userSyncAudit");
+Object.defineProperty(exports, "weeklyUserSyncAudit", { enumerable: true, get: function () { return userSyncAudit_1.weeklyUserSyncAudit; } });
+Object.defineProperty(exports, "runUserSyncAudit", { enumerable: true, get: function () { return userSyncAudit_1.runUserSyncAudit; } });
+var authUserCreated_1 = require("./authUserCreated");
+Object.defineProperty(exports, "authUserCreated", { enumerable: true, get: function () { return authUserCreated_1.authUserCreated; } });
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user, requestorEmail) {
     var _a, _b;
