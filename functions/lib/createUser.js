@@ -141,12 +141,18 @@ exports.createUser = functions.https.onCall(async (data, context) => {
             throw new functions.https.HttpsError('permission-denied', 'Only administrators may assign HR Lead role.');
         }
     }
+    // We create the Auth account first, then write Firestore. If the Firestore
+    // write (or any post-Auth step) fails we MUST roll back the Auth account,
+    // otherwise we leave behind an orphan account that blocks future create
+    // attempts for the same email and forces manual reconciliation.
+    let createdAuthUid = null;
     try {
         const userRecord = await admin.auth().createUser({
             email: data.email,
             password: data.password,
             displayName: `${data.firstName} ${data.lastName}`
         });
+        createdAuthUid = userRecord.uid;
         await admin.auth().setCustomUserClaims(userRecord.uid, {
             permissionLevel: requestedPermissionLevel
         });
@@ -196,10 +202,33 @@ exports.createUser = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error('Error creating user:', error);
+        // Roll back the Auth account if we created it but failed before
+        // committing the Firestore profile, to keep the two stores in sync.
+        if (createdAuthUid) {
+            try {
+                await admin.auth().deleteUser(createdAuthUid);
+                console.warn(`Rolled back Auth user ${createdAuthUid} after createUser failure`);
+            }
+            catch (rollbackErr) {
+                console.error(`CRITICAL: failed to roll back orphan Auth user ${createdAuthUid}. Manual cleanup required.`, rollbackErr);
+            }
+        }
         if (error instanceof functions.https.HttpsError) {
             throw error;
         }
-        throw new functions.https.HttpsError('internal', 'Failed to create user', error instanceof Error ? error.message : undefined);
+        const err = error;
+        const code = err.code || '';
+        if (code === 'auth/email-already-exists') {
+            throw new functions.https.HttpsError('already-exists', 'This email is already registered in Firebase Authentication. Remove or rename the existing account, or use a different email.');
+        }
+        if (code === 'auth/invalid-email') {
+            throw new functions.https.HttpsError('invalid-argument', 'Invalid email address.');
+        }
+        if (code === 'auth/invalid-password' || code === 'auth/weak-password') {
+            throw new functions.https.HttpsError('invalid-argument', 'Password does not meet Firebase requirements. Try again or contact support.');
+        }
+        const detail = err.message || (error instanceof Error ? error.message : String(error));
+        throw new functions.https.HttpsError('internal', detail && detail !== 'Failed to create user' ? detail : 'Failed to create user');
     }
 });
 //# sourceMappingURL=createUser.js.map
