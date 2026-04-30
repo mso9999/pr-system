@@ -30,7 +30,8 @@
     "test:emails": "tsx src/scripts/testEmails.ts",
     "test:mock-emails": "tsx src/scripts/mockTestEmails.ts",
     "delete-test-pr": "tsx src/scripts/deleteTestPR.ts",
-    "reconcile-dual-approval": "tsx src/scripts/reconcileDualApprovalViolations.ts"
+    "reconcile-dual-approval": "tsx src/scripts/reconcileDualApprovalViolations.ts",
+    "backfill-pr-xx-country": "tsx src/scripts/backfill-pr-xx-country-codes.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

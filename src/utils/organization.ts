@@ -45,6 +45,10 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   mionwa: 'mgb',
   'mionwa_generation': 'mgb',
   'mionwa generation': 'mgb',
+  inclusive_mionwa: 'mgb',
+  'inclusive mionwa': 'mgb',
+  mionwa_inclusive: 'mgb',
+  'mionwa inclusive': 'mgb',
 };
 
 const normalizeRawValue = (value: string | null | undefined): string => {

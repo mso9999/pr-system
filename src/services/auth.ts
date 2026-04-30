@@ -348,6 +348,29 @@ export async function updateUserPassword(userId: string, email: string, newPassw
 /**
  * Creates a new user in both Firebase Auth and Firestore
  */
+function messageFromCallableError(error: unknown): string {
+  if (!error || typeof error !== 'object') {
+    return 'Failed to create user';
+  }
+  const e = error as { code?: string; message?: string; details?: unknown };
+  if (typeof e.message === 'string' && e.message.trim()) {
+    return e.message.trim();
+  }
+  if (typeof e.details === 'string' && e.details.trim()) {
+    return e.details.trim();
+  }
+  if (e.code === 'functions/already-exists') {
+    return 'This email is already registered.';
+  }
+  if (e.code === 'functions/permission-denied') {
+    return 'You do not have permission to create users.';
+  }
+  if (e.code === 'functions/invalid-argument') {
+    return 'Invalid user data. Check required fields and try again.';
+  }
+  return 'Failed to create user';
+}
+
 export const createUser = async (userData: {
   email: string;
   password: string;
@@ -365,7 +388,7 @@ export const createUser = async (userData: {
   try {
     const createUserFunction = httpsCallable(functions, 'createUser');
     const result = await createUserFunction(userData);
-    
+
     const response = result.data as {
       success: boolean;
       user: User;
@@ -378,6 +401,6 @@ export const createUser = async (userData: {
     return response.user;
   } catch (error) {
     console.error('Error creating user:', error);
-    throw error;
+    throw new Error(messageFromCallableError(error));
   }
 };

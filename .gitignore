@@ -56,6 +56,15 @@ coverage
 .cache
 .temp
 
+# Operator script output (regenerated each run)
+scripts/uid-reference-report.json
+
+# Dropbox sync conflict copies
+*conflicted copy*
+
+# Stray PDFs in repo root (PO/PR exports etc.)
+/*.pdf
+
 # Python
 venv/
 __pycache__/
