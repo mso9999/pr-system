@@ -29,6 +29,9 @@ import { approverService } from '@/services/approver';
 import { User } from '@/types/user'; 
 import { mapFirebaseUserToUserReference } from '@/utils/userMapper';
 import { normalizeOrganizationId } from '@/utils/organization';
+import { getOrgCodes, mapIsoCountryToPrCountryCode } from '@/utils/prOrgCountryCodes';
+
+export { getOrgCodes, mapIsoCountryToPrCountryCode };
 import { Notification } from '@/types/notification';
 import { SubmitPRNotificationHandler } from './notifications/handlers/submitPRNotification';
 
@@ -697,7 +700,7 @@ export async function reassignOrganization(
   }
 
   // Rewrite org/country segments in PR number (format: YYMMDD-####-ORG-CC)
-  const { orgCode: newOrgCode, countryCode: newCountryCode } = getOrgCodes(newOrganization);
+  const { orgCode: newOrgCode, countryCode: newCountryCode } = await resolveOrgCodesForPR(newOrganization);
   const parts = oldPrNumber.split('-');
   let newPrNumber: string;
   if (parts.length >= 4) {
@@ -1172,46 +1175,40 @@ export async function getUserPRs(
     }
 }
 
-const ORG_CODE_MAP: Record<string, string> = {
-  '1pwr_lesotho': '1PL',
-  '1pwr_benin': '1PB',
-  '1pwr_zambia': '1PZ',
-  'neo1': 'NEO',
-  'pueco_benin': 'PCB',
-  'pueco_lesotho': 'PCL',
-  'smp': 'SMP',
-  'mgb': 'MIO',
-  'mionwa': 'MIO',
-  'mionwa_gen': 'MIO',
-  'lesotho': '1PL',
-  'benin': '1PB',
-  'zambia': '1PZ',
-  'sotho_minigrid_portfolio': 'SMP'
-};
+/**
+ * Resolves org/country codes for PR numbers. If static maps yield XX, loads
+ * `referenceData_organizations/{id}` and uses its `country` field.
+ */
+export async function resolveOrgCodesForPR(organization: string): Promise<{ orgCode: string; countryCode: string }> {
+  const base = getOrgCodes(organization);
+  if (base.countryCode !== 'XX') {
+    return base;
+  }
 
-const COUNTRY_CODE_MAP: Record<string, string> = {
-  '1pwr_lesotho': 'LS',
-  '1pwr_benin': 'BN',
-  '1pwr_zambia': 'ZM',
-  'neo1': 'LS',
-  'pueco_benin': 'BN',
-  'pueco_lesotho': 'LS',
-  'smp': 'LS',
-  'mgb': 'BN',
-  'mionwa': 'BN',
-  'mionwa_gen': 'BN',
-  'lesotho': 'LS',
-  'benin': 'BN',
-  'zambia': 'ZM',
-  'sotho_minigrid_portfolio': 'LS'
-};
+  const normalized = normalizeOrganizationId(organization);
+  const rawTrim = typeof organization === 'string' ? organization.trim() : '';
+  const slug = rawTrim.toLowerCase().replace(/[^a-z0-9]/g, '_');
+  const candidates = [...new Set([normalized, slug].filter((x) => x.length > 0))];
 
-export function getOrgCodes(organization: string): { orgCode: string; countryCode: string } {
-  const normalizedOrg = normalizeOrganizationId(organization);
-  return {
-    orgCode: ORG_CODE_MAP[normalizedOrg] || organization.substring(0, 3).toUpperCase(),
-    countryCode: COUNTRY_CODE_MAP[normalizedOrg] || 'XX'
-  };
+  for (const key of candidates) {
+    try {
+      const snap = await getDoc(doc(db, 'referenceData_organizations', key));
+      if (snap.exists()) {
+        const data = snap.data() as { country?: string };
+        const suffix = mapIsoCountryToPrCountryCode(data.country);
+        if (suffix !== 'XX') {
+          return {
+            orgCode: base.orgCode,
+            countryCode: suffix,
+          };
+        }
+      }
+    } catch (e) {
+      console.warn('[resolveOrgCodesForPR] organization lookup failed:', key, e);
+    }
+  }
+
+  return base;
 }
 
 /**
@@ -1228,7 +1225,7 @@ export async function generatePRNumber(organization: string = 'UNK'): Promise<st
   const currentYear = now.getFullYear();
   
   const normalizedOrg = normalizeOrganizationId(organization);
-  const { orgCode, countryCode } = getOrgCodes(organization);
+  const { orgCode, countryCode } = await resolveOrgCodesForPR(organization);
   
   // Use Firestore transaction to get and increment counter atomically
   // Counter document is stored per year to enable annual reset
@@ -1510,6 +1507,33 @@ export async function getQuotesByVendor(vendorId: string, vendorName?: string): 
 
 // ─── PO Amendment Functions ──────────────────────────────────────────
 
+/**
+ * Recursively remove undefined values from an object/array tree.
+ *
+ * Firestore rejects writes that contain undefined ("Unsupported field
+ * value: undefined"). PR objects coming from React state often have
+ * undefined for optional fields (submittedBy, vendor, etc.) — when we
+ * spread the whole PR into `pendingAmendment.changes` those undefineds
+ * leak into the write payload and the entire updateDoc() fails. Strip
+ * them out defensively before persisting.
+ */
+function stripUndefinedDeep<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return (value
+      .filter((v) => v !== undefined)
+      .map((v) => stripUndefinedDeep(v))) as unknown as T;
+  }
+  if (value && typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v === undefined) continue;
+      out[k] = stripUndefinedDeep(v);
+    }
+    return out as unknown as T;
+  }
+  return value;
+}
+
 function computeAmendmentDiff(
   original: PRRequest,
   changes: Partial<PRRequest>
@@ -1546,13 +1570,13 @@ export async function submitAmendment(
     throw new Error('This PO already has a pending amendment. Cancel or wait for resolution.');
   }
 
-  const amendment: PendingAmendment = {
+  const amendment: PendingAmendment = stripUndefinedDeep({
     changes,
     requestedBy: user,
     requestedAt: new Date().toISOString(),
     notes,
     status: 'PENDING',
-  };
+  });
 
   const prDocRef = doc(db, PR_COLLECTION, prId);
   await updateDoc(prDocRef, {
@@ -1615,7 +1639,7 @@ export async function resolveAmendment(
     // Only one has decided so far — save partial decision
     const prDocRef = doc(db, PR_COLLECTION, prId);
     await updateDoc(prDocRef, {
-      pendingAmendment: amendment,
+      pendingAmendment: stripUndefinedDeep(amendment),
       updatedAt: serverTimestamp(),
     });
     console.log(`[Amendment] Partial dual-approval decision recorded for PR ${prId}`);
@@ -1651,10 +1675,10 @@ async function finalizeAmendment(
 
   if (approved) {
     // Apply changes + archive amendment + clear pending
-    const cleanChanges = { ...amendment.changes };
-    delete (cleanChanges as any).id;
-    delete (cleanChanges as any).prNumber;
-    delete (cleanChanges as any).status;
+    const cleanChanges = stripUndefinedDeep({ ...amendment.changes }) as Record<string, unknown>;
+    delete cleanChanges.id;
+    delete cleanChanges.prNumber;
+    delete cleanChanges.status;
 
     await updateDoc(prDocRef, {
       ...cleanChanges,
