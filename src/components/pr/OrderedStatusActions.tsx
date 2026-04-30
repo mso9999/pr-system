@@ -24,7 +24,7 @@ import {
   FormLabel,
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
-import { PRRequest, PRStatus, Attachment } from '@/types/pr';
+import { PRRequest, PRStatus, Attachment, StatusHistoryItem } from '@/types/pr';
 import { prService } from '@/services/pr';
 import { notificationService } from '@/services/notification';
 import { StorageService } from '@/services/storage';
@@ -61,6 +61,14 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
   const [uploadingPhotos, setUploadingPhotos] = useState(false);
   const [deliveryOverride, setDeliveryOverride] = useState(pr.deliveryDocOverride || false);
   const [deliveryJustification, setDeliveryJustification] = useState(pr.deliveryDocOverrideJustification || '');
+
+  // State for replacing pre-ORDERED documents (proforma / PoP) after the PO
+  // has moved to ORDERED. Off by default; only Procurement (level 3) and
+  // Admin (level 1) can enable it. Each upload/delete writes a
+  // statusHistory entry so the change has a forensic record.
+  const [replaceMode, setReplaceMode] = useState(false);
+  const [uploadingProformaReplace, setUploadingProformaReplace] = useState(false);
+  const [uploadingPoPReplace, setUploadingPoPReplace] = useState(false);
   
   // State for completion workflow
   const [completionDialog, setCompletionDialog] = useState(false);
@@ -93,6 +101,150 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
   const normalizeAttachments = (attachments?: Attachment | Attachment[]): Attachment[] => {
     if (!attachments) return [];
     return Array.isArray(attachments) ? attachments : [attachments];
+  };
+
+  // Procurement and Admin can opt into "Replace mode" to update the
+  // pre-ORDERED documents (proforma / PoP) after the PO is placed —
+  // typically when the vendor issues a corrected proforma. Other roles
+  // (asset management, finance-can-complete) keep the read-only view.
+  const canReplaceDocuments = isProcurement || isAdmin;
+
+  // Append a statusHistory entry describing a document replacement.
+  // Returns the new statusHistory array — caller passes it to updatePR.
+  const appendDocReplaceHistory = (notes: string): StatusHistoryItem[] => {
+    const entry: StatusHistoryItem = {
+      status: pr.status,
+      timestamp: new Date().toISOString(),
+      user: {
+        id: currentUser.id,
+        email: currentUser.email,
+        firstName: currentUser.firstName,
+        lastName: currentUser.lastName,
+        name: currentUser.name || `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email,
+      },
+      notes,
+    };
+    return [...(pr.statusHistory || []), entry];
+  };
+
+  const fileToAttachment = async (file: File): Promise<Attachment> => {
+    const result = await StorageService.uploadToTempStorage(file);
+    return {
+      id: crypto.randomUUID(),
+      name: file.name,
+      url: result.url,
+      path: result.path,
+      type: file.type,
+      size: file.size,
+      uploadedAt: new Date().toISOString(),
+      uploadedBy: {
+        id: currentUser.id,
+        email: currentUser.email,
+        name: currentUser.name || currentUser.email,
+      },
+    } as Attachment;
+  };
+
+  // ── Replace-mode handlers: Proforma Invoice ─────────────────────────
+  const handleProformaReplaceUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    if (!canReplaceDocuments || !replaceMode) return;
+    try {
+      setUploadingProformaReplace(true);
+      const newAttachments = await Promise.all(files.map(fileToAttachment));
+      const existing = normalizeAttachments(pr.proformaInvoice);
+      const merged = [...existing, ...newAttachments];
+      const fileNames = newAttachments.map((a) => a.name).join(', ');
+      const statusHistory = appendDocReplaceHistory(
+        `Proforma invoice updated in ${pr.status}: uploaded ${newAttachments.length} file(s) — ${fileNames}`
+      );
+      await prService.updatePR(pr.id, {
+        proformaInvoice: merged,
+        statusHistory,
+        updatedAt: new Date().toISOString(),
+      });
+      enqueueSnackbar(`${files.length} proforma invoice(s) uploaded`, { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error uploading proforma:', error);
+      enqueueSnackbar('Failed to upload proforma invoice(s)', { variant: 'error' });
+    } finally {
+      setUploadingProformaReplace(false);
+    }
+  };
+
+  const handleProformaReplaceDelete = async (attachmentId: string) => {
+    if (!canReplaceDocuments || !replaceMode) return;
+    try {
+      const existing = normalizeAttachments(pr.proformaInvoice);
+      const removed = existing.find((a) => a.id === attachmentId);
+      const remaining = existing.filter((a) => a.id !== attachmentId);
+      const statusHistory = appendDocReplaceHistory(
+        `Proforma invoice updated in ${pr.status}: deleted "${removed?.name || attachmentId}"`
+      );
+      await prService.updatePR(pr.id, {
+        proformaInvoice: remaining,
+        statusHistory,
+        updatedAt: new Date().toISOString(),
+      });
+      enqueueSnackbar('Proforma invoice deleted', { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error deleting proforma:', error);
+      enqueueSnackbar('Failed to delete proforma invoice', { variant: 'error' });
+      throw error;
+    }
+  };
+
+  // ── Replace-mode handlers: Proof of Payment ─────────────────────────
+  const handlePoPReplaceUpload = async (files: File[]) => {
+    if (files.length === 0) return;
+    if (!canReplaceDocuments || !replaceMode) return;
+    try {
+      setUploadingPoPReplace(true);
+      const newAttachments = await Promise.all(files.map(fileToAttachment));
+      const existing = normalizeAttachments(pr.proofOfPayment);
+      const merged = [...existing, ...newAttachments];
+      const fileNames = newAttachments.map((a) => a.name).join(', ');
+      const statusHistory = appendDocReplaceHistory(
+        `Proof of payment updated in ${pr.status}: uploaded ${newAttachments.length} file(s) — ${fileNames}`
+      );
+      await prService.updatePR(pr.id, {
+        proofOfPayment: merged,
+        statusHistory,
+        updatedAt: new Date().toISOString(),
+      });
+      enqueueSnackbar(`${files.length} proof of payment(s) uploaded`, { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error uploading PoP:', error);
+      enqueueSnackbar('Failed to upload proof of payment(s)', { variant: 'error' });
+    } finally {
+      setUploadingPoPReplace(false);
+    }
+  };
+
+  const handlePoPReplaceDelete = async (attachmentId: string) => {
+    if (!canReplaceDocuments || !replaceMode) return;
+    try {
+      const existing = normalizeAttachments(pr.proofOfPayment);
+      const removed = existing.find((a) => a.id === attachmentId);
+      const remaining = existing.filter((a) => a.id !== attachmentId);
+      const statusHistory = appendDocReplaceHistory(
+        `Proof of payment updated in ${pr.status}: deleted "${removed?.name || attachmentId}"`
+      );
+      await prService.updatePR(pr.id, {
+        proofOfPayment: remaining,
+        statusHistory,
+        updatedAt: new Date().toISOString(),
+      });
+      enqueueSnackbar('Proof of payment deleted', { variant: 'success' });
+      onStatusChange();
+    } catch (error) {
+      console.error('Error deleting PoP:', error);
+      enqueueSnackbar('Failed to delete proof of payment', { variant: 'error' });
+      throw error;
+    }
   };
 
   // Handle Delivery Note Upload (multiple files)
@@ -431,14 +583,36 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
 
   return (
     <Box>
-      {/* Previous Status Documents - Read Only */}
+      {/* Previous Status Documents - read-only by default; Procurement and
+          Admin can opt into Replace mode to update Proforma / PoP. The PO
+          Document itself stays locked here — PO changes go through the
+          PO Amendment flow, not direct file replacement. */}
       <Paper sx={{ p: 3, mb: 3, bgcolor: 'info.50' }}>
-        <Typography variant="h6" gutterBottom>
-          📋 {t('pr.previousDocuments')}
-        </Typography>
-        <Typography variant="body2" color="textSecondary" paragraph>
-          {t('pr.previousDocumentsDesc')}
-        </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1, gap: 2, flexWrap: 'wrap' }}>
+          <Box>
+            <Typography variant="h6" gutterBottom>
+              📋 {t('pr.previousDocuments')}
+            </Typography>
+            <Typography variant="body2" color="textSecondary">
+              {t('pr.previousDocumentsDesc')}
+            </Typography>
+          </Box>
+          {canReplaceDocuments && !replaceMode && (
+            <Button size="small" variant="outlined" onClick={() => setReplaceMode(true)}>
+              Replace documents
+            </Button>
+          )}
+          {canReplaceDocuments && replaceMode && (
+            <Button size="small" variant="contained" color="warning" onClick={() => setReplaceMode(false)}>
+              Done replacing
+            </Button>
+          )}
+        </Box>
+        {canReplaceDocuments && replaceMode && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Replace mode is on. Uploads and deletions of Proforma Invoice and Proof of Payment will be recorded in the PO's status history. The PO Document itself stays locked — use the PO Amendment flow to change the PO.
+          </Alert>
+        )}
 
         <Grid container spacing={2}>
           {/* Proforma Invoice */}
@@ -449,9 +623,10 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
             <FileUploadManager
               label={t('pr.proformaInvoice')}
               files={normalizeAttachments(pr.proformaInvoice)}
-              onUpload={async () => {}}
-              onDelete={async () => {}}
-              readOnly={true}
+              onUpload={handleProformaReplaceUpload}
+              onDelete={handleProformaReplaceDelete}
+              uploading={uploadingProformaReplace}
+              readOnly={!(canReplaceDocuments && replaceMode)}
               maxFiles={10}
             />
           </Grid>
@@ -464,14 +639,15 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
             <FileUploadManager
               label={t('pr.proofOfPayment')}
               files={normalizeAttachments(pr.proofOfPayment)}
-              onUpload={async () => {}}
-              onDelete={async () => {}}
-              readOnly={true}
+              onUpload={handlePoPReplaceUpload}
+              onDelete={handlePoPReplaceDelete}
+              uploading={uploadingPoPReplace}
+              readOnly={!(canReplaceDocuments && replaceMode)}
               maxFiles={10}
             />
           </Grid>
 
-          {/* PO Document */}
+          {/* PO Document - always locked here; changes go through PO Amendment */}
           <Grid item xs={12} md={4}>
             <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
               {t('pr.poDocument')}
