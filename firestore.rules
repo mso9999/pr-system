@@ -146,6 +146,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.permissionLevel <= 2;
     }
 
+    // ── PO cap audit trail (25 approved PO limit) ───────────────
+
+    match /poCapAudit/{docId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if false;
+    }
+
     // ── PR System archive ───────────────────────────────────────
 
     match /archivePRs/{docId} {

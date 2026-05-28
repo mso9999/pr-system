@@ -21,7 +21,7 @@ import {
 } from '@mui/material';
 import { useSnackbar } from 'notistack';
 import { PRStatus } from '@/types/pr';
-import { prService } from '@/services/pr';
+import { prService, canProceedToPendingApproval, recordPoCapAudit } from '@/services/pr';
 import { notificationService } from '@/services/notification';
 import { User } from '@/types/user';
 import { validatePRForApproval } from '@/utils/prValidation';
@@ -60,6 +60,10 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
   const [dialogSecondApprover, setDialogSecondApprover] = useState<string>('');
   const [existingApprover, setExistingApprover] = useState<string>('');
   const [dualApprovalThresholdInfo, setDualApprovalThresholdInfo] = useState<string>('');
+
+  // Approved PO cap warning state
+  const [showPOCapWarning, setShowPOCapWarning] = useState(false);
+  const [poCapInfo, setPoCapInfo] = useState<{ currentCount: number; maxAllowed: number }>({ currentCount: 0, maxAllowed: 25 });
 
   const checkDualApprovalNeeded = useCallback(async () => {
     setLoadingDualCheck(true);
@@ -447,6 +451,28 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               });
               pr.approver2 = dialogSecondApprover;
             }
+          }
+
+          // Check approved PO cap — prevent pushing to approval if organization
+          // already has the maximum allowed approved (but un-actioned) POs.
+          const poCapCheck = await canProceedToPendingApproval(pr.organization);
+          if (!poCapCheck.allowed) {
+            await recordPoCapAudit({
+              organization: pr.organization || '',
+              prId: pr.id || prId,
+              prNumber: pr.prNumber,
+              source: 'push_to_approver',
+              outcome: 'blocked',
+              approvedCount: poCapCheck.currentCount,
+              maxAllowed: poCapCheck.maxAllowed,
+              fromStatus: pr.status,
+              userId: currentUser.id,
+              userEmail: currentUser.email,
+              userName: currentUser.name || `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim(),
+            });
+            setPoCapInfo({ currentCount: poCapCheck.currentCount, maxAllowed: poCapCheck.maxAllowed });
+            setShowPOCapWarning(true);
+            return;
           }
 
           // Change designation from PR to PO
@@ -924,6 +950,53 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
               disabled={!quoteOverrideJustification.trim()}
             >
               Apply Override
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Approved PO Cap Warning Dialog */}
+        <Dialog
+          open={showPOCapWarning}
+          onClose={() => setShowPOCapWarning(false)}
+          maxWidth="sm"
+          fullWidth
+        >
+          <DialogTitle sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+            Approved Purchase Order Limit Reached
+          </DialogTitle>
+          <DialogContent>
+            <Box sx={{ mt: 2 }}>
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                <Typography variant="body1" fontWeight="bold" gutterBottom>
+                  Cannot Push to Pending Approval
+                </Typography>
+                <Typography variant="body2">
+                  This organization currently has <strong>{poCapInfo.currentCount}</strong> approved purchase orders
+                  that have not yet been actioned. The maximum allowed is <strong>{poCapInfo.maxAllowed}</strong>.
+                </Typography>
+              </Alert>
+
+              <Typography variant="body2" sx={{ mb: 1 }}>
+                Before additional purchase requests can be elevated to Pending Approval status,
+                existing approved POs must be actioned to one of the following statuses:
+              </Typography>
+
+              <Box component="ul" sx={{ pl: 2, mb: 2, '& li': { mb: 0.5 } }}>
+                <li><strong>Ordered</strong> — The PO has been placed with the vendor</li>
+                <li><strong>Completed</strong> — The PO has been fulfilled and closed</li>
+                <li><strong>Rejected</strong> — The PO has been rejected</li>
+                <li><strong>Canceled</strong> — The PO has been canceled</li>
+              </Box>
+
+              <Typography variant="body2" color="text.secondary">
+                Action at least <strong>{poCapInfo.currentCount - poCapInfo.maxAllowed + 1}</strong> approved POs
+                to bring the count to {poCapInfo.maxAllowed} or fewer, then try again.
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowPOCapWarning(false)} variant="contained">
+              I Understand
             </Button>
           </DialogActions>
         </Dialog>

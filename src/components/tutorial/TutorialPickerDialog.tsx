@@ -56,18 +56,66 @@ export function TutorialPickerDialog() {
         </List>
         <Divider sx={{ my: 2 }} />
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
-          {t('tutorial.sectionWorkflows')}
+          Business Rules
         </Typography>
         <List dense disablePadding>
-          {TOUR_LIST.filter((m) =>
-            ['workflowRequestor', 'workflowApprover', 'workflowProcurement', 'newPrForm'].includes(m.id)
-          ).map((meta) => (
+          {TOUR_LIST.filter((m) => m.id === 'poCapRule').map((meta) => (
             <ListItemButton
               key={meta.id}
               onClick={() => startTour(meta.id as TourId)}
               sx={{ borderRadius: 1, mb: 0.5 }}
             >
               <ListItemText primary={t(meta.titleKey)} secondary={t(meta.descriptionKey)} />
+            </ListItemButton>
+          ))}
+        </List>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          End-to-End Workflow
+        </Typography>
+        <List dense disablePadding>
+          {TOUR_LIST.filter((m) => m.id === 'fullApprovalFlow').map((meta) => (
+            <ListItemButton
+              key={meta.id}
+              onClick={() => startTour(meta.id as TourId)}
+              sx={{ borderRadius: 1, mb: 0.5 }}
+            >
+              <ListItemText primary={t(meta.titleKey)} secondary={t(meta.descriptionKey)} />
+            </ListItemButton>
+          ))}
+        </List>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          New PR Form
+        </Typography>
+        <List dense disablePadding>
+          {TOUR_LIST.filter((m) => m.id === 'newPrForm').map((meta) => (
+            <ListItemButton
+              key={meta.id}
+              onClick={() => startTour(meta.id as TourId)}
+              sx={{ borderRadius: 1, mb: 0.5 }}
+            >
+              <ListItemText primary={t(meta.titleKey)} secondary={t(meta.descriptionKey)} />
+            </ListItemButton>
+          ))}
+        </List>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          {t('tutorial.sectionWorkflows')}
+        </Typography>
+        <List dense disablePadding>
+          {TOUR_LIST.filter((m) =>
+            ['roleRequestor', 'roleApprover', 'roleProcurement', 'roleFinanceAdmin', 'roleFinanceApprover', 'roleSuperadmin'].includes(m.id)
+          ).map((meta) => (
+            <ListItemButton
+              key={meta.id}
+              onClick={() => startTour(meta.id as TourId)}
+              sx={{ borderRadius: 1, mb: 0.5 }}
+            >
+              <ListItemText
+                primary={meta.badge ? `${meta.badge} — ${t(meta.titleKey)}` : t(meta.titleKey)}
+                secondary={t(meta.descriptionKey)}
+              />
             </ListItemButton>
           ))}
         </List>

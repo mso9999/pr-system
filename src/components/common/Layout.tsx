@@ -224,7 +224,7 @@ const LayoutInner = () => {
           </NavItem>
         </Box>
         {hasAdminAccess && (
-          <>
+          <Box data-tutorial="layout-admin">
             <Divider />
             <NavItem onClick={() => handleNavigation('/admin')}>
               <ListItemIcon>
@@ -232,7 +232,7 @@ const LayoutInner = () => {
               </ListItemIcon>
               <ListItemText primary={t('nav.admin')} />
             </NavItem>
-          </>
+          </Box>
         )}
       </List>
     </Box>

@@ -104,6 +104,17 @@ All API endpoints are implemented as Firebase Functions:
 - Lazy loading of routes
 - Attachment size limits
 
+## Business Rules
+
+### Processing Rules (src/services/pr.ts)
+- **Quote Requirements**: Threshold-based quote validation (Rules 1-2)
+- **Dual Approval**: PRs above Rule 2 threshold require two independent approvers
+- **Approved PO Cap**: Organizations are limited to 25 approved but un-actioned POs. Attempting to push a PR to `PENDING_APPROVAL` while the organization has ≥25 `APPROVED` POs triggers a blocking warning dialog. Resolution requires moving approved POs to `ORDERED`, `COMPLETED`, `REJECTED`, or `CANCELED`.
+
+### Validation (src/utils/prValidation.ts)
+- Pre-status-change validation for quote counts, payment type, approver assignment
+- Amount rescinding checks (>5% upward, >20% downward triggers re-approval)
+
 ## Error Handling
 
 ### Strategy

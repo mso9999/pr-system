@@ -65,6 +65,9 @@ export interface ReferenceDataItem {
   /** Engine number for identification (optional) */
   engineNumber?: string;
 
+  /** When set (per organization department doc), request-side PR emails use this instead of the individual requestor. */
+  notificationEmail?: string;
+
   // Rule specific fields
   number?: string;
   description?: string;

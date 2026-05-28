@@ -95,21 +95,41 @@
         "title": "Dashboard walkthrough",
         "description": "Organization filter, actions, metrics, status chips, and table"
       },
-      "workflowRequestor": {
-        "title": "Requestor workflow",
-        "description": "Create and track your purchase requests"
-      },
-      "workflowApprover": {
-        "title": "Approver workflow",
-        "description": "Find PRs waiting for your approval"
-      },
-      "workflowProcurement": {
-        "title": "Procurement workflow",
-        "description": "Org context, PR list, and queue by status"
-      },
       "newPrForm": {
         "title": "New PR form",
         "description": "Steps and navigation in the create-PR wizard"
+      },
+      "poCapRule": {
+        "title": "Approved PO cap (25 limit)",
+        "description": "How the 25-PO cap rule works and how to stay within limits"
+      },
+      "fullApprovalFlow": {
+        "title": "Full approval pipeline",
+        "description": "End-to-end walkthrough: In Queue → Approver → Ordered → Completed"
+      },
+      "roleRequestor": {
+        "title": "Requestor (L5) walkthrough",
+        "description": "Create PRs, track progress, respond to revision requests"
+      },
+      "roleApprover": {
+        "title": "Approver (L2) walkthrough",
+        "description": "Review PRs, approve/reject, dual-approval flow"
+      },
+      "roleProcurement": {
+        "title": "Procurement (L3) walkthrough",
+        "description": "Manage quotes, vendors, POs, and procurement actions"
+      },
+      "roleFinanceAdmin": {
+        "title": "Finance Admin (L4) walkthrough",
+        "description": "Payments, proof of payment, and closing orders"
+      },
+      "roleFinanceApprover": {
+        "title": "Finance Approver (L6) walkthrough",
+        "description": "High-value approvals with threshold oversight"
+      },
+      "roleSuperadmin": {
+        "title": "Superadmin (L1) walkthrough",
+        "description": "Full system access, user management, rule configuration"
       }
     },
     "orientation": {
@@ -156,54 +176,172 @@
         "content": "Open any row to see full PR details, quotes, approvals, and documents."
       }
     },
-    "wfRequestor": {
+    "roleRequestor": {
       "step1": {
-        "title": "Your organization",
-        "content": "Select your org so you see the right PRs and budgets."
+        "title": "Organization selector",
+        "content": "Choose your organization so you see the right PRs, metrics, and budgets for your scope."
       },
       "step2": {
-        "title": "Create a PR",
-        "content": "Click New PR to start the wizard: basic info, line items, then review and submit."
+        "title": "New PR button",
+        "content": "Click New PR to start the creation wizard. You'll fill in basic info, line items, and then submit for processing."
       },
       "step3": {
-        "title": "Track progress",
-        "content": "Use metrics and the table below. Toggle My PRs in the sidebar to focus on requests you created."
+        "title": "Form stepper",
+        "content": "Move through Basic Information, Line Items, and Review. Complete all required fields before submitting."
       },
       "step4": {
-        "title": "Open a PR",
-        "content": "Click a PR number to view status, messages, and any revision requests."
+        "title": "PR table",
+        "content": "Track all your organization's PRs here. Click any row to open the full detail view. Toggle My PRs in the sidebar to see only yours."
+      },
+      "step5": {
+        "title": "Opening a PR",
+        "content": "Click a PR number to view its full details: line items, quotes, status history, messages, and any revision requests from approvers."
+      },
+      "step6": {
+        "title": "Status progress stepper",
+        "content": "This horizontal stepper shows exactly where your PR is in the pipeline — from Submitted through to Completed. The current status is highlighted."
+      },
+      "step7": {
+        "title": "Revision requests",
+        "content": "If an approver sends your PR back, the status shows REVISION_REQUIRED. Open the PR, click Edit, make the requested changes, and resubmit. You'll see the approver's notes in the status history."
       }
     },
-    "wfApprover": {
+    "roleApprover": {
       "step1": {
-        "title": "Needs My Approval",
-        "content": "When this filter is on, the table shows PRs where you are an assigned approver and action is required."
+        "title": "My Actions filter",
+        "content": "Toggle this to see only PRs where you are an assigned approver and your action is required. This is your personal approval queue."
       },
       "step2": {
-        "title": "Status chips",
-        "content": "Use Pending Approval to see items in your queue; other statuses for oversight."
+        "title": "Status row filters",
+        "content": "Click Pending Approval to focus on PRs waiting for your decision. Use other statuses to review PRs you've already actioned."
       },
       "step3": {
-        "title": "Open and approve",
-        "content": "Open a PR, review quotes and amounts, then use Approve, Reject, or Request revision from the actions panel."
-      }
-    },
-    "wfProcurement": {
-      "step1": {
-        "title": "Organization context",
-        "content": "Procurement works within the selected organization—quotes, vendors, and rules follow this scope."
-      },
-      "step2": {
-        "title": "PR list shortcut",
-        "content": "Use PRs in the sidebar for a dedicated list view when you need it."
-      },
-      "step3": {
-        "title": "Queue by status",
-        "content": "Submitted, In Queue, and Approved (for PO steps) are common—pick a chip to match your task."
+        "title": "PR table",
+        "content": "Each row shows PR number, requestor, amount, and status. Click any row to open the full detail view and take action."
       },
       "step4": {
-        "title": "Drill into a PR",
-        "content": "Open a PR to add quotes, move statuses, assign approvers, and manage the PO lifecycle."
+        "title": "PR details panel",
+        "content": "Review the basic info: description, department, estimated amount, urgency, and attached documents. This gives you the context needed to make a decision."
+      },
+      "step5": {
+        "title": "Quotes section",
+        "content": "Check the submitted quotes — verify amounts, vendors, and that the required number of quotes are present. The system enforces quote rules based on the PR amount."
+      },
+      "step6": {
+        "title": "Approver actions",
+        "content": "Here you Approve, Reject, or Request Revision. Approve moves the PR forward. Reject is terminal — the PR ends. Request Revision sends it back to the requestor with your notes. For high-value PRs above Rule 2, a second approver is also required."
+      },
+      "step7": {
+        "title": "Dual approval flow",
+        "content": "PRs above the Rule 2 threshold need two independent approvers. Both must approve before the PR can proceed. If either rejects, the PR is returned. You'll see the other approver's status in the approval workflow history."
+      }
+    },
+    "roleProcurement": {
+      "step1": {
+        "title": "Organization selector",
+        "content": "Select the organization you're working with. Quotes, vendors, rules, and the PO cap all follow the selected organization scope."
+      },
+      "step2": {
+        "title": "Status row filters",
+        "content": "Use Submitted for new PRs to review, In Queue for PRs needing quotes, and Approved for POs ready to be ordered. Each chip filters the table instantly."
+      },
+      "step3": {
+        "title": "Quotes section",
+        "content": "Add vendor quotes here while the PR is IN_QUEUE. Click Add Quote, fill in vendor/amount/currency/validity, upload the quote document, and save. Mark one as preferred. The system enforces quote count rules based on the PR amount."
+      },
+      "step4": {
+        "title": "Procurement actions",
+        "content": "Push to Approver sends the PR to the assigned approver(s). The system checks the 25-PO cap first — if the org has too many approved but un-actioned POs, you'll see a warning and must resolve some before proceeding."
+      },
+      "step5": {
+        "title": "PO cap explained",
+        "content": "Each organization is limited to 25 approved POs at a time. Approved POs not yet Ordered, Completed, Rejected, or Canceled count toward this cap. When the cap is hit, new PRs cannot be pushed to Pending Approval until enough are actioned."
+      },
+      "step6": {
+        "title": "Approved status actions",
+        "content": "Once a PR is APPROVED, use Move to Ordered to place the order. You'll need to select the vendor, set the final amount, enter the PO number, upload the proforma invoice, and set the expected delivery date."
+      },
+      "step7": {
+        "title": "Ordered status actions",
+        "content": "After ordering, track delivery. Upload delivery documentation, then move to COMPLETED when goods are received. Answer the vendor performance question — this affects the vendor's approval status for future orders."
+      },
+      "step8": {
+        "title": "Vendor management",
+        "content": "Access vendors via Admin → Reference Data → Vendors or the Suppliers link in the sidebar. View vendor details, upload documents, and manage approval status. Vendor performance ratings are updated automatically when orders complete."
+      }
+    },
+    "roleFinanceAdmin": {
+      "step1": {
+        "title": "Key metrics",
+        "content": "Monitor total PRs, urgent requests, average days open, and overdue PRs across the organization. These metrics help you prioritize and spot bottlenecks."
+      },
+      "step2": {
+        "title": "Status row filters",
+        "content": "Filter by APPROVED to see POs ready for payment processing. Use ORDERED to track deliveries in progress."
+      },
+      "step3": {
+        "title": "PR details panel",
+        "content": "Open a PO to review all details: approved amount, vendor, line items, and attached documents. Verify everything is in order before processing payment."
+      },
+      "step4": {
+        "title": "Proof of Payment",
+        "content": "Upload Proof of Payment documents when the PO is in APPROVED status. This is required before the PO can move to ORDERED (for PRs above Rule 1). Upload PDF, JPG, or PNG files — multiple files are supported."
+      },
+      "step5": {
+        "title": "Closing orders",
+        "content": "When delivery is complete, move the PO to COMPLETED. Answer the vendor performance question: if no issues, the vendor is auto-approved for future orders. If there were problems, describe them — this logs to the vendor's record."
+      }
+    },
+    "roleFinanceApprover": {
+      "step1": {
+        "title": "My Actions filter",
+        "content": "Toggle My Actions to see PRs where you are assigned as a finance approver. These are typically high-value POs that exceed standard approval thresholds."
+      },
+      "step2": {
+        "title": "Status row filters",
+        "content": "Use Pending Approval to focus on POs awaiting your decision. Other statuses let you review previously actioned items."
+      },
+      "step3": {
+        "title": "PR table",
+        "content": "Each row shows the PR number, requestor, amount, and current status. Click any row to open the full detail view with all documents and history."
+      },
+      "step4": {
+        "title": "Approver actions",
+        "content": "Review the PO details, quotes, and documents carefully. Use Approve to authorize, Reject to deny (terminal), or Request Revision to send back for changes. Your decision is recorded in the audit trail."
+      },
+      "step5": {
+        "title": "Threshold limits",
+        "content": "As a Finance Approver (L6), you typically handle POs above standard approval thresholds. The system enforces approval rules automatically — you'll see validation messages if there are rule conflicts. Dual approval with an L2 approver may be required for the highest-value POs."
+      }
+    },
+    "roleSuperadmin": {
+      "step1": {
+        "title": "Key metrics",
+        "content": "Monitor organization-wide metrics: total PRs, urgent requests, average days open, and overdue PRs. Use these to identify bottlenecks and ensure the procurement pipeline is flowing smoothly."
+      },
+      "step2": {
+        "title": "Admin sidebar",
+        "content": "Access the Admin panel here. This is your hub for user management, organization settings, reference data, and rule configuration. Only visible to users with admin-level permissions."
+      },
+      "step3": {
+        "title": "User management",
+        "content": "Add, edit, activate, and deactivate users. Assign permission levels (L1–L6), organizations, and departments. Users must use their Google account email. Permission level determines what they can see and do in the system."
+      },
+      "step4": {
+        "title": "Reference data",
+        "content": "Manage all lookup data: departments, sites, categories, expense types, currencies, vehicles, and units of measure. This data drives dropdowns and validation throughout the app. Keep it current to avoid errors."
+      },
+      "step5": {
+        "title": "Approval rules",
+        "content": "Configure Rule 1 and Rule 2 thresholds per organization. These define quote requirements and approver levels. Rule 1 sets the bar for 3-quote requirements; Rule 2 triggers dual-approver requirements. Changes take effect immediately."
+      },
+      "step6": {
+        "title": "Override capabilities",
+        "content": "Superadmins can apply overrides for rule validation, quote requirements, proforma invoice, proof of payment, PO documents, and delivery documentation. Each override requires justification and is logged in the audit trail."
+      },
+      "step7": {
+        "title": "Full system access",
+        "content": "As Superadmin (L1), you have unrestricted access to all PRs, POs, admin functions, and configuration. You can view and action any PR regardless of organization, override any rule with justification, and manage all users and settings."
       }
     },
     "newPrForm": {
@@ -214,6 +352,54 @@
       "step2": {
         "title": "Navigation",
         "content": "Use Back and Next to move between steps. Submit on the last step when everything is valid."
+      }
+    },
+    "poCapRule": {
+      "step1": {
+        "title": "What is the PO cap?",
+        "content": "Each organization is limited to 25 approved but un-actioned purchase orders at a time. \"Un-actioned\" means approved POs not yet moved to Ordered, Completed, Rejected, or Canceled. This keeps the procurement pipeline moving and prevents backlog."
+      },
+      "step2": {
+        "title": "When is the cap enforced?",
+        "content": "The cap is checked when someone tries to push a PR to Pending Approval status — either via procurement's \"Push to Approver\" button or when creating a PR with the Skip-Queue option. If the organization has 25 or more approved POs, the system blocks the transition and shows a warning."
+      },
+      "step3": {
+        "title": "What the warning dialog shows",
+        "content": "The dialog displays the current count of approved POs, the maximum of 25, the four resolution statuses (Ordered, Completed, Rejected, Canceled), and exactly how many POs need to be actioned to lift the block. Click \"I Understand\" to dismiss after reading."
+      },
+      "step4": {
+        "title": "Staying within the limit",
+        "content": "Regularly review POs in APPROVED status. Move completed orders forward, cancel obsolete ones, and reject unneeded purchases. As soon as the APPROVED count drops to 24 or fewer, the block lifts automatically—no admin intervention required."
+      }
+    },
+    "fullApprovalFlow": {
+      "step1": {
+        "title": "Filter by In Queue",
+        "content": "On the dashboard, use the status chips to filter to IN_QUEUE. These are PRs that have been processed by procurement and are ready to be pushed to approvers."
+      },
+      "step2": {
+        "title": "Open a PR in the queue",
+        "content": "Click a PR row to open its detail view. You'll see line items, quotes, payment type, and the PR's full history."
+      },
+      "step3": {
+        "title": "Push to Approver (with PO cap check)",
+        "content": "Click \"Push to Approver\". The system validates quotes, payment type, and approver assignment. It also checks the 25-PO cap — if the organization has too many approved but un-actioned POs, a warning dialog will block the action until some are resolved."
+      },
+      "step4": {
+        "title": "Approver reviews and decides",
+        "content": "The assigned approver(s) receive email notifications. They open the PR, review quotes and amounts, and approve, reject, or request revision. For high-value PRs above Rule 2, two independent approvers must both approve."
+      },
+      "step5": {
+        "title": "From APPROVED to ORDERED",
+        "content": "Once approved, procurement or finance moves the PO to ORDERED by confirming the vendor, setting the final amount, entering the PO number, uploading the proforma invoice, and setting the expected delivery date."
+      },
+      "step6": {
+        "title": "From ORDERED to COMPLETED",
+        "content": "After delivery, upload delivery documentation (delivery note, photos). Asset Management can also upload delivery docs. Once verified, click to move the PO to COMPLETED — this counts toward closing out the PO cap."
+      },
+      "step7": {
+        "title": "Rejected and Canceled paths",
+        "content": "At any point before COMPLETED, a PO can be REJECTED (if not meeting requirements) or CANCELED (if no longer needed). Both statuses are terminal and count toward resolving the PO cap. Use these for purchases that should not proceed."
       }
     }
   },
@@ -393,6 +579,14 @@
     "etdNotSet": "ETD not set",
     "overrideSet": "Override Set",
     "files": "file(s)",
+    "approvedGuidance": {
+      "readOnlyTitle": "Approved PO — changes require procurement or finance",
+      "readOnlyBody": "After approval, the estimated amount and line items cannot be changed from this screen. Contact your procurement team to submit a formal PO amendment, or finance to upload documents and record the final invoice amount.",
+      "procurementTitle": "How to update this approved PO",
+      "procurementBody": "• New or replacement proforma: use the “PO Document Management” section below (upload files — not Edit PR).\n• Invoice amount from proforma: enter “Final Price from Proforma Invoice” below.\n• Change approved estimated amount, vendor, or line items: click Edit PR, make changes, then Save to submit an amendment for approver review.",
+      "financeTitle": "Finance actions on this approved PO",
+      "financeBody": "Upload proforma and proof of payment in “PO Document Management” below. Enter the final price from the proforma there. To change the approved estimated amount or line items, ask procurement to submit a PO amendment."
+    },
     "proformaNotProvided": "Proforma not provided",
     "popNotProvided": "PoP not provided",
     "poDocNotProvided": "PO Document not provided (required for high-value PO)",

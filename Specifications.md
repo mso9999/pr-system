@@ -1,6 +1,6 @@
 # 1PWR Procurement System Specifications
 
-> **Last Updated: 2025-10-30**
+> **Last Updated: 2026-05-09**
 > **Consolidated from SPECIFICATION.md and Specifications.md**
 
 ## Authentication Flow
@@ -786,6 +786,43 @@ Users assigned to the Asset Management department have special permissions:
   - Appears as potential approver in PR request forms for their organization
   - Organization-specific approval authority
   - **Key Feature:** Has approval limits based on rule thresholds, unlike Finance Admin
+
+### Approved Purchase Order Cap
+
+**Purpose:** Prevent an organization from accumulating an excessive number of approved but un-actioned purchase orders before additional PRs can enter the approval pipeline.
+
+**Rule Definition:**
+- An organization may have at most **25** purchase requests/purchase orders in `APPROVED` status at any given time.
+- "Approved but un-actioned" means the PO has been approved but not yet moved to `ORDERED`, `COMPLETED`, `REJECTED`, or `CANCELED` status.
+- If the count of `APPROVED` POs reaches 25, the system blocks any new PR from entering `PENDING_APPROVAL` status for that organization.
+
+**Enforcement Points:**
+1. **Procurement "Push to Approver"** (`ProcurementActions.tsx`):
+   - When procurement or admin clicks "Push to Approver" to move a PR from `IN_QUEUE` to `PENDING_APPROVAL`.
+   - After all other validations pass (quote requirements, payment type, dual approval), the system queries the organization's `APPROVED` PO count.
+   - If count ≥ 25, a warning dialog is shown and the transition is blocked.
+
+2. **Skip-Queue PR Creation** (`NewPRForm.tsx`):
+   - When creating a PR with the "Skip Queue" option (direct to `PENDING_APPROVAL` for low-value PRs below Rule 1).
+   - The same count check is performed before allowing the PR to be created with `PENDING_APPROVAL` status.
+
+**Warning Dialog Content:**
+- Title: "Approved Purchase Order Limit Reached"
+- Body explains:
+  - The current count of approved POs vs. the maximum allowed (25).
+  - The four action statuses: Ordered, Completed, Rejected, Canceled.
+  - How many POs must be actioned to bring the count within the limit.
+- Single "I Understand" button to dismiss.
+
+**Resolution Path:**
+- Users must action approved POs to one of the terminal or post-approval statuses (`ORDERED`, `COMPLETED`, `REJECTED`, `CANCELED`).
+- Once the `APPROVED` count drops to 24 or fewer, the block is automatically lifted and PRs can proceed to `PENDING_APPROVAL`.
+
+**Technical Implementation:**
+- `countApprovedPOs(organization)` in `src/services/pr.ts` — queries Firestore for documents where `status === 'APPROVED'` and `organization === <org>`.
+- `canProceedToPendingApproval(organization)` — returns `{ allowed, currentCount, maxAllowed }`.
+- Threshold constant: `MAX_APPROVED_POS_BEFORE_BLOCK = 25` (configurable in source).
+- `recordPoCapAudit()` — writes each cap check to Firestore collection `poCapAudit` (`outcome`: `allowed` | `blocked`, `source`: `push_to_approver` | `skip_queue_create` | `update_pr_status`). Used for compliance review; run `scripts/audit-po-cap-violations.ts` to cross-check history vs. audit log.
 
 ## User Management
 

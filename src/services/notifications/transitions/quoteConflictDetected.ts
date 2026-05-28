@@ -2,6 +2,7 @@ import { NotificationHandler, NotificationContext, NotificationRecipients } from
 import { prService } from '@/services/pr';
 import { getDoc, doc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { resolveRequestSideNotificationEmail } from '@/services/notifications/resolveRequestSideEmail';
 
 /**
  * Handler for Quote Conflict Detection in PENDING_APPROVAL
@@ -97,10 +98,9 @@ export class QuoteConflictDetectedHandler implements NotificationHandler {
     const procurementEmail = 'procurement@1pwrafrica.com'; // TODO: Get from org config
     ccList.push(procurementEmail);
 
-    // Add requestor to CC
-    const requestorEmail = pr.requestorEmail || pr.requestor?.email;
-    if (requestorEmail) {
-      ccList.push(requestorEmail);
+    const requestSide = await resolveRequestSideNotificationEmail(pr);
+    if (requestSide) {
+      ccList.push(requestSide);
     }
 
     console.log('QuoteConflictDetected: Final recipients', {

@@ -172,6 +172,12 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       throw new Error('User not found');
     }
     const userData = userDoc.data();
+    const permissionLevel =
+      typeof userData.permissionLevel === 'number'
+        ? userData.permissionLevel
+        : typeof userData.permissionLevel === 'string'
+          ? Number(userData.permissionLevel) || 5
+          : 5;
     
     // If the user's organization is 'Codeium', update it to a default organization
     if (userData.organization === 'Codeium') {
@@ -187,11 +193,11 @@ export const getUserDetails = async (uid: string): Promise<User> => {
     // Map permissions based on role and permission level
     const permissions: UserPermissions = {
       canCreatePR: true, // All users can create PRs
-      canApprovePR: userData.permissionLevel <= 4, // Levels 1-4 can approve
-      canProcessPR: userData.permissionLevel <= 3, // Levels 1-3 can process
-      canManageUsers: userData.permissionLevel === 1, // Only admins
-      canViewReports: userData.permissionLevel <= 4, // Levels 1-4 can view reports
-      approvalLimit: getApprovalLimit(userData.permissionLevel)
+      canApprovePR: permissionLevel <= 4, // Levels 1-4 can approve
+      canProcessPR: permissionLevel <= 3, // Levels 1-3 can process
+      canManageUsers: permissionLevel === 1, // Only admins
+      canViewReports: permissionLevel <= 4, // Levels 1-4 can view reports
+      approvalLimit: getApprovalLimit(permissionLevel)
     };
     
     return {
@@ -202,7 +208,7 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       role: userData.role,
       organization: userData.organization,
       isActive: userData.isActive,
-      permissionLevel: userData.permissionLevel,
+      permissionLevel,
       additionalOrganizations: userData.additionalOrganizations || [],
       multiDepartmentAppointmentsEnabled: userData.multiDepartmentAppointmentsEnabled === true,
       departmentMemberships: Array.isArray(userData.departmentMemberships)

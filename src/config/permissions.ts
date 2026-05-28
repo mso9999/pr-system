@@ -77,7 +77,11 @@ export interface ReferenceDataAccess {
 export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
   [REFERENCE_DATA_TYPES.departments]: {
     canEdit: false,
-    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.APPROVER], PERMISSION_NAMES[PERMISSION_LEVELS.PROC]],
+    editableBy: [
+      PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN],
+      PERMISSION_NAMES[PERMISSION_LEVELS.PROC],
+      PERMISSION_NAMES[PERMISSION_LEVELS.USER_ADMIN],
+    ],
   },
   [REFERENCE_DATA_TYPES.currencies]: {
     canEdit: false,

@@ -660,6 +660,13 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         return;
       }
     }
+    const needsDept =
+      userData.permissionLevel === PERMISSION_LEVELS.REQ ||
+      userData.permissionLevel === PERMISSION_LEVELS.SITE_MANAGER;
+    if (needsDept && !String(userData.department || '').trim()) {
+      showSnackbar('Requesters and site managers must have a department assigned.', 'error');
+      return;
+    }
     try {
       setIsLoading(true);
       
@@ -721,6 +728,14 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
       primaryDepartmentId = formData.department;
       multiDepartmentAppointmentsEnabled = false;
       departmentMemberships = undefined;
+    }
+
+    const requiresPrimaryDepartment =
+      formData.permissionLevel === PERMISSION_LEVELS.REQ ||
+      formData.permissionLevel === PERMISSION_LEVELS.SITE_MANAGER;
+    if (requiresPrimaryDepartment && !String(primaryDepartmentId || '').trim()) {
+      showSnackbar('Requesters and site managers must have a department assigned.', 'error');
+      return;
     }
 
     if (isUserAdmin) {

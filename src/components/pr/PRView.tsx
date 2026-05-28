@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
 import { referenceDataService } from '@/services/referenceData';
 import { organizationService } from '@/services/organizationService';
+import { normalizePermissionLevel, isProcurementUser, isAdminUser } from '@/utils/permissionLevel';
 import {
   Box,
   Paper,
@@ -496,8 +497,9 @@ export function PRView() {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [lineItems, setLineItems] = useState<Array<ExtendedLineItem>>([]);
   const currentUser = useSelector((state: RootState) => state.auth.user);
-  const isProcurement = currentUser?.permissionLevel === 3; // Level 3 = Procurement Officer
-  const isAdmin = currentUser?.permissionLevel === 1 || currentUser?.role === 'admin'; // Level 1 = Admin
+  const userPermissionLevel = normalizePermissionLevel(currentUser?.permissionLevel);
+  const isProcurement = isProcurementUser(currentUser); // Level 3 = Procurement Officer
+  const isAdmin = isAdminUser(currentUser); // Level 1 = Admin
   const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
   const isDesignatedApprover = currentUser?.id === pr?.approver || currentUser?.id === pr?.approvalWorkflow?.currentApprover;
   const bulkImportAllowedStatuses = new Set<PRStatus>([
@@ -556,7 +558,14 @@ export function PRView() {
   const [amendmentNotes, setAmendmentNotes] = useState('');
   const [showAmendmentReview, setShowAmendmentReview] = useState(false);
 
-  // Organization reassignment (superadmin only)
+  // Organization reassignment: admins, or requestor while in REVISION_REQUIRED (wrong org)
+  const canReassignOrganization = Boolean(
+    pr &&
+    (isAdmin ||
+      (pr.status === PRStatus.REVISION_REQUIRED &&
+        !!currentUser?.id &&
+        (currentUser.id === pr.requestorId || currentUser.id === pr.requestor?.id)))
+  );
   const [showOrgReassignDialog, setShowOrgReassignDialog] = useState(false);
   const [orgReassignTarget, setOrgReassignTarget] = useState<{ id: string; name: string } | null>(null);
   const [orgReassignReason, setOrgReassignReason] = useState('');
@@ -1006,9 +1015,27 @@ export function PRView() {
     }
   }, [isEditMode, pr]);
 
-  const canEdit = currentUser?.permissionLevel === 1 || // Admin
+  const hasPendingAmendment = pr?.pendingAmendment?.status === 'PENDING';
+  const isPOStatusForEdit =
+    pr?.status === PRStatus.APPROVED ||
+    pr?.status === PRStatus.ORDERED ||
+    pr?.status === PRStatus.COMPLETED;
+  const canEdit =
+    userPermissionLevel === 1 || // Admin
     (pr?.status === PRStatus.REVISION_REQUIRED && pr?.requestor?.id === currentUser?.id) || // Requestor in REVISION_REQUIRED
-    (pr?.status !== PRStatus.REVISION_REQUIRED && currentUser?.permissionLevel <= 3); // Others for non-REVISION_REQUIRED
+    (isPOStatusForEdit && (isProcurement || isAdmin)) || // PO amendment: procurement/admin only
+    (!isPOStatusForEdit &&
+      pr?.status !== PRStatus.REVISION_REQUIRED &&
+      userPermissionLevel <= 3);
+  const isFinanceOnPO = userPermissionLevel === 4 || userPermissionLevel === 6;
+  const showApprovedPOReadOnlyGuidance =
+    pr?.status === PRStatus.APPROVED &&
+    !hasPendingAmendment &&
+    (isRequestor || userPermissionLevel === 2);
+  const showApprovedPOProcurementGuidance =
+    pr?.status === PRStatus.APPROVED && !hasPendingAmendment && (isProcurement || isAdmin);
+  const showApprovedPOFinanceGuidance =
+    pr?.status === PRStatus.APPROVED && !hasPendingAmendment && isFinanceOnPO;
   const canEditInQueue = pr?.status === PRStatus.IN_QUEUE && (currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 3);
   
   // Determine who can edit Project Category and Expense Type based on status
@@ -1038,7 +1065,6 @@ export function PRView() {
   // In edit mode, procurement/admin can edit these as a PO amendment (changes are provisional)
   const isPOStatus = pr?.status && ['APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status);
   const canAmendPO = isPOStatus && isEditMode && (isProcurement || isAdmin);
-  const hasPendingAmendment = pr?.pendingAmendment?.status === 'PENDING';
 
   const isLockedInApprovedStatus = (fieldName: string) => {
     if (!pr?.status || !['APPROVED', 'ORDERED', 'COMPLETED'].includes(pr.status)) {
@@ -2128,7 +2154,7 @@ export function PRView() {
                 <Typography color="textSecondary">{t('pr.organization')}</Typography>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   <Typography>{pr?.organization || 'N/A'}</Typography>
-                  {isAdmin && pr && (
+                  {canReassignOrganization && isEditMode && (
                     <Tooltip title="Reassign organization">
                       <IconButton size="small" onClick={() => setShowOrgReassignDialog(true)}>
                         <SwapHorizIcon fontSize="small" />
@@ -2969,13 +2995,15 @@ export function PRView() {
       {/* Status Progress Stepper */}
       {pr && pr.status !== PRStatus.DRAFT && (
         <Suspense fallback={<CircularProgress />}>
-          <StatusProgressStepper pr={pr} />
+          <Box data-tutorial="pr-status-stepper">
+            <StatusProgressStepper pr={pr} />
+          </Box>
         </Suspense>
       )}
 
       {/* Procurement Actions */}
       {canProcessPR && (
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3 }} data-tutorial="pr-procurement-actions">
           <ProcurementActions
             prId={pr?.id}
             currentStatus={pr?.status}
@@ -3008,7 +3036,7 @@ export function PRView() {
 
       {/* Approver Actions */}
       {pr?.status === PRStatus.PENDING_APPROVAL && (
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3 }} data-tutorial="pr-approver-actions">
           <ApproverActions
             pr={pr}
             currentUser={currentUser}
@@ -3018,9 +3046,37 @@ export function PRView() {
         </Box>
       )}
 
+      {/* APPROVED status — role-specific guidance (amount/proforma workflow) */}
+      {showApprovedPOReadOnlyGuidance && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            {t('pr.approvedGuidance.readOnlyTitle')}
+          </Typography>
+          <Typography variant="body2">{t('pr.approvedGuidance.readOnlyBody')}</Typography>
+        </Alert>
+      )}
+      {showApprovedPOProcurementGuidance && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            {t('pr.approvedGuidance.procurementTitle')}
+          </Typography>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-line' }}>
+            {t('pr.approvedGuidance.procurementBody')}
+          </Typography>
+        </Alert>
+      )}
+      {showApprovedPOFinanceGuidance && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            {t('pr.approvedGuidance.financeTitle')}
+          </Typography>
+          <Typography variant="body2">{t('pr.approvedGuidance.financeBody')}</Typography>
+        </Alert>
+      )}
+
       {/* APPROVED Status Actions (PO Document Management) */}
       {pr?.status === PRStatus.APPROVED && currentUser && (
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3 }} data-tutorial="pr-approved-actions">
           <ApprovedStatusActions
             pr={pr}
             currentUser={currentUser}
@@ -3031,7 +3087,7 @@ export function PRView() {
 
       {/* ORDERED Status Actions (Delivery Documentation) */}
       {pr?.status === PRStatus.ORDERED && currentUser && (
-        <Box sx={{ mb: 3 }}>
+        <Box sx={{ mb: 3 }} data-tutorial="pr-ordered-actions">
           <OrderedStatusActions
             pr={pr}
             currentUser={currentUser}
@@ -3523,13 +3579,13 @@ export function PRView() {
           </>
         ) : (
           <>
-            <Box sx={{ mb: 4 }}>
+            <Box sx={{ mb: 4 }} data-tutorial="pr-details-info">
               {renderBasicInformation()}
             </Box>
             <Box sx={{ mb: 4 }}>
               {renderLineItems()}
             </Box>
-            <Box sx={{ mb: 4 }}>
+            <Box sx={{ mb: 4 }} data-tutorial="pr-quotes-section">
               {renderQuotes()}
             </Box>
           </>
@@ -3734,7 +3790,7 @@ export function PRView() {
         />
       )}
 
-      {/* Organization Reassignment Dialog (Superadmin only) */}
+      {/* Organization reassignment: admin, or requestor in REVISION_REQUIRED */}
       <Dialog
         open={showOrgReassignDialog}
         onClose={() => {
@@ -3753,11 +3809,15 @@ export function PRView() {
             Change the organization for <strong>{pr?.prNumber}</strong> (currently: <strong>{pr?.organization}</strong>).
             The PR number will be updated to reflect the new organization.
             If current approvers are not valid for the new organization, they will be cleared and the status will revert to IN_QUEUE.
+            {!isAdmin && pr?.status === PRStatus.REVISION_REQUIRED ? (
+              <> As the requestor, you can only select organizations you are assigned to.</>
+            ) : null}
           </DialogContentText>
           <Box sx={{ mb: 2, mt: 1 }}>
             <OrganizationSelector
               value={orgReassignTarget}
               onChange={(val) => setOrgReassignTarget(val)}
+              restrictToUserOrgs={!isAdmin}
               error={!orgReassignTarget}
               helperText={!orgReassignTarget ? 'Select the target organization' : ''}
             />

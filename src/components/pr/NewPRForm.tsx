@@ -63,6 +63,11 @@ import {
   Button,
   CircularProgress,
   Container,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
   Paper,
   Step,
   StepLabel,
@@ -91,7 +96,7 @@ import { ReferenceDataItem } from '../../types/referenceData'; // Re-add import
 import { BasicInformationStep } from './steps/BasicInformationStep';
 import { LineItemsStep } from './steps/LineItemsStep';
 import { ReviewStep } from './steps/ReviewStep';
-import { createPR, getUserPRs } from '../../services/pr'; // Updated import
+import { createPR, getUserPRs, canProceedToPendingApproval, recordPoCapAudit } from '../../services/pr';
 import { useResponsive } from '../../hooks/useResponsive';
 
 // Type definitions for form data structures
@@ -240,6 +245,10 @@ export const NewPRForm = () => {
   // Validation state
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+  // Approved PO cap warning state
+  const [showPOCapWarning, setShowPOCapWarning] = useState(false);
+  const [poCapInfo, setPoCapInfo] = useState<{ currentCount: number; maxAllowed: number }>({ currentCount: 0, maxAllowed: 25 });
 
   // Load reference data when organization changes
   useEffect(() => {
@@ -1077,6 +1086,29 @@ export const NewPRForm = () => {
         }
       }
 
+      // Check approved PO cap when skipping queue directly to PENDING_APPROVAL
+      if (formState.skipQueue) {
+        const poCapCheck = await canProceedToPendingApproval(formState.organization?.name || '');
+        if (!poCapCheck.allowed) {
+          await recordPoCapAudit({
+            organization: formState.organization?.name || '',
+            source: 'skip_queue_create',
+            outcome: 'blocked',
+            approvedCount: poCapCheck.currentCount,
+            maxAllowed: poCapCheck.maxAllowed,
+            fromStatus: 'NEW',
+            userId: user.id,
+            userEmail: user.email,
+            userName: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          });
+          setPoCapInfo({ currentCount: poCapCheck.currentCount, maxAllowed: poCapCheck.maxAllowed });
+          setShowPOCapWarning(true);
+          setIsSubmitting(false);
+          isSubmittingRef.current = false;
+          return;
+        }
+      }
+
       // Determine initial status based on skipQueue option
       const initialStatus = formState.skipQueue ? PRStatus.PENDING_APPROVAL : PRStatus.SUBMITTED;
 
@@ -1147,8 +1179,25 @@ export const NewPRForm = () => {
       console.log('Submitting PR data:', prData);
 
       // Create the PR
-      const { prId, prNumber } = await createPR(prData); // Removed 'as any' cast
+      const { prId, prNumber } = await createPR(prData);
       console.log('PR created successfully with ID:', prId, 'and Number:', prNumber);
+
+      if (formState.skipQueue) {
+        const poCapCheck = await canProceedToPendingApproval(formState.organization?.name || '');
+        await recordPoCapAudit({
+          organization: formState.organization?.name || '',
+          prId,
+          prNumber,
+          source: 'skip_queue_create',
+          outcome: 'allowed',
+          approvedCount: poCapCheck.currentCount,
+          maxAllowed: poCapCheck.maxAllowed,
+          fromStatus: 'NEW',
+          userId: user.id,
+          userEmail: user.email,
+          userName: user.name || `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+        });
+      }
       
       // Show success message
       enqueueSnackbar('Purchase Request submitted successfully!', { 
@@ -1280,6 +1329,53 @@ export const NewPRForm = () => {
               </Button>
             )}
           </Box>
+
+          {/* Approved PO Cap Warning Dialog */}
+          <Dialog
+            open={showPOCapWarning}
+            onClose={() => setShowPOCapWarning(false)}
+            maxWidth="sm"
+            fullWidth
+          >
+            <DialogTitle sx={{ bgcolor: 'warning.light', color: 'warning.contrastText' }}>
+              Approved Purchase Order Limit Reached
+            </DialogTitle>
+            <DialogContent>
+              <Box sx={{ mt: 2 }}>
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <Typography variant="body1" fontWeight="bold" gutterBottom>
+                    Cannot Submit to Pending Approval
+                  </Typography>
+                  <Typography variant="body2">
+                    This organization currently has <strong>{poCapInfo.currentCount}</strong> approved purchase orders
+                    that have not yet been actioned. The maximum allowed is <strong>{poCapInfo.maxAllowed}</strong>.
+                  </Typography>
+                </Alert>
+
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  Before additional purchase requests can be elevated to Pending Approval status,
+                  existing approved POs must be actioned to one of the following statuses:
+                </Typography>
+
+                <Box component="ul" sx={{ pl: 2, mb: 2, '& li': { mb: 0.5 } }}>
+                  <li><strong>Ordered</strong> — The PO has been placed with the vendor</li>
+                  <li><strong>Completed</strong> — The PO has been fulfilled and closed</li>
+                  <li><strong>Rejected</strong> — The PO has been rejected</li>
+                  <li><strong>Canceled</strong> — The PO has been canceled</li>
+                </Box>
+
+                <Typography variant="body2" color="text.secondary">
+                  Action at least <strong>{poCapInfo.currentCount - poCapInfo.maxAllowed + 1}</strong> approved POs
+                  to bring the count to {poCapInfo.maxAllowed} or fewer, then try again.
+                </Typography>
+              </Box>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setShowPOCapWarning(false)} variant="contained">
+                I Understand
+              </Button>
+            </DialogActions>
+          </Dialog>
         </>
       )}
     </Box>

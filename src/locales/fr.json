@@ -95,21 +95,33 @@
         "title": "Parcours du tableau de bord",
         "description": "Filtre d'organisation, actions, indicateurs, statuts et tableau"
       },
-      "workflowRequestor": {
-        "title": "Parcours demandeur",
-        "description": "Créer et suivre vos demandes d'achat"
-      },
-      "workflowApprover": {
-        "title": "Parcours approbateur",
-        "description": "Trouver les BC en attente de votre approbation"
-      },
-      "workflowProcurement": {
-        "title": "Parcours approvisionnement",
-        "description": "Contexte d'organisation, liste des DR et file par statut"
-      },
       "newPrForm": {
         "title": "Formulaire nouvelle DR",
         "description": "Étapes et navigation dans l'assistant de création"
+      },
+      "roleRequestor": {
+        "title": "Parcours Demandeur (L5)",
+        "description": "Créer des DR, suivre la progression, répondre aux demandes de révision"
+      },
+      "roleApprover": {
+        "title": "Parcours Approbateur (L2)",
+        "description": "Examiner les DR, approuver/rejeter, flux de double approbation"
+      },
+      "roleProcurement": {
+        "title": "Parcours Approvisionnement (L3)",
+        "description": "Gérer les devis, fournisseurs, BC et actions d'achat"
+      },
+      "roleFinanceAdmin": {
+        "title": "Parcours Finance Admin (L4)",
+        "description": "Paiements, preuve de paiement et clôture des commandes"
+      },
+      "roleFinanceApprover": {
+        "title": "Parcours Approbateur Financier (L6)",
+        "description": "Approbations de grande valeur avec surveillance des seuils"
+      },
+      "roleSuperadmin": {
+        "title": "Parcours Superadmin (L1)",
+        "description": "Accès complet au système, gestion des utilisateurs, configuration des règles"
       }
     },
     "orientation": {
@@ -156,54 +168,172 @@
         "content": "Ouvrez une ligne pour voir le détail, les devis, les approbations et les pièces jointes."
       }
     },
-    "wfRequestor": {
+    "roleRequestor": {
       "step1": {
-        "title": "Votre organisation",
-        "content": "Sélectionnez votre entité pour voir les bons budgets et DR."
+        "title": "Sélecteur d'organisation",
+        "content": "Choisissez votre organisation pour voir les bonnes DR, les bons indicateurs et les bons budgets."
       },
       "step2": {
-        "title": "Créer une DR",
-        "content": "Cliquez sur « Nouvelle DR » pour l'assistant : informations de base, lignes, puis révision et envoi."
+        "title": "Bouton Nouvelle DR",
+        "content": "Cliquez sur Nouvelle DR pour lancer l'assistant. Remplissez les infos de base, les articles, puis soumettez."
       },
       "step3": {
-        "title": "Suivre l'avancement",
-        "content": "Utilisez les indicateurs et le tableau ci-dessous. Activez « Mes DR » dans le menu pour vos demandes uniquement."
+        "title": "Étapes du formulaire",
+        "content": "Parcourez Informations de base, Articles et Révision. Remplissez tous les champs obligatoires avant de soumettre."
       },
       "step4": {
+        "title": "Tableau des DR",
+        "content": "Suivez toutes les DR de votre organisation ici. Cliquez sur une ligne pour ouvrir la vue détaillée. Activez « Mes DR » dans la barre latérale pour voir uniquement les vôtres."
+      },
+      "step5": {
         "title": "Ouvrir une DR",
-        "content": "Cliquez sur un numéro de DR pour voir le statut, les échanges et les demandes de révision."
+        "content": "Cliquez sur un numéro de DR pour voir tous les détails : articles, devis, historique des statuts, messages et demandes de révision des approbateurs."
+      },
+      "step6": {
+        "title": "Barre de progression",
+        "content": "Cette barre horizontale indique exactement où se trouve votre DR dans le pipeline — de Soumis à Complété. Le statut actuel est mis en surbrillance."
+      },
+      "step7": {
+        "title": "Demandes de révision",
+        "content": "Si un approbateur renvoie votre DR, le statut affiche RÉVISION_REQUISE. Ouvrez la DR, cliquez sur Modifier, effectuez les changements demandés et resoumettez. Les notes de l'approbateur sont visibles dans l'historique des statuts."
       }
     },
-    "wfApprover": {
+    "roleApprover": {
       "step1": {
-        "title": "Nécessite mon approbation",
-        "content": "Avec ce filtre, le tableau montre les DR où vous êtes approbateur désigné et une action est requise."
+        "title": "Filtre Mes Actions",
+        "content": "Activez ce filtre pour voir uniquement les DR où vous êtes approbateur assigné et où votre action est requise. C'est votre file d'approbation personnelle."
       },
       "step2": {
-        "title": "Pastilles de statut",
-        "content": "Utilisez « En attente d'approbation » pour votre file ; les autres statuts pour le suivi."
+        "title": "Filtres de statut",
+        "content": "Cliquez sur En attente d'approbation pour vous concentrer sur les DR en attente de votre décision. Utilisez les autres statuts pour examiner les DR déjà traitées."
       },
       "step3": {
-        "title": "Ouvrir et approuver",
-        "content": "Ouvrez une DR, vérifiez les devis et montants, puis Approuver, Rejeter ou Demander une révision."
-      }
-    },
-    "wfProcurement": {
-      "step1": {
-        "title": "Contexte d'organisation",
-        "content": "L'approvisionnement travaille dans l'organisation sélectionnée — devis, fournisseurs et règles suivent ce périmètre."
-      },
-      "step2": {
-        "title": "Raccourci liste des DR",
-        "content": "Utilisez « DR » dans le menu pour une vue liste dédiée si besoin."
-      },
-      "step3": {
-        "title": "File par statut",
-        "content": "Soumis, En file d'attente et Approuvé (étapes BC) sont courants — choisissez la pastille adaptée à votre tâche."
+        "title": "Tableau des DR",
+        "content": "Chaque ligne affiche le numéro, le demandeur, le montant et le statut. Cliquez sur une ligne pour ouvrir la vue détaillée et agir."
       },
       "step4": {
-        "title": "Ouvrir une DR",
-        "content": "Ouvrez une DR pour ajouter des devis, faire avancer les statuts, assigner les approbateurs et gérer le cycle du BC."
+        "title": "Panneau de détails DR",
+        "content": "Examinez les informations de base : description, département, montant estimé, urgence et documents joints. Cela vous donne le contexte nécessaire pour décider."
+      },
+      "step5": {
+        "title": "Section Devis",
+        "content": "Vérifiez les devis soumis : montants, fournisseurs et nombre requis. Le système applique les règles de devis selon le montant de la DR."
+      },
+      "step6": {
+        "title": "Actions de l'approbateur",
+        "content": "Ici, vous Approuvez, Rejetez ou Demandez une révision. Approuver fait avancer la DR. Rejeter est terminal — la DR s'arrête. Demander une révision renvoie la DR au demandeur avec vos notes. Pour les DR au-dessus de la Règle 2, un deuxième approbateur est requis."
+      },
+      "step7": {
+        "title": "Double approbation",
+        "content": "Les DR au-dessus du seuil de la Règle 2 nécessitent deux approbateurs indépendants. Les deux doivent approuver pour que la DR progresse. Si l'un rejette, la DR est renvoyée. Le statut de l'autre approbateur est visible dans l'historique du flux d'approbation."
+      }
+    },
+    "roleProcurement": {
+      "step1": {
+        "title": "Sélecteur d'organisation",
+        "content": "Sélectionnez l'organisation avec laquelle vous travaillez. Les devis, fournisseurs, règles et le plafond de BC suivent cette portée."
+      },
+      "step2": {
+        "title": "Filtres de statut",
+        "content": "Utilisez Soumis pour les nouvelles DR à examiner, En file d'attente pour les DR nécessitant des devis, et Approuvé pour les BC prêts à être commandés. Chaque puce filtre le tableau instantanément."
+      },
+      "step3": {
+        "title": "Section Devis",
+        "content": "Ajoutez des devis fournisseurs pendant que la DR est EN_FILE. Cliquez sur Ajouter un devis, remplissez fournisseur/montant/devise/validité, téléchargez le document et enregistrez. Marquez-en un comme préféré. Le système applique les règles de nombre de devis selon le montant."
+      },
+      "step4": {
+        "title": "Actions d'approvisionnement",
+        "content": "Envoyer à l'approbateur transmet la DR aux approbateurs assignés. Le système vérifie d'abord le plafond de 25 BC — si l'organisation a trop de BC approuvés non traités, un avertissement bloque l'action jusqu'à résolution."
+      },
+      "step5": {
+        "title": "Plafond de 25 BC expliqué",
+        "content": "Chaque organisation est limitée à 25 BC approuvés à la fois. Les BC approuvés non encore Commandés, Complétés, Rejetés ou Annulés comptent dans ce plafond. Une fois le plafond atteint, les nouvelles DR ne peuvent pas passer en attente d'approbation."
+      },
+      "step6": {
+        "title": "Actions statut Approuvé",
+        "content": "Une fois une DR APPROUVÉE, utilisez Déplacer vers Commandé pour passer la commande. Sélectionnez le fournisseur, définissez le montant final, entrez le numéro de BC, téléchargez la facture proforma et fixez la date de livraison prévue."
+      },
+      "step7": {
+        "title": "Actions statut Commandé",
+        "content": "Après commande, suivez la livraison. Téléchargez la documentation de livraison, puis passez à COMPLÉTÉ lorsque les articles sont reçus. Répondez à la question sur la performance du fournisseur — cela affecte son statut d'approbation pour les commandes futures."
+      },
+      "step8": {
+        "title": "Gestion des fournisseurs",
+        "content": "Accédez aux fournisseurs via Admin → Données de référence → Fournisseurs ou le lien Fournisseurs dans la barre latérale. Consultez les détails, téléchargez les documents et gérez le statut d'approbation. Les évaluations de performance sont mises à jour automatiquement à la fin des commandes."
+      }
+    },
+    "roleFinanceAdmin": {
+      "step1": {
+        "title": "Indicateurs clés",
+        "content": "Surveillez le total des DR, les demandes urgentes, les jours moyens ouverts et les DR en retard dans l'organisation. Ces indicateurs vous aident à prioriser et repérer les goulots d'étranglement."
+      },
+      "step2": {
+        "title": "Filtres de statut",
+        "content": "Filtrez par APPROUVÉ pour voir les BC prêts pour le traitement des paiements. Utilisez COMMANDÉ pour suivre les livraisons en cours."
+      },
+      "step3": {
+        "title": "Panneau de détails DR",
+        "content": "Ouvrez un BC pour examiner tous les détails : montant approuvé, fournisseur, articles et documents joints. Vérifiez que tout est en ordre avant de traiter le paiement."
+      },
+      "step4": {
+        "title": "Preuve de paiement",
+        "content": "Téléchargez les documents de preuve de paiement lorsque le BC est en statut APPROUVÉ. C'est requis avant de passer à COMMANDÉ (pour les DR au-dessus de la Règle 1). Téléchargez des fichiers PDF, JPG ou PNG — plusieurs fichiers sont acceptés."
+      },
+      "step5": {
+        "title": "Clôture des commandes",
+        "content": "Lorsque la livraison est terminée, passez le BC à COMPLÉTÉ. Répondez à la question sur la performance du fournisseur : si aucun problème, le fournisseur est automatiquement approuvé pour les commandes futures. En cas de problème, décrivez-le — cela est enregistré dans le dossier du fournisseur."
+      }
+    },
+    "roleFinanceApprover": {
+      "step1": {
+        "title": "Filtre Mes Actions",
+        "content": "Activez Mes Actions pour voir les DR où vous êtes assigné comme approbateur financier. Il s'agit généralement de BC de grande valeur dépassant les seuils standard."
+      },
+      "step2": {
+        "title": "Filtres de statut",
+        "content": "Utilisez En attente d'approbation pour vous concentrer sur les BC en attente de votre décision. Les autres statuts permettent d'examiner les éléments déjà traités."
+      },
+      "step3": {
+        "title": "Tableau des DR",
+        "content": "Chaque ligne affiche le numéro, le demandeur, le montant et le statut actuel. Cliquez sur une ligne pour ouvrir la vue détaillée avec tous les documents et l'historique."
+      },
+      "step4": {
+        "title": "Actions de l'approbateur",
+        "content": "Examinez attentivement les détails, les devis et les documents. Utilisez Approuver pour autoriser, Rejeter pour refuser (terminal), ou Demander une révision pour renvoyer avec des modifications. Votre décision est enregistrée dans la piste d'audit."
+      },
+      "step5": {
+        "title": "Limites de seuil",
+        "content": "En tant qu'Approbateur Financier (L6), vous gérez généralement les BC au-dessus des seuils standard. Le système applique les règles d'approbation automatiquement — vous verrez des messages de validation en cas de conflit. Une double approbation avec un approbateur L2 peut être requise pour les BC de plus haute valeur."
+      }
+    },
+    "roleSuperadmin": {
+      "step1": {
+        "title": "Indicateurs clés",
+        "content": "Surveillez les indicateurs de toute l'organisation : total des DR, demandes urgentes, jours moyens ouverts et DR en retard. Utilisez-les pour identifier les goulots d'étranglement et assurer la fluidité du pipeline d'achats."
+      },
+      "step2": {
+        "title": "Barre latérale Admin",
+        "content": "Accédez au panneau d'administration ici. C'est votre centre pour la gestion des utilisateurs, les paramètres d'organisation, les données de référence et la configuration des règles. Visible uniquement pour les utilisateurs avec permissions admin."
+      },
+      "step3": {
+        "title": "Gestion des utilisateurs",
+        "content": "Ajoutez, modifiez, activez et désactivez les utilisateurs. Attribuez les niveaux de permission (L1–L6), les organisations et les départements. Les utilisateurs doivent utiliser l'email de leur compte Google. Le niveau de permission détermine ce qu'ils peuvent voir et faire."
+      },
+      "step4": {
+        "title": "Données de référence",
+        "content": "Gérez toutes les données de référence : départements, sites, catégories, types de dépenses, devises, véhicules et unités de mesure. Ces données alimentent les listes déroulantes et la validation dans toute l'application. Tenez-les à jour pour éviter les erreurs."
+      },
+      "step5": {
+        "title": "Règles d'approbation",
+        "content": "Configurez les seuils des Règles 1 et 2 par organisation. Ils définissent les exigences de devis et les niveaux d'approbateurs. La Règle 1 fixe la barre pour 3 devis ; la Règle 2 déclenche la double approbation. Les modifications prennent effet immédiatement."
+      },
+      "step6": {
+        "title": "Capacités de dérogation",
+        "content": "Les superadmins peuvent appliquer des dérogations pour la validation des règles, les exigences de devis, la facture proforma, la preuve de paiement, les documents de BC et la documentation de livraison. Chaque dérogation nécessite une justification et est enregistrée dans la piste d'audit."
+      },
+      "step7": {
+        "title": "Accès complet au système",
+        "content": "En tant que Superadmin (L1), vous avez un accès illimité à toutes les DR, BC, fonctions d'administration et configuration. Vous pouvez voir et traiter n'importe quelle DR quelle que soit l'organisation, déroger à toute règle avec justification, et gérer tous les utilisateurs et paramètres."
       }
     },
     "newPrForm": {
@@ -393,6 +523,14 @@
     "etdNotSet": "DLE non définie",
     "overrideSet": "Dérogation définie",
     "files": "fichier(s)",
+    "approvedGuidance": {
+      "readOnlyTitle": "BC approuvé — les modifications passent par l'approvisionnement ou la finance",
+      "readOnlyBody": "Après approbation, le montant estimé et les postes ne peuvent plus être modifiés depuis cet écran. Contactez l'équipe d'approvisionnement pour un amendement de BC, ou la finance pour téléverser les documents et saisir le montant final de la facture.",
+      "procurementTitle": "Comment mettre à jour ce BC approuvé",
+      "procurementBody": "• Nouvelle proforma : section « Gestion des documents du BC » ci-dessous (téléversement — pas via Modifier la DR).\n• Montant de la facture proforma : champ « Prix final de la facture proforma » ci-dessous.\n• Modifier le montant estimé approuvé, le fournisseur ou les postes : cliquer « Modifier la DR », enregistrer pour soumettre un amendement à l'approbateur.",
+      "financeTitle": "Actions finance sur ce BC approuvé",
+      "financeBody": "Téléversez la proforma et la preuve de paiement dans « Gestion des documents du BC » ci-dessous. Saisissez le prix final de la proforma. Pour modifier le montant estimé approuvé ou les postes, demandez un amendement à l'approvisionnement."
+    },
     "proformaNotProvided": "Facture proforma non fournie",
     "popNotProvided": "Preuve de paiement non fournie",
     "poDocNotProvided": "Document de BC non fourni (requis pour BC de valeur élevée)",

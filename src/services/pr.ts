@@ -28,7 +28,8 @@ import { PRRequest, PRStatus, UserReference, HistoryItem, LineItem, ApprovalWork
 import { approverService } from '@/services/approver';
 import { User } from '@/types/user'; 
 import { mapFirebaseUserToUserReference } from '@/utils/userMapper';
-import { normalizeOrganizationId } from '@/utils/organization';
+import { normalizeOrganizationId, organizationMatchesUser } from '@/utils/organization';
+import { referenceDataService } from '@/services/referenceData';
 import { getOrgCodes, mapIsoCountryToPrCountryCode } from '@/utils/prOrgCountryCodes';
 
 export { getOrgCodes, mapIsoCountryToPrCountryCode };
@@ -38,8 +39,26 @@ import { SubmitPRNotificationHandler } from './notifications/handlers/submitPRNo
 const PR_COLLECTION = 'purchaseRequests';
 const COUNTER_COLLECTION = 'counters';
 const APPROVAL_RULES_COLLECTION = 'approvalRules'; 
-const NOTIFICATION_COLLECTION = 'notifications'; 
+const NOTIFICATION_COLLECTION = 'notifications';
+export const PO_CAP_AUDIT_COLLECTION = 'poCapAudit';
 const db = getFirestore(app);
+
+export type PoCapAuditSource = 'push_to_approver' | 'skip_queue_create' | 'update_pr_status';
+export type PoCapAuditOutcome = 'allowed' | 'blocked';
+
+export interface PoCapAuditEntry {
+  organization: string;
+  prId?: string;
+  prNumber?: string;
+  source: PoCapAuditSource;
+  outcome: PoCapAuditOutcome;
+  approvedCount: number;
+  maxAllowed: number;
+  fromStatus?: string;
+  userId?: string;
+  userEmail?: string;
+  userName?: string;
+}
 
 interface ApprovalRule {
   id: string;
@@ -389,6 +408,39 @@ export async function updatePRStatus(
         // Use statusHistory array
         const currentStatusHistory: StatusHistoryItem[] = currentData.statusHistory || []; 
 
+        // Enforce approved-PO cap when entering PENDING_APPROVAL from the queue
+        if (
+          status === PRStatus.PENDING_APPROVAL &&
+          (currentStatus === PRStatus.IN_QUEUE ||
+            currentStatus === PRStatus.SUBMITTED ||
+            currentStatus === PRStatus.RESUBMITTED)
+        ) {
+          const org = (currentData.organization as string) || '';
+          const poCapCheck = await canProceedToPendingApproval(org);
+          await recordPoCapAudit({
+            organization: org,
+            prId,
+            prNumber: (currentData.prNumber as string) || undefined,
+            source: 'update_pr_status',
+            outcome: poCapCheck.allowed ? 'allowed' : 'blocked',
+            approvedCount: poCapCheck.currentCount,
+            maxAllowed: poCapCheck.maxAllowed,
+            fromStatus: currentStatus,
+            userId: user?.id,
+            userEmail: user?.email,
+            userName:
+              user?.name ||
+              `${user?.firstName || ''} ${user?.lastName || ''}`.trim() ||
+              user?.email,
+          });
+          if (!poCapCheck.allowed) {
+            throw new Error(
+              `Approved PO limit reached for this organization (${poCapCheck.currentCount} of ${poCapCheck.maxAllowed} maximum). ` +
+                'Move existing approved POs to Ordered, Completed, Rejected, or Canceled before pushing new PRs to approval.'
+            );
+          }
+        }
+
         // Check if we're reverting from PO status back to PR status
         const poStatuses = [PRStatus.APPROVED, PRStatus.ORDERED, PRStatus.COMPLETED];
         const prStatuses = [PRStatus.SUBMITTED, PRStatus.RESUBMITTED, PRStatus.IN_QUEUE, PRStatus.PENDING_APPROVAL, PRStatus.REVISION_REQUIRED];
@@ -674,7 +726,9 @@ export async function rescindApprovals(
 
 /**
  * Reassigns a PR/PO to a different organization.
- * Superadmin-only. Updates org, rewrites PR number segments, validates approvers,
+ * Allowed for: admins (level 1 or role admin), or the requestor while the PR is
+ * in REVISION_REQUIRED (wrong-org fixes). Requestors may only target organizations
+ * they belong to. Updates org, rewrites PR number segments, validates approvers,
  * and records everything in statusHistory.
  */
 export async function reassignOrganization(
@@ -690,6 +744,25 @@ export async function reassignOrganization(
   const currentPR = await getPR(prId);
   if (!currentPR) {
     throw new Error(`PR with ID ${prId} not found.`);
+  }
+
+  const isAdmin = user.permissionLevel === 1 || user.role === 'admin';
+  const isRequestorInRevision =
+    currentPR.status === PRStatus.REVISION_REQUIRED && user.id === currentPR.requestorId;
+
+  if (!isAdmin && !isRequestorInRevision) {
+    throw new Error('You do not have permission to reassign the organization for this PR.');
+  }
+
+  if (isRequestorInRevision && !isAdmin) {
+    const extra = (user as UserReference & { additionalOrganizations?: string[] }).additionalOrganizations;
+    const orgEntries = [user.organization, ...(extra || [])];
+    const userOrgIds = new Set(
+      orgEntries.map((o) => normalizeOrganizationId(o)).filter((id): id is string => Boolean(id))
+    );
+    if (!organizationMatchesUser(newOrganization, userOrgIds)) {
+      throw new Error('You can only reassign this PR to an organization you are assigned to.');
+    }
   }
 
   const oldOrganization = currentPR.organization;
@@ -953,10 +1026,13 @@ export async function createPR(
    try {
      const prNumber = await generatePRNumber(prData.organization || 'UNK'); // Pass organization
 
+     const initialStatus =
+       prData.status === PRStatus.PENDING_APPROVAL ? PRStatus.PENDING_APPROVAL : PRStatus.SUBMITTED;
+
      const finalPRData: Omit<PRRequest, 'id'> = {
        ...prData,
        prNumber,
-       status: PRStatus.SUBMITTED,
+       status: initialStatus,
        totalAmount: prData.estimatedAmount, // Add totalAmount, using estimatedAmount initially
        createdAt: new Date().toISOString(), // Set server-side or consistent client-side
        updatedAt: new Date().toISOString(),
@@ -1737,6 +1813,146 @@ export async function cancelAmendment(
   console.log(`[Amendment] Amendment cancelled for PR ${prId}`);
 }
 
+/**
+ * Maximum number of approved (but un-actioned) POs allowed per organization
+ * before new PRs are blocked from entering PENDING_APPROVAL status.
+ */
+export const MAX_APPROVED_POS_BEFORE_BLOCK = 25;
+const FIRESTORE_IN_QUERY_MAX = 30;
+
+/** All organization field values that should match one logical org (name/id variants). */
+async function getOrganizationMatchValues(organization: string): Promise<string[]> {
+  const values = new Set<string>();
+  const trimmed = organization?.trim();
+  if (trimmed) {
+    values.add(trimmed);
+  }
+
+  const normalizedTarget = normalizeOrganizationId(organization);
+  if (normalizedTarget) {
+    values.add(normalizedTarget);
+  }
+
+  try {
+    const orgs = await referenceDataService.getOrganizations();
+    for (const org of orgs) {
+      const candidates = [org.id, org.name, (org as { code?: string }).code];
+      const matchesTarget = candidates.some(
+        (c) => c && normalizeOrganizationId(c) === normalizedTarget
+      );
+      if (matchesTarget) {
+        candidates.forEach((c) => {
+          if (c && String(c).trim()) {
+            values.add(String(c).trim());
+          }
+        });
+      }
+    }
+  } catch (error) {
+    console.warn('[getOrganizationMatchValues] Could not load organizations:', error);
+  }
+
+  return Array.from(values);
+}
+
+function chunkArray<T>(items: T[], chunkSize: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += chunkSize) {
+    chunks.push(items.slice(i, i + chunkSize));
+  }
+  return chunks;
+}
+
+/**
+ * Counts the number of approved POs for a given organization.
+ * "Approved POs" are PRs in APPROVED status that have not yet been actioned
+ * to ORDERED, COMPLETED, REJECTED, or CANCELED.
+ *
+ * @param organization - The organization to count approved POs for.
+ * @returns The count of approved POs.
+ */
+export async function countApprovedPOs(organization: string): Promise<number> {
+  if (!organization) {
+    console.warn('countApprovedPOs called with missing organization.');
+    return 0;
+  }
+
+  try {
+    const matchValues = await getOrganizationMatchValues(organization);
+    const prCollectionRef = collection(db, PR_COLLECTION);
+    const seenIds = new Set<string>();
+
+    const valueChunks =
+      matchValues.length > 0 ? chunkArray(matchValues, FIRESTORE_IN_QUERY_MAX) : [[organization]];
+
+    for (const chunk of valueChunks) {
+      if (chunk.length === 0) continue;
+      const q =
+        chunk.length === 1
+          ? query(
+              prCollectionRef,
+              where('organization', '==', chunk[0]),
+              where('status', '==', PRStatus.APPROVED)
+            )
+          : query(
+              prCollectionRef,
+              where('organization', 'in', chunk),
+              where('status', '==', PRStatus.APPROVED)
+            );
+
+      const querySnapshot = await getDocs(q);
+      querySnapshot.forEach((docSnap) => seenIds.add(docSnap.id));
+    }
+
+    console.log(
+      `[countApprovedPOs] Organization "${organization}" (${matchValues.length} name variants) has ${seenIds.size} approved POs`
+    );
+    return seenIds.size;
+  } catch (error) {
+    console.error(`Failed to count approved POs for org ${organization}:`, error);
+    throw new Error(`Failed to count approved POs: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Checks whether a new PR can be moved to PENDING_APPROVAL status
+ * based on the approved PO cap for the organization.
+ *
+ * @param organization - The organization to check.
+ * @returns Object with `allowed` flag and `currentCount` of approved POs.
+ */
+export async function canProceedToPendingApproval(
+  organization: string
+): Promise<{ allowed: boolean; currentCount: number; maxAllowed: number }> {
+  const currentCount = await countApprovedPOs(organization);
+  return {
+    allowed: currentCount < MAX_APPROVED_POS_BEFORE_BLOCK,
+    currentCount,
+    maxAllowed: MAX_APPROVED_POS_BEFORE_BLOCK,
+  };
+}
+
+/**
+ * Persists a PO-cap check to Firestore (`poCapAudit`) for compliance review.
+ * Failures are logged but do not block the user flow.
+ */
+export async function recordPoCapAudit(entry: PoCapAuditEntry): Promise<void> {
+  try {
+    const payload = {
+      ...entry,
+      maxAllowed: entry.maxAllowed ?? MAX_APPROVED_POS_BEFORE_BLOCK,
+      createdAt: serverTimestamp(),
+    };
+    await addDoc(collection(db, PO_CAP_AUDIT_COLLECTION), payload);
+    console.log('[recordPoCapAudit]', entry.outcome, entry.source, entry.organization, {
+      approvedCount: entry.approvedCount,
+      prNumber: entry.prNumber,
+    });
+  } catch (error) {
+    console.warn('[recordPoCapAudit] Failed to write audit entry:', error);
+  }
+}
+
 // Aggregated service object for legacy compatibility
 export const prService = {
   getPR,
@@ -1754,4 +1970,7 @@ export const prService = {
   resolveAmendment,
   cancelAmendment,
   computeAmendmentDiff,
+  countApprovedPOs,
+  canProceedToPendingApproval,
+  recordPoCapAudit,
 };

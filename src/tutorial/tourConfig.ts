@@ -4,10 +4,15 @@ import type { TFunction } from 'i18next';
 export type TourId =
   | 'orientation'
   | 'dashboard'
-  | 'workflowRequestor'
-  | 'workflowApprover'
-  | 'workflowProcurement'
-  | 'newPrForm';
+  | 'newPrForm'
+  | 'poCapRule'
+  | 'fullApprovalFlow'
+  | 'roleRequestor'
+  | 'roleApprover'
+  | 'roleProcurement'
+  | 'roleFinanceAdmin'
+  | 'roleFinanceApprover'
+  | 'roleSuperadmin';
 
 export interface TourMeta {
   id: TourId;
@@ -15,6 +20,8 @@ export interface TourMeta {
   descriptionKey: string;
   /** Navigate here before starting (if not already there) */
   path?: string;
+  /** Badge label shown on steps — typically the role name */
+  badge?: string;
 }
 
 export const TOUR_LIST: TourMeta[] = [
@@ -30,28 +37,63 @@ export const TOUR_LIST: TourMeta[] = [
     path: '/dashboard',
   },
   {
-    id: 'workflowRequestor',
-    titleKey: 'tutorial.tours.workflowRequestor.title',
-    descriptionKey: 'tutorial.tours.workflowRequestor.description',
-    path: '/dashboard',
-  },
-  {
-    id: 'workflowApprover',
-    titleKey: 'tutorial.tours.workflowApprover.title',
-    descriptionKey: 'tutorial.tours.workflowApprover.description',
-    path: '/dashboard',
-  },
-  {
-    id: 'workflowProcurement',
-    titleKey: 'tutorial.tours.workflowProcurement.title',
-    descriptionKey: 'tutorial.tours.workflowProcurement.description',
-    path: '/dashboard',
-  },
-  {
     id: 'newPrForm',
     titleKey: 'tutorial.tours.newPrForm.title',
     descriptionKey: 'tutorial.tours.newPrForm.description',
     path: '/pr/new',
+  },
+  {
+    id: 'poCapRule',
+    titleKey: 'tutorial.tours.poCapRule.title',
+    descriptionKey: 'tutorial.tours.poCapRule.description',
+  },
+  {
+    id: 'fullApprovalFlow',
+    titleKey: 'tutorial.tours.fullApprovalFlow.title',
+    descriptionKey: 'tutorial.tours.fullApprovalFlow.description',
+    path: '/dashboard',
+  },
+  {
+    id: 'roleRequestor',
+    titleKey: 'tutorial.tours.roleRequestor.title',
+    descriptionKey: 'tutorial.tours.roleRequestor.description',
+    path: '/dashboard',
+    badge: 'Requestor (L5)',
+  },
+  {
+    id: 'roleApprover',
+    titleKey: 'tutorial.tours.roleApprover.title',
+    descriptionKey: 'tutorial.tours.roleApprover.description',
+    path: '/dashboard',
+    badge: 'Approver (L2)',
+  },
+  {
+    id: 'roleProcurement',
+    titleKey: 'tutorial.tours.roleProcurement.title',
+    descriptionKey: 'tutorial.tours.roleProcurement.description',
+    path: '/dashboard',
+    badge: 'Procurement (L3)',
+  },
+  {
+    id: 'roleFinanceAdmin',
+    titleKey: 'tutorial.tours.roleFinanceAdmin.title',
+    descriptionKey: 'tutorial.tours.roleFinanceAdmin.description',
+    path: '/dashboard',
+    badge: 'Finance Admin (L4)',
+  },
+  {
+    id: 'roleFinanceApprover',
+    titleKey: 'tutorial.tours.roleFinanceApprover.title',
+    descriptionKey: 'tutorial.tours.roleFinanceApprover.description',
+    path: '/dashboard',
+    badge: 'Finance Approver (L6)',
+  },
+  {
+    id: 'roleSuperadmin',
+    titleKey: 'tutorial.tours.roleSuperadmin.title',
+    descriptionKey: 'tutorial.tours.roleSuperadmin.description',
+    path: '/dashboard',
+    badge: 'Superadmin (L1)',
   },
 ];
 
@@ -71,19 +113,31 @@ function step(
   };
 }
 
+function center(titleKey: string, contentKey: string, t: TFunction): Step {
+  return {
+    target: 'body',
+    title: t(titleKey),
+    content: t(contentKey),
+    placement: 'center',
+    disableBeacon: true,
+  };
+}
+
+function spot(target: string, titleKey: string, contentKey: string, t: TFunction, placement: Step['placement'] = 'bottom'): Step {
+  return step(`[data-tutorial="${target}"]`, titleKey, contentKey, t, placement);
+}
+
 /** Build Joyride steps for a tour id. Targets use [data-tutorial] selectors. */
 export function buildTourSteps(tourId: TourId, t: TFunction): Step[] {
+  const S = (key: string) => `tutorial.${tourId}.${key}`;
+
   switch (tourId) {
+    // ── Legacy / generic tours ──────────────────────────────
+
     case 'orientation':
       return [
         step('[data-tutorial="layout-appbar"]', 'tutorial.orientation.step1.title', 'tutorial.orientation.step1.content', t, 'bottom'),
-        {
-          target: 'body',
-          title: t('tutorial.orientation.step2.title'),
-          content: t('tutorial.orientation.step2.content'),
-          placement: 'center',
-          disableBeacon: true,
-        },
+        center('tutorial.orientation.step2.title', 'tutorial.orientation.step2.content', t),
         step('[data-tutorial="layout-main"]', 'tutorial.orientation.step3.title', 'tutorial.orientation.step3.content', t, 'top'),
         step('[data-tutorial="layout-help"]', 'tutorial.orientation.step4.title', 'tutorial.orientation.step4.content', t, 'right'),
       ];
@@ -98,33 +152,94 @@ export function buildTourSteps(tourId: TourId, t: TFunction): Step[] {
         step('[data-tutorial="dashboard-table"]', 'tutorial.dashboard.step6.title', 'tutorial.dashboard.step6.content', t, 'top'),
       ];
 
-    case 'workflowRequestor':
-      return [
-        step('[data-tutorial="dashboard-org"]', 'tutorial.wfRequestor.step1.title', 'tutorial.wfRequestor.step1.content', t, 'bottom'),
-        step('[data-tutorial="dashboard-new-pr"]', 'tutorial.wfRequestor.step2.title', 'tutorial.wfRequestor.step2.content', t, 'bottom'),
-        step('[data-tutorial="dashboard-metrics"]', 'tutorial.wfRequestor.step3.title', 'tutorial.wfRequestor.step3.content', t, 'bottom'),
-        step('[data-tutorial="dashboard-table"]', 'tutorial.wfRequestor.step4.title', 'tutorial.wfRequestor.step4.content', t, 'top'),
-      ];
-
-    case 'workflowApprover':
-      return [
-        step('[data-tutorial="dashboard-my-actions"]', 'tutorial.wfApprover.step1.title', 'tutorial.wfApprover.step1.content', t, 'bottom'),
-        step('[data-tutorial="dashboard-status-row"]', 'tutorial.wfApprover.step2.title', 'tutorial.wfApprover.step2.content', t, 'bottom'),
-        step('[data-tutorial="dashboard-table"]', 'tutorial.wfApprover.step3.title', 'tutorial.wfApprover.step3.content', t, 'top'),
-      ];
-
-    case 'workflowProcurement':
-      return [
-        step('[data-tutorial="dashboard-org"]', 'tutorial.wfProcurement.step1.title', 'tutorial.wfProcurement.step1.content', t, 'bottom'),
-        step('[data-tutorial="layout-pr-list"]', 'tutorial.wfProcurement.step2.title', 'tutorial.wfProcurement.step2.content', t, 'right'),
-        step('[data-tutorial="dashboard-status-row"]', 'tutorial.wfProcurement.step3.title', 'tutorial.wfProcurement.step3.content', t, 'bottom'),
-        step('[data-tutorial="dashboard-table"]', 'tutorial.wfProcurement.step4.title', 'tutorial.wfProcurement.step4.content', t, 'top'),
-      ];
-
     case 'newPrForm':
       return [
         step('[data-tutorial="newpr-stepper"]', 'tutorial.newPrForm.step1.title', 'tutorial.newPrForm.step1.content', t, 'bottom'),
         step('[data-tutorial="newpr-nav"]', 'tutorial.newPrForm.step2.title', 'tutorial.newPrForm.step2.content', t, 'top'),
+      ];
+
+    case 'poCapRule':
+      return [
+        center('tutorial.poCapRule.step1.title', 'tutorial.poCapRule.step1.content', t),
+        center('tutorial.poCapRule.step2.title', 'tutorial.poCapRule.step2.content', t),
+        center('tutorial.poCapRule.step3.title', 'tutorial.poCapRule.step3.content', t),
+        center('tutorial.poCapRule.step4.title', 'tutorial.poCapRule.step4.content', t),
+      ];
+
+    case 'fullApprovalFlow':
+      return [
+        spot('dashboard-status-row', S('step1.title'), S('step1.content'), t),
+        spot('dashboard-table', S('step2.title'), S('step2.content'), t, 'top'),
+        center(S('step3.title'), S('step3.content'), t),
+        center(S('step4.title'), S('step4.content'), t),
+        center(S('step5.title'), S('step5.content'), t),
+        center(S('step6.title'), S('step6.content'), t),
+        center(S('step7.title'), S('step7.content'), t),
+      ];
+
+    // ── Role-specific tours ──────────────────────────────────
+
+    case 'roleRequestor':
+      return [
+        spot('dashboard-org', S('step1.title'), S('step1.content'), t),
+        spot('dashboard-new-pr', S('step2.title'), S('step2.content'), t),
+        spot('newpr-stepper', S('step3.title'), S('step3.content'), t),
+        spot('dashboard-table', S('step4.title'), S('step4.content'), t, 'top'),
+        center(S('step5.title'), S('step5.content'), t),
+        spot('pr-status-stepper', S('step6.title'), S('step6.content'), t),
+        center(S('step7.title'), S('step7.content'), t),
+      ];
+
+    case 'roleApprover':
+      return [
+        spot('dashboard-my-actions', S('step1.title'), S('step1.content'), t),
+        spot('dashboard-status-row', S('step2.title'), S('step2.content'), t),
+        spot('dashboard-table', S('step3.title'), S('step3.content'), t, 'top'),
+        spot('pr-details-info', S('step4.title'), S('step4.content'), t),
+        spot('pr-quotes-section', S('step5.title'), S('step5.content'), t),
+        spot('pr-approver-actions', S('step6.title'), S('step6.content'), t),
+        center(S('step7.title'), S('step7.content'), t),
+      ];
+
+    case 'roleProcurement':
+      return [
+        spot('dashboard-org', S('step1.title'), S('step1.content'), t),
+        spot('dashboard-status-row', S('step2.title'), S('step2.content'), t),
+        spot('pr-quotes-section', S('step3.title'), S('step3.content'), t),
+        spot('pr-procurement-actions', S('step4.title'), S('step4.content'), t),
+        center(S('step5.title'), S('step5.content'), t),
+        spot('pr-approved-actions', S('step6.title'), S('step6.content'), t),
+        spot('pr-ordered-actions', S('step7.title'), S('step7.content'), t),
+        center(S('step8.title'), S('step8.content'), t),
+      ];
+
+    case 'roleFinanceAdmin':
+      return [
+        spot('dashboard-metrics', S('step1.title'), S('step1.content'), t),
+        spot('dashboard-status-row', S('step2.title'), S('step2.content'), t),
+        spot('pr-details-info', S('step3.title'), S('step3.content'), t),
+        spot('pr-approved-actions', S('step4.title'), S('step4.content'), t),
+        center(S('step5.title'), S('step5.content'), t),
+      ];
+
+    case 'roleFinanceApprover':
+      return [
+        spot('dashboard-my-actions', S('step1.title'), S('step1.content'), t),
+        spot('dashboard-status-row', S('step2.title'), S('step2.content'), t),
+        spot('dashboard-table', S('step3.title'), S('step3.content'), t, 'top'),
+        spot('pr-approver-actions', S('step4.title'), S('step4.content'), t),
+        center(S('step5.title'), S('step5.content'), t),
+      ];
+
+    case 'roleSuperadmin':
+      return [
+        spot('dashboard-metrics', S('step1.title'), S('step1.content'), t),
+        spot('layout-admin', S('step2.title'), S('step2.content'), t, 'right'),
+        center(S('step3.title'), S('step3.content'), t),
+        center(S('step4.title'), S('step4.content'), t),
+        center(S('step5.title'), S('step5.content'), t),
+        spot('pr-procurement-actions', S('step6.title'), S('step6.content'), t),
+        center(S('step7.title'), S('step7.content'), t),
       ];
 
     default:

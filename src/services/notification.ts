@@ -46,6 +46,10 @@ import {
 } from './notifications/templates';
 import { EmailContent } from './notifications/types';
 import { generatePRNumber, updatePR } from './pr'; // Import specific functions
+import {
+  resolveRequestSideNotificationEmail,
+  getDirectRequestorEmail,
+} from './notifications/resolveRequestSideEmail';
 
 const functions = getFunctions();
 
@@ -211,18 +215,24 @@ export class NotificationService {
       } catch (error) {
         console.warn('Could not fetch org-specific procurement email, using default:', error);
       }
+
+      const directRequestorEmail = getDirectRequestorEmail(pr);
+      const requestSideEmail = await resolveRequestSideNotificationEmail(pr);
+      const skipRequestSideCc =
+        !!user?.email &&
+        !!directRequestorEmail &&
+        user.email.toLowerCase() === directRequestorEmail.toLowerCase();
       
       // Route notifications based on status transition
       if (newStatus === PRStatus.REVISION_REQUIRED || newStatus === PRStatus.REJECTED) {
-        // Send to requestor when revisions are needed or PR is rejected
-        const requestorEmail = pr.requestorEmail || pr.requestor?.email;
-        if (requestorEmail) {
-          recipients = [requestorEmail];
+        // Send to request-side address (department list or requestor) when revisions are needed or PR is rejected
+        if (requestSideEmail) {
+          recipients = [requestSideEmail];
           // CC procurement to stay informed (team email covers all procurement users)
           ccList.push(procurementEmail);
           // Note: We don't CC individual procurement users as they're already on the team email
         } else {
-          console.warn('No requestor email found for REVISION_REQUIRED notification, sending to procurement');
+          console.warn('No requestor or department notification email found for REVISION_REQUIRED notification, sending to procurement');
           recipients = [procurementEmail];
         }
       } else if (newStatus === PRStatus.APPROVED || 
@@ -233,9 +243,8 @@ export class NotificationService {
         recipients = [procurementEmail];
         ccList.push('admin@1pwrafrica.com');
         
-        const requestorEmail = pr.requestorEmail || pr.requestor?.email;
-        if (requestorEmail && requestorEmail !== user?.email) {
-          ccList.push(requestorEmail);
+        if (requestSideEmail && !skipRequestSideCc) {
+          ccList.push(requestSideEmail);
         }
       } else if (newStatus === PRStatus.PENDING_APPROVAL) {
         // Send to approver(s) when approval is needed
@@ -276,18 +285,16 @@ export class NotificationService {
           recipients = [procurementEmail];
         }
         
-        // CC procurement and requestor
+        // CC procurement and request-side address
         ccList.push(procurementEmail);
-        const requestorEmail = pr.requestorEmail || pr.requestor?.email;
-        if (requestorEmail && requestorEmail !== user?.email) {
-          ccList.push(requestorEmail);
+        if (requestSideEmail && !skipRequestSideCc) {
+          ccList.push(requestSideEmail);
         }
       } else {
         // Default: send to procurement
         recipients = [procurementEmail];
-        const requestorEmail = pr.requestorEmail || pr.requestor?.email;
-        if (requestorEmail && requestorEmail !== user?.email) {
-          ccList.push(requestorEmail);
+        if (requestSideEmail && !skipRequestSideCc) {
+          ccList.push(requestSideEmail);
         }
       }
       
@@ -999,17 +1006,20 @@ export class NotificationService {
         headers: {}
       };
 
-      // Get recipients - always include procurement email and requestor email
+      // Get recipients - always include procurement email; CC request-side (dept list or requestor)
       const recipients = [this.PROCUREMENT_EMAIL];
       
-      // Set up CC list for proper email formatting
-      const ccList = [];
+      const ccList: string[] = [];
       
-      // Add requestor email to CC list if available
-      if (pr.requestorEmail) {
-        ccList.push(pr.requestorEmail);
-      } else if (pr.requestor?.email) {
-        ccList.push(pr.requestor.email);
+      const requestSideEmailSubmit = await resolveRequestSideNotificationEmail(pr);
+      if (requestSideEmailSubmit) {
+        ccList.push(requestSideEmailSubmit);
+      } else {
+        if (pr.requestorEmail) {
+          ccList.push(pr.requestorEmail);
+        } else if (pr.requestor?.email) {
+          ccList.push(pr.requestor.email);
+        }
       }
       
       // Add submitter email to CC if available and different from requestor
@@ -1090,11 +1100,22 @@ export class NotificationService {
   }
 
   /**
+   * Backwards-compatible alias for {@link handleStatusChange}
+   * (some call sites pass prNumber explicitly; it is not used here).
+   */
+  async sendStatusChangeNotification(
+    prId: string,
+    _prNumber: string,
+    oldStatus: string,
+    newStatus: string,
+    user: UserReference | null,
+    notes?: string
+  ): Promise<void> {
+    await this.handleStatusChange(prId, oldStatus, newStatus, user, notes);
+  }
+
+  /**
    * Updates the status of a notification in Firestore
-   * 
-   * @param notificationId ID of the notification to update
-   * @param status New status of the notification
-   * @param metadata Additional metadata to include in the update
    */
   async updateNotificationStatus(notificationId: string, status: string, metadata?: Record<string, any>): Promise<void> {
     try {

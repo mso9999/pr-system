@@ -232,7 +232,9 @@ interface ReferenceDataField {
   readOnly?: boolean;
   hideInTable?: boolean;
   defaultValue?: any;
-  sx?: Record<string, any>; // Add sx property for styling
+  sx?: Record<string, any>;
+  /** Shown when there is no validation error */
+  helperText?: string;
 }
 
 const isCodeBasedIdType = (type: string): boolean => {
@@ -251,6 +253,18 @@ const codeBasedFields: ReferenceDataField[] = [
 const codeIncludedFields: ReferenceDataField[] = [
   { name: 'name', label: 'Name', required: true },
   { name: 'code', label: 'Code', required: true }
+];
+
+const departmentFormFields: ReferenceDataField[] = [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'code', label: 'Code', required: true },
+  {
+    name: 'notificationEmail',
+    label: 'Department notification email',
+    type: 'email',
+    helperText:
+      "Optional. If set for this organization's department, PR emails that would go to the requestor go here instead.",
+  },
 ];
 
 const vendorFields: ReferenceDataField[] = [
@@ -330,6 +344,7 @@ const getFormFields = (type: ReferenceDataType): ReferenceDataField[] => {
     case 'rules':
       return ruleFields;
     case 'departments':
+      return departmentFormFields;
     case 'sites':
     case 'expenseTypes':
     case 'projectCategories':
@@ -397,6 +412,10 @@ function getDisplayFields(type: ReferenceDataType): ReferenceDataField[] {
       // For global reference data types, don't include organization field
       return codeBasedFields.map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } }));
     case 'departments':
+      return departmentFormFields.map(field => ({
+        ...field,
+        sx: { whiteSpace: 'normal', wordWrap: 'break-word' },
+      }));
     case 'sites':
     case 'expenseTypes':
     case 'projectCategories':
@@ -417,6 +436,7 @@ const getAutocompleteAttribute = (fieldName: string): string => {
     case 'code':
       return 'off';
     case 'email':
+    case 'notificationEmail':
       return 'email';
     case 'phone':
       return 'tel';
@@ -766,7 +786,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       value = '';
     }
     const error = formErrors[field.name];
-    const helperText = error || '';
+    const helperText = error || field.helperText || '';
 
     if (field.type === 'boolean') {
       return (

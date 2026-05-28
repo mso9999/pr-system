@@ -4,6 +4,7 @@ import { db } from '@/config/firebase';
 import { generateNewPREmail } from '../templates/newPRSubmitted';
 import { NotificationType, NotificationLog } from '@/types/notification';
 import { NotificationContext } from '@/services/notifications/types';
+import { resolveRequestSideNotificationEmail } from '@/services/notifications/resolveRequestSideEmail';
 import { getEnvironmentConfig } from '@/config/environment';
 // import { logger } from '@/utils/logger';
 
@@ -516,16 +517,20 @@ export class SubmitPRNotificationHandler {
       // Add CC list
       const cc: string[] = [];
       
-      // Always CC the requestor
-      if (prDoc.requestorEmail) {
-        cc.push(prDoc.requestorEmail);
-        console.log(`[NOTIFICATION] Adding requestor to CC: ${prDoc.requestorEmail}`);
-      }
-      
-      // If requestor has a different email in their user record, CC that too
-      if (prDoc.requestor?.email && prDoc.requestor.email !== prDoc.requestorEmail) {
-        cc.push(prDoc.requestor.email);
-        console.log(`[NOTIFICATION] Adding requestor alternate email to CC: ${prDoc.requestor.email}`);
+      const requestSide = await resolveRequestSideNotificationEmail(prDoc);
+      if (requestSide) {
+        cc.push(requestSide);
+        console.log(`[NOTIFICATION] Adding request-side (dept or requestor) to CC: ${requestSide}`);
+      } else {
+        if (prDoc.requestorEmail) {
+          cc.push(prDoc.requestorEmail);
+          console.log(`[NOTIFICATION] Adding requestor to CC: ${prDoc.requestorEmail}`);
+        }
+        
+        if (prDoc.requestor?.email && prDoc.requestor.email !== prDoc.requestorEmail) {
+          cc.push(prDoc.requestor.email);
+          console.log(`[NOTIFICATION] Adding requestor alternate email to CC: ${prDoc.requestor.email}`);
+        }
       }
       
       console.log(`[NOTIFICATION] Final recipients - TO: ${recipients.join(', ')}, CC: ${cc.join(', ') || '(none)'}`);

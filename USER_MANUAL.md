@@ -1,6 +1,6 @@
 # PR System User Manual
 
-**Version 1.0** | **Last Updated: November 2025**
+**Version 1.1** | **Last Updated: May 2026**
 
 ---
 
@@ -612,6 +612,41 @@ When quotes are ready:
 5. Status changes to **PENDING_APPROVAL**
 6. System automatically assigns approver(s)
 7. Email sent to approver(s)
+
+### Approved PO Limit (25-PO Cap)
+
+The system enforces a limit of **25 approved but un-actioned purchase orders** per organization. This rule prevents bottlenecks by ensuring approved POs are actively processed to completion.
+
+#### Why This Rule Exists
+- Approved POs represent committed spend that still requires action (ordering, payment, delivery).
+- Too many approved POs sitting idle creates procurement backlog and delays fulfillment.
+- The cap ensures the team focuses on completing existing POs before starting new ones.
+
+#### When the Cap Is Enforced
+The check runs when someone tries to move a PR to `PENDING_APPROVAL` status:
+1. **Push to Approver** — when procurement clicks "Push to Approver" from the IN_QUEUE status.
+2. **Skip-Queue PR Creation** — when creating a low-value PR that skips the queue and goes directly to PENDING_APPROVAL.
+
+#### What Happens When the Limit Is Reached
+A pop-up warning dialog appears explaining:
+- How many approved POs the organization currently has.
+- The maximum allowed (25).
+- Which statuses count as "actioned" (ORDERED, COMPLETED, REJECTED, CANCELED).
+- How many POs need to be actioned before new PRs can proceed.
+
+#### How to Resolve
+To bring your organization's count below 25:
+
+| Action | How To |
+|--------|--------|
+| **Move to ORDERED** | Open the PO, click "Move to Ordered", confirm vendor and delivery details |
+| **Move to COMPLETED** | After delivery is confirmed, upload delivery documents and complete the PO |
+| **Reject the PO** | If the purchase is no longer needed, reject it with notes |
+| **Cancel the PO** | If the order should not proceed, cancel it with justification |
+
+Once the count of APPROVED POs drops to 24 or fewer, the block is automatically lifted.
+
+> **Tip:** Regularly review your APPROVED-status POs. If a PO has been approved for more than 5 business days without action, prioritize it to avoid blocking the procurement pipeline.
 
 ### Handling Approved PRs (APPROVED Status)
 
@@ -1402,8 +1437,10 @@ A: Currently limited. Full export features coming soon. Contact Superadmin for d
 **Q: Is there an API?**
 A: Not currently available. Contact technical team if integration is needed.
 
----
+**Q: Why can't I push a PR to Pending Approval?**
+A: Your organization may have reached the 25 approved PO cap. Check how many POs are in APPROVED status. Action some to ORDERED, COMPLETED, REJECTED, or CANCELED, then try again. See "Approved PO Limit" in the Procurement Guide for details.
 
+---
 ## Appendix A: Status Flow Diagram
 
 ```
@@ -1412,6 +1449,8 @@ NEW PR CREATED
 [SUBMITTED] ← Requestor submits
      ↓
 [IN_QUEUE] ← Procurement adds quotes
+     ↓
+     ⚠️ 25-PO CAP CHECK ← Block if ≥25 APPROVED POs in org
      ↓
 [PENDING_APPROVAL] ← Waiting for approver
      ↓                          ↓
