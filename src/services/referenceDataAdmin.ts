@@ -47,6 +47,9 @@ export class ReferenceDataAdminService {
   }
 
   async addItem(type: string, item: Omit<ReferenceDataItem, "id">): Promise<string> {
+    if (type === 'vehicles') {
+      throw new Error('Vehicles are managed in Fleet Hub (fm.1pwrafrica.com). Create and edit vehicles there.');
+    }
     const collectionName = this.getCollectionName(type);
     console.log(`Adding item to collection: ${collectionName}`, item);
     const collectionRef = collection(db, collectionName);
@@ -130,6 +133,9 @@ export class ReferenceDataAdminService {
   }
 
   async updateItem(type: string, id: string, updates: Partial<ReferenceDataItem>): Promise<void> {
+    if (type === 'vehicles') {
+      throw new Error('Vehicles are managed in Fleet Hub (fm.1pwrafrica.com). Create and edit vehicles there.');
+    }
     const collectionName = this.getCollectionName(type);
     console.log(`Updating item in collection: ${collectionName}`, { id, updates });
     
@@ -177,6 +183,9 @@ export class ReferenceDataAdminService {
   }
 
   async deleteItem(type: string, id: string): Promise<void> {
+    if (type === 'vehicles') {
+      throw new Error('Vehicles are managed in Fleet Hub (fm.1pwrafrica.com). Create and edit vehicles there.');
+    }
     const collectionName = this.getCollectionName(type);
     console.log(`Deleting item from collection: ${collectionName} with ID: ${id}`);
     const docRef = doc(db, collectionName, id);

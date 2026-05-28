@@ -101,7 +101,7 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
   },
   [REFERENCE_DATA_TYPES.vehicles]: {
     canEdit: false,
-    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.APPROVER], PERMISSION_NAMES[PERMISSION_LEVELS.PROC]],
+    editableBy: [],
   },
   [REFERENCE_DATA_TYPES.projectCategories]: {
     canEdit: false,

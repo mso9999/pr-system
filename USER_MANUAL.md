@@ -1525,6 +1525,5 @@ Side paths:
 2. Select **"Vehicles"**
 3. Click **"Download CSV"** button
 4. CSV includes: Code, Registration Number, Year, Make, Model, VIN Number, Engine Number, Active status
-5. Use this export to update vehicle details offline, then re-import to Asset Management system
 
-> **Note**: The Asset Management system (AM) is the single source of truth for vehicle data. Vehicle updates should be made in AM and will sync to the PR system.
+> **Note**: **Fleet Hub** ([fm.1pwrafrica.com](https://fm.1pwrafrica.com)) is the single source of truth for vehicle data. Create and edit vehicles in Fleet Hub; changes sync automatically to the read-only vehicle list in the PR system for expense coding.

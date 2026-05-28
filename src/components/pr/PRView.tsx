@@ -1802,11 +1802,11 @@ export function PRView() {
                           label={t('pr.vehicle')}
                           renderValue={(value) => {
                             const vehicle = vehicles.find(v => v.id === value);
-                            return vehicle ? (vehicle.registrationNumber || vehicle.name || vehicle.code) : value;
+                            return vehicle ? (vehicle.fleetCode || vehicle.code || vehicle.registrationNumber || vehicle.name) : value;
                           }}
                         >
                           {vehicles.map((vehicle) => {
-                            const displayName = vehicle.registrationNumber || vehicle.name || vehicle.code;
+                            const displayName = vehicle.fleetCode || vehicle.code || vehicle.registrationNumber || vehicle.name;
                             return (
                               <MenuItem key={vehicle.id} value={vehicle.id}>
                                 {displayName}

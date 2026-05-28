@@ -54,6 +54,16 @@ export interface ReferenceDataItem {
   // Vehicle specific fields
   /** Registration number of the vehicle (required) */
   registrationNumber?: string;
+  /** FM Fleet Hub vehicle UUID — canonical id when source is fleet_hub */
+  fmVehicleId?: string;
+  /** Short fleet code from FM (e.g. R1, X3) */
+  fleetCode?: string;
+  /** Mirror origin: fleet_hub when synced from fm.1pwrafrica.com */
+  source?: string;
+  /** When a legacy Firestore doc was replaced by an FM UUID doc */
+  supersededBy?: string;
+  /** Last time FM pushed this mirror row */
+  syncedAt?: string;
   /** Manufacturing year of the vehicle (required) */
   year?: number;
   /** Manufacturer of the vehicle (required) */

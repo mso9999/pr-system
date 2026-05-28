@@ -307,13 +307,15 @@ const permissionFields: ReferenceDataField[] = [
 ];
 
 const vehicleFields: ReferenceDataField[] = [
-  { name: 'code', label: 'Code', type: 'text', required: true },
-  { name: 'registrationNumber', label: 'Registration Number', type: 'text' },
-  { name: 'year', label: 'Year', type: 'number' },
-  { name: 'make', label: 'Make', type: 'text' },
-  { name: 'model', label: 'Model', type: 'text' },
-  { name: 'vinNumber', label: 'VIN Number', type: 'text' },
-  { name: 'engineNumber', label: 'Engine Number', type: 'text' },
+  { name: 'fleetCode', label: 'Fleet Code', type: 'text', readOnly: true },
+  { name: 'code', label: 'Code', type: 'text', readOnly: true },
+  { name: 'registrationNumber', label: 'Registration Number', type: 'text', readOnly: true },
+  { name: 'year', label: 'Year', type: 'number', readOnly: true },
+  { name: 'make', label: 'Make', type: 'text', readOnly: true },
+  { name: 'model', label: 'Model', type: 'text', readOnly: true },
+  { name: 'vinNumber', label: 'VIN Number', type: 'text', readOnly: true },
+  { name: 'engineNumber', label: 'Engine Number', type: 'text', readOnly: true },
+  { name: 'fmVehicleId', label: 'FM Vehicle ID', type: 'text', readOnly: true, hideInTable: true },
   { name: 'organizationId', label: 'Organization ID', type: 'text', readOnly: true, hideInTable: true }
 ];
 
@@ -487,6 +489,10 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   const canEdit = useMemo(() => {
     return user?.permissionLevel ? hasEditAccess(user.permissionLevel, selectedType) : false;
   }, [user?.permissionLevel, selectedType]);
+
+  /** Vehicles mirror FM Fleet Hub — never editable in PR. */
+  const isFleetManagedType = selectedType === 'vehicles';
+  const effectiveCanEdit = canEdit && !isFleetManagedType && !isReadOnly;
 
   // Get editable roles for the current type
   const getEditableRoles = useMemo(() => (type: string): string => {
@@ -1022,7 +1028,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
         <SwitchComponent
           checked={value}
           onChange={(e) => handleToggle(item.id, field.name, e.target.checked)}
-          disabled={!canEdit || isReadOnly}
+          disabled={!effectiveCanEdit}
         />
       );
     }
@@ -1089,7 +1095,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
                 {renderCellContent(item, field)}
               </TableCell>
             ))}
-            {!isReadOnly && canEdit && (
+            {!isReadOnly && effectiveCanEdit && (
               <TableCell sx={{ width: 120 }}>
                 <IconButton 
                   onClick={(e) => {
@@ -1522,6 +1528,15 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   return (
     <Box>
+      {isFleetManagedType && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Vehicles are managed in{' '}
+          <a href="https://fm.1pwrafrica.com" target="_blank" rel="noopener noreferrer">
+            Fleet Hub (fm.1pwrafrica.com)
+          </a>
+          . This list is a read-only mirror synced from FM for PR expense coding. Create or edit vehicles in FM only.
+        </Alert>
+      )}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <FormControl sx={{ minWidth: 200, mr: 2 }}>
           <InputLabel>Type</InputLabel>
@@ -1565,7 +1580,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
               Download CSV
             </Button>
           )}
-          {!isReadOnly && canEdit && (
+          {!isReadOnly && effectiveCanEdit && (
             <>
               {shouldShowOrgSelect && (
                 <Button 
@@ -1596,7 +1611,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
                   {field.label}
                 </TableCell>
               ))}
-              {!isReadOnly && canEdit && <TableCell sx={{ width: 120 }}>Actions</TableCell>}
+              {!isReadOnly && effectiveCanEdit && <TableCell sx={{ width: 120 }}>Actions</TableCell>}
             </TableRow>
           </TableHead>
           {renderTableBody()}

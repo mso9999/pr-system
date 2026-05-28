@@ -552,7 +552,7 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
               </MenuItem>
               {filteredVehicles.map(v => (
                 <MenuItem key={v.id} value={v.id}>
-                  {v.code || v.registrationNumber || v.name || `Vehicle ${v.id}`}
+                  {v.fleetCode || v.code || v.registrationNumber || v.name || `Vehicle ${v.id}`}
                 </MenuItem>
               ))}
             </Select>

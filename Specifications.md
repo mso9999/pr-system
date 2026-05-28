@@ -426,6 +426,15 @@ Users assigned to the Asset Management department have special permissions:
 - Inactive items are still stored but not available for selection
 - This allows "soft deletion" of items that may be referenced by historical records
 
+### Vehicles (Fleet Hub mirror)
+- **Source of truth:** [Fleet Hub](https://fm.1pwrafrica.com) (`fm.1pwrafrica.com`) — create, update, and retire vehicles in FM only.
+- **PR role:** Read-only mirror in `referenceData_vehicles` for vehicle expense-type dropdowns on PRs.
+- **Sync:** FM pushes to Firestore on vehicle create/update/delete via `pr-vehicle-sync.ts` (Fleet Hub repo). Firestore document id = FM vehicle UUID (`fmVehicleId`). Display code stored as `fleetCode`.
+- **PR linkage:** `purchaseRequests.vehicle` stores the FM vehicle UUID (same as Firestore doc id after migration).
+- **Legacy:** One-time bootstrap script `sync-vehicles-from-firestore.ts` (PR → FM) was used for initial FM seeding only; ongoing direction is FM → PR.
+- **Reconciliation:** `scripts/reconcile-fm-pr-vehicles.ts` (both repos). **Migration:** `scripts/migrate-pr-vehicle-refs.ts` remaps legacy Firestore doc ids on existing PRs.
+- **Integration API:** `GET /api/integrations/v1/vehicles` on FM (machine auth) for audit and optional scheduled pull.
+
 ### Vendor Management
 
 #### Vendor Approval Requirements and Automation
@@ -856,7 +865,8 @@ Users assigned to the Asset Management department have special permissions:
   - Can edit select Admin Dashboard items (excluding Project Categories and Expense Types)
   - Responsible for vendor management and PR processing
   - **Reference Data Management:**
-    - Can manage: Departments, Sites, Vehicles, Vendors
+    - Can manage: Departments, Sites, Vendors
+    - **Vehicles:** read-only mirror from Fleet Hub (not editable in PR)
     - **Cannot manage:** Project Categories, Expense Types (Finance/Admin only)
   - **User Management (Limited):** Can create, delete, activate, and deactivate users at Level 5 (Requester) only
     - Cannot create users at other permission levels (1, 2, 3, 4)
