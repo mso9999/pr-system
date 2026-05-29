@@ -39,6 +39,8 @@ import { Link } from 'react-router-dom';
 import { referenceDataService } from '../../services/referenceData';
 import { normalizeOrganizationId } from '@/utils/organization';
 import { useResponsive } from '../../hooks/useResponsive';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/config/firebase';
 
 interface StatusHistoryEntry {
   status: PRStatus;
@@ -239,6 +241,37 @@ export const Dashboard = () => {
   useEffect(() => {
     setUserId(user?.id || null);
   }, [user]);
+
+  // Load users once for requestor/approver filter labels.
+  useEffect(() => {
+    const loadUsersForFilters = async () => {
+      try {
+        const snapshot = await getDocs(collection(db, 'users'));
+        const loaded = snapshot.docs.map((docSnap) => {
+          const data = docSnap.data() as any;
+          return {
+            id: docSnap.id,
+            firstName: data.firstName || '',
+            lastName: data.lastName || '',
+            name: data.name || `${data.firstName || ''} ${data.lastName || ''}`.trim(),
+            email: data.email || '',
+            permissionLevel: typeof data.permissionLevel === 'number'
+              ? data.permissionLevel
+              : Number(data.permissionLevel || 0),
+            organization: typeof data.organization === 'string'
+              ? data.organization
+              : data.organization?.name || data.organization?.id || '',
+            isActive: data.isActive !== false,
+          };
+        });
+        setUsers(loaded);
+      } catch (err) {
+        console.error('Dashboard: failed loading users for filters', err);
+      }
+    };
+
+    loadUsersForFilters();
+  }, []);
 
   // Load reference data for filters
   useEffect(() => {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Paper,
@@ -77,6 +77,47 @@ export const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
     urgency: 'all'
   });
 
+  const getRequestorLabelFromPR = (pr: PRRequest): string => {
+    const legacyName = (pr as any)?.requestorName;
+    if (typeof legacyName === 'string' && legacyName.trim()) return legacyName.trim();
+    if (typeof pr.requestor === 'string' && pr.requestor.trim()) return pr.requestor.trim();
+    if (pr.requestor) {
+      const objName = pr.requestor.name?.trim();
+      if (objName) return objName;
+      const combined = `${pr.requestor.firstName || ''} ${pr.requestor.lastName || ''}`.trim();
+      if (combined) return combined;
+      if (pr.requestor.email?.trim()) return pr.requestor.email.trim();
+    }
+    if (pr.requestorEmail?.trim()) return pr.requestorEmail.trim();
+    if ((pr as any)?.createdBy?.trim?.()) return (pr as any).createdBy.trim();
+    if (pr.requestorId?.trim()) return pr.requestorId.trim();
+    return 'Unknown';
+  };
+
+  const getRequestorMatchKeysFromPR = (pr: PRRequest): string[] => {
+    const keys = new Set<string>();
+    const label = getRequestorLabelFromPR(pr);
+    const legacyName = (pr as any)?.requestorName;
+    const createdBy = (pr as any)?.createdBy;
+
+    if (pr.requestorId?.trim()) keys.add(pr.requestorId.trim());
+    if (pr.requestorEmail?.trim()) keys.add(pr.requestorEmail.trim().toLowerCase());
+    if (typeof pr.requestor === 'object' && pr.requestor?.email?.trim()) {
+      keys.add(pr.requestor.email.trim().toLowerCase());
+    }
+    if (label && label !== 'Unknown') keys.add(label.toLowerCase());
+    if (typeof legacyName === 'string' && legacyName.trim()) keys.add(legacyName.trim().toLowerCase());
+    if (typeof createdBy === 'string' && createdBy.trim()) keys.add(createdBy.trim().toLowerCase());
+
+    return Array.from(keys);
+  };
+
+  const getPrimaryRequestorKeyFromPR = (pr: PRRequest): string => {
+    // Prefer stable id first, then email, then human-readable label.
+    const keys = getRequestorMatchKeysFromPR(pr);
+    return keys[0] || 'unknown';
+  };
+
   // Apply filters whenever filters change
   useEffect(() => {
     applyFilters();
@@ -85,14 +126,16 @@ export const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
   const applyFilters = () => {
     let filtered = [...prs];
 
-    // Search text filter (PR number, description, vendor name)
+    // Search text filter (PR number, description, vendor, requestor)
     if (filters.searchText) {
       const searchLower = filters.searchText.toLowerCase();
       filtered = filtered.filter(pr =>
         pr.prNumber?.toLowerCase().includes(searchLower) ||
         pr.description?.toLowerCase().includes(searchLower) ||
         pr.vendorName?.toLowerCase().includes(searchLower) ||
-        pr.preferredVendor?.toLowerCase().includes(searchLower)
+        pr.preferredVendor?.toLowerCase().includes(searchLower) ||
+        getRequestorLabelFromPR(pr).toLowerCase().includes(searchLower) ||
+        pr.requestorEmail?.toLowerCase().includes(searchLower)
       );
     }
 
@@ -105,7 +148,10 @@ export const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
 
     // Requestor filter
     if (filters.requestorId) {
-      filtered = filtered.filter(pr => pr.requestorId === filters.requestorId);
+      const selected = filters.requestorId.toLowerCase();
+      filtered = filtered.filter(pr =>
+        getRequestorMatchKeysFromPR(pr).some((k) => k.toLowerCase() === selected)
+      );
     }
 
     // Approver filter
@@ -240,6 +286,37 @@ export const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
   // Get approvers (Level 2 and 4)
   const approvers = users.filter(u => u.permissionLevel === 2 || u.permissionLevel === 4);
 
+  const requestorOptions = useMemo(() => {
+    const byId = new Map<string, { id: string; name?: string; email?: string }>();
+
+    // Prefer loaded users when available.
+    users.forEach((u) => {
+      const key = u?.id || u?.email?.toLowerCase();
+      if (!key) return;
+      byId.set(key, {
+        id: key,
+        name: u.name || `${u.firstName || ''} ${u.lastName || ''}`.trim() || undefined,
+        email: u.email || undefined,
+      });
+    });
+
+    // Always backfill from PR data so dropdown works even when users[] is empty.
+    prs.forEach((pr) => {
+      const key = getPrimaryRequestorKeyFromPR(pr);
+      if (!key || byId.has(key)) return;
+
+      byId.set(key, {
+        id: key,
+        name: getRequestorLabelFromPR(pr),
+        email: pr.requestorEmail || (typeof pr.requestor === 'object' ? pr.requestor?.email : undefined),
+      });
+    });
+
+    return Array.from(byId.values()).sort((a, b) =>
+      (a.name || a.email || '').localeCompare(b.name || b.email || '')
+    );
+  }, [users, prs]);
+
   return (
     <Box sx={{ mb: 2 }}>
       <Accordion expanded={expanded} onChange={() => setExpanded(!expanded)}>
@@ -292,11 +369,11 @@ export const AdvancedFilterPanel: React.FC<AdvancedFilterPanelProps> = ({
             {/* Requestor */}
             <Grid item xs={12} md={6}>
               <Autocomplete
-                options={users}
+                options={requestorOptions}
                 getOptionLabel={(option) => option.name || option.email || 'Unknown'}
-                value={users.find(u => u.id === filters.requestorId) || null}
+                value={requestorOptions.find(u => u.id === filters.requestorId) || null}
                 onChange={(_, newValue) => {
-                  handleFilterChange('requestorId', newValue?.id || undefined);
+                  handleFilterChange('requestorId', newValue?.id?.toLowerCase() || undefined);
                 }}
                 renderInput={(params) => (
                   <TextField {...params} label="Requestor" placeholder="Select requestor" />

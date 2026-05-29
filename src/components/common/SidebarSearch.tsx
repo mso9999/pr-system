@@ -30,6 +30,8 @@ import {
 } from '@mui/icons-material';
 import { PRRequest, PRStatus } from '@/types/pr';
 import { referenceDataService, ReferenceData } from '@/services/referenceData';
+import { db } from '@/config/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 interface SearchResult {
   id: string;
@@ -88,6 +90,9 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
   const [vendors, setVendors] = useState<ReferenceData[]>([]);
   const [vendorsLoaded, setVendorsLoaded] = useState(false);
   const [vendorsLoading, setVendorsLoading] = useState(false);
+  const [userDirectory, setUserDirectory] = useState<Record<string, { name: string; email: string }>>({});
+  const [usersLoaded, setUsersLoaded] = useState(false);
+  const [usersLoading, setUsersLoading] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -108,11 +113,36 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
     }
   }, [vendorsLoaded, vendorsLoading]);
 
+  const loadUsersDirectory = useCallback(async () => {
+    if (usersLoaded || usersLoading) return;
+    setUsersLoading(true);
+    try {
+      const snapshot = await getDocs(collection(db, 'users'));
+      const map: Record<string, { name: string; email: string }> = {};
+      snapshot.forEach((docSnap) => {
+        const data = docSnap.data() as any;
+        map[docSnap.id] = {
+          name: data?.name || `${data?.firstName || ''} ${data?.lastName || ''}`.trim(),
+          email: data?.email || '',
+        };
+      });
+      setUserDirectory(map);
+      setUsersLoaded(true);
+    } catch (err) {
+      console.error('Failed to load users directory for sidebar search:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  }, [usersLoaded, usersLoading]);
+
   useEffect(() => {
     if (searchText.length >= 2 && !vendorsLoaded) {
       loadVendors();
     }
-  }, [searchText, vendorsLoaded, loadVendors]);
+    if (searchText.length >= 2 && !usersLoaded) {
+      loadUsersDirectory();
+    }
+  }, [searchText, vendorsLoaded, usersLoaded, loadVendors, loadUsersDirectory]);
 
   const results = useMemo((): SearchResult[] => {
     const term = searchText.toLowerCase().trim();
@@ -142,6 +172,17 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
         matchesTerm(pr.supplierName, term) ||
         matchesTerm(pr.organization, term) ||
         matchesTerm(pr.department, term) ||
+        matchesTerm((pr as any).requestorName, term) ||
+        matchesTerm(pr.requestorEmail, term) ||
+        matchesTerm(pr.requestorId, term) ||
+        matchesTerm(userDirectory[pr.requestorId || '']?.name, term) ||
+        matchesTerm(userDirectory[pr.requestorId || '']?.email, term) ||
+        (typeof pr.requestor === 'string' && matchesTerm(pr.requestor, term)) ||
+        (typeof pr.requestor === 'object' && (
+          matchesTerm(pr.requestor?.name, term) ||
+          matchesTerm(`${pr.requestor?.firstName || ''} ${pr.requestor?.lastName || ''}`.trim(), term) ||
+          matchesTerm(pr.requestor?.email, term)
+        )) ||
         pr.lineItems?.some(li => matchesTerm(li.description, term)) ||
         pr.quotes?.some(q => matchesTerm(q.vendorName, term));
 
@@ -190,7 +231,7 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
     }
 
     return matches;
-  }, [searchText, userPRs, vendors, hasAdminAccess]);
+  }, [searchText, userPRs, vendors, hasAdminAccess, userDirectory]);
 
   const groupedResults = useMemo(() => {
     const groups: Record<string, SearchResult[]> = {};
