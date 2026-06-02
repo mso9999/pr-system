@@ -248,7 +248,7 @@ export const NewPRForm = () => {
 
   // Approved PO cap warning state
   const [showPOCapWarning, setShowPOCapWarning] = useState(false);
-  const [poCapInfo, setPoCapInfo] = useState<{ currentCount: number; maxAllowed: number }>({ currentCount: 0, maxAllowed: 25 });
+  const [poCapInfo, setPoCapInfo] = useState<{ currentCount: number; maxAllowed: number }>({ currentCount: 0, maxAllowed: 500 });
 
   // Load reference data when organization changes
   useEffect(() => {

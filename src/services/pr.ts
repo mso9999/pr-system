@@ -1817,7 +1817,8 @@ export async function cancelAmendment(
  * Maximum number of approved (but un-actioned) POs allowed per organization
  * before new PRs are blocked from entering PENDING_APPROVAL status.
  */
-export const MAX_APPROVED_POS_BEFORE_BLOCK = 25;
+// Temporary operational override: lift cap from 25 to 500 approved PRs per entity.
+export const MAX_APPROVED_POS_BEFORE_BLOCK = 500;
 const FIRESTORE_IN_QUERY_MAX = 30;
 
 /** All organization field values that should match one logical org (name/id variants). */
