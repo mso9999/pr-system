@@ -63,7 +63,7 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
 
   // Approved PO cap warning state
   const [showPOCapWarning, setShowPOCapWarning] = useState(false);
-  const [poCapInfo, setPoCapInfo] = useState<{ currentCount: number; maxAllowed: number }>({ currentCount: 0, maxAllowed: 500 });
+  const [poCapInfo, setPoCapInfo] = useState<{ currentCount: number; maxAllowed: number }>({ currentCount: 0, maxAllowed: 25 });
 
   const checkDualApprovalNeeded = useCallback(async () => {
     setLoadingDualCheck(true);
