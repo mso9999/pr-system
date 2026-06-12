@@ -27,6 +27,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon, PriorityHigh as PriorityHighIcon, Assignment as AssignmentIcon, Archive as ArchiveIcon } from '@mui/icons-material';
 import { RootState } from '../../store';
 import { getUserPRs, deletePR } from '@/services/pr';
+import { isTutorialSandboxPR } from '@/services/tutorialSandbox';
 import { setUserPRs, setPendingApprovals, setLoading, removePR, setMyActionsFilter } from '../../store/slices/prSlice';
 import { PRStatus, PRRequest, StatusHistoryItem } from '../../types/pr';
 import { OrganizationSelector, ALL_ORGANIZATIONS_OPTION } from '../common/OrganizationSelector';
@@ -821,6 +822,7 @@ export const Dashboard = () => {
   const handleDeleteClick = (event: React.MouseEvent, pr: PRRequest) => {
     event.preventDefault();
     event.stopPropagation();
+    if (isTutorialSandboxPR(pr)) return;
     setPrToDelete(pr);
     setDeleteDialogOpen(true);
   };
@@ -1052,7 +1054,7 @@ export const Dashboard = () => {
         </Grid>
 
         <Grid item xs={12}>
-          <MetricsPanel prs={userPRs} />
+          <MetricsPanel prs={userPRs.filter((pr) => !isTutorialSandboxPR(pr))} />
         </Grid>
 
         {/* Advanced Filter Panel */}

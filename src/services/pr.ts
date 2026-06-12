@@ -1901,7 +1901,12 @@ export async function countApprovedPOs(organization: string): Promise<number> {
             );
 
       const querySnapshot = await getDocs(q);
-      querySnapshot.forEach((docSnap) => seenIds.add(docSnap.id));
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        if (data.isTutorialSandbox === true) return;
+        if (typeof data.prNumber === 'string' && data.prNumber.startsWith('TUT-')) return;
+        seenIds.add(docSnap.id);
+      });
     }
 
     console.log(

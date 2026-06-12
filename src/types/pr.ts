@@ -399,6 +399,10 @@ export interface PRRequest {
   updatedAt: string;
   /** User who submitted the PR */
   submittedBy?: string;
+  /** Tutorial-only PR; deleted automatically when a guided tour ends */
+  isTutorialSandbox?: boolean;
+  /** Tour id that created this sandbox PR */
+  tutorialTourId?: string;
   /** Calculated metrics */
   metrics?: PRMetrics;
   /** Category of the purchase request */

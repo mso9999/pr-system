@@ -57,6 +57,8 @@ import SendIcon from '@mui/icons-material/Send';
 import StoreIcon from '@mui/icons-material/Store';
 import { RootState } from '@/store';
 import { prService } from '@/services/pr';
+import { isTutorialSandboxPR } from '@/services/tutorialSandbox';
+import { TutorialSandboxPanels } from '@/components/tutorial/TutorialSandboxPanels';
 import { PRRequest, PRStatus, LineItem, Quote, Attachment, ApprovalHistoryItem, WorkflowHistoryItem, UserReference as User, PRUpdateParams, AmendmentHistoryItem } from '@/types/pr';
 import { ReferenceDataItem } from '@/types/referenceData';
 import { formatCurrency } from '@/utils/formatters';
@@ -3094,6 +3096,18 @@ export function PRView() {
             onStatusChange={refreshPR}
           />
         </Box>
+      )}
+
+      {pr && isTutorialSandboxPR(pr) && (
+        <TutorialSandboxPanels
+          showApproverDemo={
+            pr.status !== PRStatus.PENDING_APPROVAL ||
+            (currentUser?.id !== pr.approver && currentUser?.id !== pr.approvalWorkflow?.currentApprover)
+          }
+          showProcurementDemo={!canProcessPR}
+          showApprovedDemo={pr.status !== PRStatus.APPROVED}
+          showOrderedDemo={pr.status !== PRStatus.ORDERED}
+        />
       )}
 
       {/* COMPLETED Status View (Read-only document archive) */}

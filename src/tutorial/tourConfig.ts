@@ -127,6 +127,55 @@ function spot(target: string, titleKey: string, contentKey: string, t: TFunction
   return step(`[data-tutorial="${target}"]`, titleKey, contentKey, t, placement);
 }
 
+export type TourStepDestination = 'dashboard' | 'newPrForm' | 'sandboxPr';
+
+const ROLE_WORKFLOW_TOURS: TourId[] = [
+  'roleRequestor',
+  'roleApprover',
+  'roleProcurement',
+  'roleFinanceAdmin',
+  'roleFinanceApprover',
+  'roleSuperadmin',
+];
+
+export function tourUsesSandboxPR(tourId: TourId): boolean {
+  return ROLE_WORKFLOW_TOURS.includes(tourId);
+}
+
+/** Which page a role-workflow tour step should navigate to. */
+export function getTourStepDestination(tourId: TourId, stepIndex: number): TourStepDestination {
+  switch (tourId) {
+    case 'roleRequestor':
+      if (stepIndex === 2) return 'newPrForm';
+      if (stepIndex >= 5) return 'sandboxPr';
+      return 'dashboard';
+    case 'roleApprover':
+      return stepIndex >= 3 ? 'sandboxPr' : 'dashboard';
+    case 'roleProcurement':
+      return stepIndex >= 2 ? 'sandboxPr' : 'dashboard';
+    case 'roleFinanceAdmin':
+      return stepIndex >= 2 ? 'sandboxPr' : 'dashboard';
+    case 'roleFinanceApprover':
+      return stepIndex >= 3 ? 'sandboxPr' : 'dashboard';
+    case 'roleSuperadmin':
+      return stepIndex === 5 ? 'sandboxPr' : 'dashboard';
+    default:
+      return 'dashboard';
+  }
+}
+
+export function resolveTourStepPath(
+  tourId: TourId,
+  stepIndex: number,
+  sandboxPrId: string | null
+): string {
+  const destination = getTourStepDestination(tourId, stepIndex);
+  if (destination === 'newPrForm') return '/pr/new';
+  if (destination === 'sandboxPr' && sandboxPrId) return `/pr/${sandboxPrId}`;
+  const meta = TOUR_LIST.find((m) => m.id === tourId);
+  return meta?.path ?? '/dashboard';
+}
+
 /** Build Joyride steps for a tour id. Targets use [data-tutorial] selectors. */
 export function buildTourSteps(tourId: TourId, t: TFunction): Step[] {
   const S = (key: string) => `tutorial.${tourId}.${key}`;

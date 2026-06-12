@@ -76,7 +76,13 @@
   },
   "tutorial": {
     "pickerTitle": "Visites guidées",
-    "pickerIntro": "Choisissez une visite. L'application met en surbrillance les zones et les explique étape par étape. Vous pouvez quitter à tout moment.",
+    "pickerIntro": "Choisissez une visite. L'application met en surbrillance les zones et les explique étape par étape. Les parcours par rôle créent des DR d'exemple TUT- temporaires, supprimées à la fin ou si vous quittez la visite.",
+    "sandboxDemoNote": "Démonstration — ces actions sont désactivées et cette DR est supprimée à la fin de la visite.",
+    "sandboxProcurementLabel": "Actions achats (démo)",
+    "sandboxApproverLabel": "Actions approbateur (démo)",
+    "sandboxApprovedLabel": "Actions BC approuvé (démo)",
+    "sandboxOrderedLabel": "Actions BC commandé (démo)",
+    "sandboxDemoButton": "Action démo",
     "sectionOrientation": "Orientation de l'application",
     "sectionDashboard": "Tableau de bord",
     "sectionWorkflows": "Parcours par rôle",
@@ -101,27 +107,27 @@
       },
       "roleRequestor": {
         "title": "Parcours Demandeur (L5)",
-        "description": "Créer des DR, suivre la progression, répondre aux demandes de révision"
+        "description": "Créer des DR, suivre la progression, répondre aux demandes de révision (utilise une DR démo temporaire)"
       },
       "roleApprover": {
         "title": "Parcours Approbateur (L2)",
-        "description": "Examiner les DR, approuver/rejeter, flux de double approbation"
+        "description": "Examiner les DR, approuver/rejeter, flux de double approbation (utilise une DR démo temporaire)"
       },
       "roleProcurement": {
         "title": "Parcours Approvisionnement (L3)",
-        "description": "Gérer les devis, fournisseurs, BC et actions d'achat"
+        "description": "Gérer les devis, fournisseurs, BC et actions d'achat (utilise une DR démo temporaire)"
       },
       "roleFinanceAdmin": {
         "title": "Parcours Finance Admin (L4)",
-        "description": "Paiements, preuve de paiement et clôture des commandes"
+        "description": "Paiements, preuve de paiement et clôture des commandes (utilise une DR démo temporaire)"
       },
       "roleFinanceApprover": {
         "title": "Parcours Approbateur Financier (L6)",
-        "description": "Approbations de grande valeur avec surveillance des seuils"
+        "description": "Approbations de grande valeur avec surveillance des seuils (utilise une DR démo temporaire)"
       },
       "roleSuperadmin": {
         "title": "Parcours Superadmin (L1)",
-        "description": "Accès complet au système, gestion des utilisateurs, configuration des règles"
+        "description": "Accès complet au système, gestion des utilisateurs, configuration des règles (utilise une DR démo temporaire)"
       }
     },
     "orientation": {

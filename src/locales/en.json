@@ -76,7 +76,13 @@
   },
   "tutorial": {
     "pickerTitle": "Guided tours",
-    "pickerIntro": "Choose a tour. The app will highlight areas and explain them step by step. You can skip anytime.",
+    "pickerIntro": "Choose a tour. The app will highlight areas and explain them step by step. Role workflow tours create temporary TUT- example PRs that are removed when you finish or skip the tour.",
+    "sandboxDemoNote": "Tutorial demo — these actions are disabled and this PR is deleted when the tour ends.",
+    "sandboxProcurementLabel": "Procurement actions (demo)",
+    "sandboxApproverLabel": "Approver actions (demo)",
+    "sandboxApprovedLabel": "Approved PO actions (demo)",
+    "sandboxOrderedLabel": "Ordered PO actions (demo)",
+    "sandboxDemoButton": "Demo action",
     "sectionOrientation": "App orientation",
     "sectionDashboard": "Dashboard",
     "sectionWorkflows": "Role workflows",
@@ -109,27 +115,27 @@
       },
       "roleRequestor": {
         "title": "Requestor (L5) walkthrough",
-        "description": "Create PRs, track progress, respond to revision requests"
+        "description": "Create PRs, track progress, respond to revision requests (uses a temporary demo PR)"
       },
       "roleApprover": {
         "title": "Approver (L2) walkthrough",
-        "description": "Review PRs, approve/reject, dual-approval flow"
+        "description": "Review PRs, approve/reject, dual-approval flow (uses a temporary demo PR)"
       },
       "roleProcurement": {
         "title": "Procurement (L3) walkthrough",
-        "description": "Manage quotes, vendors, POs, and procurement actions"
+        "description": "Manage quotes, vendors, POs, and procurement actions (uses a temporary demo PR)"
       },
       "roleFinanceAdmin": {
         "title": "Finance Admin (L4) walkthrough",
-        "description": "Payments, proof of payment, and closing orders"
+        "description": "Payments, proof of payment, and closing orders (uses a temporary demo PR)"
       },
       "roleFinanceApprover": {
         "title": "Finance Approver (L6) walkthrough",
-        "description": "High-value approvals with threshold oversight"
+        "description": "High-value approvals with threshold oversight (uses a temporary demo PR)"
       },
       "roleSuperadmin": {
         "title": "Superadmin (L1) walkthrough",
-        "description": "Full system access, user management, rule configuration"
+        "description": "Full system access, user management, rule configuration (uses a temporary demo PR)"
       }
     },
     "orientation": {
