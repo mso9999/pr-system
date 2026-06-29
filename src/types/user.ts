@@ -77,6 +77,32 @@ export interface User {
   permissions?: string[];
   /** User's name */
   name?: string;
+
+  // ── HR-owned fields (synced from hr.1pwrafrica.com; do not edit in PR) ──
+  /** HR canonical employee id (e.g. 1PWR0159F). Foreign key to the HR portal. */
+  hrEmployeeId?: string;
+  /** Mirror of HR `status` ('active' | 'inactive'). PR's isActive is separate. */
+  hrStatus?: 'active' | 'inactive';
+  /** ISO-2 country code from HR (e.g. LS, BJ, ZM). */
+  hrCountry?: string;
+  /** Department name as reported by HR (resolved to `department` id where possible). */
+  hrDepartmentName?: string;
+  /** Employment type from HR (e.g. 'Full time – fixed contract'). */
+  employeeType?: string;
+  /** HR primary deployment (e.g. 'Field', 'Office'). */
+  primaryDeployment?: string;
+  /** HR employment start date (YYYY-MM-DD). */
+  employmentStartDate?: string;
+  /** HR current position title. */
+  currentPositionTitle?: string;
+  /** Phone from HR employee profile. */
+  phone?: string;
+  /** Headshot URL from HR. */
+  headshot?: string;
+  /** HR `last_updated_at` (ISO 8601) — cursor for incremental sync. */
+  hrLastUpdatedAt?: string;
+  /** Last time PR synced this user from HR (ISO 8601). */
+  hrSyncedAt?: string;
 }
 
 /**

@@ -31,7 +31,7 @@ import {
   Switch,
   Checkbox
 } from '@mui/material';
-import { Edit as EditIcon, Delete as DeleteIcon, Visibility, VisibilityOff, Key as KeyIcon, Search as SearchIcon, ArrowUpward, ArrowDownward } from '@mui/icons-material';
+import { Edit as EditIcon, Delete as DeleteIcon, Visibility, VisibilityOff, Key as KeyIcon, Search as SearchIcon, ArrowUpward, ArrowDownward, Refresh as RefreshIcon, Sync as SyncIcon } from '@mui/icons-material';
 import { doc, collection, query, where, getDocs, updateDoc, addDoc, deleteDoc, orderBy, setDoc, deleteField } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../../config/firebase';
@@ -50,6 +50,13 @@ import {
 } from '@/utils/userDepartmentAccess';
 import { HR_COUNTRY_OPTIONS } from '@/config/hrCountries';
 import type { DepartmentMembership } from '@/types/user';
+import {
+  runHrEmployeeSyncNow,
+  reconcileHrEmployees,
+  refreshUserFromHr,
+  hrSmokeTest,
+  type HrSyncResult,
+} from '../../services/hrSync';
 
 // Helper function to generate random password
 function generateRandomPassword(): string {
@@ -197,6 +204,109 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
 
   const canEditHrMeta = useMemo(() => canManageHrLeadMeta(currentUser), [currentUser]);
 
+  // HR sync actions are available to Superadmin (1) and User Admin (8).
+  const canRunHrSync = currentUser?.permissionLevel === 1 || isUserAdmin;
+  const [hrSyncLoading, setHrSyncLoading] = useState(false);
+
+  const summarizeHrSync = (r: HrSyncResult): string => {
+    const t = r.totals;
+    return [
+      `pulled ${t.hrEmployeesPulled}`,
+      `matched ${t.matched}`,
+      `provisioned ${t.provisioned}`,
+      t.emailUpdated ? `emails updated ${t.emailUpdated}` : null,
+      t.departures ? `departures ${t.departures}` : null,
+      t.unmappedDepartments ? `unmapped depts ${t.unmappedDepartments}` : null,
+      t.errors ? `errors ${t.errors}` : null,
+    ]
+      .filter(Boolean)
+      .join(', ');
+  };
+
+  const handleSyncNow = async () => {
+    try {
+      setHrSyncLoading(true);
+      const r = await runHrEmployeeSyncNow();
+      if (!r.success) {
+        showSnackbar('HR sync failed', 'error');
+        return;
+      }
+      showSnackbar(`HR incremental sync complete — ${summarizeHrSync(r)}.`, r.totals.errors > 0 ? 'warning' : 'success');
+      if (r.unmappedDepartments.length > 0) {
+        console.warn('[hrSync] unmapped departments:', r.unmappedDepartments);
+      }
+      await loadUsers();
+    } catch (error) {
+      console.error('HR sync failed:', error);
+      showSnackbar(error instanceof Error ? error.message : 'HR sync failed', 'error');
+    } finally {
+      setHrSyncLoading(false);
+    }
+  };
+
+  const handleReconcile = async () => {
+    if (!window.confirm('Run a FULL reconciliation against HR now? This pulls the entire HR directory, overwrites HR-owned fields on matched users, provisions new hires, and flags departures.')) {
+      return;
+    }
+    try {
+      setHrSyncLoading(true);
+      const r = await reconcileHrEmployees();
+      if (!r.success) {
+        showSnackbar('HR reconciliation failed', 'error');
+        return;
+      }
+      showSnackbar(`HR reconciliation complete — ${summarizeHrSync(r)}.`, r.totals.errors > 0 ? 'warning' : 'success');
+      if (r.unmappedDepartments.length > 0) {
+        console.warn('[hrSync] unmapped departments:', r.unmappedDepartments);
+      }
+      await loadUsers();
+    } catch (error) {
+      console.error('HR reconcile failed:', error);
+      showSnackbar(error instanceof Error ? error.message : 'HR reconciliation failed', 'error');
+    } finally {
+      setHrSyncLoading(false);
+    }
+  };
+
+  const handleHrSmokeTest = async () => {
+    try {
+      setHrSyncLoading(true);
+      const r = await hrSmokeTest();
+      showSnackbar(r.ok ? `HR smoke test OK — ${r.message}` : `HR smoke test failed: ${r.message}`, r.ok ? 'success' : 'error');
+    } catch (error) {
+      showSnackbar(error instanceof Error ? error.message : 'HR smoke test failed', 'error');
+    } finally {
+      setHrSyncLoading(false);
+    }
+  };
+
+  const handleRefreshFromHr = async (user: User) => {
+    if (!user.hrEmployeeId) {
+      showSnackbar('This user is not linked to an HR employee record.', 'error');
+      return;
+    }
+    try {
+      setHrSyncLoading(true);
+      const r = await refreshUserFromHr(user.hrEmployeeId);
+      if (!r.success) {
+        showSnackbar('Refresh from HR failed', 'error');
+        return;
+      }
+      const msg = r.outcome === 'matched'
+        ? `Refreshed ${r.email || user.email} from HR`
+        : r.outcome === 'provisioned'
+          ? `Provisioned ${r.email || ''} from HR (uid ${r.uid || ''})`
+          : 'HR employee not found';
+      showSnackbar(msg, r.outcome === 'not_found' ? 'warning' : 'success');
+      await loadUsers();
+    } catch (error) {
+      console.error('Refresh from HR failed:', error);
+      showSnackbar(error instanceof Error ? error.message : 'Refresh from HR failed', 'error');
+    } finally {
+      setHrSyncLoading(false);
+    }
+  };
+
   const fallbackPermissionOptions = useMemo(() => {
     return Object.entries(PERMISSION_LEVELS).map(([key, level]) => ({
       level,
@@ -331,6 +441,16 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           hrLeadCountryCodes: Array.isArray(data.hrLeadCountryCodes)
             ? (data.hrLeadCountryCodes as string[])
             : undefined,
+          hrEmployeeId: typeof data.hrEmployeeId === 'string' ? data.hrEmployeeId : undefined,
+          hrStatus: data.hrStatus === 'active' || data.hrStatus === 'inactive' ? data.hrStatus : undefined,
+          hrCountry: typeof data.hrCountry === 'string' ? data.hrCountry : undefined,
+          hrDepartmentName: typeof data.hrDepartmentName === 'string' ? data.hrDepartmentName : undefined,
+          employeeType: typeof data.employeeType === 'string' ? data.employeeType : undefined,
+          primaryDeployment: typeof data.primaryDeployment === 'string' ? data.primaryDeployment : undefined,
+          employmentStartDate: typeof data.employmentStartDate === 'string' ? data.employmentStartDate : undefined,
+          currentPositionTitle: typeof data.currentPositionTitle === 'string' ? data.currentPositionTitle : undefined,
+          phone: typeof data.phone === 'string' ? data.phone : undefined,
+          hrSyncedAt: typeof data.hrSyncedAt === 'string' ? data.hrSyncedAt : undefined,
         });
       });
       
@@ -781,6 +901,15 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         if (multiDepartmentAppointmentsEnabled && departmentMemberships) {
           updatePayload.departmentMemberships = departmentMemberships;
         }
+        // HR-linked users: firstName/lastName/email are HR-owned and were
+        // read-only in the form. Strip them so we never send a write the
+        // Firestore rules will reject. `department` stays editable (PR-owned
+        // per rules; the next sync may reset it for non-multi users).
+        if (editingUser.hrEmployeeId) {
+          delete updatePayload.firstName;
+          delete updatePayload.lastName;
+          delete updatePayload.email;
+        }
 
         await handleUserUpdate(editingUser.id, updatePayload, editingUser.email);
       } else {
@@ -1050,6 +1179,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     !!editingUser?.multiDepartmentAppointmentsEnabled &&
     (editingUser?.departmentMemberships?.length ?? 0) >= 2;
   const showMultiDeptToggle = canToggleMulti || dialogExistingMulti;
+  const isHrLinked = !!editingUser?.hrEmployeeId;
 
   return (
     <Box sx={{ p: 3 }}>
@@ -1064,7 +1194,36 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
               User Management
             </Typography>
             {!isReadOnly && (
-              <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                {canRunHrSync && (
+                  <>
+                    <Button
+                      variant="outlined"
+                      onClick={handleHrSmokeTest}
+                      disabled={hrSyncLoading || isLoading}
+                      title="Verify HR API key + egress"
+                    >
+                      HR Smoke Test
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<SyncIcon />}
+                      onClick={handleSyncNow}
+                      disabled={hrSyncLoading || isLoading}
+                      title="Incremental pull of HR changes since the last sync"
+                    >
+                      Sync HR Now
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={handleReconcile}
+                      disabled={hrSyncLoading || isLoading}
+                      title="Full reconciliation: pull all of HR, provision new hires, flag departures"
+                    >
+                      Reconcile HR
+                    </Button>
+                  </>
+                )}
                 <Button
                   variant="outlined"
                   onClick={() => handleSyncEmails()}
@@ -1218,6 +1377,15 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                           <IconButton onClick={() => handleEdit(user)} title="Edit User">
                             <EditIcon />
                           </IconButton>
+                          {canRunHrSync && user.hrEmployeeId && (
+                            <IconButton
+                              onClick={() => handleRefreshFromHr(user)}
+                              title={`Refresh from HR (${user.hrEmployeeId})`}
+                              disabled={hrSyncLoading}
+                            >
+                              <RefreshIcon />
+                            </IconButton>
+                          )}
                           <IconButton onClick={() => handlePasswordDialogOpen(user)} title="Reset Password">
                             <KeyIcon />
                           </IconButton>
@@ -1246,6 +1414,32 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           <Dialog open={isDialogOpen} onClose={handleClose}>
             <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
             <DialogContent>
+              {isHrLinked && editingUser && (
+                <Alert severity="info" sx={{ mb: 2, mt: 1 }} icon={<RefreshIcon />}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    This profile is linked to HR employee {editingUser.hrEmployeeId}.
+                  </Typography>
+                  <Typography variant="body2">
+                    Name, email, and HR metadata are owned by the HR portal and synced
+                    automatically. Edit them in HR, then use <strong>Sync HR Now</strong>
+                    or the row refresh button. PR still controls organization, permission
+                    level, multi-department appointments, HR-Lead role, and the active flag.
+                  </Typography>
+                  <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    {editingUser.hrStatus && (
+                      <Chip size="small" label={`HR: ${editingUser.hrStatus}`} color={editingUser.hrStatus === 'active' ? 'success' : 'default'} />
+                    )}
+                    {editingUser.hrCountry && <Chip size="small" label={`Country: ${editingUser.hrCountry}`} />}
+                    {editingUser.hrDepartmentName && <Chip size="small" label={`HR dept: ${editingUser.hrDepartmentName}`} />}
+                    {editingUser.employeeType && <Chip size="small" label={editingUser.employeeType} />}
+                    {editingUser.primaryDeployment && <Chip size="small" label={editingUser.primaryDeployment} />}
+                    {editingUser.currentPositionTitle && <Chip size="small" label={editingUser.currentPositionTitle} />}
+                    {editingUser.employmentStartDate && <Chip size="small" label={`Since: ${editingUser.employmentStartDate}`} />}
+                    {editingUser.phone && <Chip size="small" label={editingUser.phone} />}
+                    {editingUser.hrSyncedAt && <Chip size="small" label={`Synced: ${editingUser.hrSyncedAt.slice(0, 10)}`} />}
+                  </Box>
+                </Alert>
+              )}
               <TextField
                 autoFocus
                 margin="dense"
@@ -1253,6 +1447,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                 fullWidth
                 value={formData.firstName}
                 onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                disabled={isHrLinked}
+                InputProps={isHrLinked ? { readOnly: true } : undefined}
               />
               <TextField
                 margin="dense"
@@ -1260,6 +1456,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                 fullWidth
                 value={formData.lastName}
                 onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                disabled={isHrLinked}
+                InputProps={isHrLinked ? { readOnly: true } : undefined}
               />
               <TextField
                 margin="dense"
@@ -1268,6 +1466,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                 fullWidth
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                disabled={isHrLinked}
+                InputProps={isHrLinked ? { readOnly: true } : undefined}
               />
               <FormControl fullWidth margin="dense">
                 <InputLabel>Organization</InputLabel>

@@ -37,6 +37,11 @@ export { createUser } from './createUser';
 export { weeklyUserSyncAudit, runUserSyncAudit } from './userSyncAudit';
 export { authUserCreated } from './authUserCreated';
 
+// HR employee metadata sync (HR portal = canonical source of truth)
+export { reconcileHrEmployees, weeklyHrReconciliation } from './hr/reconcileHrEmployees';
+export { nightlyHrEmployeeSync, runHrEmployeeSyncNow } from './hr/syncHrEmployees';
+export { refreshUserFromHr, hrSmokeTest } from './hr/refreshUserFromHr';
+
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
     console.log('ensureRequestorName input:', { user, requestorEmail });

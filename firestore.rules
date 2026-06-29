@@ -33,6 +33,41 @@ service cloud.firestore {
       return isAuthenticated();
     }
 
+    // PR-style admin: permissionLevel 1 = SuperAdmin, 8 = User Admin.
+    // (Distinct from the AM-style isAdmin() helper above, which uses
+    // the AM permission scheme for AM collections.)
+    function isPrAdmin() {
+      return isAuthenticated()
+        && (permLevel() == 1 || permLevel() == 8);
+    }
+
+    // Fields HR owns once a user is linked (hrEmployeeId is set).
+    // Clients may not change these on a linked user; only server-side
+    // Cloud Functions (using the Admin SDK, which bypasses these rules)
+    // may write them.
+    //
+    // NOTE: `department` (PR dept id) is intentionally PR-owned here —
+    // multi-department appointments and primary-department overrides are
+    // managed in PR. The HR-owned name is mirrored to `hrDepartmentName`.
+    //
+    // Enforcement is via preservesHrOwnedFields() below: an update to a
+    // linked user may only change the PR-owned keys in its allow-list.
+    function isHrLinked() {
+      return resource.data.hrEmployeeId != null
+        && resource.data.hrEmployeeId != '';
+    }
+    // On an HR-linked user, the update must not touch any HR-owned field.
+    function preservesHrOwnedFields() {
+      return isHrLinked()
+        ? request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['permissionLevel', 'organization', 'additionalOrganizations',
+                      'isActive', 'isHrLead', 'hrLeadCountryCodes',
+                      'multiDepartmentAppointmentsEnabled', 'departmentMemberships',
+                      'department',
+                      'name', 'createdAt', 'updatedAt', 'id'])
+        : true;
+    }
+
     // ── AM core collections ─────────────────────────────────────
 
     match /am_core_assets/{docId} {
@@ -96,12 +131,28 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isAuthenticated();
-      // Self-update, superadmin (PR permission level 1), or HR Lead managing other profiles
-      allow update: if request.auth.uid == userId
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissionLevel == 1
-        || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isHrLead == true;
+      // Self-update, superadmin (PR permission level 1), or HR Lead managing other profiles.
+      // HR-owned fields are protected by preservesHrOwnedFields() once a user
+      // is linked to HR (hrEmployeeId set). Cloud Functions write via the
+      // Admin SDK and bypass these rules entirely.
+      allow update: if (request.auth.uid == userId
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.permissionLevel == 1
+          || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isHrLead == true)
+        && preservesHrOwnedFields();
       allow create: if isAdmin();
       allow delete: if isAdmin();
+    }
+
+    // ── HR employee sync (server-written, admin-read) ──────────────────
+
+    match /hrReconciliationReports/{docId} {
+      allow read: if isPrAdmin();
+      allow write: if false; // written only by Cloud Functions via Admin SDK
+    }
+
+    match /hrSyncState/{docId} {
+      allow read: if isPrAdmin();
+      allow write: if false; // written only by Cloud Functions via Admin SDK
     }
 
     // ── PR System reference data collections ────────────────────

@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
@@ -79,6 +79,16 @@ Object.defineProperty(exports, "weeklyUserSyncAudit", { enumerable: true, get: f
 Object.defineProperty(exports, "runUserSyncAudit", { enumerable: true, get: function () { return userSyncAudit_1.runUserSyncAudit; } });
 var authUserCreated_1 = require("./authUserCreated");
 Object.defineProperty(exports, "authUserCreated", { enumerable: true, get: function () { return authUserCreated_1.authUserCreated; } });
+// HR employee metadata sync (HR portal = canonical source of truth)
+var reconcileHrEmployees_1 = require("./hr/reconcileHrEmployees");
+Object.defineProperty(exports, "reconcileHrEmployees", { enumerable: true, get: function () { return reconcileHrEmployees_1.reconcileHrEmployees; } });
+Object.defineProperty(exports, "weeklyHrReconciliation", { enumerable: true, get: function () { return reconcileHrEmployees_1.weeklyHrReconciliation; } });
+var syncHrEmployees_1 = require("./hr/syncHrEmployees");
+Object.defineProperty(exports, "nightlyHrEmployeeSync", { enumerable: true, get: function () { return syncHrEmployees_1.nightlyHrEmployeeSync; } });
+Object.defineProperty(exports, "runHrEmployeeSyncNow", { enumerable: true, get: function () { return syncHrEmployees_1.runHrEmployeeSyncNow; } });
+var refreshUserFromHr_1 = require("./hr/refreshUserFromHr");
+Object.defineProperty(exports, "refreshUserFromHr", { enumerable: true, get: function () { return refreshUserFromHr_1.refreshUserFromHr; } });
+Object.defineProperty(exports, "hrSmokeTest", { enumerable: true, get: function () { return refreshUserFromHr_1.hrSmokeTest; } });
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user, requestorEmail) {
     var _a, _b;
