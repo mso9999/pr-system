@@ -30,9 +30,10 @@ import {
   Chip,
   Checkbox,
   CircularProgress,
-  Divider
+  Divider,
+  Stack
 } from "@mui/material"
-import { Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon, FileDownload as ImportIcon, Download as DownloadIcon } from "@mui/icons-material"
+import { Edit as EditIcon, Delete as DeleteIcon, Info as InfoIcon, FileDownload as ImportIcon, Download as DownloadIcon, Add as AddIcon } from "@mui/icons-material"
 import { doc, updateDoc } from 'firebase/firestore'
 import { db } from '@/config/firebase'
 import { ReferenceDataItem } from "@/types/referenceData"
@@ -226,7 +227,7 @@ const SEED_DATA = {
 } as const;
 
 interface ReferenceDataField {
-  name: keyof ReferenceDataItem | 'mapPicker';
+  name: keyof ReferenceDataItem | 'mapPicker' | 'siteAddress' | 'ugpProjects';
   label: string;
   required?: boolean;
   type?: string;
@@ -278,6 +279,18 @@ const siteFields: ReferenceDataField[] = [
     label: 'Map picker',
     type: 'map',
     helperText: 'Click map to set latitude/longitude.',
+  },
+  {
+    name: 'siteAddress',
+    label: 'Address',
+    type: 'address',
+    helperText: 'Optional. Fill what is known — street, city, region, postal code, country.',
+  },
+  {
+    name: 'ugpProjects',
+    label: 'UGP project links',
+    type: 'ugpProjects',
+    helperText: 'Optional. Link this site to one or more UGP projects.',
   },
 ];
 
@@ -447,7 +460,19 @@ function getDisplayFields(type: ReferenceDataType): ReferenceDataField[] {
       }));
     case 'sites':
       return [
-        ...siteFields.filter((f) => f.name !== 'mapPicker').map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } })),
+        ...siteFields
+          .filter((f) => f.name !== 'mapPicker' && f.name !== 'siteAddress' && f.name !== 'ugpProjects')
+          .map((field) => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } })),
+        {
+          name: 'siteAddress',
+          label: 'Address',
+          sx: { whiteSpace: 'normal', wordWrap: 'break-word' },
+        },
+        {
+          name: 'ugpProjects',
+          label: 'UGP projects',
+          sx: { whiteSpace: 'normal', wordWrap: 'break-word' },
+        },
       ];
     case 'expenseTypes':
     case 'projectCategories':
@@ -880,6 +905,119 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       );
     }
 
+    if (field.type === 'address') {
+      const addr = (editItem?.siteAddress || {}) as ReferenceDataItem['siteAddress'];
+      const updateAddress = (key: keyof NonNullable<ReferenceDataItem['siteAddress']>, val: string) => {
+        if (!editItem) return;
+        setEditItem({
+          ...editItem,
+          siteAddress: { ...(editItem.siteAddress || {}), [key]: val },
+        });
+      };
+      const addressFields: Array<{ key: keyof NonNullable<ReferenceDataItem['siteAddress']>; label: string; half?: boolean }> = [
+        { key: 'street', label: 'Street' },
+        { key: 'city', label: 'City', half: true },
+        { key: 'region', label: 'Region / Province', half: true },
+        { key: 'postalCode', label: 'Postal code', half: true },
+        { key: 'country', label: 'Country', half: true },
+      ];
+      return (
+        <FormControl key={field.name} fullWidth margin="normal">
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            {field.label}
+          </Typography>
+          <Stack spacing={1.5}>
+            {addressFields.map(({ key, label, half }) => (
+              <TextField
+                key={key}
+                size="small"
+                label={label}
+                value={addr?.[key] ?? ''}
+                onChange={(e) => updateAddress(key, e.target.value)}
+                fullWidth={!half}
+                sx={half ? { width: { xs: '100%', sm: 'calc(50% - 6px)' } } : undefined}
+                autoComplete="off"
+              />
+            ))}
+          </Stack>
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
+
+    if (field.type === 'ugpProjects') {
+      const projects = Array.isArray(editItem?.ugpProjects) ? editItem!.ugpProjects! : [];
+      const updateProject = (idx: number, key: 'ugpProjectId' | 'ugpProjectCode' | 'ugpProjectName', val: string) => {
+        if (!editItem) return;
+        const next = [...projects];
+        next[idx] = { ...next[idx], [key]: val };
+        setEditItem({ ...editItem, ugpProjects: next });
+      };
+      const addProject = () => {
+        if (!editItem) return;
+        setEditItem({
+          ...editItem,
+          ugpProjects: [...projects, { ugpProjectId: '' }],
+        });
+      };
+      const removeProject = (idx: number) => {
+        if (!editItem) return;
+        setEditItem({
+          ...editItem,
+          ugpProjects: projects.filter((_, i) => i !== idx),
+        });
+      };
+      return (
+        <FormControl key={field.name} fullWidth margin="normal">
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            {field.label}
+          </Typography>
+          <Stack spacing={1.5}>
+            {projects.length === 0 && (
+              <Typography variant="body2" color="text.secondary">
+                No UGP projects linked yet.
+              </Typography>
+            )}
+            {projects.map((p, idx) => (
+              <Stack key={idx} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
+                <TextField
+                  size="small"
+                  label="UGP project ID"
+                  value={p.ugpProjectId ?? ''}
+                  onChange={(e) => updateProject(idx, 'ugpProjectId', e.target.value)}
+                  sx={{ flex: 1 }}
+                  autoComplete="off"
+                />
+                <TextField
+                  size="small"
+                  label="Project code"
+                  value={p.ugpProjectCode ?? ''}
+                  onChange={(e) => updateProject(idx, 'ugpProjectCode', e.target.value)}
+                  sx={{ flex: 1 }}
+                  autoComplete="off"
+                />
+                <TextField
+                  size="small"
+                  label="Project name"
+                  value={p.ugpProjectName ?? ''}
+                  onChange={(e) => updateProject(idx, 'ugpProjectName', e.target.value)}
+                  sx={{ flex: 1.5 }}
+                  autoComplete="off"
+                />
+                <IconButton size="small" onClick={() => removeProject(idx)} aria-label="Remove project">
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            ))}
+            <Button startIcon={<AddIcon />} onClick={addProject} size="small" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
+              Add UGP project
+            </Button>
+          </Stack>
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
+
     if (field.type === 'boolean') {
       return (
         <FormControl 
@@ -1107,7 +1245,22 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   const renderCellContent = (item: ReferenceDataItem, field: ReferenceDataField) => {
     let value = (item as any)[field.name];
-    
+
+    if (field.name === 'siteAddress') {
+      const a = item.siteAddress;
+      if (!a) return '';
+      const parts = [a.street, a.city, a.region, a.postalCode, a.country].filter((x) => x && String(x).trim());
+      return parts.join(', ');
+    }
+
+    if (field.name === 'ugpProjects') {
+      const projects = item.ugpProjects;
+      if (!Array.isArray(projects) || projects.length === 0) return '';
+      return projects
+        .map((p) => p.ugpProjectName || p.ugpProjectCode || p.ugpProjectId)
+        .join('; ');
+    }
+
     // For backwards compatibility: if field is 'uom' but not present, fallback to 'currency'
     if (field.name === 'uom' && (value === null || value === undefined)) {
       value = (item as any)['currency'];
@@ -1235,7 +1388,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     <Dialog
       open={isDialogOpen}
       onClose={handleCloseDialog}
-      maxWidth={selectedType === 'vendors' ? 'md' : 'sm'}
+      maxWidth={selectedType === 'vendors' || selectedType === 'sites' ? 'md' : 'sm'}
       fullWidth
     >
       <DialogTitle>

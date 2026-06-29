@@ -18,21 +18,43 @@ PR is the canonical site hub. UGP and PR Admin writes converge in `referenceData
     "active": true,
     "latitude": -29.3151,
     "longitude": 27.4782,
+    "address": {
+      "street": "Plot 12, Kingsway Rd",
+      "city": "Maseru",
+      "region": "Maseru District",
+      "postalCode": "100",
+      "country": "Lesotho"
+    },
+    "ugpProjects": [
+      {
+        "ugpProjectId": "ugp-proj-001",
+        "ugpProjectCode": "LGS-NORTH-2026",
+        "ugpProjectName": "LGS North Electrification"
+      }
+    ],
     "externalIds": { "ugpSiteCode": "LGS01" }
   }
 }
 ```
 
+`address` and `ugpProjects` are optional. UGP may send them when creating a site; PR Admin may add or edit them later. Both are propagated to AM and FM via the fanout trigger.
+
+## UGP -> PR Ingest Payload
+
+`POST /ingestUgpSite` accepts the `site` object above plus `organizationId`, `code`, `name`, `latitude`, `longitude` (all required), and optionally `countryCode`, `active`, `address`, `ugpProjects`, `externalIds`. The ingest endpoint auto-records `externalIds.ugpSiteCode = code` when not already supplied.
+
 ## PR Changes
 
 - `functions/src/siteSync.ts`
-  - `ingestUgpSite` (`POST` HTTPS function): upserts UGP events into `referenceData_sites`.
-  - `fanoutSiteChanges` (Firestore trigger): dispatches site events to AM + FM with retries and delivery logs.
+  - `ingestUgpSite` (`POST` HTTPS function): upserts UGP events into `referenceData_sites`, including optional address and UGP project links.
+  - `fanoutSiteChanges` (Firestore trigger): dispatches site events (with address + UGP project links) to AM + FM with retries and delivery logs.
 - `src/components/admin/ReferenceDataManagement.tsx`
   - Sites now require `latitude` + `longitude`.
   - Map picker added for coordinate selection.
+  - Optional structured address (street / city / region / postal code / country) and repeatable UGP project links editor.
 - `src/services/referenceDataAdmin.ts`
   - Service-level coordinate validation for `sites`.
+  - Normalizes empty address / UGP project arrays and tags PR-created sites with `siteSource: 'pr_admin'`.
 
 ## Required Environment Variables
 

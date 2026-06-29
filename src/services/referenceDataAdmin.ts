@@ -18,6 +18,52 @@ function validateSiteCoordinates(type: string, item: Partial<ReferenceDataItem>)
   }
 }
 
+/** Drops empty address objects and empty UGP project arrays so Firestore stays clean. */
+function normalizeSiteMetadata(type: string, item: Partial<ReferenceDataItem>): void {
+  if (type !== "sites") return;
+
+  if (item.siteAddress && typeof item.siteAddress === "object") {
+    const a = item.siteAddress;
+    const hasAny = Boolean(
+      a.street?.trim() ||
+        a.city?.trim() ||
+        a.region?.trim() ||
+        a.postalCode?.trim() ||
+        a.country?.trim()
+    );
+    if (hasAny) {
+      item.siteAddress = {
+        street: a.street?.trim() || undefined,
+        city: a.city?.trim() || undefined,
+        region: a.region?.trim() || undefined,
+        postalCode: a.postalCode?.trim() || undefined,
+        country: a.country?.trim() || undefined,
+      };
+    } else {
+      delete item.siteAddress;
+    }
+  } else {
+    delete item.siteAddress;
+  }
+
+  if (Array.isArray(item.ugpProjects)) {
+    const cleaned = item.ugpProjects
+      .map((p) => ({
+        ugpProjectId: String(p.ugpProjectId || "").trim(),
+        ugpProjectCode: p.ugpProjectCode ? String(p.ugpProjectCode).trim() : undefined,
+        ugpProjectName: p.ugpProjectName ? String(p.ugpProjectName).trim() : undefined,
+      }))
+      .filter((p) => p.ugpProjectId);
+    if (cleaned.length > 0) {
+      item.ugpProjects = cleaned;
+    } else {
+      delete item.ugpProjects;
+    }
+  } else {
+    delete item.ugpProjects;
+  }
+}
+
 export class ReferenceDataAdminService {
   private getCollectionName(type: string): string {
     return `${COLLECTION_PREFIX}${type}`;
@@ -66,6 +112,10 @@ export class ReferenceDataAdminService {
     console.log(`Adding item to collection: ${collectionName}`, item);
     const collectionRef = collection(db, collectionName);
     validateSiteCoordinates(type, item);
+    normalizeSiteMetadata(type, item);
+    if (type === "sites" && !item.siteSource) {
+      item.siteSource = "pr_admin";
+    }
 
     // Validate organization requirements
     if (!ORGANIZATION_INDEPENDENT_TYPES.includes(type as any)) {
@@ -156,6 +206,7 @@ export class ReferenceDataAdminService {
       throw new Error('Updates cannot be undefined');
     }
     validateSiteCoordinates(type, updates);
+    normalizeSiteMetadata(type, updates);
 
     // For non-independent types, ensure organizationId is present
     if (!ORGANIZATION_INDEPENDENT_TYPES.includes(type as any)) {

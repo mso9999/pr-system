@@ -4,6 +4,14 @@ export interface ReferenceDataItem {
   name: string;
   latitude?: number;
   longitude?: number;
+  /** Structured postal address — used by sites */
+  siteAddress?: SiteAddress;
+  /** UGP projects linked to a site (one site may serve multiple projects) */
+  ugpProjects?: UgpProjectLink[];
+  /** Cross-system ids, e.g. { ugpSiteCode: 'LGS01' } */
+  externalIds?: Record<string, string>;
+  /** Origin of the record: 'ugp' when ingested from UGP, 'pr_admin' when created in PR */
+  siteSource?: 'ugp' | 'pr_admin';
   type?: string;
   organization?: {
     id: string;
@@ -117,7 +125,7 @@ export interface Rule {
   updatedAt: string;
 }
 
-export type ReferenceDataType = 
+export type ReferenceDataType =
   | 'departments'
   | 'sites'
   | 'expenseTypes'
@@ -130,6 +138,22 @@ export type ReferenceDataType =
   | 'vehicles'
   | 'rules'
   | 'paymentTypes';
+
+/** Structured postal address for a site (all fields optional — fill what is known). */
+export interface SiteAddress {
+  street?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+/** Link from a site to a UGP project. `ugpProjectId` is required; the rest are convenience labels. */
+export interface UgpProjectLink {
+  ugpProjectId: string;
+  ugpProjectCode?: string;
+  ugpProjectName?: string;
+}
 
 // Types that don't depend on organization
 export const ORG_INDEPENDENT_TYPES = [

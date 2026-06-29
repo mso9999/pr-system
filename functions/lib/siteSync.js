@@ -56,6 +56,44 @@ function asNumber(value) {
     const n = Number(value);
     return Number.isFinite(n) ? n : null;
 }
+function asString(value) {
+    if (value === null || value === undefined)
+        return undefined;
+    const s = String(value).trim();
+    return s ? s : undefined;
+}
+function asAddress(value) {
+    if (!value || typeof value !== "object")
+        return undefined;
+    const v = value;
+    const address = {
+        street: asString(v.street),
+        city: asString(v.city),
+        region: asString(v.region),
+        postalCode: asString(v.postalCode),
+        country: asString(v.country),
+    };
+    return Object.values(address).some((x) => x !== undefined) ? address : undefined;
+}
+function asUgpProjects(value) {
+    if (!Array.isArray(value))
+        return undefined;
+    const links = [];
+    for (const entry of value) {
+        if (!entry || typeof entry !== "object")
+            continue;
+        const e = entry;
+        const ugpProjectId = asString(e.ugpProjectId);
+        if (!ugpProjectId)
+            continue;
+        links.push({
+            ugpProjectId,
+            ugpProjectCode: asString(e.ugpProjectCode),
+            ugpProjectName: asString(e.ugpProjectName),
+        });
+    }
+    return links.length > 0 ? links : undefined;
+}
 function isValidLatitude(value) {
     return Number.isFinite(value) && value >= -90 && value <= 90;
 }
@@ -172,6 +210,8 @@ function toCanonicalEvent(data, beforeExists) {
         active,
         latitude: Number(data.latitude),
         longitude: Number(data.longitude),
+        address: asAddress(data.address) || asAddress(data.siteAddress),
+        ugpProjects: asUgpProjects(data.ugpProjects),
         externalIds: data.externalIds || {},
     };
     return {
@@ -214,6 +254,12 @@ exports.ingestUgpSite = functions.https.onRequest(async (req, res) => {
     const latitude = asNumber(input.latitude);
     const longitude = asNumber(input.longitude);
     const active = input.active !== false;
+    const address = asAddress(input.address) || asAddress(input.siteAddress);
+    const ugpProjects = asUgpProjects(input.ugpProjects);
+    const externalIds = input.externalIds || {};
+    if (code && !externalIds.ugpSiteCode) {
+        externalIds.ugpSiteCode = code;
+    }
     if (!organizationId || !code || !name || latitude === null || longitude === null) {
         res.status(400).json({
             success: false,
@@ -231,19 +277,13 @@ exports.ingestUgpSite = functions.https.onRequest(async (req, res) => {
     const now = new Date().toISOString();
     const countryCode = normalizeCountryCode(organizationId, String(input.countryCode || ""));
     const docId = buildDocId(organizationId, code);
-    const payload = {
-        organizationId,
+    const payload = Object.assign(Object.assign(Object.assign({ organizationId,
         countryCode,
         code,
         name,
         active,
         latitude,
-        longitude,
-        externalIds: input.externalIds || {},
-        source: "ugp",
-        updatedAt: now,
-        createdAt: now,
-    };
+        longitude }, (address ? { siteAddress: address } : {})), (ugpProjects ? { ugpProjects } : {})), { externalIds, source: "ugp", updatedAt: now, createdAt: now });
     await admin
         .firestore()
         .collection("referenceData_sites")

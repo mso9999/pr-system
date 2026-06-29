@@ -5,6 +5,20 @@ import { createHash } from "crypto";
 type SiteEventType = "site.created" | "site.updated" | "site.deactivated";
 type SiteSource = "ugp" | "pr_admin";
 
+interface SiteAddress {
+  street?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+interface UgpProjectLink {
+  ugpProjectId: string;
+  ugpProjectCode?: string;
+  ugpProjectName?: string;
+}
+
 interface SitePayload {
   organizationId: string;
   countryCode: string;
@@ -13,6 +27,8 @@ interface SitePayload {
   active: boolean;
   latitude: number;
   longitude: number;
+  address?: SiteAddress;
+  ugpProjects?: UgpProjectLink[];
   externalIds?: Record<string, string>;
 }
 
@@ -44,6 +60,42 @@ function normalizeCountryCode(organizationId: string, countryCode?: string): str
 function asNumber(value: unknown): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function asString(value: unknown): string | undefined {
+  if (value === null || value === undefined) return undefined;
+  const s = String(value).trim();
+  return s ? s : undefined;
+}
+
+function asAddress(value: unknown): SiteAddress | undefined {
+  if (!value || typeof value !== "object") return undefined;
+  const v = value as Record<string, unknown>;
+  const address: SiteAddress = {
+    street: asString(v.street),
+    city: asString(v.city),
+    region: asString(v.region),
+    postalCode: asString(v.postalCode),
+    country: asString(v.country),
+  };
+  return Object.values(address).some((x) => x !== undefined) ? address : undefined;
+}
+
+function asUgpProjects(value: unknown): UgpProjectLink[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const links: UgpProjectLink[] = [];
+  for (const entry of value) {
+    if (!entry || typeof entry !== "object") continue;
+    const e = entry as Record<string, unknown>;
+    const ugpProjectId = asString(e.ugpProjectId);
+    if (!ugpProjectId) continue;
+    links.push({
+      ugpProjectId,
+      ugpProjectCode: asString(e.ugpProjectCode),
+      ugpProjectName: asString(e.ugpProjectName),
+    });
+  }
+  return links.length > 0 ? links : undefined;
 }
 
 function isValidLatitude(value: number): boolean {
@@ -180,6 +232,8 @@ function toCanonicalEvent(data: FirebaseFirestore.DocumentData, beforeExists: bo
     active,
     latitude: Number(data.latitude),
     longitude: Number(data.longitude),
+    address: asAddress(data.address) || asAddress(data.siteAddress),
+    ugpProjects: asUgpProjects(data.ugpProjects),
     externalIds: data.externalIds || {},
   };
 
@@ -226,6 +280,12 @@ export const ingestUgpSite = functions.https.onRequest(async (req, res) => {
   const latitude = asNumber(input.latitude);
   const longitude = asNumber(input.longitude);
   const active = input.active !== false;
+  const address = asAddress(input.address) || asAddress(input.siteAddress);
+  const ugpProjects = asUgpProjects(input.ugpProjects);
+  const externalIds = (input.externalIds as Record<string, string>) || {};
+  if (code && !externalIds.ugpSiteCode) {
+    externalIds.ugpSiteCode = code;
+  }
 
   if (!organizationId || !code || !name || latitude === null || longitude === null) {
     res.status(400).json({
@@ -253,7 +313,9 @@ export const ingestUgpSite = functions.https.onRequest(async (req, res) => {
     active,
     latitude,
     longitude,
-    externalIds: (input.externalIds as Record<string, string>) || {},
+    ...(address ? { siteAddress: address } : {}),
+    ...(ugpProjects ? { ugpProjects } : {}),
+    externalIds,
     source: "ugp",
     updatedAt: now,
     createdAt: now,
