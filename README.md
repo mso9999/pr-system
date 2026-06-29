@@ -393,6 +393,16 @@ firebase deploy --only functions
 ## Testing
 See `TESTING_CHECKLIST.md` for comprehensive testing guidelines covering all features.
 
+## Realtime Site Sync (PR Hub)
+
+PR now acts as the canonical site hub for UGP/AM/FM propagation:
+
+- UGP -> PR ingest endpoint: `functions/src/siteSync.ts` (`ingestUgpSite`)
+- PR Admin site create/update enforces required GPS coordinates + map picker
+- Firestore trigger (`fanoutSiteChanges`) dispatches site events to AM and FM with retries and idempotency keys
+
+Contract, env vars, and verification steps are documented in [`docs/SITE_SYNC_HUB_REALTIME.md`](docs/SITE_SYNC_HUB_REALTIME.md).
+
 ## Contributing
 1. Create a feature branch
 2. Make your changes

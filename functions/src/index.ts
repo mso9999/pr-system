@@ -27,6 +27,7 @@ const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
 export { dailyVendorExpiryCheck } from './scheduledVendorExpiryCheck';
 export { dailyReminders, urgentReminders, deliveryDelayCheck } from './scheduledReminders';
 export { sendDailyQuoteConflictReminders } from './scheduled/sendDailyQuoteConflictReminders';
+export { ingestUgpSite, fanoutSiteChanges } from './siteSync';
 
 // Export user management functions
 export { updateUserPassword } from './updateUserPassword';

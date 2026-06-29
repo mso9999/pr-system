@@ -47,6 +47,7 @@ import {
 import { referenceDataAdminService } from '@/services/referenceDataAdmin'
 import { organizationService, Organization } from '@/services/organizationService'
 import { ORG_INDEPENDENT_TYPES } from '@/services/referenceData'
+import { SimpleMapPicker } from "./SimpleMapPicker";
 
 const REFERENCE_DATA_TYPE_LABELS = {
   departments: "Departments",
@@ -225,7 +226,7 @@ const SEED_DATA = {
 } as const;
 
 interface ReferenceDataField {
-  name: keyof ReferenceDataItem;
+  name: keyof ReferenceDataItem | 'mapPicker';
   label: string;
   required?: boolean;
   type?: string;
@@ -253,6 +254,31 @@ const codeBasedFields: ReferenceDataField[] = [
 const codeIncludedFields: ReferenceDataField[] = [
   { name: 'name', label: 'Name', required: true },
   { name: 'code', label: 'Code', required: true }
+];
+
+const siteFields: ReferenceDataField[] = [
+  { name: 'name', label: 'Name', required: true },
+  { name: 'code', label: 'Code', required: true },
+  {
+    name: 'latitude',
+    label: 'Latitude',
+    required: true,
+    type: 'number',
+    helperText: 'Required. Decimal degrees between -90 and 90.',
+  },
+  {
+    name: 'longitude',
+    label: 'Longitude',
+    required: true,
+    type: 'number',
+    helperText: 'Required. Decimal degrees between -180 and 180.',
+  },
+  {
+    name: 'mapPicker',
+    label: 'Map picker',
+    type: 'map',
+    helperText: 'Click map to set latitude/longitude.',
+  },
 ];
 
 const departmentFormFields: ReferenceDataField[] = [
@@ -348,6 +374,7 @@ const getFormFields = (type: ReferenceDataType): ReferenceDataField[] => {
     case 'departments':
       return departmentFormFields;
     case 'sites':
+      return siteFields;
     case 'expenseTypes':
     case 'projectCategories':
       return codeIncludedFields;
@@ -419,6 +446,9 @@ function getDisplayFields(type: ReferenceDataType): ReferenceDataField[] {
         sx: { whiteSpace: 'normal', wordWrap: 'break-word' },
       }));
     case 'sites':
+      return [
+        ...siteFields.filter((f) => f.name !== 'mapPicker').map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } })),
+      ];
     case 'expenseTypes':
     case 'projectCategories':
       return codeIncludedFields.map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } }));
@@ -455,6 +485,14 @@ const getAutocompleteAttribute = (fieldName: string): string => {
 
 interface ReferenceDataManagementProps {
   isReadOnly: boolean;
+}
+
+function getFieldValue(
+  item: Partial<ReferenceDataItem> | null | undefined,
+  key: string
+): unknown {
+  if (!item) return undefined;
+  return (item as Record<string, unknown>)[key];
 }
 
 export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementProps) {
@@ -659,10 +697,26 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       const errors: Record<string, string> = {};
       
       fields.forEach(field => {
-        if (field.required && !editItem[field.name]) {
+        const raw = getFieldValue(editItem, field.name);
+        const missing =
+          raw === undefined ||
+          raw === null ||
+          (typeof raw === 'string' && raw.trim() === '');
+        if (field.required && missing) {
           errors[field.name] = `${field.label} is required`;
         }
       });
+
+      if (selectedType === 'sites') {
+        const lat = Number(getFieldValue(editItem, 'latitude'));
+        const lng = Number(getFieldValue(editItem, 'longitude'));
+        if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+          errors.latitude = 'Latitude must be a valid number between -90 and 90';
+        }
+        if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+          errors.longitude = 'Longitude must be a valid number between -180 and 180';
+        }
+      }
 
       console.log('Validation errors:', errors);
 
@@ -785,7 +839,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   const renderField = (field: ReferenceDataField) => {
     // For backwards compatibility: if field is 'uom' but not present, fallback to 'currency'
-    let value = editItem?.[field.name];
+    let value = getFieldValue(editItem, field.name);
     if (field.name === 'uom' && (value === null || value === undefined || value === '')) {
       value = editItem?.['currency'] || '';
     } else if (!value) {
@@ -793,6 +847,38 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
     }
     const error = formErrors[field.name];
     const helperText = error || field.helperText || '';
+
+    if (field.type === 'map') {
+      const latRaw = Number(getFieldValue(editItem, 'latitude'));
+      const lngRaw = Number(getFieldValue(editItem, 'longitude'));
+      const lat = Number.isFinite(latRaw) ? latRaw : null;
+      const lng = Number.isFinite(lngRaw) ? lngRaw : null;
+      return (
+        <FormControl
+          key={field.name}
+          fullWidth
+          margin="normal"
+          error={!!formErrors.latitude || !!formErrors.longitude}
+        >
+          <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+            Map picker
+          </Typography>
+          <SimpleMapPicker
+            latitude={lat}
+            longitude={lng}
+            onPick={(nextLat, nextLng) => {
+              if (!editItem) return;
+              setEditItem({
+                ...editItem,
+                latitude: nextLat,
+                longitude: nextLng,
+              });
+            }}
+          />
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
 
     if (field.type === 'boolean') {
       return (
@@ -996,9 +1082,13 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
           value={value}
           onChange={(e) => {
             if (editItem) {
+              const nextValue =
+                field.type === 'number'
+                  ? (e.target.value === '' ? '' : Number(e.target.value))
+                  : e.target.value;
               setEditItem({
                 ...editItem,
-                [field.name]: e.target.value
+                [field.name]: nextValue
               });
             }
           }}

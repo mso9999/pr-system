@@ -2,6 +2,8 @@ export interface ReferenceDataItem {
   id: string;
   code?: string;
   name: string;
+  latitude?: number;
+  longitude?: number;
   type?: string;
   organization?: {
     id: string;

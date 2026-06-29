@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
@@ -65,6 +65,9 @@ Object.defineProperty(exports, "urgentReminders", { enumerable: true, get: funct
 Object.defineProperty(exports, "deliveryDelayCheck", { enumerable: true, get: function () { return scheduledReminders_1.deliveryDelayCheck; } });
 var sendDailyQuoteConflictReminders_1 = require("./scheduled/sendDailyQuoteConflictReminders");
 Object.defineProperty(exports, "sendDailyQuoteConflictReminders", { enumerable: true, get: function () { return sendDailyQuoteConflictReminders_1.sendDailyQuoteConflictReminders; } });
+var siteSync_1 = require("./siteSync");
+Object.defineProperty(exports, "ingestUgpSite", { enumerable: true, get: function () { return siteSync_1.ingestUgpSite; } });
+Object.defineProperty(exports, "fanoutSiteChanges", { enumerable: true, get: function () { return siteSync_1.fanoutSiteChanges; } });
 // Export user management functions
 var updateUserPassword_1 = require("./updateUserPassword");
 Object.defineProperty(exports, "updateUserPassword", { enumerable: true, get: function () { return updateUserPassword_1.updateUserPassword; } });

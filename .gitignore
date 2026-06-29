@@ -65,6 +65,9 @@ scripts/uid-reference-report.json
 # Stray PDFs in repo root (PO/PR exports etc.)
 /*.pdf
 
+# Local archive — one-off scripts and data dumps kept for reference but not tracked
+archive/
+
 # Python
 venv/
 __pycache__/

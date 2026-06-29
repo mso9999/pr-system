@@ -6,6 +6,18 @@ const COLLECTION_PREFIX = "referenceData_"
 const CODE_BASED_ID_TYPES = ['currencies', 'uom', 'organizations', 'paymentTypes'] as const;
 const ORGANIZATION_INDEPENDENT_TYPES = ['currencies', 'uom', 'organizations', 'vendors', 'permissions', 'paymentTypes'] as const;
 
+function validateSiteCoordinates(type: string, item: Partial<ReferenceDataItem>): void {
+  if (type !== "sites") return;
+  const lat = Number(item.latitude);
+  const lng = Number(item.longitude);
+  if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+    throw new Error("Latitude must be a valid number between -90 and 90");
+  }
+  if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+    throw new Error("Longitude must be a valid number between -180 and 180");
+  }
+}
+
 export class ReferenceDataAdminService {
   private getCollectionName(type: string): string {
     return `${COLLECTION_PREFIX}${type}`;
@@ -53,6 +65,7 @@ export class ReferenceDataAdminService {
     const collectionName = this.getCollectionName(type);
     console.log(`Adding item to collection: ${collectionName}`, item);
     const collectionRef = collection(db, collectionName);
+    validateSiteCoordinates(type, item);
 
     // Validate organization requirements
     if (!ORGANIZATION_INDEPENDENT_TYPES.includes(type as any)) {
@@ -142,6 +155,7 @@ export class ReferenceDataAdminService {
     if (!updates) {
       throw new Error('Updates cannot be undefined');
     }
+    validateSiteCoordinates(type, updates);
 
     // For non-independent types, ensure organizationId is present
     if (!ORGANIZATION_INDEPENDENT_TYPES.includes(type as any)) {
