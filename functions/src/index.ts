@@ -42,6 +42,13 @@ export { reconcileHrEmployees, weeklyHrReconciliation } from './hr/reconcileHrEm
 export { nightlyHrEmployeeSync, runHrEmployeeSyncNow } from './hr/syncHrEmployees';
 export { refreshUserFromHr, hrSmokeTest } from './hr/refreshUserFromHr';
 
+// HR department catalog sync (HR portal = canonical source for departments as of 2026-06-30)
+export {
+  nightlyDepartmentCatalogSync,
+  runDepartmentCatalogSyncNow,
+  reconcileDepartmentCatalog,
+} from './hr/departmentCatalogSync';
+
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
     console.log('ensureRequestorName input:', { user, requestorEmail });

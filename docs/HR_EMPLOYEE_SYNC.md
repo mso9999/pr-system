@@ -176,3 +176,127 @@ Auth: `X-API-Key: <HR_API_KEY_PR_PORTAL>` header. Read-only server-to-server.
   only mirrors `hrStatus`. Deactivating the PR account (and revoking
   sign-in) is a manual admin action.
 - Provisioned users have no `organization` until an admin assigns one.
+
+## Department catalog (HR canonical as of 2026-06-30)
+
+As of 2026-06-30 HR is also the **canonical source of truth for the
+department catalog** — not just employee metadata. PR is a consumer: it
+mirrors HR's `GET /api/departments` into `referenceData_departments` and
+resolves HR department names to PR doc ids against that mirror.
+
+### Why
+
+PR's catalog drifted from HR's after the one-time department seeding
+(e.g. HR renamed "O&M" to "Operations & Maintenance", PR kept the old
+name; HR deactivated a department, PR still had it active). HR also
+introduced country-aware, per-organization departments that PR's flat
+name list couldn't disambiguate. HR now owns the catalog; PR mirrors it.
+
+### Data flow
+
+```
+HR MySQL (departments) ──> /api/departments ──> PR Cloud Functions
+                                                      │
+                                                      ▼
+                          PR Firestore referenceData_departments (mirror)
+                                                      │
+                                                      ▼
+                          departmentResolver (country, org, name)
+                                                      │
+                                                      ▼
+                          hrEmployeeSync resolves HR dept name -> PR id
+```
+
+### Mirror fields on `referenceData_departments/<docId>`
+
+| Field                | HR source        | Notes |
+|----------------------|------------------|-------|
+| `name`               | `name`           | |
+| `code`               | derived          | `source_doc_id` slug, or slug of name; preserved on existing docs |
+| `organization`/`organizationId` | `organization_id` | org name resolved from `referenceData_organizations` |
+| `country`            | `country`        | ISO-2 |
+| `active`             | `active`         | mirrored from HR; tombstoned rows set `active=false` |
+| `sourceSystem`       | `source_system`  | `'pr'` / `'hr'` / `'hr_renamed'` |
+| `sourceDocId`        | `source_doc_id`  | HR's external doc id — for `source_system='pr'` this equals the PR doc id (preserves existing FKs) |
+| `hrId`               | `id`             | HR MySQL primary key |
+| `aliases`            | `aliases`        | Alternate names (exposed by HR when B3 of the toolset spec lands) |
+| `hrCatalogSyncedAt`  | —                | When PR last mirrored this row |
+| `updatedAt`          | —                | PR mtime |
+
+### Cloud functions
+
+- `nightlyDepartmentCatalogSync` — pubsub `0 1 * * *` Africa/Maseru,
+  runs **before** the 02:00 employee sync so the resolver has fresh data.
+  Full sync (with tombstoning).
+- `runDepartmentCatalogSyncNow` — admin callable, **incremental**
+  (`?since=<cursor>`), no tombstoning.
+- `reconcileDepartmentCatalog` — admin callable, **full** (with tombstoning).
+
+Reports land in `hrDepartmentSyncReports/<ts>` (admin-read, server-write).
+Cursor lives in `hrSyncState/departmentCursor`
+(`lastUpdatedAt`, `lastFullSyncAt`, `lastIncrementalSyncAt`).
+
+### Matching / upsert key
+
+The upsert key is HR's `source_doc_id`:
+
+- `source_system='pr'` → `source_doc_id` **is** the PR Firestore doc id;
+  we update that doc in place. This preserves every existing FK on PRs
+  and users that points at the department.
+- `source_system in ('hr','hr_renamed')` → upsert a doc whose id is the
+  HR `source_doc_id` (slug-safe), creating it if absent.
+
+### Tombstoning
+
+A **full** sync sets `active=false` on any `referenceData_departments`
+doc that (a) carries a `sourceDocId` (provenance-tracked) and (b) is
+absent from HR's response. PR-native docs with no `sourceDocId` are
+left alone and flagged in the report as `prNativeUntouched` — they
+predate the HR-canonical switch and may be genuinely PR-only; an admin
+should decide whether to retcon a `source_doc_id` onto them or delete
+them.
+
+### Resolver
+
+[`functions/src/hr/departmentResolver.ts`](../functions/src/hr/departmentResolver.ts)
+was rewritten to match by `(country, organizationId, name)` with
+fallbacks to `(country, name)`, `(organizationId, name)`, then `(name)`.
+Only active departments are eligible. The employee sync passes the
+employee's HR `country` to the resolver (HR's directory API exposes
+country but not `organization_id` per employee, so the
+`(country, name)` tier is what unblocks the multi-org-per-country
+ambiguity HR API doc §12 calls out). Aliases are indexed alongside the
+primary name.
+
+### PR admin UI
+
+The Departments tab in
+[`src/components/admin/ReferenceDataManagement.tsx`](../src/components/admin/ReferenceDataManagement.tsx)
+is now **read-only**: Add / Edit / Delete / Import-from-Organization are
+hidden, and a banner points admins at the HR portal. The list, org
+filter, and table remain. This enforces HR API doc §12's "do not push
+department edits from PR back to HR" rule.
+
+`firestore.rules` makes `referenceData_departments` **server-write only**
+(`allow write: if false`); the Admin SDK bypasses rules, so Cloud
+Functions can still write.
+
+### Multi-department memberships
+
+Multi-department memberships (a user belonging to 2–3 departments with
+one primary, plus Lead flags) remain **PR-owned** until HR ships the
+toolset described in [`HR_DEPARTMENT_TOOLSET_MIGRATION_SPEC.md`](./HR_DEPARTMENT_TOOLSET_MIGRATION_SPEC.md).
+Once HR exposes `memberships[]` on `/api/employees/directory`, PR's
+employee sync will switch to consuming them from HR and stop owning
+them. That's a future PR-side change, tracked in the spec's §5.
+
+### Local runner
+
+```bash
+# Workaround for Node 26 + firebase-admin (see scripts/_slowbuffer-polyfill.cjs):
+cp scripts/_slowbuffer-polyfill.cjs /tmp/_slowbuffer-polyfill.cjs
+NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run sync-department-catalog            # full
+NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run sync-department-catalog -- --dry-run
+NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run sync-department-catalog -- --incremental
+```
+

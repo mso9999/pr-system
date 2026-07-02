@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
@@ -89,6 +89,11 @@ Object.defineProperty(exports, "runHrEmployeeSyncNow", { enumerable: true, get: 
 var refreshUserFromHr_1 = require("./hr/refreshUserFromHr");
 Object.defineProperty(exports, "refreshUserFromHr", { enumerable: true, get: function () { return refreshUserFromHr_1.refreshUserFromHr; } });
 Object.defineProperty(exports, "hrSmokeTest", { enumerable: true, get: function () { return refreshUserFromHr_1.hrSmokeTest; } });
+// HR department catalog sync (HR portal = canonical source for departments as of 2026-06-30)
+var departmentCatalogSync_1 = require("./hr/departmentCatalogSync");
+Object.defineProperty(exports, "nightlyDepartmentCatalogSync", { enumerable: true, get: function () { return departmentCatalogSync_1.nightlyDepartmentCatalogSync; } });
+Object.defineProperty(exports, "runDepartmentCatalogSyncNow", { enumerable: true, get: function () { return departmentCatalogSync_1.runDepartmentCatalogSyncNow; } });
+Object.defineProperty(exports, "reconcileDepartmentCatalog", { enumerable: true, get: function () { return departmentCatalogSync_1.reconcileDepartmentCatalog; } });
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user, requestorEmail) {
     var _a, _b;

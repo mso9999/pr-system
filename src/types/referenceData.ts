@@ -88,6 +88,18 @@ export interface ReferenceDataItem {
   /** When set (per organization department doc), request-side PR emails use this instead of the individual requestor. */
   notificationEmail?: string;
 
+  // ── Department catalog provenance (HR is canonical as of 2026-06-30) ──
+  /** HR source system for a mirrored department: 'pr' (originally from PR), 'hr' (created in HR), 'hr_renamed' (HR renamed a PR-sourced row). */
+  sourceSystem?: 'pr' | 'hr' | 'hr_renamed';
+  /** HR's external doc id — for source_system='pr' this equals the PR Firestore doc id; for 'hr'/'hr_renamed' it's an HR-generated slug. */
+  sourceDocId?: string;
+  /** HR internal primary key (departments.id in HR MySQL). */
+  hrId?: number;
+  /** Alternate names HR knows this department by (used for fuzzy name resolution). */
+  aliases?: string[];
+  /** Last time the HR catalog sync touched this doc (ISO 8601). */
+  hrCatalogSyncedAt?: string;
+
   // Rule specific fields
   number?: string;
   description?: string;

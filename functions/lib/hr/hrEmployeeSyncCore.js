@@ -124,7 +124,9 @@ function splitName(name) {
 }
 function hrOwnedPatch(emp, resolver, now, opts = {}) {
     const { firstName, lastName } = splitName(emp.name);
-    const { departmentId, unmapped } = resolver.resolve(emp.department);
+    const { departmentId, unmapped } = resolver.resolve(emp.department, {
+        country: emp.country,
+    });
     const patch = {
         hrEmployeeId: emp.employee_id || null,
         hrStatus: emp.status === "active" ? "active" : "inactive",

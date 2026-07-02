@@ -32,7 +32,8 @@
     "delete-test-pr": "tsx src/scripts/deleteTestPR.ts",
     "reconcile-dual-approval": "tsx src/scripts/reconcileDualApprovalViolations.ts",
     "backfill-pr-xx-country": "tsx src/scripts/backfill-pr-xx-country-codes.ts",
-    "reconcile-hr-employees": "tsx scripts/reconcile-hr-employees.ts"
+    "reconcile-hr-employees": "tsx scripts/reconcile-hr-employees.ts",
+    "sync-department-catalog": "tsx scripts/sync-department-catalog.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

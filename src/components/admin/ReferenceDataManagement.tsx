@@ -555,7 +555,9 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
   /** Vehicles mirror FM Fleet Hub — never editable in PR. */
   const isFleetManagedType = selectedType === 'vehicles';
-  const effectiveCanEdit = canEdit && !isFleetManagedType && !isReadOnly;
+  /** Departments are canonical in the HR portal as of 2026-06-30 — PR mirrors HR's catalog. */
+  const isHrManagedType = selectedType === 'departments';
+  const effectiveCanEdit = canEdit && !isFleetManagedType && !isHrManagedType && !isReadOnly;
 
   // Get editable roles for the current type
   const getEditableRoles = useMemo(() => (type: string): string => {
@@ -1778,6 +1780,15 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
             Fleet Hub (fm.1pwrafrica.com)
           </a>
           . This list is a read-only mirror synced from FM for PR expense coding. Create or edit vehicles in FM only.
+        </Alert>
+      )}
+      {isHrManagedType && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Departments are managed in the{' '}
+          <a href="https://hr.1pwrafrica.com/admin/departments" target="_blank" rel="noopener noreferrer">
+            HR portal (hr.1pwrafrica.com)
+          </a>
+          . This list is a read-only mirror of HR's department catalog, refreshed nightly and via <strong>Sync HR Now</strong> in User Management. Create, rename, activate, or deactivate departments in HR only — PR no longer edits the catalog.
         </Alert>
       )}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>

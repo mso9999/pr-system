@@ -119,7 +119,9 @@ function hrOwnedPatch(
   opts: { skipDepartment?: boolean } = {}
 ): Record<string, unknown> {
   const { firstName, lastName } = splitName(emp.name);
-  const { departmentId, unmapped } = resolver.resolve(emp.department);
+  const { departmentId, unmapped } = resolver.resolve(emp.department, {
+    country: emp.country,
+  });
   const patch: Record<string, unknown> = {
     hrEmployeeId: emp.employee_id || null,
     hrStatus: emp.status === "active" ? "active" : "inactive",

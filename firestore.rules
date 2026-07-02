@@ -150,9 +150,23 @@ service cloud.firestore {
       allow write: if false; // written only by Cloud Functions via Admin SDK
     }
 
+    match /hrDepartmentSyncReports/{docId} {
+      allow read: if isPrAdmin();
+      allow write: if false; // written only by Cloud Functions via Admin SDK
+    }
+
     match /hrSyncState/{docId} {
       allow read: if isPrAdmin();
       allow write: if false; // written only by Cloud Functions via Admin SDK
+    }
+
+    // ── Department catalog (HR is canonical as of 2026-06-30) ──────────
+    // PR mirrors HR's /api/departments into this collection via Cloud
+    // Functions (Admin SDK). Clients may read for pickers/filters but may
+    // NOT write — department edits belong in the HR portal.
+    match /referenceData_departments/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
     }
 
     // ── PR System reference data collections ────────────────────
