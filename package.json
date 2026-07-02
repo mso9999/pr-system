@@ -34,7 +34,8 @@
     "backfill-pr-xx-country": "tsx src/scripts/backfill-pr-xx-country-codes.ts",
     "reconcile-hr-employees": "tsx scripts/reconcile-hr-employees.ts",
     "sync-department-catalog": "tsx scripts/sync-department-catalog.ts",
-    "seed-countries": "tsx scripts/seed-countries.ts"
+    "seed-countries": "tsx scripts/seed-countries.ts",
+  "seed-rations": "tsx scripts/seed-rations.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",

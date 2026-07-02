@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.prCatalogApi = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.fleetSmokeTest = exports.getFleetMission = exports.listFleetMissions = exports.prCatalogApi = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
@@ -97,6 +97,11 @@ Object.defineProperty(exports, "reconcileDepartmentCatalog", { enumerable: true,
 // PR → HR read-only catalog API (PR = canonical for countries + organizations)
 var prCatalogApi_1 = require("./prCatalogApi");
 Object.defineProperty(exports, "prCatalogApi", { enumerable: true, get: function () { return prCatalogApi_1.prCatalogApi; } });
+// Fleet Hub mission client (used by the field-camp provisioning wizard)
+var fleetMissions_1 = require("./fleet/fleetMissions");
+Object.defineProperty(exports, "listFleetMissions", { enumerable: true, get: function () { return fleetMissions_1.listFleetMissions; } });
+Object.defineProperty(exports, "getFleetMission", { enumerable: true, get: function () { return fleetMissions_1.getFleetMission; } });
+Object.defineProperty(exports, "fleetSmokeTest", { enumerable: true, get: function () { return fleetMissions_1.fleetSmokeTest; } });
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user, requestorEmail) {
     var _a, _b;

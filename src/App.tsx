@@ -28,6 +28,7 @@ import { SnackbarProvider } from './contexts/SnackbarContext';
 import "./App.css";
 import { TestEmail } from './components/TestEmail';
 import { SupplierHistoryView } from './components/suppliers/SupplierHistoryView';
+import { ProvisioningWizard } from './components/provisioning/ProvisioningWizard';
 
 function App() {
   console.log('App: Component rendering');
@@ -102,6 +103,7 @@ function App() {
                 <Route element={<Layout />}>
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/pr/new" element={<NewPRForm />} />
+                  <Route path="/provisioning" element={<ProvisioningWizard />} />
                   <Route path="/pr/list" element={<PRList />} />
                   <Route path="/pr/:id" element={<PRView />} />
                   <Route path="/pr/:id/edit" element={<PRView />} />

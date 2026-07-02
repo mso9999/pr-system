@@ -154,7 +154,12 @@ export type ReferenceDataType =
   | 'permissions'
   | 'vehicles'
   | 'rules'
-  | 'paymentTypes';
+  | 'paymentTypes'
+  // Field-camp provisioning (org-scoped, country/currency/menu/price aware)
+  | 'rations'
+  | 'provisioningMenus'
+  | 'provisioningDefaults'
+  | 'rationPrices';
 
 /** Structured postal address for a site (all fields optional — fill what is known). */
 export interface SiteAddress {

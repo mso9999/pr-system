@@ -1958,6 +1958,77 @@ export async function recordPoCapAudit(entry: PoCapAuditEntry): Promise<void> {
   }
 }
 
+// ── Field Camp Provisioning → PR bridge ──────────────────────────────────────────
+import type { ProvisioningPlan } from '@/types/provisioning';
+import type { ProvisioningLine } from '@/utils/provisioningEngine';
+
+export interface ProvisioningPlanPRBridgeExtras {
+  department: string;
+  projectCategory: string;
+  sites: string[];
+  expenseType: string;
+  requiredDate: string;
+  /** Optional note appended to the PR description. */
+  notes?: string;
+}
+
+/**
+ * Convert a saved provisioning plan's shopping list into a PR. Each selected plan
+ * line becomes one PR line item; the PR's estimated amount is the plan's total food
+ * cost in the plan currency. The caller supplies the PR-classification fields
+ * (department, project category, site, expense type, required date) that the
+ * provisioning workflow doesn't own.
+ */
+export async function createPRFromProvisioningPlan(
+  plan: ProvisioningPlan,
+  extras: ProvisioningPlanPRBridgeExtras,
+  requestor: UserReference,
+): Promise<{ prId: string; prNumber: string }> {
+  const lineItems: LineItem[] = plan.lines
+    .filter((l) => l.selected && l.packMode !== 'none')
+    .map((l: ProvisioningLine, idx) => ({
+      id: `pp-${plan.id}-${idx}`,
+      description: `${l.name} — ${l.packInstruction}`,
+      quantity: l.buyQty,
+      uom: l.issueUnit,
+      estimatedUnitPrice: l.estCost && l.buyQty ? l.estCost / l.buyQty : undefined,
+      estimatedTotal: l.estCost,
+      attachments: [],
+      notes: l.class === 'Fixed' ? 'Fixed per-deployment quantity' : undefined,
+    }));
+
+  const description = [
+    `Field Camp Provisioning — ${plan.planNumber}`,
+    plan.fleetMissionTitle ? `Mission: ${plan.fleetMissionTitle}` : null,
+    `Crew: ${plan.numberOfPeople} for ${plan.numberOfDays} day(s) (buffer ${(plan.procurementBuffer * 100).toFixed(0)}%)`,
+    `Adjusted person-days: ${plan.adjustedPersonDays}`,
+    extras.notes ? extras.notes : null,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+  const prData = {
+    organization: plan.organizationName || plan.organizationId,
+    department: extras.department,
+    projectCategory: extras.projectCategory,
+    description,
+    sites: extras.sites,
+    expenseType: extras.expenseType,
+    estimatedAmount: plan.totals.totalFoodCost,
+    currency: plan.currency,
+    requiredDate: extras.requiredDate,
+    requestorId: requestor.id,
+    requestorEmail: requestor.email,
+    requestor,
+    lineItems,
+    lineItemsWithSKU: [],
+    status: PRStatus.SUBMITTED,
+    objectType: 'PR' as const,
+  };
+
+  return createPR(prData as unknown as Parameters<typeof createPR>[0]);
+}
+
 // Aggregated service object for legacy compatibility
 export const prService = {
   getPR,

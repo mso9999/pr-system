@@ -63,7 +63,11 @@ const REFERENCE_DATA_TYPE_LABELS = {
   countries: "Countries",
   permissions: "Permissions",
   rules: "Rules",
-  paymentTypes: "Payment Types"
+  paymentTypes: "Payment Types",
+  rations: "Field Camp Rations",
+  provisioningMenus: "Provisioning Menus",
+  provisioningDefaults: "Provisioning Defaults",
+  rationPrices: "Ration Price Book"
 } as const
 
 type ReferenceDataType = keyof typeof REFERENCE_DATA_TYPE_LABELS
@@ -228,7 +232,7 @@ const SEED_DATA = {
 } as const;
 
 interface ReferenceDataField {
-  name: keyof ReferenceDataItem | 'mapPicker' | 'siteAddress' | 'ugpProjects';
+  name: string;
   label: string;
   required?: boolean;
   type?: string;
@@ -238,6 +242,8 @@ interface ReferenceDataField {
   sx?: Record<string, any>;
   /** Shown when there is no validation error */
   helperText?: string;
+  /** Options for `type: 'select'` fields. */
+  options?: Array<{ value: string; label: string }>;
 }
 
 const isCodeBasedIdType = (type: string): boolean => {
@@ -374,6 +380,83 @@ const ruleFields: ReferenceDataField[] = [
   { name: 'organizationId', label: 'Organization', required: true, type: 'organization' }
 ];
 
+const RATION_CATEGORY_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'Staples', label: 'Staples' },
+  { value: 'Protein', label: 'Protein' },
+  { value: 'Dairy', label: 'Dairy' },
+  { value: 'Cooking Inputs', label: 'Cooking Inputs' },
+  { value: 'Vegetables & Fruit', label: 'Vegetables & Fruit' },
+  { value: 'Seasoning', label: 'Seasoning' },
+  { value: 'Issued Beverages', label: 'Issued Beverages' },
+  { value: 'Kitchen & Hygiene', label: 'Kitchen & Hygiene' },
+];
+
+const RATION_CLASS_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'Food', label: 'Food (scaled by person-days)' },
+  { value: 'Provision', label: 'Provision (scaled by person-days)' },
+  { value: 'Fixed', label: 'Fixed (per-deployment quantity)' },
+];
+
+const RATION_FORMULA_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: '', label: '— None (constant issue qty) —' },
+  { value: 'purchasedBread', label: 'Purchased bread (0.12 × MIN(days, coverage) / days)' },
+  { value: 'steamedFlour', label: 'Steamed-bread flour (camp-made after coverage days)' },
+  { value: 'yeast', label: 'Yeast (steamed-flour qty × yeast proportion)' },
+  { value: 'toiletPaper', label: 'Toilet paper (1 / person-days per roll)' },
+];
+
+const rationFormFields: ReferenceDataField[] = [
+  { name: 'name', label: 'Item name', required: true },
+  { name: 'category', label: 'Category', required: true, type: 'select', options: RATION_CATEGORY_OPTIONS },
+  { name: 'class', label: 'Class', required: true, type: 'select', options: RATION_CLASS_OPTIONS },
+  { name: 'issueQtyPerPersonDay', label: 'Issue qty / person-day', type: 'number', required: true, helperText: 'For Fixed class, this is the per-deployment quantity.' },
+  { name: 'issueUnit', label: 'Issue unit', required: true, helperText: 'e.g. kg, L, egg, roll, bottle.' },
+  { name: 'specialFormula', label: 'Special formula', type: 'select', options: RATION_FORMULA_OPTIONS, helperText: 'When set, the engine derives the issue qty from mission inputs.' },
+  { name: 'procurementNote', label: 'Procurement note', helperText: 'Optional buyer-facing note.' },
+  { name: 'active', label: 'Active', type: 'boolean', defaultValue: true },
+  { name: 'organizationId', label: 'Organization', required: true, type: 'organization' },
+];
+
+const rationPriceFormFields: ReferenceDataField[] = [
+  { name: 'rationItemId', label: 'Ration item id', required: true, helperText: 'The referenceData_rations doc id this price applies to.' },
+  { name: 'tier', label: 'Pack tier', type: 'select', options: [
+    { value: '', label: '— Unit / simple pack —' },
+    { value: 'large', label: 'Large' },
+    { value: 'medium', label: 'Medium' },
+    { value: 'small', label: 'Small' },
+  ], helperText: 'null/unit for simple-pack items; large/medium/small for bulk items.' },
+  { name: 'packName', label: 'Pack name', helperText: 'e.g. "10 kg bag", "loaf (700 g)".' },
+  { name: 'currency', label: 'Currency', required: true, type: 'currency' },
+  { name: 'price', label: 'Price', required: true, type: 'number' },
+  { name: 'effectiveFrom', label: 'Effective from (ISO date)', required: true, helperText: 'YYYY-MM-DD' },
+  { name: 'effectiveTo', label: 'Effective to (ISO date)', helperText: 'YYYY-MM-DD; leave blank for "current/open".' },
+  { name: 'supplierId', label: 'Supplier id', helperText: 'Optional referenceData_vendors doc id.' },
+  { name: 'source', label: 'Source', helperText: 'e.g. "quote:2026-06", "seed:indicative".' },
+  { name: 'note', label: 'Note' },
+  { name: 'active', label: 'Active', type: 'boolean', defaultValue: true },
+  { name: 'organizationId', label: 'Organization', required: true, type: 'organization' },
+];
+
+const provisioningDefaultsFields: ReferenceDataField[] = [
+  { name: 'name', label: 'Label', required: true, helperText: 'e.g. "Default planning assumptions".' },
+  { name: 'defaultBuffer', label: 'Default procurement buffer (fraction)', type: 'number', helperText: '0.05 = 5%.' },
+  { name: 'breadCoverageDays', label: 'Bread coverage days', type: 'number' },
+  { name: 'flourPerLoafKg', label: 'Flour per loaf (kg)', type: 'number' },
+  { name: 'yeastProportion', label: 'Yeast proportion', type: 'number', helperText: 'Dry yeast as a fraction of flour weight.' },
+  { name: 'personDaysPerToiletRoll', label: 'Person-days per toilet roll', type: 'number' },
+  { name: 'defaultCurrency', label: 'Plan currency', required: true, type: 'currency' },
+  { name: 'reportingCurrency', label: 'Reporting currency (optional)', type: 'currency' },
+  { name: 'active', label: 'Active', type: 'boolean', defaultValue: true },
+  { name: 'organizationId', label: 'Organization', required: true, type: 'organization' },
+];
+
+const provisioningMenuFields: ReferenceDataField[] = [
+  { name: 'name', label: 'Menu name', required: true },
+  { name: 'cycleLength', label: 'Cycle length (days)', type: 'number', required: true, helperText: 'Number of days in the meal cycle (default 7).' },
+  { name: 'active', label: 'Active', type: 'boolean', defaultValue: true },
+  { name: 'organizationId', label: 'Organization', required: true, type: 'organization' },
+];
+
 // Get form fields based on type
 const getFormFields = (type: ReferenceDataType): ReferenceDataField[] => {
   if (isCodeBasedIdType(type) && type !== 'organizations') {
@@ -397,6 +480,14 @@ const getFormFields = (type: ReferenceDataType): ReferenceDataField[] => {
       return countryFields;
     case 'sites':
       return siteFields;
+    case 'rations':
+      return rationFormFields;
+    case 'rationPrices':
+      return rationPriceFormFields;
+    case 'provisioningDefaults':
+      return provisioningDefaultsFields;
+    case 'provisioningMenus':
+      return provisioningMenuFields;
     case 'expenseTypes':
     case 'projectCategories':
       return codeIncludedFields;
@@ -488,6 +579,42 @@ function getDisplayFields(type: ReferenceDataType): ReferenceDataField[] {
     case 'expenseTypes':
     case 'projectCategories':
       return codeIncludedFields.map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } }));
+    case 'rations':
+      return [
+        { name: 'name', label: 'Item', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'category', label: 'Category', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'class', label: 'Class', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'issueQtyPerPersonDay', label: 'Qty/pd', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'issueUnit', label: 'Unit', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'specialFormula', label: 'Formula', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'active', label: 'Active', type: 'boolean' },
+      ];
+    case 'rationPrices':
+      return [
+        { name: 'rationItemId', label: 'Ration item', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'tier', label: 'Tier', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'packName', label: 'Pack', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'currency', label: 'Currency' },
+        { name: 'price', label: 'Price' },
+        { name: 'effectiveFrom', label: 'From' },
+        { name: 'effectiveTo', label: 'To' },
+        { name: 'active', label: 'Active', type: 'boolean' },
+      ];
+    case 'provisioningDefaults':
+      return [
+        { name: 'name', label: 'Label', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'defaultCurrency', label: 'Currency' },
+        { name: 'defaultBuffer', label: 'Buffer' },
+        { name: 'breadCoverageDays', label: 'Bread days' },
+        { name: 'reportingCurrency', label: 'Reporting ccy' },
+        { name: 'active', label: 'Active', type: 'boolean' },
+      ];
+    case 'provisioningMenus':
+      return [
+        { name: 'name', label: 'Menu', sx: { whiteSpace: 'normal', wordWrap: 'break-word' } },
+        { name: 'cycleLength', label: 'Cycle (days)' },
+        { name: 'active', label: 'Active', type: 'boolean' },
+      ];
     default:
       return commonFields.map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } }));
   }
@@ -1293,11 +1420,40 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       );
     }
 
+    if (field.type === 'select' && field.options) {
+      return (
+        <FormControl key={field.name} fullWidth margin="normal" error={!!error}>
+          <InputLabel id={`${selectedType}-${field.name}-label`}>{field.label}</InputLabel>
+          <Select
+            labelId={`${selectedType}-${field.name}-label`}
+            id={`${selectedType}-${field.name}`}
+            name={field.name}
+            value={value || ''}
+            label={field.label}
+            onChange={(e) => {
+              if (editItem) {
+                setEditItem({ ...editItem, [field.name]: e.target.value });
+              }
+            }}
+            required={field.required}
+            autoComplete="off"
+          >
+            {field.options.map((opt) => (
+              <MenuItem key={String(opt.value)} value={opt.value}>
+                {opt.label}
+              </MenuItem>
+            ))}
+          </Select>
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
+
     return (
-      <FormControl 
-        key={field.name} 
-        fullWidth 
-        margin="normal" 
+      <FormControl
+        key={field.name}
+        fullWidth
+        margin="normal"
         error={!!error}
       >
         <TextField

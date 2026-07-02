@@ -24,7 +24,11 @@ export const REFERENCE_DATA_TYPES = {
   countries: 'countries',
   permissions: 'permissions',
   rules: 'rules',
-  paymentTypes: 'paymentTypes'
+  paymentTypes: 'paymentTypes',
+  rations: 'rations',
+  provisioningMenus: 'provisioningMenus',
+  provisioningDefaults: 'provisioningDefaults',
+  rationPrices: 'rationPrices'
 } as const;
 
 export const PERMISSION_NAMES = {
@@ -129,6 +133,22 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
     editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER]],
   },
   [REFERENCE_DATA_TYPES.paymentTypes]: {
+    canEdit: false,
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.PROC], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER]],
+  },
+  [REFERENCE_DATA_TYPES.rations]: {
+    canEdit: false,
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.PROC]],
+  },
+  [REFERENCE_DATA_TYPES.provisioningMenus]: {
+    canEdit: false,
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.PROC]],
+  },
+  [REFERENCE_DATA_TYPES.provisioningDefaults]: {
+    canEdit: false,
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN]],
+  },
+  [REFERENCE_DATA_TYPES.rationPrices]: {
     canEdit: false,
     editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.PROC], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_AD], PERMISSION_NAMES[PERMISSION_LEVELS.FIN_APPROVER]],
   },

@@ -235,6 +235,35 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── Field Camp Provisioning (org-scoped reference data + logged plans) ──
+    // The catch-all below also grants authenticated access; these explicit
+    // rules document the intended access shape. Ration catalog / menus /
+    // defaults / prices are admin/procurement-managed; plans are writable by
+    // any authenticated org member (procurement owns the workflow).
+
+    match /referenceData_rations/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isPrAdmin() || permLevel() == 3; // admin or procurement
+    }
+    match /referenceData_provisioningMenus/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isPrAdmin() || permLevel() == 3;
+    }
+    match /referenceData_provisioningDefaults/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isPrAdmin();
+    }
+    match /referenceData_rationPrices/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isPrAdmin() || permLevel() == 3 || permLevel() == 4 || permLevel() == 6;
+    }
+
+    match /provisioningPlans/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if isPrAdmin() || permLevel() == 3;
+    }
+
     // ── Catch-all: allow authenticated access to any other
     //    collection (referenceData_*, etc.) ───────────────────────
 

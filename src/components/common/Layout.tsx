@@ -167,6 +167,12 @@ const LayoutInner = () => {
             <ListItemText primary="PRs" />
           </NavItem>
         </Box>
+        <NavItem onClick={() => handleNavigation('/provisioning')}>
+          <ListItemIcon>
+            <ListIcon />
+          </ListItemIcon>
+          <ListItemText primary="Field Camp Provisioning" />
+        </NavItem>
         <Divider />
         <NavItem onClick={() => handleNavigation('/suppliers')}>
           <ListItemIcon>

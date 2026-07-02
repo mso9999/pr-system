@@ -52,6 +52,9 @@ export {
 // PR → HR read-only catalog API (PR = canonical for countries + organizations)
 export { prCatalogApi } from './prCatalogApi';
 
+// Fleet Hub mission client (used by the field-camp provisioning wizard)
+export { listFleetMissions, getFleetMission, fleetSmokeTest } from './fleet/fleetMissions';
+
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
     console.log('ensureRequestorName input:', { user, requestorEmail });
