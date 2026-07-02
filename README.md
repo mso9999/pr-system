@@ -263,6 +263,22 @@ npm run dev
 
 ## Deployment
 
+### Frontend Hosting Deployment (Firebase Hosting)
+
+The frontend is a Vite build (`npm run build`) served from Firebase Hosting (`dist/`). Vite inlines `VITE_*` variables **at build time**, so the Firebase config must be present in the build environment — not just at runtime.
+
+**Production deploys (CI):** `.github/workflows/deploy.yml` builds and deploys on every push to `main` (and via `workflow_dispatch`). It injects `VITE_FIREBASE_*` from GitHub repo secrets during `npm run build`, then runs `firebase deploy --only hosting,firestore:rules`.
+
+Required GitHub secrets (repo `mso9999/pr-system`):
+- `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` (and optionally `VITE_FIREBASE_MEASUREMENT_ID`)
+- `FIREBASE_TOKEN` (for `firebase deploy --token`)
+
+If a CI build's bundle is missing these, the deploy is broken — verify the secrets are populated (`gh secret list`) and re-run the workflow.
+
+**Local / manual deploys:** copy `.env.example` to `.env` and fill in the real `VITE_FIREBASE_*` before building. **Never deploy a local build without `.env`** — `src/config/firebase.ts` throws in production builds when `VITE_FIREBASE_*` are missing, to prevent silent misbuilds. (In dev mode it falls back to a default config and warns.)
+
+A manual `firebase deploy --only hosting` from a machine without `.env` will overwrite the CI-deployed bundle with a broken one — prefer pushing to `main` and letting CI build.
+
 ### Database Migration
 Before deploying new features, run the data migration:
 

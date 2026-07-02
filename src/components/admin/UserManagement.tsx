@@ -1236,7 +1236,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                   onClick={handleAdd}
                   disabled={isLoading}
                 >
-                  Add New User
+                  Add System / Non-Employee User
                 </Button>
               </Box>
             )}
@@ -1407,13 +1407,27 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                 color="primary"
                 onClick={() => setIsDialogOpen(true)}
               >
-                Add New User
+                Add System / Non-Employee User
               </Button>
             </Box>
           )}
           <Dialog open={isDialogOpen} onClose={handleClose}>
-            <DialogTitle>{editingUser ? 'Edit User' : 'Add New User'}</DialogTitle>
+            <DialogTitle>{editingUser ? 'Edit User' : 'Add System / Non-Employee User'}</DialogTitle>
             <DialogContent>
+              {!editingUser && (
+                <Alert severity="warning" sx={{ mb: 2, mt: 1 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600 }}>
+                    Employees are created in the HR portal, not here.
+                  </Typography>
+                  <Typography variant="body2">
+                    HR is the canonical source of truth for 1PWR employee metadata; new
+                    employees are created in HR and synced into PR automatically. Use this
+                    form <strong>only</strong> for non-employee or system accounts (e.g.
+                    service accounts, external auditors). Adding a real employee here will
+                    create an orphan record that HR sync will not reconcile.
+                  </Typography>
+                </Alert>
+              )}
               {isHrLinked && editingUser && (
                 <Alert severity="info" sx={{ mb: 2, mt: 1 }} icon={<RefreshIcon />}>
                   <Typography variant="body2" sx={{ fontWeight: 600 }}>

@@ -85,6 +85,16 @@ const envFirebaseConfig: FirebaseOptions = {
 
 const missingVars = requiredEnvVars.filter((varName) => !import.meta.env[varName]);
 if (missingVars.length > 0) {
+  if (import.meta.env.PROD) {
+    // Production builds MUST be built with VITE_FIREBASE_* inlined. Falling back
+    // to a hardcoded config silently masks misbuilds (e.g. a manual deploy with
+    // no .env) and produces confusing downstream errors such as permission-denied
+    // on Firestore reads. Fail loud instead.
+    throw new Error(
+      `[Firebase Config] Production build is missing required environment variables: ${missingVars.join(', ')}. ` +
+      `Rebuild with VITE_FIREBASE_* set in the build environment (CI secrets or a local .env) and redeploy.`
+    );
+  }
   console.warn(
     '[Firebase Config] Missing environment variables, falling back to default config for:',
     missingVars.join(', ')
