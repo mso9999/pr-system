@@ -49,6 +49,9 @@ export {
   reconcileDepartmentCatalog,
 } from './hr/departmentCatalogSync';
 
+// PR → HR read-only catalog API (PR = canonical for countries + organizations)
+export { prCatalogApi } from './prCatalogApi';
+
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
     console.log('ensureRequestorName input:', { user, requestorEmail });

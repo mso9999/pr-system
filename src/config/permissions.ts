@@ -21,6 +21,7 @@ export const REFERENCE_DATA_TYPES = {
   currencies: 'currencies',
   uom: 'uom',
   organizations: 'organizations',
+  countries: 'countries',
   permissions: 'permissions',
   rules: 'rules',
   paymentTypes: 'paymentTypes'
@@ -112,6 +113,10 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
     editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.PROC]],
   },
   [REFERENCE_DATA_TYPES.organizations]: {
+    canEdit: false,
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN]],
+  },
+  [REFERENCE_DATA_TYPES.countries]: {
     canEdit: false,
     editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN]],
   },

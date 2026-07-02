@@ -100,6 +100,10 @@ export interface ReferenceDataItem {
   /** Last time the HR catalog sync touched this doc (ISO 8601). */
   hrCatalogSyncedAt?: string;
 
+  // ── Organization → Country link (PR is canonical for countries + orgs) ──
+  /** ISO-2 country code (e.g. 'LS') linking an organization to its parent country in `referenceData_countries`. Set by the org form's country selector. */
+  countryCode?: string;
+
   // Rule specific fields
   number?: string;
   description?: string;
@@ -146,6 +150,7 @@ export type ReferenceDataType =
   | 'currencies'
   | 'uom'
   | 'organizations'
+  | 'countries'
   | 'permissions'
   | 'vehicles'
   | 'rules'
@@ -172,6 +177,7 @@ export const ORG_INDEPENDENT_TYPES = [
   'currencies',
   'uom',
   'organizations',
+  'countries',
   'paymentTypes'
 ] as const;
 
@@ -179,7 +185,8 @@ export const ORG_INDEPENDENT_TYPES = [
 export const CODE_BASED_ID_TYPES = [
   'currencies',
   'uom',
-  'organizations'
+  'organizations',
+  'countries'
 ] as const;
 
 /**

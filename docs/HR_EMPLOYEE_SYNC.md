@@ -300,3 +300,67 @@ NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run sync-department-c
 NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run sync-department-catalog -- --incremental
 ```
 
+## Countries & organizations (PR canonical as of 2026-07-01)
+
+PR is the **canonical source of truth for countries and organizations** —
+the inverse direction of the department catalog. Organizations are
+children of countries: each organization carries a `countryCode` (ISO-2)
+linking to its parent country in `referenceData_countries`. HR pulls both
+lists from PR's read-only catalog API to replace its static
+`config/pr_org_map.php` (see [`HR_ORG_COUNTRY_SYNC_SPEC.md`](./HR_ORG_COUNTRY_SYNC_SPEC.md)).
+
+### Data model
+
+`referenceData_countries/<ISO-2>` (e.g. `LS`, `BJ`, `ZM`):
+
+| Field    | Notes |
+|----------|-------|
+| `code`   | ISO-2 country code; also the doc id |
+| `name`   | Display name ("Lesotho") |
+| `active` | Admin can deactivate a country without deleting |
+
+`referenceData_organizations/<org_id>` gains:
+
+| Field         | Notes |
+|---------------|-------|
+| `countryCode` | ISO-2 link to `referenceData_countries` (canonical) |
+| `country`     | Display name, kept in sync with the selected country for backward-compat display |
+
+### Admin UI
+
+- A new **Countries** reference-data type with full CRUD (admin-only):
+  ISO-2 code, name, active. Countries are org-independent.
+- The **Organizations** form's Country field is now a selector populated
+  from `referenceData_countries`; picking a country sets both
+  `countryCode` (ISO-2) and `country` (display name) on the org.
+
+### PR → HR catalog API
+
+`functions/src/prCatalogApi.ts` exposes a server-to-server HTTPS endpoint
+(`prCatalogApi` Cloud Function):
+
+- `GET /api/countries` → `{ count, countries: [{ code, name, active }] }`
+- `GET /api/organizations?country=LS` →
+  `{ count, organizations: [{ id, name, countryCode, country, currency, timezoneOffset, active }] }`
+
+Auth: `X-API-Key: <HR_API_KEY_PR_PORTAL>` — the **same key** HR issues for
+its own API and PR already stores in `functions/.env`. Reused in both
+directions by explicit decision. Responses are `Cache-Control: no-store`.
+
+HR consumes this with a Laravel console command that replaces
+`config/pr_org_map.php`; see the spec linked above.
+
+### One-time seed + backfill
+
+`scripts/seed-countries.ts` (run once) seeds `referenceData_countries`
+(LS, ZM, BJ) and backfills `countryCode` on every existing
+`referenceData_organizations` doc from the org-id → ISO-2 map that HR
+previously kept in `config/pr_org_map.php`. Run with the same Node 26
+polyfill workaround:
+
+```bash
+cp scripts/_slowbuffer-polyfill.cjs /tmp/_slowbuffer-polyfill.cjs
+NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run seed-countries -- --dry-run
+NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run seed-countries
+```
+

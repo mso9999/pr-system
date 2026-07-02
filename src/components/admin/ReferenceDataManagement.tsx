@@ -60,6 +60,7 @@ const REFERENCE_DATA_TYPE_LABELS = {
   currencies: "Currencies",
   uom: "Units of Measure",
   organizations: "Organizations",
+  countries: "Countries",
   permissions: "Permissions",
   rules: "Rules",
   paymentTypes: "Payment Types"
@@ -67,7 +68,7 @@ const REFERENCE_DATA_TYPE_LABELS = {
 
 type ReferenceDataType = keyof typeof REFERENCE_DATA_TYPE_LABELS
 
-const CODE_BASED_ID_TYPES = ['currencies', 'uom', 'organizations', 'paymentTypes'] as const;
+const CODE_BASED_ID_TYPES = ['currencies', 'uom', 'organizations', 'countries', 'paymentTypes'] as const;
 
 const SEED_DATA = {
   departments: [
@@ -332,9 +333,15 @@ const vendorFields: ReferenceDataField[] = [
 const organizationFields: ReferenceDataField[] = [
   { name: 'code', label: 'Code', required: true },
   { name: 'name', label: 'Name', required: true },
-  { name: 'country', label: 'Country', required: true },
+  { name: 'countryCode', label: 'Country', required: true, type: 'country' },
   { name: 'timezoneOffset', label: 'Timezone Offset (GMT)', type: 'number', required: true },
   { name: 'currency', label: 'Currency', required: true },
+  { name: 'active', label: 'Active', type: 'boolean', defaultValue: true },
+];
+
+const countryFields: ReferenceDataField[] = [
+  { name: 'code', label: 'ISO-2 Code', required: true, helperText: 'Two-letter country code, e.g. LS, BJ, ZM. Used as the document id.' },
+  { name: 'name', label: 'Name', required: true },
   { name: 'active', label: 'Active', type: 'boolean', defaultValue: true },
 ];
 
@@ -386,6 +393,8 @@ const getFormFields = (type: ReferenceDataType): ReferenceDataField[] => {
       return ruleFields;
     case 'departments':
       return departmentFormFields;
+    case 'countries':
+      return countryFields;
     case 'sites':
       return siteFields;
     case 'expenseTypes':
@@ -453,6 +462,8 @@ function getDisplayFields(type: ReferenceDataType): ReferenceDataField[] {
     case 'uom':
       // For global reference data types, don't include organization field
       return codeBasedFields.map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } }));
+    case 'countries':
+      return countryFields.map(field => ({ ...field, sx: { whiteSpace: 'normal', wordWrap: 'break-word' } }));
     case 'departments':
       return departmentFormFields.map(field => ({
         ...field,
@@ -529,6 +540,8 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [currencies, setCurrencies] = useState<ReferenceDataItem[]>([]);
   const [isCurrenciesLoading, setIsCurrenciesLoading] = useState(false);
+  const [countries, setCountries] = useState<ReferenceDataItem[]>([]);
+  const [isCountriesLoading, setIsCountriesLoading] = useState(false);
   const [selectedOrganization, setSelectedOrganization] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<ReferenceDataItem | null>(null);
@@ -628,6 +641,24 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       }
     };
     loadCurrencies();
+  }, []);
+
+  useEffect(() => {
+    const loadCountries = async () => {
+      try {
+        setIsCountriesLoading(true);
+        const countryItems = await referenceDataAdminService.getItems('countries', '');
+        const sortedCountries = [...countryItems].sort((a, b) =>
+          (a.code || a.id || '').localeCompare(b.code || b.id || '')
+        );
+        setCountries(sortedCountries);
+      } catch (error) {
+        console.error('Error loading countries:', error);
+      } finally {
+        setIsCountriesLoading(false);
+      }
+    };
+    loadCountries();
   }, []);
 
   useEffect(() => {
@@ -1145,13 +1176,67 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
       );
     }
 
+    if (field.type === 'country') {
+      return (
+        <FormControl
+          key={field.name}
+          fullWidth
+          margin="normal"
+          error={!!error}
+        >
+          <InputLabel id={`${selectedType}-${field.name}-label`}>
+            {field.label}
+          </InputLabel>
+          <Select
+            labelId={`${selectedType}-${field.name}-label`}
+            id={`${selectedType}-${field.name}`}
+            name={field.name}
+            value={value}
+            label={field.label}
+            onChange={(e) => {
+              if (editItem) {
+                const code = e.target.value as string;
+                const match = countries.find((c) => (c.code || c.id) === code);
+                setEditItem({
+                  ...editItem,
+                  countryCode: code,
+                  // Keep the human-readable name in sync for backward-compat display.
+                  country: match?.name || code,
+                });
+              }
+            }}
+            required={field.required}
+            autoComplete="off"
+            disabled={isCountriesLoading}
+          >
+            {isCountriesLoading ? (
+              <MenuItem disabled>Loading countries...</MenuItem>
+            ) : countries.length === 0 ? (
+              <MenuItem disabled>No countries available — add one under Countries.</MenuItem>
+            ) : (
+              countries.map((country) => (
+                <MenuItem
+                  key={country.code || country.id}
+                  value={country.code || country.id}
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1 }}
+                >
+                  <span style={{ fontWeight: 500 }}>{country.code || country.id}</span>
+                  <span style={{ color: 'text.secondary' }}>- {country.name}</span>
+                </MenuItem>
+              ))
+            )}
+          </Select>
+          {helperText && <FormHelperText>{helperText}</FormHelperText>}
+        </FormControl>
+      );
+    }
+
     if (field.type === 'uom') {
       return (
         <FormControl 
           key={field.name} 
           fullWidth 
-          margin="normal" 
-          error={!!error}
+          margin="normal"           error={!!error}
         >
           <InputLabel id={`${selectedType}-${field.name}-label`}>
             {field.label}
@@ -1280,6 +1365,13 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
 
     if (field.type === 'organization') {
       return item.organization?.name || '';
+    }
+
+    if (field.type === 'country') {
+      const code = value;
+      if (!code) return '';
+      const match = countries.find((c) => (c.code || c.id) === code);
+      return match?.name || String(code);
     }
 
     if (value === null || value === undefined) {
