@@ -12,7 +12,8 @@ export type TourId =
   | 'roleProcurement'
   | 'roleFinanceAdmin'
   | 'roleFinanceApprover'
-  | 'roleSuperadmin';
+  | 'roleSuperadmin'
+  | 'provisioning';
 
 export interface TourMeta {
   id: TourId;
@@ -94,6 +95,13 @@ export const TOUR_LIST: TourMeta[] = [
     descriptionKey: 'tutorial.tours.roleSuperadmin.description',
     path: '/dashboard',
     badge: 'Superadmin (L1)',
+  },
+  {
+    id: 'provisioning',
+    titleKey: 'tutorial.tours.provisioning.title',
+    descriptionKey: 'tutorial.tours.provisioning.description',
+    path: '/provisioning',
+    badge: 'Procurement',
   },
 ];
 
@@ -289,6 +297,19 @@ export function buildTourSteps(tourId: TourId, t: TFunction): Step[] {
         center(S('step5.title'), S('step5.content'), t),
         spot('pr-procurement-actions', S('step6.title'), S('step6.content'), t),
         center(S('step7.title'), S('step7.content'), t),
+      ];
+
+    case 'provisioning':
+      return [
+        center(S('step1.title'), S('step1.content'), t),
+        spot('provisioning-stepper', S('step2.title'), S('step2.content'), t, 'bottom'),
+        spot('provisioning-org', S('step3.title'), S('step3.content'), t, 'bottom'),
+        spot('provisioning-mission', S('step4.title'), S('step4.content'), t, 'bottom'),
+        spot('provisioning-people-days', S('step5.title'), S('step5.content'), t, 'bottom'),
+        spot('provisioning-buffer', S('step6.title'), S('step6.content'), t, 'bottom'),
+        center(S('step7.title'), S('step7.content'), t),
+        center(S('step8.title'), S('step8.content'), t),
+        center(S('step9.title'), S('step9.content'), t),
       ];
 
     default:

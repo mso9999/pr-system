@@ -290,7 +290,7 @@ export function ProvisioningWizard() {
         Plan a field camp shopping list from the org's ration catalog. Link a Fleet mission to prepopulate crew size and duration; override either if provisioning for a shorter window.
       </Typography>
 
-      <Stepper activeStep={activeStep} sx={{ my: 3 }}>
+      <Stepper activeStep={activeStep} sx={{ my: 3 }} data-tutorial="provisioning-stepper">
         {STEPS.map((label) => (
           <Step key={label}><StepLabel>{label}</StepLabel></Step>
         ))}
@@ -300,13 +300,13 @@ export function ProvisioningWizard() {
 
       {activeStep === 0 && (
         <Stack spacing={2}>
-          <FormControl fullWidth>
+          <FormControl fullWidth data-tutorial="provisioning-org">
             <InputLabel>Organization</InputLabel>
             <Select value={organizationId} label="Organization" onChange={(e) => setOrganizationId(e.target.value)}>
               {orgOptions.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
             </Select>
           </FormControl>
-          <FormControl fullWidth>
+          <FormControl fullWidth data-tutorial="provisioning-mission">
             <InputLabel>Link Fleet mission (optional)</InputLabel>
             <Select value={missionId} label="Link Fleet mission (optional)" onChange={(e) => setMissionId(e.target.value)}>
               <MenuItem value="">— None —</MenuItem>
@@ -323,7 +323,7 @@ export function ProvisioningWizard() {
             </Typography>
           )}
           <Divider />
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} data-tutorial="provisioning-people-days">
             <TextField fullWidth type="number" label="Number of people" value={numberOfPeople}
               onChange={(e) => { setNumberOfPeople(Number(e.target.value)); markOverride(); }}
               helperText={inputsOverridden ? 'Overridden from mission default' : 'From mission crew_size'} />
@@ -331,7 +331,7 @@ export function ProvisioningWizard() {
               onChange={(e) => { setNumberOfDays(Number(e.target.value)); markOverride(); }}
               helperText={inputsOverridden ? 'Overridden from mission default' : 'From mission dates'} />
           </Stack>
-          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} data-tutorial="provisioning-buffer">
             <TextField fullWidth type="number" label="Procurement buffer (fraction)" value={procurementBuffer} onChange={(e) => setProcurementBuffer(Number(e.target.value))} helperText="0.05 = 5%" />
             <TextField fullWidth type="number" label="Bread coverage days" value={breadCoverageDays} onChange={(e) => setBreadCoverageDays(Number(e.target.value))} />
           </Stack>
@@ -355,7 +355,7 @@ export function ProvisioningWizard() {
               <Typography variant="body2" color="text.secondary">{context.menu.cycleLength}-day cycle</Typography>
             </Paper>
           )}
-          <TableContainer component={Paper} variant="outlined">
+          <TableContainer component={Paper} variant="outlined" data-tutorial="provisioning-ration-table">
             <Table size="small">
               <TableHead>
                 <TableRow>
@@ -391,7 +391,7 @@ export function ProvisioningWizard() {
           {!plan && <Typography>No items selected.</Typography>}
           {plan && (
             <>
-              <Paper variant="outlined" sx={{ p: 2 }}>
+              <Paper variant="outlined" sx={{ p: 2 }} data-tutorial="provisioning-nutrition">
                 <Typography variant="subtitle1">Nutrition check</Typography>
                 <Typography variant="body2">
                   Energy: {plan.nutrition.energyKcal} kcal/pd (target {plan.nutrition.targets.kcal}) — {plan.nutrition.energyMeets ? 'OK' : 'review'}
@@ -407,7 +407,7 @@ export function ProvisioningWizard() {
                 </Typography>
               </Paper>
 
-              <TableContainer component={Paper} variant="outlined">
+              <TableContainer component={Paper} variant="outlined" data-tutorial="provisioning-shopping-list">
                 <Table size="small">
                   <TableHead>
                     <TableRow>
@@ -461,10 +461,10 @@ export function ProvisioningWizard() {
               <TextField label="Notes" multiline minRows={2} value={notes} onChange={(e) => setNotes(e.target.value)} />
 
               <Stack direction="row" spacing={2}>
-                <Button variant="contained" onClick={handleSave} disabled={loading}>
+                <Button variant="contained" onClick={handleSave} disabled={loading} data-tutorial="provisioning-save">
                   {savedPlan ? 'Re-save plan' : 'Save plan'}
                 </Button>
-                <Button variant="outlined" onClick={openPrDialog} disabled={!savedPlan}>
+                <Button variant="outlined" onClick={openPrDialog} disabled={!savedPlan} data-tutorial="provisioning-generate-pr">
                   Generate PR
                 </Button>
                 {savedPlan && (

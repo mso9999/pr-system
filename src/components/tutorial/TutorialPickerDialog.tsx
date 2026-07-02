@@ -101,6 +101,24 @@ export function TutorialPickerDialog() {
         </List>
         <Divider sx={{ my: 2 }} />
         <Typography variant="subtitle2" sx={{ mb: 1 }}>
+          {t('tutorial.sectionProvisioning')}
+        </Typography>
+        <List dense disablePadding>
+          {TOUR_LIST.filter((m) => m.id === 'provisioning').map((meta) => (
+            <ListItemButton
+              key={meta.id}
+              onClick={() => startTour(meta.id as TourId)}
+              sx={{ borderRadius: 1, mb: 0.5 }}
+            >
+              <ListItemText
+                primary={meta.badge ? `${meta.badge} — ${t(meta.titleKey)}` : t(meta.titleKey)}
+                secondary={t(meta.descriptionKey)}
+              />
+            </ListItemButton>
+          ))}
+        </List>
+        <Divider sx={{ my: 2 }} />
+        <Typography variant="subtitle2" sx={{ mb: 1 }}>
           {t('tutorial.sectionWorkflows')}
         </Typography>
         <List dense disablePadding>

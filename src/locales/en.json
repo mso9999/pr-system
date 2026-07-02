@@ -136,6 +136,10 @@
       "roleSuperadmin": {
         "title": "Superadmin (L1) walkthrough",
         "description": "Full system access, user management, rule configuration (uses a temporary demo PR)"
+      },
+      "provisioning": {
+        "title": "Field Camp Provisioning",
+        "description": "Plan a field-camp shopping list from the org's ration catalog, link a Fleet mission to prepopulate crew size and days, then generate a PR."
       }
     },
     "orientation": {
@@ -406,6 +410,45 @@
       "step7": {
         "title": "Rejected and Canceled paths",
         "content": "At any point before COMPLETED, a PO can be REJECTED (if not meeting requirements) or CANCELED (if no longer needed). Both statuses are terminal and count toward resolving the PO cap. Use these for purchases that should not proceed."
+      }
+    },
+    "sectionProvisioning": "Field Camp Provisioning",
+    "provisioning": {
+      "step1": {
+        "title": "Plan a field camp",
+        "content": "Field Camp Provisioning turns the old provisioning spreadsheet into an in-app, logged workflow. Pick an org, link a mission, choose rations, and turn the shopping list into a PR."
+      },
+      "step2": {
+        "title": "Three-stage wizard",
+        "content": "The wizard moves through Mission & inputs, Ration selection, and Review & save. This tour covers the first stage's controls, then explains stages two and three."
+      },
+      "step3": {
+        "title": "Organization",
+        "content": "The organization sets the country context: its ration catalog, default menu, planning assumptions, and price book. Pricing is in the org's base currency."
+      },
+      "step4": {
+        "title": "Link a Fleet mission",
+        "content": "Optionally link a mission from fm.1pwrafrica.com. The mission's crew size and departure to return days prepopulate the plan — no more retyping numbers from the spreadsheet."
+      },
+      "step5": {
+        "title": "People and days",
+        "content": "Crew size and days come from the linked mission. Override either when you're only provisioning part of the trip — e.g. a 6-week deployment provisioned for the first week."
+      },
+      "step6": {
+        "title": "Planning assumptions",
+        "content": "Set the procurement buffer, bread coverage days, flour-per-loaf, yeast proportion, and person-days per toilet roll. The adjusted person-days readout shows people x days x (1 + buffer)."
+      },
+      "step7": {
+        "title": "Ration selection",
+        "content": "Stage two lists the org's ration catalog and its default menu cycle. Tick the items to include; the engine applies issue quantities, special formulas, and pack planning."
+      },
+      "step8": {
+        "title": "Review the shopping list",
+        "content": "Stage three shows a nutrition check (energy, protein, fruit & veg vs targets) and the shopping list with pack instruction, buy quantity, excess, and per-line price. Override any price; the total and cost-per-person-day update live."
+      },
+      "step9": {
+        "title": "Save plan and generate PR",
+        "content": "Save plan records it with a sequential plan number (and snapshots the catalog/prices). Then Generate PR opens a dialog for department, project category, site, expense type, and required date, and creates a PR you can track through the normal approval flow."
       }
     }
   },

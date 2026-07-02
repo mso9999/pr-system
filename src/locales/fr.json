@@ -128,6 +128,10 @@
       "roleSuperadmin": {
         "title": "Parcours Superadmin (L1)",
         "description": "Accès complet au système, gestion des utilisateurs, configuration des règles (utilise une DR démo temporaire)"
+      },
+      "provisioning": {
+        "title": "Provisionnement de camp terrain",
+        "description": "Établissez une liste d'achat de camp terrain à partir du catalogue de rations de l'organisation, liez une mission Fleet pour préremplir l'équipage et la durée, puis générez une BC."
       }
     },
     "orientation": {
@@ -350,6 +354,45 @@
       "step2": {
         "title": "Navigation",
         "content": "Utilisez Retour et Suivant entre les étapes. Envoyez à la dernière étape lorsque tout est valide."
+      }
+    },
+    "sectionProvisioning": "Provisionnement de camp terrain",
+    "provisioning": {
+      "step1": {
+        "title": "Planifier un camp terrain",
+        "content": "Le provisionnement de camp terrain remplace l'ancien tableur par un flux de travail intégré et journalisé. Choisissez une organisation, liez une mission, sélectionnez les rations, puis transformez la liste d'achat en BC."
+      },
+      "step2": {
+        "title": "Assistant en trois étapes",
+        "content": "L'assistant passe par Mission & saisies, Sélection des rations, et Révision & enregistrement. Cette visite présente les contrôles de la première étape, puis explique les étapes deux et trois."
+      },
+      "step3": {
+        "title": "Organisation",
+        "content": "L'organisation définit le contexte pays : catalogue de rations, menu par défaut, hypothèses de planification et grille de prix. Les prix sont dans la devise de base de l'organisation."
+      },
+      "step4": {
+        "title": "Lier une mission Fleet",
+        "content": "Liez optionnellement une mission de fm.1pwrafrica.com. La taille d'équipage et la durée (départ vers retour) de la mission préremplissent le plan — fini la saisie manuelle des chiffres du tableur."
+      },
+      "step5": {
+        "title": "Personnes et jours",
+        "content": "La taille d'équipage et la durée proviennent de la mission liée. Modifiez-les lorsque vous ne provisionnez qu'une partie du déplacement — par ex. un déploiement de 6 semaines provisionné pour la première semaine."
+      },
+      "step6": {
+        "title": "Hypothèses de planification",
+        "content": "Définissez la marge d'approvisionnement, les jours de couverture en pain, la farine par pain, la proportion de levure et les personnes-jours par rouleau de papier. Le total personnes-jours ajusté indique personnes x jours x (1 + marge)."
+      },
+      "step7": {
+        "title": "Sélection des rations",
+        "content": "La deuxième étape liste le catalogue de rations de l'organisation et son cycle de menu par défaut. Cochez les articles à inclure ; le moteur applique les quantités, les formules spéciales et le conditionnement."
+      },
+      "step8": {
+        "title": "Réviser la liste d'achat",
+        "content": "La troisième étape affiche un contrôle nutritionnel (énergie, protéines, fruits & légumes vs cibles) et la liste d'achat avec instruction de conditionnement, quantité à acheter, excédent et prix par ligne. Modifiez les prix ; le total et le coût par personne-jour se mettent à jour en direct."
+      },
+      "step9": {
+        "title": "Enregistrer le plan et générer la BC",
+        "content": "Enregistrer le plan lui attribue un numéro séquentiel (et archive le catalogue/prix). Ensuite Générer la BC ouvre une boîte pour département, catégorie de projet, site, type de dépense et date requise, et crée une BC à suivre dans le flux d'approbation normal."
       }
     }
   },
