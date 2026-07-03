@@ -11,6 +11,9 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   FormControl,
   InputLabel,
   MenuItem,
@@ -27,6 +30,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material';
 import { RootState } from '../../store';
@@ -34,9 +38,11 @@ import { useSnackbar } from '../../contexts/SnackbarContext';
 import { resolveProvisioningContext, SPREADSHEET_DEFAULTS } from '../../utils/provisioningContext';
 import {
   computePlan,
+  computeNutritionBreakdown,
   ProvisioningInputs,
   ProvisioningLine,
 } from '../../utils/provisioningEngine';
+import { PROVISIONING_ASSUMPTIONS } from '../../utils/provisioningSeedData';
 import type { RationItem, ProvisioningPlan } from '../../types/provisioning';
 import { listFleetMissions, getFleetMission, fleetMissionDays, FleetMission } from '../../services/fleetMissions';
 import { savePlan, updatePlanStatus } from '../../services/provisioningPlans';
@@ -171,6 +177,19 @@ export function ProvisioningWizard() {
     }));
     return computePlan(catalog as RationItem[], inputs, prices as any, context?.baseCurrency || 'LSL', asOf);
   }, [context, selectedRationIds, inputs, manualPriceOverrides]);
+
+  // Per-item daily nutrition breakdown (mirrors the spreadsheet's Nutrition Check sheet).
+  const nutritionBreakdown = useMemo(() => {
+    const catalog = (context?.rations || []).filter((r) => selectedRationIds.includes(r.id));
+    if (catalog.length === 0) return [];
+    return computeNutritionBreakdown(catalog as RationItem[], inputs);
+  }, [context, selectedRationIds, inputs]);
+
+  const rationNoteById = useMemo(() => {
+    const m = new Map<string, string | undefined>();
+    (context?.rations || []).forEach((r) => m.set(r.id, (r as RationItem).procurementNote));
+    return m;
+  }, [context]);
 
   const toggleRation = (id: string) => {
     setSelectedRationIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
@@ -343,17 +362,77 @@ export function ProvisioningWizard() {
           <Typography variant="body2">
             Adjusted person-days: <strong>{(numberOfPeople * numberOfDays * (1 + procurementBuffer)).toFixed(2)}</strong>
           </Typography>
+
+          <Accordion variant="outlined">
+            <AccordionSummary expandIcon={<span>▾</span>}>
+              <Typography variant="subtitle2">Assumptions & sources ({PROVISIONING_ASSUMPTIONS.length})</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Topic</TableCell>
+                      <TableCell>Assumption / use</TableCell>
+                      <TableCell>Source</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {PROVISIONING_ASSUMPTIONS.map((a) => (
+                      <TableRow key={a.topic}>
+                        <TableCell><strong>{a.topic}</strong></TableCell>
+                        <TableCell>{a.assumption}</TableCell>
+                        <TableCell>
+                          {a.url ? <a href={a.url} target="_blank" rel="noreferrer">{a.source}</a> : a.source}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </AccordionDetails>
+          </Accordion>
         </Stack>
       )}
 
       {activeStep === 1 && (
         <Stack spacing={2}>
           <Typography variant="h6">Ration catalog ({context?.rations.length || 0})</Typography>
-          {context?.menu && (
-            <Paper variant="outlined" sx={{ p: 2 }}>
-              <Typography variant="subtitle2">Default menu: {context.menu.name}</Typography>
-              <Typography variant="body2" color="text.secondary">{context.menu.cycleLength}-day cycle</Typography>
-            </Paper>
+          {context?.menu && context.menu.days?.length > 0 && (
+            <Accordion variant="outlined" defaultExpanded>
+              <AccordionSummary expandIcon={<span>▾</span>}>
+                <Typography variant="subtitle2">
+                  {context.menu.name} — {context.menu.cycleLength}-day cycle
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Day</TableCell>
+                        <TableCell>Breakfast</TableCell>
+                        <TableCell>Midday meal</TableCell>
+                        <TableCell>Evening meal</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {context.menu.days.map((d: { day: number; breakfast: string; midday: string; evening: string }) => (
+                        <TableRow key={d.day}>
+                          <TableCell><strong>{d.day}</strong></TableCell>
+                          <TableCell>{d.breakfast}</TableCell>
+                          <TableCell>{d.midday}</TableCell>
+                          <TableCell>{d.evening}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  Bread issue rule: ordinary purchased bread is supplied only during the initial bread-coverage period (default first 7 days). From the following day, references to bread mean camp-made steamed bread prepared from the issued wheat flour and instant dry yeast.
+                </Typography>
+              </AccordionDetails>
+            </Accordion>
           )}
           <TableContainer component={Paper} variant="outlined" data-tutorial="provisioning-ration-table">
             <Table size="small">
@@ -418,14 +497,15 @@ export function ProvisioningWizard() {
                       <TableCell>Excess</TableCell>
                       <TableCell>Price</TableCell>
                       <TableCell>Cost</TableCell>
+                      <TableCell>Note</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {plan.lines.map((l: ProvisioningLine) => {
-                      const key = `${l.rationItemId}|${l.packMode === 'bulk' ? 'large' : 'unit'}`;
                       const priceVal = l.packMode === 'bulk'
                         ? (l.tierPricesUsed?.large ?? 0)
                         : (manualPriceOverrides[`${l.rationItemId}|unit`] ?? (l.estCost && l.buyQty ? l.estCost / l.buyQty : 0));
+                      const note = rationNoteById.get(l.rationItemId);
                       return (
                         <TableRow key={l.rationItemId} hover>
                           <TableCell>{l.name}</TableCell>
@@ -447,12 +527,54 @@ export function ProvisioningWizard() {
                             />
                           </TableCell>
                           <TableCell>{l.estCost}</TableCell>
+                          <TableCell>
+                            {note ? <Tooltip title={note}><Typography variant="caption" color="text.secondary">{note}</Typography></Tooltip> : ''}
+                          </TableCell>
                         </TableRow>
                       );
                     })}
                   </TableBody>
                 </Table>
               </TableContainer>
+
+              <Accordion variant="outlined">
+                <AccordionSummary expandIcon={<span>▾</span>}>
+                  <Typography variant="subtitle2">Nutrition check — per item (daily provision)</Typography>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Item</TableCell>
+                          <TableCell>Issue qty/pd</TableCell>
+                          <TableCell>Daily kcal</TableCell>
+                          <TableCell>Daily protein g</TableCell>
+                          <TableCell>Daily fruit/veg g</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {nutritionBreakdown.map((r) => (
+                          <TableRow key={r.rationItemId}>
+                            <TableCell>{r.name}</TableCell>
+                            <TableCell>{r.issueQty} {r.issueUnit}</TableCell>
+                            <TableCell>{r.kcal}</TableCell>
+                            <TableCell>{r.proteinG}</TableCell>
+                            <TableCell>{r.fruitVegG}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow sx={{ '& td': { fontWeight: 'bold', borderTop: '2px solid', borderColor: 'divider' } }}>
+                          <TableCell>Total / person-day</TableCell>
+                          <TableCell />
+                          <TableCell>{plan.nutrition.energyKcal}</TableCell>
+                          <TableCell>{plan.nutrition.proteinG}</TableCell>
+                          <TableCell>{plan.nutrition.fruitVegG}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+                </AccordionDetails>
+              </Accordion>
 
               <Typography variant="h6">
                 Total: {plan.totals.totalFoodCost} {context?.baseCurrency} · {plan.totals.costPerAdjustedPersonDay}/person-day

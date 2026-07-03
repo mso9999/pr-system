@@ -72,6 +72,36 @@ export interface ProvisioningNutritionResult {
   status: 'MEETS PLANNING TARGETS' | 'REVIEW RATION';
 }
 
+export interface NutritionBreakdownRow {
+  rationItemId: string;
+  name: string;
+  issueQty: number;
+  issueUnit: string;
+  kcal: number;
+  proteinG: number;
+  fruitVegG: number;
+}
+
+/**
+ * Per-item daily nutrition contribution — mirrors the spreadsheet's `Nutrition Check` sheet
+ * (one row per catalog item: issue qty × nutritionPerUnit). Items with zero nutrition still
+ * appear (contributing 0) so the table matches the spreadsheet row-for-row.
+ */
+export function computeNutritionBreakdown(catalog: RationItem[], inputs: ProvisioningInputs): NutritionBreakdownRow[] {
+  return catalog.map((item) => {
+    const issueQty = computeIssueQty(item, inputs);
+    return {
+      rationItemId: item.id,
+      name: item.name,
+      issueQty: round(issueQty, 6),
+      issueUnit: item.issueUnit,
+      kcal: round(issueQty * item.nutritionPerUnit.kcal, 2),
+      proteinG: round(issueQty * item.nutritionPerUnit.proteinG, 2),
+      fruitVegG: round(issueQty * item.nutritionPerUnit.fruitVegG, 2),
+    };
+  });
+}
+
 export interface ProvisioningTotals {
   totalFoodCost: number;
   costPerAdjustedPersonDay: number;

@@ -14,15 +14,16 @@ import type { RationItem, RationPriceEntry } from '../types/provisioning';
 import type { ProvisioningInputs } from './provisioningEngine';
 
 // ── Spreadsheet golden inputs: 4 people × 14 days × 5% buffer ──────────────────────
+// Mirrors `Inputs & Dashboard`!B5:B15 of `260528 Lesotho_Field_Camp_Provisioning_v3.xlsx`.
 const inputs: ProvisioningInputs = {
   numberOfPeople: 4,
   numberOfDays: 14,
   procurementBuffer: 0.05,
   breadCoverageDays: 7,
-  flourPerLoafKg: 0.7,
-  yeastProportion: 0.015,
-  personDaysPerToiletRoll: 40,
-  nutritionTargets: { kcal: 3000, proteinG: 80, fruitVegG: 400 },
+  flourPerLoafKg: 0.52,
+  yeastProportion: 0.02,
+  personDaysPerToiletRoll: 3.5,
+  nutritionTargets: { kcal: 3600, proteinG: 100, fruitVegG: 400 },
 };
 
 const APD = 4 * 14 * 1.05; // 58.8
@@ -46,34 +47,34 @@ describe('provisioningEngine — special formulas', () => {
     expect(computeRequiredQty(bread, inputs, APD)).toBeCloseTo(3.528, 6);
   });
 
-  it('steamed flour: (0.12/0.7) × 0.7 × MAX(14−7,0) / 14 = 0.06', () => {
+  it('steamed flour: (0.12/0.7) × 0.52 × MAX(14−7,0) / 14 = 0.044571', () => {
     const flour: RationItem = {
       id: 'flour', name: 'Wheat Flour (steamed)', category: 'Staples', class: 'Food',
       issueQtyPerPersonDay: 0, issueUnit: 'kg',
       nutritionPerUnit: { kcal: 3640, proteinG: 103, fruitVegG: 0 },
       specialFormula: 'steamedFlour',
       packPlanning: { mode: 'bulk', tiers: [
-        { tier: 'large', packName: '10 kg bag', size: 10, unit: 'kg' },
-        { tier: 'medium', packName: '5 kg bag', size: 5, unit: 'kg' },
+        { tier: 'large', packName: '5 kg bag', size: 5, unit: 'kg' },
+        { tier: 'medium', packName: '2.5 kg bag', size: 2, unit: 'kg' },
         { tier: 'small', packName: '1 kg bag', size: 1, unit: 'kg' },
       ] },
     };
-    expect(computeIssueQty(flour, inputs)).toBeCloseTo(0.06, 6);
-    expect(computeRequiredQty(flour, inputs, APD)).toBeCloseTo(3.528, 6);
+    expect(computeIssueQty(flour, inputs)).toBeCloseTo(0.0445714286, 6);
+    expect(computeRequiredQty(flour, inputs, APD)).toBeCloseTo(2.6208, 6);
   });
 
-  it('yeast: 0.06 × 0.015 = 0.0009', () => {
+  it('yeast: 0.044571 × 0.02 = 0.0008914', () => {
     const yeast: RationItem = {
       id: 'yeast', name: 'Instant Yeast', category: 'Cooking Inputs', class: 'Food',
       issueQtyPerPersonDay: 0, issueUnit: 'kg',
       nutritionPerUnit: { kcal: 0, proteinG: 0, fruitVegG: 0 },
       specialFormula: 'yeast',
-      packPlanning: { mode: 'simple', packSize: 0.01, packName: '10 g sachet' },
+      packPlanning: { mode: 'simple', packSize: 0.1, packName: '100 g pack' },
     };
-    expect(computeIssueQty(yeast, inputs)).toBeCloseTo(0.0009, 6);
+    expect(computeIssueQty(yeast, inputs)).toBeCloseTo(0.0008914286, 6);
   });
 
-  it('toilet paper: 1 / 40 = 0.025 rolls/person-day', () => {
+  it('toilet paper: 1 / 3.5 = 0.285714 rolls/person-day', () => {
     const tp: RationItem = {
       id: 'tp', name: 'Toilet Paper', category: 'Kitchen & Hygiene', class: 'Provision',
       issueQtyPerPersonDay: 0, issueUnit: 'roll',
@@ -81,7 +82,7 @@ describe('provisioningEngine — special formulas', () => {
       specialFormula: 'toiletPaper',
       packPlanning: { mode: 'simple', packSize: 1, packName: 'roll' },
     };
-    expect(computeIssueQty(tp, inputs)).toBeCloseTo(0.025, 6);
+    expect(computeIssueQty(tp, inputs)).toBeCloseTo(0.2857142857, 6);
   });
 });
 
@@ -161,27 +162,27 @@ describe('provisioningEngine — bulk pack planning', () => {
 function miniCatalog(): RationItem[] {
   return [
     { id: 'maize', name: 'Maize Meal', category: 'Staples', class: 'Food', issueQtyPerPersonDay: 0.28, issueUnit: 'kg',
-      nutritionPerUnit: { kcal: 3600, proteinG: 90, fruitVegG: 0 },
+      nutritionPerUnit: { kcal: 3600, proteinG: 80, fruitVegG: 0 },
       packPlanning: { mode: 'bulk', tiers: [
         { tier: 'large', packName: '10 kg bag', size: 10, unit: 'kg' },
         { tier: 'medium', packName: '5 kg bag', size: 5, unit: 'kg' },
         { tier: 'small', packName: '2 kg bag', size: 2, unit: 'kg' },
       ] } },
-    { id: 'rice', name: 'Rice', category: 'Staples', class: 'Food', issueQtyPerPersonDay: 0.15, issueUnit: 'kg',
-      nutritionPerUnit: { kcal: 3500, proteinG: 70, fruitVegG: 0 },
+    { id: 'rice', name: 'Rice', category: 'Staples', class: 'Food', issueQtyPerPersonDay: 0.08, issueUnit: 'kg',
+      nutritionPerUnit: { kcal: 3600, proteinG: 70, fruitVegG: 0 },
       packPlanning: { mode: 'bulk', tiers: [
         { tier: 'large', packName: '10 kg bag', size: 10, unit: 'kg' },
         { tier: 'medium', packName: '5 kg bag', size: 5, unit: 'kg' },
         { tier: 'small', packName: '1 kg bag', size: 1, unit: 'kg' },
       ] } },
-    { id: 'bread', name: 'Purchased Bread', category: 'Staples', class: 'Food', issueQtyPerPersonDay: 0, issueUnit: 'kg',
+    { id: 'bread', name: 'Purchased Bread', category: 'Staples', class: 'Food', issueQtyPerPersonDay: 0.12, issueUnit: 'kg',
       nutritionPerUnit: { kcal: 2650, proteinG: 90, fruitVegG: 0 }, specialFormula: 'purchasedBread',
-      packPlanning: { mode: 'simple', packSize: 0.7, packName: 'loaf (700 g)' } },
+      packPlanning: { mode: 'simple', packSize: 0.7, packName: '700 g loaf' } },
     { id: 'flour', name: 'Wheat Flour (steamed)', category: 'Staples', class: 'Food', issueQtyPerPersonDay: 0, issueUnit: 'kg',
       nutritionPerUnit: { kcal: 3640, proteinG: 103, fruitVegG: 0 }, specialFormula: 'steamedFlour',
       packPlanning: { mode: 'bulk', tiers: [
-        { tier: 'large', packName: '10 kg bag', size: 10, unit: 'kg' },
-        { tier: 'medium', packName: '5 kg bag', size: 5, unit: 'kg' },
+        { tier: 'large', packName: '5 kg bag', size: 5, unit: 'kg' },
+        { tier: 'medium', packName: '2.5 kg bag', size: 2, unit: 'kg' },
         { tier: 'small', packName: '1 kg bag', size: 1, unit: 'kg' },
       ] } },
   ];
@@ -195,7 +196,7 @@ describe('provisioningEngine — nutrition check', () => {
   });
 
   it('reports MEETS PLANNING TARGETS when targets are met', () => {
-    const n = computeNutrition(miniCatalog(), { ...inputs, nutritionTargets: { kcal: 1000, proteinG: 40, fruitVegG: 0 } });
+    const n = computeNutrition(miniCatalog(), { ...inputs, nutritionTargets: { kcal: 1000, proteinG: 30, fruitVegG: 0 } });
     expect(n.status).toBe('MEETS PLANNING TARGETS');
     expect(n.energyMeets).toBe(true);
     expect(n.proteinMeets).toBe(true);

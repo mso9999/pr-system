@@ -78,15 +78,19 @@ export async function resolveProvisioningContext(
 
   const defaultsDocs = defaultsSnap.docs.map(mapDoc<ProvisioningDefaults>);
   const menuDocs = menuSnap.docs.map(mapDoc<ProvisioningMenu>);
-  const rations = rationsSnap.docs.map(mapDoc<RationItem>);
+  const allRations = rationsSnap.docs.map(mapDoc<RationItem>);
   const allPrices = pricesSnap.docs.map(mapDoc<RationPriceEntry>);
 
   const defaults = defaultsDocs.find((d) => d.active !== false) || defaultsDocs[0];
   const menu = menuDocs.find((m) => m.active !== false) || menuDocs[0];
+  // Only active catalog rows / price rows participate in a plan. This lets re-seeds retire
+  // superseded items (set active=false) without deleting historical snapshots that reference them.
+  const rations = allRations.filter((r) => r.active !== false);
+  const allActivePrices = allPrices.filter((p) => p.active !== false);
 
   const prices = baseCurrency
-    ? allPrices.filter((p) => p.currency === baseCurrency)
-    : allPrices;
+    ? allActivePrices.filter((p) => p.currency === baseCurrency)
+    : allActivePrices;
 
   return {
     organizationId,
@@ -101,12 +105,14 @@ export async function resolveProvisioningContext(
   };
 }
 
-/** Spreadsheet-derived fallback defaults used when no `provisioningDefaults` doc exists. */
+/** Spreadsheet-derived fallback defaults used when no `provisioningDefaults` doc exists.
+ *  Values mirror `Inputs & Dashboard`!B5:B15 of
+ *  `docs/260528 Lesotho_Field_Camp_Provisioning_v3.xlsx`. */
 export const SPREADSHEET_DEFAULTS = {
-  nutritionTargets: { kcal: 3000, proteinG: 80, fruitVegG: 400 },
+  nutritionTargets: { kcal: 3600, proteinG: 100, fruitVegG: 400 },
   defaultBuffer: 0.05,
   breadCoverageDays: 7,
-  flourPerLoafKg: 0.7,
-  yeastProportion: 0.015,
-  personDaysPerToiletRoll: 40,
+  flourPerLoafKg: 0.52,
+  yeastProportion: 0.02,
+  personDaysPerToiletRoll: 3.5,
 };
