@@ -4,6 +4,7 @@ import { UserManagement } from "./UserManagement"
 import { ReferenceDataManagement } from "./ReferenceDataManagement"
 import { OrganizationConfig } from "./OrganizationConfig"
 import { DatabaseCleanup } from "./DatabaseCleanup"
+import { WhatsNewManagement } from "./WhatsNewManagement"
 import { useOutletContext } from "react-router-dom"
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
@@ -98,6 +99,9 @@ export function AdminDashboard() {
           {isSuperadmin && (
             <Tab label={t('admin.databaseCleanup')} {...a11yProps(3)} />
           )}
+          {isSuperadmin && (
+            <Tab label={t('admin.whatsNew', "What's New")} {...a11yProps(4)} />
+          )}
         </Tabs>
       </Box>
 
@@ -124,6 +128,12 @@ export function AdminDashboard() {
       {isSuperadmin && (
         <TabPanel value={value} index={3}>
           <DatabaseCleanup />
+        </TabPanel>
+      )}
+
+      {isSuperadmin && (
+        <TabPanel value={value} index={4}>
+          <WhatsNewManagement />
         </TabPanel>
       )}
     </Box>

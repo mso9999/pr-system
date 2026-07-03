@@ -59,6 +59,7 @@ export interface User {
   departmentMemberships?: { departmentId: string; isLead: boolean }[];
   isHrLead?: boolean;
   hrLeadCountryCodes?: string[];
+  lastWhatsNewSeenAt?: string;
 }
 
 /**

@@ -660,6 +660,11 @@
     "RECEIVED": "Reçu",
     "CANCELED": "Annulé"
   },
+  "whatsNew": {
+    "title": "Nouveautés",
+    "gotIt": "J'ai compris",
+    "tryIt": "Essayer"
+  },
   "admin": {
     "administration": "Administration",
     "userManagement": "Gestion des utilisateurs",
@@ -678,6 +683,7 @@
     "referenceData": "Données de référence",
     "organizationSettings": "Paramètres de l'organisation",
     "databaseCleanup": "Nettoyage de la base de données",
+    "whatsNew": "Nouveautés",
     "departments": "Départements",
     "vendors": "Fournisseurs",
     "sites": "Sites",

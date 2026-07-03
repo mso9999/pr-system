@@ -103,6 +103,8 @@ export interface User {
   hrLastUpdatedAt?: string;
   /** Last time PR synced this user from HR (ISO 8601). */
   hrSyncedAt?: string;
+  /** Last time the user dismissed the "What's New" primer (ISO 8601). */
+  lastWhatsNewSeenAt?: string;
 }
 
 /**

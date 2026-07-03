@@ -716,6 +716,11 @@
     "RECEIVED": "Received",
     "CANCELED": "Canceled"
   },
+  "whatsNew": {
+    "title": "What's new",
+    "gotIt": "Got it",
+    "tryIt": "Try it"
+  },
   "admin": {
     "administration": "Administration",
     "userManagement": "User Management",
@@ -734,6 +739,7 @@
     "referenceData": "Reference Data",
     "organizationSettings": "Organization Settings",
     "databaseCleanup": "Database Cleanup",
+    "whatsNew": "What's New",
     "departments": "Departments",
     "vendors": "Vendors",
     "sites": "Sites",

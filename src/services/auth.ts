@@ -218,6 +218,7 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       hrLeadCountryCodes: Array.isArray(userData.hrLeadCountryCodes)
         ? userData.hrLeadCountryCodes.map((c: string) => String(c).toUpperCase())
         : undefined,
+      lastWhatsNewSeenAt: typeof userData.lastWhatsNewSeenAt === 'string' ? userData.lastWhatsNewSeenAt : undefined,
       permissions // Add permissions to user object
     };
   } catch (error) {

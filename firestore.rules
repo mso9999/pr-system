@@ -264,6 +264,12 @@ service cloud.firestore {
       allow delete: if isPrAdmin() || permLevel() == 3;
     }
 
+    // ── "What's New" login primer (org-independent) ─────────────────────
+    match /whatsNew/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update, delete: if isPrAdmin();
+    }
+
     // ── Catch-all: allow authenticated access to any other
     //    collection (referenceData_*, etc.) ───────────────────────
 

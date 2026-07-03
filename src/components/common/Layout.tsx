@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { RootState } from '@/store';
@@ -46,6 +46,9 @@ import { CompanyLogo } from './CompanyLogo';
 import { SidebarSearch } from './SidebarSearch';
 import { TutorialProvider, useTutorial } from '@/contexts/TutorialContext';
 import { TutorialPickerDialog } from '@/components/tutorial/TutorialPickerDialog';
+import { WhatsNewDialog } from '@/components/common/WhatsNewDialog';
+import { fetchUnseenWhatsNew, markWhatsNewSeen } from '@/services/whatsNew';
+import type { WhatsNewItem } from '@/types/whatsNew';
 
 const NavItem = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -73,6 +76,33 @@ const LayoutInner = () => {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
+
+  // ── "What's New" post-login primer ────────────────────────────────────
+  const [whatsNewItems, setWhatsNewItems] = useState<WhatsNewItem[]>([]);
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+  const whatsNewCheckedUid = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (whatsNewCheckedUid.current === user.id) return; // once per login session
+    whatsNewCheckedUid.current = user.id;
+    const roles = typeof user.permissionLevel === 'number' ? [user.permissionLevel] : [];
+    fetchUnseenWhatsNew(user.lastWhatsNewSeenAt, roles)
+      .then((items) => {
+        if (items.length > 0) {
+          setWhatsNewItems(items);
+          setWhatsNewOpen(true);
+        }
+      })
+      .catch((err) => console.warn('[whatsNew] fetch failed:', err));
+  }, [user?.id, user?.permissionLevel, user?.lastWhatsNewSeenAt]);
+
+  const handleWhatsNewClose = () => {
+    setWhatsNewOpen(false);
+    if (user?.id) {
+      markWhatsNewSeen(user.id).catch((err) => console.warn('[whatsNew] markSeen failed:', err));
+    }
+  };
 
   // Auto-close drawer on mobile when route changes
   useEffect(() => {
@@ -373,6 +403,11 @@ const LayoutInner = () => {
         <Outlet />
       </Box>
       <TutorialPickerDialog />
+      <WhatsNewDialog
+        open={whatsNewOpen}
+        items={whatsNewItems}
+        onClose={handleWhatsNewClose}
+      />
       {isProfileOpen && (
         <UserProfile
           isOpen={isProfileOpen}
