@@ -1436,8 +1436,10 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                   <Typography variant="body2">
                     Name, email, and HR metadata are owned by the HR portal and synced
                     automatically. Edit them in HR, then use <strong>Sync HR Now</strong>
-                    or the row refresh button. PR still controls organization, permission
-                    level, multi-department appointments, HR-Lead role, and the active flag.
+                    or the row refresh button. Identity, permission level, and the active
+                    flag are managed in the{' '}
+                    <a href="https://nexus.1pwrafrica.com" target="_blank" rel="noreferrer">Nexus admin</a>.
+                    PR controls organization, multi-department appointments, and the HR-Lead role.
                   </Typography>
                   <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {editingUser.hrStatus && (
@@ -1724,7 +1726,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                   value={formData.permissionLevel ?? ''}
                   onChange={(e) => setFormData({ ...formData, permissionLevel: Number(e.target.value) })}
                   label="Permission Level"
-                  disabled={isProcurement}
+                  disabled={isProcurement || !!editingUser}
                   displayEmpty
                 >
                   {permissionsLoading && (
@@ -1744,6 +1746,13 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                         </MenuItem>
                       ))}
                 </Select>
+                {editingUser && (
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Identity, permission level, and the active flag are managed in the{' '}
+                    <a href="https://nexus.1pwrafrica.com" target="_blank" rel="noreferrer">Nexus admin</a>.
+                    PR edits profile fields only.
+                  </Typography>
+                )}
               </FormControl>
               {permissionsWarning && (
                 <Alert severity="warning" sx={{ mt: 1 }}>

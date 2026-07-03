@@ -10,7 +10,10 @@ import {
 import { db } from '../config/firebase';
 import type { WhatsNewItem, WhatsNewItemInput } from '../types/whatsNew';
 
-const COLL = 'whatsNew';
+// Phase 2.3: consolidated into the unified nexus_whats_new collection
+// (shared with the Nexus portal). PR admins write via isNexusAdmin() — which
+// the nexus_users backfill satisfies for PR permLevel-1 users.
+const COLL = 'nexus_whats_new';
 
 /** First-time users (no lastWhatsNewSeenAt) see items from the last N days. */
 const FIRST_TIME_WINDOW_DAYS = 90;

@@ -227,6 +227,22 @@ async function provisionUser(emp, resolver, report, now) {
             // Admin assigns organization after reviewing the reconciliation report.
             createdAt: now, updatedAt: now }, patch);
         await db.doc(`users/${uid}`).set(userDoc, { merge: true });
+        // Phase 2: mirror identity + PR systemAccess into nexus_users (canonical
+        // identity store). Merge so we don't clobber systemAccess.hr/am/jobcards
+        // written by other systems. Admin SDK bypasses rules.
+        await db.doc(`nexus_users/${uid}`).set({
+            uid,
+            email,
+            firstName,
+            lastName,
+            displayName: emp.name || undefined,
+            isActive: true,
+            systemAccess: {
+                pr: { enabled: true, permissionLevel: DEFAULT_PROVISIONED_LEVEL, role: null },
+            },
+            sources: ["hr"],
+            updatedAt: now,
+        }, { merge: true });
         report.provisioned.push({ uid, email, employeeId: emp.employee_id || "" });
         report.totals.provisioned++;
         if (createdNow) {
@@ -277,6 +293,20 @@ async function updateMatchedUser(uid, existing, emp, resolver, report, now) {
         patch.email = newEmail;
     }
     await db.doc(`users/${uid}`).set(Object.assign(Object.assign({}, patch), { updatedAt: now }), { merge: true });
+    // Phase 2: keep nexus_users identity in sync (email/name). Merge so we don't
+    // touch systemAccess or other systems' fields.
+    const nexusPatch = { updatedAt: now };
+    if (patch.email)
+        nexusPatch.email = patch.email;
+    if (patch.firstName)
+        nexusPatch.firstName = patch.firstName;
+    if (patch.lastName)
+        nexusPatch.lastName = patch.lastName;
+    if (patch.hrStatus === "inactive") {
+        nexusPatch.isActive = false;
+        nexusPatch.systemAccess = { pr: { enabled: false } };
+    }
+    await db.doc(`nexus_users/${uid}`).set(nexusPatch, { merge: true });
     report.matched.push({ uid, email: newEmail || existingEmail, employeeId: emp.employee_id || "", emailChanged });
     report.totals.matched++;
 }

@@ -58,7 +58,7 @@ import {
 
 import { httpsCallable } from 'firebase/functions';
 import { db, functions } from '../config/firebase';
-import { User } from '../types/user';
+import { User, UserPermissions } from '../types/user';
 import { store } from '../store';
 import { setUser, clearUser, setLoading, setError } from '../store/slices/authSlice';
 import { normalizeOrganizationId } from '@/utils/organization';
@@ -165,24 +165,79 @@ export const signOut = async (): Promise<void> => {
   }
 };
 
+// Phase 2: PR reads identity + permissions from nexus_users/{uid} (canonical)
+// and PR-profile fields from users/{uid} (profile extension). If a user has no
+// nexus_users doc yet (pre-backfill / drift), falls back to the legacy users-only
+// path so nobody gets locked out. Flip READ_NEXUS_IDENTITY to false to roll back.
+const READ_NEXUS_IDENTITY = true;
+
 export const getUserDetails = async (uid: string): Promise<User> => {
   try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (!userDoc.exists()) {
-      throw new Error('User not found');
+    // Profile extension (PR-owned): organization, dept memberships, HR-lead scope,
+    // lastWhatsNewSeenAt, etc. Always read if present.
+    const prSnap = await getDoc(doc(db, 'users', uid));
+    const pr = prSnap.exists() ? prSnap.data() : {};
+
+    let permissionLevel: number;
+    let email: string | undefined;
+    let firstName: string | undefined;
+    let lastName: string | undefined;
+    let isActive: boolean | undefined;
+    let role: string | undefined;
+    let usedNexusIdentity = false;
+
+    if (READ_NEXUS_IDENTITY) {
+      const nexusSnap = await getDoc(doc(db, 'nexus_users', uid));
+      if (nexusSnap.exists()) {
+        const nx = nexusSnap.data() as Record<string, any>;
+        const prAccess = nx?.systemAccess?.pr ?? {};
+        const nxPerm = typeof prAccess.permissionLevel === 'number'
+          ? prAccess.permissionLevel
+          : typeof prAccess.permissionLevel === 'string'
+            ? Number(prAccess.permissionLevel) || 5
+            : 5;
+        const nxEnabled = prAccess.enabled !== false;
+        const nxActive = nx?.isActive === true;
+
+        // Gate sign-in: deny if Nexus has disabled PR access.
+        if (!nxActive || !nxEnabled) {
+          throw new Error('PR access disabled. Contact your Nexus administrator.');
+        }
+
+        permissionLevel = nxPerm;
+        email = nx.email ?? pr.email;
+        firstName = nx.firstName ?? pr.firstName;
+        lastName = nx.lastName ?? pr.lastName;
+        isActive = true;
+        role = pr.role ?? prAccess.role;
+        usedNexusIdentity = true;
+      }
     }
-    const userData = userDoc.data();
-    const permissionLevel =
-      typeof userData.permissionLevel === 'number'
-        ? userData.permissionLevel
-        : typeof userData.permissionLevel === 'string'
-          ? Number(userData.permissionLevel) || 5
-          : 5;
-    
+
+    if (!usedNexusIdentity) {
+      // Legacy fallback: identity + perm come from users/{uid}.
+      if (!prSnap.exists()) {
+        throw new Error('User not found');
+      }
+      const userData = pr;
+      permissionLevel =
+        typeof userData.permissionLevel === 'number'
+          ? userData.permissionLevel
+          : typeof userData.permissionLevel === 'string'
+            ? Number(userData.permissionLevel) || 5
+            : 5;
+      email = userData.email;
+      firstName = userData.firstName;
+      lastName = userData.lastName;
+      role = userData.role;
+      isActive = userData.isActive;
+    }
+
+    const userData = pr;
+
     // If the user's organization is 'Codeium', update it to a default organization
     if (userData.organization === 'Codeium') {
       console.log('Found default organization, updating to 1PWR LESOTHO');
-      // Update the user's organization in Firestore
       await updateDoc(doc(db, 'users', uid), {
         organization: '1PWR LESOTHO',
         updatedAt: new Date().toISOString()
@@ -199,15 +254,15 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       canViewReports: permissionLevel <= 4, // Levels 1-4 can view reports
       approvalLimit: getApprovalLimit(permissionLevel)
     };
-    
+
     return {
       id: uid,
-      email: userData.email,
-      firstName: userData.firstName,
-      lastName: userData.lastName,
-      role: userData.role,
+      email,
+      firstName,
+      lastName,
+      role,
       organization: userData.organization,
-      isActive: userData.isActive,
+      isActive,
       permissionLevel,
       additionalOrganizations: userData.additionalOrganizations || [],
       multiDepartmentAppointmentsEnabled: userData.multiDepartmentAppointmentsEnabled === true,

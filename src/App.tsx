@@ -29,6 +29,7 @@ import "./App.css";
 import { TestEmail } from './components/TestEmail';
 import { SupplierHistoryView } from './components/suppliers/SupplierHistoryView';
 import { ProvisioningWizard } from './components/provisioning/ProvisioningWizard';
+import { NexusSSOHandler } from './components/common/NexusSSOHandler';
 
 function App() {
   console.log('App: Component rendering');
@@ -86,6 +87,7 @@ function App() {
           <CircularProgress />
         </Box>} persistor={persistor}>
           <Router>
+            <NexusSSOHandler />
             <Routes>
               <Route path="/login" element={
                 loading ? (
