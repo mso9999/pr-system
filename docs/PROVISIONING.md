@@ -135,6 +135,47 @@ npm run build
 
 The wizard is reachable at `/provisioning` (nav: "Field Camp Provisioning").
 
+## Provisioning Studio (admin/procurement CRUD)
+
+The catalog is maintained through a permission-gated **Provisioning Studio** in the Admin
+Dashboard (tab: "Provisioning Studio"), visible to ADMIN, PROC, FIN_AD and FIN_APPROVER.
+All writes route through callable Cloud Functions in
+`functions/src/provisioning/provisioningAdmin.ts`, which enforce permission server-side
+via the Admin SDK (bypassing Firestore rules — independent of the Nexus-owned ruleset):
+
+| Collection | Write access |
+|---|---|
+| `referenceData_rations` | ADMIN, PROC |
+| `referenceData_provisioningMenus` | ADMIN, PROC |
+| `referenceData_rationPrices` | ADMIN, PROC, FIN_AD, FIN_APPROVER |
+| `referenceData_provisioningDefaults` | ADMIN |
+
+Functions exported: `listProvisioningCatalog`, `saveProvisioningRation`,
+`retireProvisioningRation`, `saveProvisioningPrice`, `retireProvisioningPrice`,
+`saveProvisioningDefaults`, `saveProvisioningMenu`. Deploy with
+`cd functions && npm run build && firebase deploy --only functions`.
+
+The studio provides a guided editor per org (Rations / Menu / Defaults / Prices tabs) and
+a live **Nutrition check** tab that runs the shared engine (`computeNutrition` /
+`computeNutritionBreakdown`) against the active catalog + the org's nutrition targets,
+showing MEETS / REVIEW per target and a per-item breakdown — so procurement can confirm
+"the calories work out" before saving. Retiring a ration soft-deletes it (`active=false`,
+preserving historical plan snapshots) and retires its price rows.
+
+### Multi-region: Benin (West Africa)
+
+Each org owns an independent pantry. A starter Benin catalog (`1pwr_benin`, XOF, BJ) is
+seeded from `src/utils/provisioningSeedDataBenin.ts` — West-African staples (rice, maize,
+gari, yam, plantain), palm oil as the primary cooking fat, cowpea/smoked-fish/groundnut
+protein, pili-pili and bouillon seasoning, and a 7-day Benin menu. Indicative XOF prices
+are meant to be refined via the studio. The seed also upserts the `1pwr_benin` org doc.
+
+```
+NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run seed-benin-rations -- --dry-run
+# review, then:
+NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run seed-benin-rations
+```
+
 ## Testing
 
 ```

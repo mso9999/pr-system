@@ -55,6 +55,17 @@ export { prCatalogApi } from './prCatalogApi';
 // Fleet Hub mission client (used by the field-camp provisioning wizard)
 export { listFleetMissions, getFleetMission, fleetSmokeTest } from './fleet/fleetMissions';
 
+// Permission-gated provisioning catalog CRUD (ADMIN/PROC; bypasses Firestore rules via Admin SDK)
+export {
+  listProvisioningCatalog,
+  saveProvisioningRation,
+  retireProvisioningRation,
+  saveProvisioningPrice,
+  retireProvisioningPrice,
+  saveProvisioningDefaults,
+  saveProvisioningMenu,
+} from './provisioning/provisioningAdmin';
+
 // Helper function to ensure requestor name is properly set
 function ensureRequestorName(user: any, requestorEmail?: string): string {
     console.log('ensureRequestorName input:', { user, requestorEmail });

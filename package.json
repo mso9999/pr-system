@@ -36,6 +36,7 @@
     "sync-department-catalog": "tsx scripts/sync-department-catalog.ts",
     "seed-countries": "tsx scripts/seed-countries.ts",
   "seed-rations": "tsx scripts/seed-rations.ts",
+  "seed-benin-rations": "tsx scripts/seed-benin-rations.ts",
   "seed-whats-new": "tsx scripts/seed-whats-new.ts"
   },
   "dependencies": {

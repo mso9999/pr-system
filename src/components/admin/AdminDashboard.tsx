@@ -5,6 +5,7 @@ import { ReferenceDataManagement } from "./ReferenceDataManagement"
 import { OrganizationConfig } from "./OrganizationConfig"
 import { DatabaseCleanup } from "./DatabaseCleanup"
 import { WhatsNewManagement } from "./WhatsNewManagement"
+import { ProvisioningStudio } from "./ProvisioningStudio"
 import { useOutletContext } from "react-router-dom"
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
@@ -56,6 +57,9 @@ export function AdminDashboard() {
   const permissionName = user?.permissionLevel ? PERMISSION_NAMES[user.permissionLevel] : '';
   const isSuperadmin = user?.permissionLevel === PERMISSION_LEVELS.ADMIN;
   const isUserAdmin = user?.permissionLevel === PERMISSION_LEVELS.USER_ADMIN;
+  const PROVISIONING_EDIT_LEVELS: number[] = [PERMISSION_LEVELS.ADMIN, PERMISSION_LEVELS.PROC, PERMISSION_LEVELS.FIN_AD, PERMISSION_LEVELS.FIN_APPROVER];
+  const canSeeProvisioningStudio = user?.permissionLevel != null
+    && PROVISIONING_EDIT_LEVELS.includes(user.permissionLevel);
   
   // Initialize from localStorage or default to 0
   const [value, setValue] = useState(() => {
@@ -102,6 +106,9 @@ export function AdminDashboard() {
           {isSuperadmin && (
             <Tab label={t('admin.whatsNew', "What's New")} {...a11yProps(4)} />
           )}
+          {canSeeProvisioningStudio && (
+            <Tab label={t('admin.provisioningStudio', 'Provisioning Studio')} {...a11yProps(5)} />
+          )}
         </Tabs>
       </Box>
 
@@ -134,6 +141,12 @@ export function AdminDashboard() {
       {isSuperadmin && (
         <TabPanel value={value} index={4}>
           <WhatsNewManagement />
+        </TabPanel>
+      )}
+
+      {canSeeProvisioningStudio && (
+        <TabPanel value={value} index={5}>
+          <ProvisioningStudio />
         </TabPanel>
       )}
     </Box>
