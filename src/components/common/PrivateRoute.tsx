@@ -37,8 +37,39 @@ export const PrivateRoute = ({ requiredRoles }: PrivateRouteProps) => {
   }
 
   if (!user) {
-    console.log('PrivateRoute: No user, redirecting to login');
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    const search = new URLSearchParams(window.location.search);
+    // NexusSSOHandler is still consuming ?sso_token= — don't redirect away mid-sign-in.
+    if (search.get('sso_token') && search.get('from') === 'nexus') {
+      return (
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            height: '100vh',
+            bgcolor: 'background.default'
+          }}
+        >
+          <CircularProgress />
+          <Typography variant="h6" sx={{ mt: 2 }}>
+            Signing you in...
+          </Typography>
+        </Box>
+      );
+    }
+    // Emergency fallback: local login form stays reachable via ?fallback=1
+    // (e.g. Nexus outage). Normal path is Nexus-centralized auth.
+    if (search.get('fallback') === '1') {
+      console.log('PrivateRoute: No user, fallback=1 -> local login');
+      return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+    console.log('PrivateRoute: No user, redirecting to Nexus SSO');
+    window.location.replace(
+      'https://nexus.1pwrafrica.com/sso/authorize?tool=pr&redirect_uri=' +
+        encodeURIComponent(window.location.href)
+    );
+    return null;
   }
 
   if (error) {
