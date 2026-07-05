@@ -9,6 +9,16 @@ import { useTranslation } from 'react-i18next';
 import LanguageToggle from '../common/LanguageToggle';
 
 export const LoginPage = () => {
+  // Centralized auth: the local form is an emergency fallback only
+  // (?fallback=1, e.g. Nexus outage). Normal sign-in happens at Nexus.
+  if (new URLSearchParams(window.location.search).get('fallback') !== '1') {
+    window.location.replace(
+      'https://nexus.1pwrafrica.com/sso/authorize?tool=pr&redirect_uri=' +
+        encodeURIComponent(window.location.origin + '/dashboard')
+    );
+    return null;
+  }
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   const dispatch = useDispatch();
   const { t } = useTranslation();
   const location = useLocation();

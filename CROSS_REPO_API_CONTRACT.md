@@ -56,3 +56,13 @@ Firestore rules are canonical in `nexus-portal/firestore.rules`.
 - Additive field changes only to catalog item shapes; consumers (AM) cache fields
   and a removal would silently drop data.
 - New catalog endpoints: register here + in the master ownership map.
+
+## Nexus SSO (centralized auth)
+
+Nexus (`nexus.1pwrafrica.com`) is the IdP. Unauthenticated users are redirected
+by `PrivateRoute.tsx` to `/sso/authorize?tool=pr&redirect_uri=<current URL>`;
+the return token (`?sso_token=&from=nexus`) is consumed by
+`NexusSSOHandler.tsx` via `signInWithCustomToken` (same `pr-system-4ea55`
+project). **Emergency fallback:** the local login stays reachable at
+`/login?fallback=1` (Firebase email/password). Full flow + outage procedure:
+`nexus-portal/docs/NEXUS_AUTH_RUNBOOK.md`.

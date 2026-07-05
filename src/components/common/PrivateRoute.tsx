@@ -62,7 +62,7 @@ export const PrivateRoute = ({ requiredRoles }: PrivateRouteProps) => {
     // (e.g. Nexus outage). Normal path is Nexus-centralized auth.
     if (search.get('fallback') === '1') {
       console.log('PrivateRoute: No user, fallback=1 -> local login');
-      return <Navigate to="/login" state={{ from: location }} replace />;
+      return <Navigate to="/login?fallback=1" state={{ from: location }} replace />;
     }
     console.log('PrivateRoute: No user, redirecting to Nexus SSO');
     window.location.replace(
