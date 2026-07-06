@@ -1,12 +1,9 @@
 import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { db } from '../../config/firebase';
 import { User } from '../../types/user';
 import { PRStatus, PRRequest } from '../../types/pr';
 import { NotificationContext } from './types';
 import { getTransitionHandler } from './transitions';
-
-const functions = getFunctions();
 
 /**
  * Notification Service class
@@ -19,49 +16,8 @@ export class NotificationService {
   private readonly retryDelay = 1000; // 1 second
 
   /**
-   * Get the appropriate cloud function for a status transition
-   */
-  private getCloudFunction(oldStatus: PRStatus | null, newStatus: PRStatus): Function {
-    const transitionKey = `${oldStatus || 'NEW'}->${newStatus}`;
-    
-    // Default to the generic notification function for transitions that don't have a specific handler
-    let cloudFunction: Function;
-    
-    // Map specific transitions to their dedicated cloud functions
-    switch (transitionKey) {
-      case 'NEW->SUBMITTED':
-        cloudFunction = httpsCallable(functions, 'sendPRNotificationV2');
-        break;
-      case 'SUBMITTED->REVISION_REQUIRED':
-        cloudFunction = httpsCallable(functions, 'sendRevisionRequiredNotification');
-        break;
-      case 'REVISION_REQUIRED->SUBMITTED':
-        cloudFunction = httpsCallable(functions, 'sendPRNotificationV2'); // Fallback to generic
-        break;
-      case 'SUBMITTED->PENDING_APPROVAL':
-        cloudFunction = httpsCallable(functions, 'sendPRNotificationV2'); // Fallback to generic
-        break;
-      case 'IN_QUEUE->PENDING_APPROVAL':
-        cloudFunction = httpsCallable(functions, 'sendPRNotificationV2'); // Fallback to generic
-        break;
-      case 'PENDING_APPROVAL->APPROVED':
-        cloudFunction = httpsCallable(functions, 'sendPRNotificationV2'); // Fallback to generic
-        break;
-      case 'PENDING_APPROVAL->REJECTED':
-        cloudFunction = httpsCallable(functions, 'sendPRNotificationV2'); // Fallback to generic
-        break;
-      default:
-        cloudFunction = httpsCallable(functions, 'sendPRNotificationV2'); // Generic fallback
-    }
-
-    console.log(`Using cloud function for transition ${transitionKey}:`, cloudFunction.name || 'Anonymous Function');
-    
-    return cloudFunction;
-  }
-
-  /**
    * Gets a PR document from Firestore
-   * 
+   *
    * @param prId PR ID
    * @returns PR document data
    */
@@ -142,27 +98,55 @@ export class NotificationService {
       const recipients = await handler.getRecipients(context);
       const emailContent = await handler.getEmailContent(context);
 
-      // Get the appropriate cloud function
-      const cloudFunction = this.getCloudFunction(oldStatus, newStatus);
-
-      // Try to send the notification with retries
+      // Try to send the notification with retries.
+      //
+      // The old flow called the `sendPRNotificationV2` callable, but that
+      // function was removed from the Cloud Functions deploy (deleted from the
+      // pr-system-4ea55 project on 2026-07-03) — so every status transition
+      // (approve, reject, submit, etc. — everything except SUBMITTED→REVISION_REQUIRED)
+      // was failing with `functions/not-found`, which surfaced to approvers as a
+      // "Failed to update PR status" error even though the PR itself had already
+      // been updated successfully.
+      //
+      // The replacement is the `processNotifications` Firestore trigger
+      // (functions/src/index.ts), which fires on documents written to the
+      // `notifications` collection and sends the email server-side. So we write
+      // the notification doc directly with the exact payload the trigger expects
+      // (recipients / cc / notification / emailBody), and let it do the send.
+      // This also keeps the write within Firestore rules (notifications.create
+      // is allowed for any authenticated user).
       for (let attempts = 1; attempts <= this.maxRetries; attempts++) {
         try {
-          const result = await cloudFunction({
-            prId: context.prId,
-            prNumber: context.prNumber,
-            user: context.user ? {
-              email: context.user.email,
-              name: `${context.user.firstName} ${context.user.lastName}`.trim()
-            } : null,
-            notes: context.notes,
-            metadata: context.metadata,
-            recipients: recipients.to,
-            cc: recipients.cc,
-            emailContent
-          });
+          const notificationDoc = {
+            recipients: recipients.to || [],
+            cc: recipients.cc || [],
+            notification: {
+              prId: context.prId,
+              prNumber: context.prNumber,
+              user: context.user ? {
+                email: context.user.email,
+                name: `${context.user.firstName} ${context.user.lastName}`.trim()
+              } : null,
+              type: 'STATUS_CHANGE',
+              metadata: {
+                ...(context.metadata || {}),
+                oldStatus: context.oldStatus,
+                newStatus: context.newStatus,
+                notes: context.notes,
+              },
+            },
+            emailBody: {
+              subject: emailContent.subject,
+              text: emailContent.text,
+              html: emailContent.html,
+            },
+            status: 'pending',
+            createdAt: serverTimestamp(),
+          };
 
-          console.log('Notification sent successfully:', result);
+          const docRef = await addDoc(collection(db, this.notificationsCollection), notificationDoc);
+
+          console.log('Notification queued (trigger will send):', docRef.id);
 
           // Save notification to Firestore
           await this.logNotification(
