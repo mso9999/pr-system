@@ -109,8 +109,10 @@ export class NotificationService {
       
       return notificationDoc.id;
     } catch (error) {
-      console.error('Error logging notification:', error);
-      throw error;
+      // Logging must never block the business action (approve/push/etc.) or
+      // the notification email written after it — swallow and continue.
+      console.warn('Error logging notification (non-fatal):', error);
+      return '';
     }
   }
 
@@ -1118,6 +1120,7 @@ export class NotificationService {
    * Updates the status of a notification in Firestore
    */
   async updateNotificationStatus(notificationId: string, status: string, metadata?: Record<string, any>): Promise<void> {
+    if (!notificationId) return; // log entry was never created (non-fatal logging failure)
     try {
       const notificationRef = doc(db, 'notificationLogs', notificationId);
       

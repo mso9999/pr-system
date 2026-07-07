@@ -187,8 +187,15 @@ export const getUserDetails = async (uid: string): Promise<User> => {
     let usedNexusIdentity = false;
 
     if (READ_NEXUS_IDENTITY) {
-      const nexusSnap = await getDoc(doc(db, 'nexus_users', uid));
-      if (nexusSnap.exists()) {
+      // A denied/failed nexus_users read must not break user display — fall
+      // back to the legacy users doc (same as when the nexus doc is missing).
+      let nexusSnap: Awaited<ReturnType<typeof getDoc>> | null = null;
+      try {
+        nexusSnap = await getDoc(doc(db, 'nexus_users', uid));
+      } catch (nexusReadError) {
+        console.warn(`nexus_users read failed for ${uid}, falling back to users doc:`, nexusReadError);
+      }
+      if (nexusSnap && nexusSnap.exists()) {
         const nx = nexusSnap.data() as Record<string, any>;
         const prAccess = nx?.systemAccess?.pr ?? {};
         const nxPerm = typeof prAccess.permissionLevel === 'number'

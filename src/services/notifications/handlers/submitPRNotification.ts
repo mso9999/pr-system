@@ -235,30 +235,36 @@ export class SubmitPRNotificationHandler {
         };
       }
       
-      // Also check in the notificationLogs collection
-      const notificationLogsRef = collection(db, 'notificationLogs');
-      const notificationLogsQuery = query(
-        notificationLogsRef,
-        where('notification.prId', '==', pr.id),
-        where('type', '==', 'PR_SUBMITTED'),
-        where('status', '==', 'sent'),
-        // Only check logs from the last hour to avoid issues with very old notifications
-        where('timestamp', '>=', new Date(Date.now() - 60 * 60 * 1000))
-      );
-      
-      const notificationLogsSnapshot = await getDocs(notificationLogsQuery);
-      if (!notificationLogsSnapshot.empty) {
-        console.warn('PR submission notification already exists in notificationLogs, skipping duplicate', { 
-          prId: pr.id, 
-          prNumber,
-          existingNotifications: notificationLogsSnapshot.size,
-          existingNotificationIds: notificationLogsSnapshot.docs.map(d => d.id)
-        });
-        return { 
-          success: true, 
-          message: 'Notification already sent via logs - duplicate prevented',
-          notificationId: notificationLogsSnapshot.docs[0].id
-        };
+      // Also check in the notificationLogs collection. This is a best-effort
+      // duplicate guard: if the query is denied (reads are admin-only) or
+      // needs a missing index, proceed rather than blocking the notification.
+      try {
+        const notificationLogsRef = collection(db, 'notificationLogs');
+        const notificationLogsQuery = query(
+          notificationLogsRef,
+          where('notification.prId', '==', pr.id),
+          where('type', '==', 'PR_SUBMITTED'),
+          where('status', '==', 'sent'),
+          // Only check logs from the last hour to avoid issues with very old notifications
+          where('timestamp', '>=', new Date(Date.now() - 60 * 60 * 1000))
+        );
+
+        const notificationLogsSnapshot = await getDocs(notificationLogsQuery);
+        if (!notificationLogsSnapshot.empty) {
+          console.warn('PR submission notification already exists in notificationLogs, skipping duplicate', {
+            prId: pr.id,
+            prNumber,
+            existingNotifications: notificationLogsSnapshot.size,
+            existingNotificationIds: notificationLogsSnapshot.docs.map(d => d.id)
+          });
+          return {
+            success: true,
+            message: 'Notification already sent via logs - duplicate prevented',
+            notificationId: notificationLogsSnapshot.docs[0].id
+          };
+        }
+      } catch (dedupeError) {
+        console.warn('notificationLogs duplicate check failed (non-fatal):', dedupeError);
       }
       
       console.log('No existing notifications found, proceeding to create new notification for PR:', pr.id);
