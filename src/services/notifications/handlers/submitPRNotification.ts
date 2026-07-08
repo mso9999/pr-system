@@ -1,4 +1,3 @@
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc, updateDoc } from 'firebase/firestore';
 import { db } from '@/config/firebase';
 import { generateNewPREmail } from '../templates/newPRSubmitted';
@@ -7,8 +6,6 @@ import { NotificationContext } from '@/services/notifications/types';
 import { resolveRequestSideNotificationEmail } from '@/services/notifications/resolveRequestSideEmail';
 import { getEnvironmentConfig } from '@/config/environment';
 // import { logger } from '@/utils/logger';
-
-const functions = getFunctions();
 
 export class SubmitPRNotificationHandler {
   private readonly DEFAULT_PROCUREMENT_EMAIL = 'procurement@1pwrafrica.com';

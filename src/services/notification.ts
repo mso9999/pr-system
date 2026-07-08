@@ -30,7 +30,6 @@
  * - Dead letter queue for undeliverable notifications
  */
 
-import { getFunctions, httpsCallable } from 'firebase/functions';
 import { collection, addDoc, doc, getDoc, serverTimestamp, query, where, getDocs, Timestamp, updateDoc, FieldValue } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { UserReference } from '../types/pr';
@@ -51,7 +50,6 @@ import {
   getDirectRequestorEmail,
 } from './notifications/resolveRequestSideEmail';
 
-const functions = getFunctions();
 
 /**
  * Notification Service class
@@ -439,22 +437,33 @@ export class NotificationService {
 
       // Log notification with both approver and procurement
       await this.logNotification(
-        'APPROVAL_REQUESTED', 
-        prId, 
+        'APPROVAL_REQUESTED',
+        prId,
         [approverEmail, this.PROCUREMENT_EMAIL]
       );
 
-      // Send notification via cloud function
-      const sendApproverNotification = httpsCallable(functions, 'sendApproverNotification');
-      await sendApproverNotification({
-        prId,
-        prNumber,
-        approverId,
+      // Queue the email via the processNotifications Firestore trigger (writes a
+      // notifications doc; the trigger does the SMTP send). The old
+      // `sendApproverNotification` callable was removed from the functions deploy.
+      await addDoc(collection(db, 'notifications'), {
         recipients: [approverEmail],
-        cc: [this.PROCUREMENT_EMAIL] // Always CC procurement
+        cc: [this.PROCUREMENT_EMAIL],
+        notification: {
+          prId,
+          prNumber,
+          approverId,
+          type: 'APPROVAL_REQUESTED',
+        },
+        emailBody: {
+          subject: `PR #${prNumber} requires your approval`,
+          text: `PR #${prNumber} requires your approval. View at https://pr.1pwrafrica.com/pr/${prId}`,
+          html: `<p>PR #${prNumber} requires your approval.</p><p><a href="https://pr.1pwrafrica.com/pr/${prId}">View PR</a></p>`,
+        },
+        status: 'pending',
+        createdAt: serverTimestamp(),
       });
 
-      console.log('Approver notification sent successfully');
+      console.log('Approver notification queued');
     } catch (error) {
       console.error('Error sending approver notification:', error);
       throw new Error('Failed to send approver notification');
@@ -492,15 +501,23 @@ export class NotificationService {
         'pending'
       );
 
-      // Send email via Cloud Function
-      const sendEmailNotification = httpsCallable(functions, 'sendEmailNotification');
-      await sendEmailNotification({ 
+      // Queue via the processNotifications Firestore trigger. The old
+      // `sendEmailNotification` callable was removed from the functions deploy.
+      await addDoc(collection(db, 'notifications'), {
+        recipients: [userData.email],
+        cc: [],
         notification: {
           type: 'CUSTOM',
           prId,
           message,
-          timestamp: serverTimestamp()
-        }
+        },
+        emailBody: {
+          subject: `PR notification`,
+          text: message,
+          html: `<p>${message}</p>`,
+        },
+        status: 'pending',
+        createdAt: serverTimestamp(),
       });
 
     } catch (error) {
@@ -1051,11 +1068,18 @@ export class NotificationService {
 
       // Log notification to Firestore
       const notificationId = await this.logNotification(notification.type, notification.prId, notification.recipients || [], 'pending');
-      
-      // Directly call the Cloud Function to send the email
+
+      // Write a notifications doc that the processNotifications Firestore trigger
+      // (functions/src/index.ts) picks up and emails server-side. The old flow
+      // called the `sendPRNotificationV2` callable, but that function was removed
+      // from the pr-system-4ea55 Cloud Functions project (deleted 2026-07-03),
+      // so every call failed silently and the email never sent. The trigger is
+      // the canonical replacement — it expects { recipients, cc, notification,
+      // emailBody } and does the SMTP send itself.
       try {
-        const sendPRNotificationV2 = httpsCallable(functions, 'sendPRNotificationV2');
-        const result = await sendPRNotificationV2({
+        await addDoc(collection(db, 'notifications'), {
+          recipients,
+          cc: ccList,
           notification: {
             prId: pr.id,
             prNumber,
@@ -1078,18 +1102,22 @@ export class NotificationService {
               isUrgent: pr.isUrgent || false
             }
           },
-          recipients,
-          cc: ccList, // Pass the CC list
-          emailBody: emailContent
+          emailBody: {
+            subject: emailContent.subject,
+            text: emailContent.text,
+            html: emailContent.html,
+          },
+          status: 'pending',
+          createdAt: serverTimestamp(),
         });
-        
-        console.log('Email notification sent successfully:', result);
-        
+
+        console.log('Notification queued (processNotifications trigger will send)');
+
         // Update notification status in Firestore
         await this.updateNotificationStatus(notificationId, 'sent');
       } catch (error) {
-        console.error('Error sending email notification:', error);
-        
+        console.error('Error queuing email notification:', error);
+
         // Update notification status in Firestore
         await this.updateNotificationStatus(notificationId, 'error', { error: error instanceof Error ? error.message : String(error) });
       }
