@@ -31,7 +31,7 @@
  */
 
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { collection, addDoc, doc, getDoc, serverTimestamp, query, where, getDocs, Timestamp, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, getDoc, serverTimestamp, query, where, getDocs, Timestamp, updateDoc, FieldValue } from 'firebase/firestore';
 import { db } from '../config/firebase';
 import { UserReference } from '../types/pr';
 import { PRStatus, PRRequest } from '../types/pr';
@@ -338,12 +338,12 @@ export class NotificationService {
             .filter(item => item !== '__UNDEFINED__');
         }
         if (typeof obj === 'object' && obj !== null) {
-          // Check if it's a Firestore special value (like serverTimestamp)
-          if (obj.constructor && obj.constructor.name && 
-              (obj.constructor.name.includes('FieldValue') || 
-               obj.constructor.name === 'Timestamp' ||
-               typeof obj.toMillis === 'function')) {
-            return obj; // Don't clean Firestore special values
+          // Firestore sentinels/values must pass through untouched. instanceof
+          // is required here: constructor.name checks break under minification,
+          // which stored serverTimestamp() as {"_methodName":"serverTimestamp"}.
+          if (obj instanceof FieldValue || obj instanceof Timestamp ||
+              obj instanceof Date || typeof obj.toMillis === 'function') {
+            return obj;
           }
           
           const cleaned: any = {};

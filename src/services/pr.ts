@@ -505,13 +505,12 @@ export async function updatePRStatus(
           }
           // Handle objects (but not Firestore special types like serverTimestamp)
           if (typeof obj === 'object' && obj !== null) {
-            // Check if it's a Firestore special value (like serverTimestamp)
-            // These have special properties that indicate they're Firestore types
-            if (obj.constructor && obj.constructor.name && 
-                (obj.constructor.name.includes('FieldValue') || 
-                 obj.constructor.name === 'Timestamp' ||
-                 typeof obj.toMillis === 'function')) {
-              return obj; // Don't clean Firestore special values
+            // Firestore sentinels/values must pass through untouched. instanceof
+            // is required here: constructor.name checks break under minification,
+            // which stored serverTimestamp() as {"_methodName":"serverTimestamp"}.
+            if (obj instanceof FieldValue || obj instanceof Timestamp ||
+                obj instanceof Date || typeof obj.toMillis === 'function') {
+              return obj;
             }
             
             const cleaned: any = {};
@@ -595,6 +594,11 @@ export async function updatePR(prId: string, updateData: Partial<PRRequest>): Pr
         return obj.map(item => cleanUndefined(item));
       }
       if (typeof obj === 'object') {
+        // Firestore sentinels/values must pass through untouched (rebuilding
+        // them via key iteration destroys them, esp. in minified builds).
+        if (obj instanceof FieldValue || obj instanceof Timestamp || obj instanceof Date) {
+          return obj;
+        }
         const cleaned: any = {};
         Object.keys(obj).forEach(key => {
           const value = cleanUndefined(obj[key]);
@@ -1053,6 +1057,11 @@ export async function createPR(
           .filter(item => item !== undefined);
       }
       if (typeof obj === 'object') {
+        // Firestore sentinels/values must pass through untouched (rebuilding
+        // them via key iteration destroys them, esp. in minified builds).
+        if (obj instanceof FieldValue || obj instanceof Timestamp || obj instanceof Date) {
+          return obj;
+        }
         const cleaned: any = {};
         for (const key in obj) {
           const value = cleanUndefined(obj[key]);
