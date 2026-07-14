@@ -495,21 +495,27 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     return departments.find(d => d.id === deptId);
   };
 
-  // Load departments for a specific organization
-  const loadDepartmentsForOrg = async (organization: string) => {
-    console.log('Loading departments for organization:', organization);
+  // Load departments for a specific organization, plus any additional orgs
+  const loadDepartmentsForOrg = async (organization: string, additionalOrgs?: string[]) => {
+    console.log('Loading departments for organization:', organization, 'additional:', additionalOrgs);
     setIsDepartmentsLoading(true);
     
     try {
-      const loadedDepartments = await referenceDataService.getDepartments(organization);
-      console.log('Loaded departments:', loadedDepartments);
-      console.log('Available department values:', loadedDepartments.map(dept => ({
-        id: dept.id,
-        name: dept.name,
-        organization: dept.organization
-      })));
+      const orgsToLoad = [organization, ...(additionalOrgs || [])].filter(Boolean);
+      const allLoaded: ReferenceData[] = [];
+      const seenIds = new Set<string>();
+      for (const org of orgsToLoad) {
+        const loaded = await referenceDataService.getDepartments(org);
+        for (const dept of loaded) {
+          if (!seenIds.has(dept.id)) {
+            seenIds.add(dept.id);
+            allLoaded.push(dept);
+          }
+        }
+      }
+      console.log('Loaded departments:', allLoaded);
       
-      setDepartments(loadedDepartments);
+      setDepartments(allLoaded);
     } catch (error) {
       console.error('Error loading departments:', error);
       setDepartments([]);
@@ -566,7 +572,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
   // Load departments whenever organization changes in the form
   useEffect(() => {
     if (formData.organization) {
-      loadDepartmentsForOrg(formData.organization);
+      const additional = editingUser?.additionalOrganizations || formData.additionalOrganizations || [];
+      loadDepartmentsForOrg(formData.organization, additional);
     } else {
       setDepartments([]);
     }
