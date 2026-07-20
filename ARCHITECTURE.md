@@ -12,7 +12,7 @@ The PR System is a web-based purchase request management application built on Re
 - **React Router**: Navigation and routing
 
 ### Backend Services (Firebase)
-- **Authentication**: User management and role-based access
+- **Authentication**: Emergency fallback only — Nexus (`nexus.1pwrafrica.com`) is the primary Identity Provider via SSO. See "Nexus Integration" below.
 - **Firestore**: NoSQL database for PR data
 - **Cloud Functions**: Backend business logic
 - **Cloud Storage**: Document and attachment storage
@@ -27,11 +27,15 @@ The PR System is a web-based purchase request management application built on Re
    - Timestamps and metadata
 
 2. `users`
-   - User profiles
-   - Role assignments
-   - Organization affiliations
+   - PR-owned profile extension (organization, dept memberships, HR-lead scope)
+   - Role assignments (legacy fallback when no nexus_users doc exists)
 
-3. `organizations`
+3. `nexus_users` (owned by Nexus, mirrored by PR)
+   - Canonical identity store: `systemAccess.pr.{enabled, permissionLevel, role}`
+   - PR reads identity + permissions from here (Phase 2)
+   - HR sync writes identity fields via merge (does not clobber other systems' fields)
+
+4. `organizations`
    - Organization settings
    - PR number sequences
    - Approval workflows
@@ -73,15 +77,51 @@ src/
 ## Security Model
 
 ### Firebase Security Rules
+- Canonical rules live in `nexus-portal/firestore.rules` (not this repo)
 - Document-level security
 - Role-based access control
 - Organization-level isolation
 
 ### Authentication Flow
-1. User signs in
-2. Profile data fetched
-3. Role permissions applied
-4. Session management
+1. Unauthenticated user hits `PrivateRoute.tsx` → redirected to `https://nexus.1pwrafrica.com/sso/authorize?tool=pr&redirect_uri=<current URL>`
+2. Nexus authenticates user, mints Firebase custom token, redirects back with `?sso_token=&from=nexus`
+3. `NexusSSOHandler.tsx` consumes token via `signInWithCustomToken`
+4. `onAuthStateChanged` fires → `getUserDetails()` reads `nexus_users/{uid}` (canonical identity) + `users/{uid}` (PR profile extension)
+5. Role permissions applied, session established
+6. **Emergency fallback:** `/login?fallback=1` provides Firebase email/password sign-in (Nexus outage only)
+
+## Nexus Integration
+
+The PR system is a federated tool embedded in the Nexus platform (`nexus.1pwrafrica.com`). Key integration points:
+
+### SSO (Centralized Auth)
+- **IdP:** Nexus is the Identity Provider; PR delegates auth to Nexus
+- **Flow:** `PrivateRoute.tsx` → Nexus SSO → `NexusSSOHandler.tsx` → Firebase `signInWithCustomToken`
+- **Fallback:** Local Firebase email/password at `/login?fallback=1`
+- **Files:** `src/components/common/PrivateRoute.tsx`, `src/components/common/NexusSSOHandler.tsx`, `src/components/auth/LoginPage.tsx`
+
+### Identity (Phase 2)
+- **Canonical:** `nexus_users/{uid}.systemAccess.pr` — identity + permissions owned by Nexus
+- **Extension:** `users/{uid}` — PR-owned profile fields (organization, dept memberships, HR-lead scope)
+- **Fallback:** If no `nexus_users` doc exists, falls back to `users/{uid}` legacy path
+- **Flag:** `READ_NEXUS_IDENTITY` in `src/services/auth.ts` (set to `true`; flip to `false` to roll back)
+- **HR Sync:** `functions/src/hr/hrEmployeeSyncCore.ts` mirrors identity into `nexus_users` with merge writes
+
+### Firestore Rules
+- Canonical rules live in `nexus-portal/firestore.rules` (not this repo)
+- PR CI deploys **hosting only** — never deploy `firestore:rules` from this repo
+
+### Catalog APIs (consumed by Nexus)
+- PR exposes countries, organizations, sites, vendors via `prCatalogApi` Cloud Function
+- Nexus and AM consume these endpoints
+- Changes to item shapes must be additive only (consumers cache fields)
+- See `CROSS_REPO_API_CONTRACT.md` for full API contract
+
+### Cross-Repo References
+- `nexus-portal/docs/PR_NEXUS_COEXISTENCE_PLAN.md` — coexistence plan
+- `nexus-portal/docs/NEXUS_AUTH_RUNBOOK.md` — auth flow + outage procedure
+- `nexus-portal/docs/CANONICAL_DATA_OWNERSHIP.md` — master ownership map
+- `CROSS_REPO_API_CONTRACT.md` — API contracts between PR, Nexus, AM, HR, FM
 
 ## Integration Points
 

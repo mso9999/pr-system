@@ -223,6 +223,9 @@ export const getUserDetails = async (uid: string): Promise<User> => {
 
     if (!usedNexusIdentity) {
       // Legacy fallback: identity + perm come from users/{uid}.
+      // R9 Retirement: after 30 days of no fallback hits, remove this path
+      // and set READ_NEXUS_IDENTITY permanent (remove the flag).
+      console.warn(`[auth.ts] R9 Fallback: nexus_users doc missing for uid=${uid}, using legacy users doc`);
       if (!prSnap.exists()) {
         throw new Error('User not found');
       }

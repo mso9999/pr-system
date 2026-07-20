@@ -1,6 +1,6 @@
 # 1PWR Procurement System Specifications
 
-> **Last Updated: 2026-05-09**
+> **Last Updated: 2026-07-14**
 > **Consolidated from SPECIFICATION.md and Specifications.md**
 
 ## Authentication Flow
@@ -1227,6 +1227,80 @@ Approvals are automatically rescinded (reset) under the following conditions to 
 15. REVISION_REQUIRED → CANCELED (requestor only)
 16. REJECTED → Can be resurrected by procurement/admin to highest previous status
 17. CANCELED → Can be resurrected by requestor to SUBMITTED status
+
+### PO Amendment Procedure
+
+Once a PR has been approved and becomes a PO (APPROVED, ORDERED, or COMPLETED status), direct edits are replaced by a formal amendment workflow. Changes are provisional until the designated approver(s) sign off.
+
+#### Who Can Submit Amendments
+- **Procurement Officers (Level 3)** and **Administrators (Level 1)** can submit amendments to POs in APPROVED, ORDERED, or COMPLETED status.
+- Other roles (requestors, finance, approvers) cannot submit amendments directly — they must request changes through procurement.
+
+#### Amendment Submission Flow
+1. Procurement/Admin opens the PO and clicks "Edit PR"
+2. All fields are unlocked for editing (description, amount, vendor, line items, etc.)
+3. On Save, a confirmation dialog appears explaining that changes will be submitted as a pending amendment (not applied directly)
+4. A **reason for amendment** is required (free-text, cannot be empty)
+5. On confirm, the changes are stored as `pendingAmendment` on the PR document with status `PENDING`
+6. The designated approver(s) receive an email notification: "PO Amendment Requested: [PR Number]"
+7. Only **one amendment can be pending at a time** — a second submission is blocked until the first is resolved or cancelled
+
+#### Amendment Review Flow
+1. A **yellow warning banner** appears on the PO showing "PO Amendment Pending" with the submitter's name, date, and reason
+2. The banner provides two actions:
+   - **Review Amendment** (visible to designated approvers and admin) — opens the Amendment Review dialog
+   - **Cancel Amendment** (visible to the submitter and admin) — cancels the pending amendment
+3. The **Amendment Review dialog** displays:
+   - Submitter details and reason
+   - A field-by-field diff table showing current value vs proposed value
+   - Line item changes (additions, removals, modifications) in a dedicated table
+   - For dual-approval POs: status chips showing each approver's decision (Pending/Approved/Rejected)
+4. Approver adds optional notes and clicks "Approve Amendment" or "Reject Amendment"
+
+#### Dual Approval for Amendments
+- If the original PO required dual approval (above Rule 2 threshold), the amendment also requires dual approval
+- Both approvers must approve for the amendment to take effect
+- If either approver rejects, the amendment is immediately discarded
+- Each approver's decision is recorded independently (`firstApproverDecision`, `secondApproverDecision`)
+- Partial decisions (one approver has decided, other has not) are saved — the amendment remains pending until both decide or one rejects
+
+#### Amendment Resolution
+- **Approved:** The proposed changes are applied to the PR document. The `pendingAmendment` is cleared. An `AmendmentHistoryItem` is added to `amendmentHistory` with the full diff, resolution, resolver, and notes. The submitter is notified: "PO Amendment Approved"
+- **Rejected:** The `pendingAmendment` is cleared. An `AmendmentHistoryItem` is added with resolution "REJECTED". The submitter is notified: "PO Amendment Rejected" with the resolver's notes
+- **Cancelled:** The submitter or admin can cancel a pending amendment at any time. It is archived to `amendmentHistory` with resolution "REJECTED" and resolverNotes "Cancelled by submitter"
+
+#### Protected Fields
+The following fields cannot be modified via amendment and are explicitly stripped before applying changes:
+- `id`
+- `prNumber`
+- `status`
+
+#### Amendment Data Model
+- **`pendingAmendment`** (on PR document): `PendingAmendment | null`
+  - `changes`: `Partial<PRRequest>` — the proposed field changes
+  - `requestedBy`: `UserReference` — who submitted the amendment
+  - `requestedAt`: ISO timestamp
+  - `notes`: string — reason for amendment
+  - `status`: `'PENDING' | 'APPROVED' | 'REJECTED'`
+  - `firstApproverDecision?`: `AmendmentDecision` — for dual approval
+  - `secondApproverDecision?`: `AmendmentDecision` — for dual approval
+- **`amendmentHistory`** (on PR document): `AmendmentHistoryItem[]`
+  - `changes`: `Record<string, { from: any, to: any }>` — computed diff of what actually changed
+  - `requestedBy`, `requestedAt`, `notes` — original submission metadata
+  - `resolution`: `'APPROVED' | 'REJECTED'`
+  - `resolvedBy`: `UserReference`
+  - `resolvedAt`: ISO timestamp
+  - `resolverNotes?`: string
+
+#### Amendment Notifications
+| Event | Recipients | Subject |
+|-------|-----------|---------|
+| Amendment submitted | Designated approver(s) | "PO Amendment Requested: [PR Number]" |
+| Amendment approved | Original submitter | "PO Amendment Approved: [PR Number]" |
+| Amendment rejected | Original submitter | "PO Amendment Rejected: [PR Number]" |
+
+#### Relationship to Approval Rescinding
+Amendments are a separate mechanism from automatic approval rescinding (see "Automatic Approval Rescinding" above). Amendments apply changes *with* approver sign-off, while rescinding resets approvals *without* applying changes. If an amendment changes the `estimatedAmount` beyond the rescinding thresholds (>5% up or >20% down), the amendment workflow takes precedence — the approver is explicitly approving the new amount.
 
 ## PR Workflow Implementation
 

@@ -343,6 +343,29 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       
       // Object type (PR vs PO)
       objectType: data.objectType || 'PR',
+
+      // Contract-Specific Optional PO Fields (Software Procurement & Supply Agreement)
+      oemManufacturer: data.oemManufacturer,
+      manufacturerRole: data.manufacturerRole,
+      certificateOfOrigin: data.certificateOfOrigin,
+      hsCodes: data.hsCodes,
+      shipmentLots: data.shipmentLots,
+      importInvoiceIssuer: data.importInvoiceIssuer,
+      importValueBasis: data.importValueBasis,
+
+      // Takeover Schedule fields (Annex B)
+      takeoverScheduleNumber: data.takeoverScheduleNumber,
+      oemOrderReference: data.oemOrderReference,
+      oemOrderDate: data.oemOrderDate,
+      priorOemPaymentAmount: data.priorOemPaymentAmount,
+      priorOemPaymentCredit: data.priorOemPaymentCredit,
+      netAmountPayable: data.netAmountPayable,
+
+      // Structured payment milestones
+      paymentMilestones: data.paymentMilestones,
+
+      // Separately contracted services
+      serviceLineItems: data.serviceLineItems,
     };
     
     // Debug logging for approver fields and quotes on fetch

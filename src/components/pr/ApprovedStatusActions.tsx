@@ -32,10 +32,12 @@ import {
   Send as SendIcon,
   CheckCircle as CheckIcon,
   Description as DocumentIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import { pdf } from '@react-pdf/renderer';
 import { PODocument } from './PODocument';
 import { POReviewDialog } from './POReviewDialog';
+import { InvoiceGenerationDialog } from './InvoiceGenerationDialog';
 import { organizationService } from '@/services/organizationService';
 import { referenceDataService } from '@/services/referenceData';
 import { imageUrlToBase64, imageUrlToBase64ViaImage } from '@/utils/imageUtils';
@@ -104,6 +106,7 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
   const [poDocOverride, setPoDocOverride] = useState(pr.poDocumentOverride || false);
   const [poDocJustification, setPoDocJustification] = useState(pr.poDocumentOverrideJustification || '');
   const [poReviewDialogOpen, setPoReviewDialogOpen] = useState(false);
+  const [invoiceDialogOpen, setInvoiceDialogOpen] = useState(false);
   const [organizationDetails, setOrganizationDetails] = useState<any>(null);
   const [vendorDetails, setVendorDetails] = useState<any>(null);
   const [logoBase64, setLogoBase64] = useState<string>('');
@@ -1492,6 +1495,28 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
             </Paper>
           </Grid>
 
+          {/* Invoice Generation (Admin Only) */}
+          {isAdmin && (
+            <Grid item xs={12}>
+              <Paper variant="outlined" sx={{ p: 2 }}>
+                <Typography variant="subtitle1" gutterBottom>
+                  Invoice Generation
+                </Typography>
+                <Typography variant="body2" color="textSecondary" sx={{ mb: 2 }}>
+                  Generate an invoice for milestone billing against this PO. Admin access only.
+                </Typography>
+                <Button
+                  variant="outlined"
+                  color="secondary"
+                  startIcon={<ReceiptIcon />}
+                  onClick={() => setInvoiceDialogOpen(true)}
+                >
+                  Generate Invoice
+                </Button>
+              </Paper>
+            </Grid>
+          )}
+
           {/* Inter-team Notifications */}
           <Grid item xs={12}>
             <Paper variant="outlined" sx={{ p: 2 }}>
@@ -1846,6 +1871,18 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
           vendorDetails={vendorDetails}
           onClose={() => setPoReviewDialogOpen(false)}
           onGenerate={handlePOGeneration}
+        />
+      )}
+
+      {/* Invoice Generation Dialog (Admin Only) */}
+      {invoiceDialogOpen && (
+        <InvoiceGenerationDialog
+          open={invoiceDialogOpen}
+          pr={pr}
+          organizationDetails={organizationDetails}
+          vendorDetails={vendorDetails}
+          logoBase64={logoBase64}
+          onClose={() => setInvoiceDialogOpen(false)}
         />
       )}
     </Box>

@@ -109,6 +109,41 @@ async function listOrganizations(countryFilter) {
         .sort((a, b) => a.id.localeCompare(b.id));
     return { count: rows.length, organizations: rows };
 }
+async function listSites(countryFilter, orgFilter) {
+    let q = db.collection("referenceData_sites");
+    if (countryFilter) {
+        q = q.where("countryCode", "==", countryFilter.toUpperCase());
+    }
+    if (orgFilter) {
+        q = q.where("organizationId", "==", orgFilter);
+    }
+    const snap = await q.get();
+    const rows = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+            id: String(d.id),
+            name: String(data.name || d.id),
+            countryCode: data.countryCode || null,
+            organizationId: data.organizationId || null,
+            active: data.active !== false,
+        };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+    return { count: rows.length, sites: rows };
+}
+async function listVendors() {
+    const snap = await db.collection("referenceData_vendors").get();
+    const rows = snap.docs.map((d) => {
+        const data = d.data();
+        return {
+            id: String(d.id),
+            name: String(data.name || d.id),
+            email: data.email || null,
+            phone: data.phone || null,
+            active: data.active !== false,
+        };
+    }).sort((a, b) => a.name.localeCompare(b.name));
+    return { count: rows.length, vendors: rows };
+}
 exports.prCatalogApi = functions
     .runWith({ memory: "256MB", timeoutSeconds: 30 })
     .https.onRequest(async (req, res) => {
@@ -140,6 +175,18 @@ exports.prCatalogApi = functions
         if (normalized === "api/organizations" || normalized === "organizations") {
             const country = String(req.query.country || "").trim();
             const body = await listOrganizations(country || undefined);
+            res.set("Cache-Control", "no-store, max-age=0").json(body);
+            return;
+        }
+        if (normalized === "api/sites" || normalized === "sites") {
+            const country = String(req.query.country || "").trim();
+            const org = String(req.query.org || "").trim();
+            const body = await listSites(country || undefined, org || undefined);
+            res.set("Cache-Control", "no-store, max-age=0").json(body);
+            return;
+        }
+        if (normalized === "api/vendors" || normalized === "vendors") {
+            const body = await listVendors();
             res.set("Cache-Control", "no-store, max-age=0").json(body);
             return;
         }

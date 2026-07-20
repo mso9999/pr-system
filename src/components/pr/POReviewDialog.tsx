@@ -20,12 +20,15 @@ import {
   Checkbox,
   CircularProgress,
   Stack,
+  IconButton,
 } from '@mui/material';
 import { PRRequest } from '@/types/pr';
 import { formatCurrency } from '@/utils/formatters';
 import {
   Download as DownloadIcon,
   Edit as EditIcon,
+  Add as AddIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 interface POReviewDialogProps {
@@ -139,6 +142,46 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
   const [billingState, setBillingState] = useState(pr.billingAddress?.state || '');
   const [billingPostalCode, setBillingPostalCode] = useState(pr.billingAddress?.postalCode || '');
   const [billingCountry, setBillingCountry] = useState(pr.billingAddress?.country || '');
+
+  // Contract-specific optional section toggles
+  const [showOemInfo, setShowOemInfo] = useState(!!pr.oemManufacturer);
+  const [showPaymentMilestones, setShowPaymentMilestones] = useState(!!pr.paymentMilestones?.length);
+  const [showTakeoverSchedule, setShowTakeoverSchedule] = useState(!!pr.takeoverScheduleNumber);
+  const [showServiceItems, setShowServiceItems] = useState(!!pr.serviceLineItems?.length);
+
+  // OEM & Documentation Information fields
+  const [oemName, setOemName] = useState(pr.oemManufacturer?.name || '');
+  const [oemAddress, setOemAddress] = useState(pr.oemManufacturer?.address || '');
+  const [oemContact, setOemContact] = useState(pr.oemManufacturer?.contact || '');
+  const [manufacturerRole, setManufacturerRole] = useState(pr.manufacturerRole || '');
+  const [certificateOfOrigin, setCertificateOfOrigin] = useState(pr.certificateOfOrigin || '');
+  const [hsCodes, setHsCodes] = useState(pr.hsCodes || '');
+  const [shipmentLots, setShipmentLots] = useState(pr.shipmentLots || '');
+  const [importInvoiceIssuer, setImportInvoiceIssuer] = useState(pr.importInvoiceIssuer || 'One Power Africa GBC');
+  const [importValueBasis, setImportValueBasis] = useState(pr.importValueBasis || 'Supplier Sale Price');
+
+  // Takeover Schedule fields
+  const [takeoverScheduleNumber, setTakeoverScheduleNumber] = useState(pr.takeoverScheduleNumber || '');
+  const [oemOrderReference, setOemOrderReference] = useState(pr.oemOrderReference || '');
+  const [oemOrderDate, setOemOrderDate] = useState(
+    pr.oemOrderDate ? new Date(pr.oemOrderDate).toISOString().split('T')[0] : ''
+  );
+  const [priorOemPaymentAmount, setPriorOemPaymentAmount] = useState(pr.priorOemPaymentAmount?.toString() || '');
+  const [priorOemPaymentCredit, setPriorOemPaymentCredit] = useState(pr.priorOemPaymentCredit?.toString() || '');
+
+  // Payment Milestones (repeatable)
+  const [paymentMilestones, setPaymentMilestones] = useState(
+    pr.paymentMilestones?.length
+      ? pr.paymentMilestones.map(m => ({ ...m }))
+      : [{ milestone: '', amount: 0, trigger: '', supportingDocs: '' }]
+  );
+
+  // Service Line Items (repeatable)
+  const [serviceLineItems, setServiceLineItems] = useState(
+    pr.serviceLineItems?.length
+      ? pr.serviceLineItems.map(s => ({ ...s }))
+      : [{ service: '', basis: '', amount: 0 }]
+  );
 
   // Initialize supplier name from vendor details or PR
   useEffect(() => {
@@ -255,6 +298,37 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
 
         // Store price discrepancy justification if provided
         poLineItemDiscrepancyJustification: hasDiscrepancy ? priceDiscrepancyJustification : undefined,
+
+        // Contract-specific optional sections (only included when toggled on)
+        ...(showOemInfo ? {
+          oemManufacturer: {
+            name: oemName || undefined,
+            address: oemAddress || undefined,
+            contact: oemContact || undefined,
+          },
+          manufacturerRole: manufacturerRole || undefined,
+          certificateOfOrigin: certificateOfOrigin || undefined,
+          hsCodes: hsCodes || undefined,
+          shipmentLots: shipmentLots || undefined,
+          importInvoiceIssuer: importInvoiceIssuer || undefined,
+          importValueBasis: importValueBasis || undefined,
+        } : {}),
+
+        ...(showTakeoverSchedule ? {
+          takeoverScheduleNumber: takeoverScheduleNumber || undefined,
+          oemOrderReference: oemOrderReference || undefined,
+          oemOrderDate: oemOrderDate ? new Date(oemOrderDate).toISOString() : undefined,
+          priorOemPaymentAmount: priorOemPaymentAmount ? parseFloat(priorOemPaymentAmount) : undefined,
+          priorOemPaymentCredit: priorOemPaymentCredit ? parseFloat(priorOemPaymentCredit) : undefined,
+        } : {}),
+
+        ...(showPaymentMilestones ? {
+          paymentMilestones: paymentMilestones.filter(m => m.milestone || m.amount),
+        } : {}),
+
+        ...(showServiceItems ? {
+          serviceLineItems: serviceLineItems.filter(s => s.service || s.amount),
+        } : {}),
       };
       
       console.log('[PO Generation] Saving justification to PR:', {
@@ -800,6 +874,342 @@ export const POReviewDialog: React.FC<POReviewDialogProps> = ({
               onChange={(e) => setPoRemarks(e.target.value)}
               placeholder="Any additional instructions or remarks for the supplier"
             />
+          </Box>
+
+          <Divider />
+
+          {/* OEM & Documentation Information (Optional) */}
+          <Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showOemInfo}
+                  onChange={(e) => setShowOemInfo(e.target.checked)}
+                />
+              }
+              label={<Typography variant="subtitle1" fontWeight="bold">OEM & Documentation Information</Typography>}
+            />
+            {showOemInfo && (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="OEM / Manufacturer Name"
+                    value={oemName}
+                    onChange={(e) => setOemName(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="OEM Address"
+                    value={oemAddress}
+                    onChange={(e) => setOemAddress(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField
+                    fullWidth
+                    label="OEM Contact"
+                    value={oemContact}
+                    onChange={(e) => setOemContact(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Manufacturer Role"
+                    value={manufacturerRole}
+                    onChange={(e) => setManufacturerRole(e.target.value)}
+                    placeholder="e.g., Manufacturer / physical shipper / export declarant"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Certificate of Origin"
+                    value={certificateOfOrigin}
+                    onChange={(e) => setCertificateOfOrigin(e.target.value)}
+                    placeholder="Country / issuing body"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="HS Codes"
+                    value={hsCodes}
+                    onChange={(e) => setHsCodes(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Shipment Lots"
+                    value={shipmentLots}
+                    onChange={(e) => setShipmentLots(e.target.value)}
+                    placeholder="e.g., 200 DHL / 1,800 sea"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Import Invoice Issuer"
+                    value={importInvoiceIssuer}
+                    onChange={(e) => setImportInvoiceIssuer(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Import Value Basis"
+                    value={importValueBasis}
+                    onChange={(e) => setImportValueBasis(e.target.value)}
+                  />
+                </Grid>
+              </Grid>
+            )}
+          </Box>
+
+          <Divider />
+
+          {/* Payment Milestones (Optional) */}
+          <Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showPaymentMilestones}
+                  onChange={(e) => setShowPaymentMilestones(e.target.checked)}
+                />
+              }
+              label={<Typography variant="subtitle1" fontWeight="bold">Payment Milestones</Typography>}
+            />
+            {showPaymentMilestones && (
+              <Box sx={{ mt: 1 }}>
+                {paymentMilestones.map((milestone, idx) => (
+                  <Grid container spacing={1} key={idx} sx={{ mb: 1 }} alignItems="center">
+                    <Grid item xs={12} md={2}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Milestone"
+                        value={milestone.milestone}
+                        onChange={(e) => {
+                          const updated = [...paymentMilestones];
+                          updated[idx] = { ...updated[idx], milestone: e.target.value };
+                          setPaymentMilestones(updated);
+                        }}
+                        placeholder="M1, M2, etc."
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={2}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Amount (USD)"
+                        type="number"
+                        value={milestone.amount}
+                        onChange={(e) => {
+                          const updated = [...paymentMilestones];
+                          updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
+                          setPaymentMilestones(updated);
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={3}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Trigger"
+                        value={milestone.trigger}
+                        onChange={(e) => {
+                          const updated = [...paymentMilestones];
+                          updated[idx] = { ...updated[idx], trigger: e.target.value };
+                          setPaymentMilestones(updated);
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Supporting Documents"
+                        value={milestone.supportingDocs}
+                        onChange={(e) => {
+                          const updated = [...paymentMilestones];
+                          updated[idx] = { ...updated[idx], supportingDocs: e.target.value };
+                          setPaymentMilestones(updated);
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={1}>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          const updated = paymentMilestones.filter((_, i) => i !== idx);
+                          setPaymentMilestones(updated.length ? updated : [{ milestone: '', amount: 0, trigger: '', supportingDocs: '' }]);
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Grid>
+                  </Grid>
+                ))}
+                <Button
+                  startIcon={<AddIcon />}
+                  size="small"
+                  onClick={() => setPaymentMilestones([...paymentMilestones, { milestone: '', amount: 0, trigger: '', supportingDocs: '' }])}
+                >
+                  Add Milestone
+                </Button>
+              </Box>
+            )}
+          </Box>
+
+          <Divider />
+
+          {/* Takeover Schedule (Optional) */}
+          <Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showTakeoverSchedule}
+                  onChange={(e) => setShowTakeoverSchedule(e.target.checked)}
+                />
+              }
+              label={<Typography variant="subtitle1" fontWeight="bold">Takeover Schedule (Annex B — In-Flight Transaction Regularization)</Typography>}
+            />
+            {showTakeoverSchedule && (
+              <Grid container spacing={2} sx={{ mt: 1 }}>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Takeover Schedule No."
+                    value={takeoverScheduleNumber}
+                    onChange={(e) => setTakeoverScheduleNumber(e.target.value)}
+                    placeholder="TS-2026-001"
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Original OEM Order Reference"
+                    value={oemOrderReference}
+                    onChange={(e) => setOemOrderReference(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Original Order Date"
+                    type="date"
+                    value={oemOrderDate}
+                    onChange={(e) => setOemOrderDate(e.target.value)}
+                    InputLabelProps={{ shrink: true }}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Prior Payment Made to OEM (USD)"
+                    type="number"
+                    value={priorOemPaymentAmount}
+                    onChange={(e) => setPriorOemPaymentAmount(e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Prior OEM Payment Credit (USD)"
+                    type="number"
+                    value={priorOemPaymentCredit}
+                    onChange={(e) => setPriorOemPaymentCredit(e.target.value)}
+                  />
+                </Grid>
+              </Grid>
+            )}
+          </Box>
+
+          <Divider />
+
+          {/* Separately Contracted Services (Optional) */}
+          <Box>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={showServiceItems}
+                  onChange={(e) => setShowServiceItems(e.target.checked)}
+                />
+              }
+              label={<Typography variant="subtitle1" fontWeight="bold">Separately Contracted Services</Typography>}
+            />
+            {showServiceItems && (
+              <Box sx={{ mt: 1 }}>
+                {serviceLineItems.map((service, idx) => (
+                  <Grid container spacing={1} key={idx} sx={{ mb: 1 }} alignItems="center">
+                    <Grid item xs={12} md={5}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Service Description"
+                        value={service.service}
+                        onChange={(e) => {
+                          const updated = [...serviceLineItems];
+                          updated[idx] = { ...updated[idx], service: e.target.value };
+                          setServiceLineItems(updated);
+                        }}
+                        placeholder="Commissioning / SaaS / platform / annual support / training"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={3}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Basis"
+                        value={service.basis}
+                        onChange={(e) => {
+                          const updated = [...serviceLineItems];
+                          updated[idx] = { ...updated[idx], basis: e.target.value };
+                          setServiceLineItems(updated);
+                        }}
+                        placeholder="fixed / monthly / deliverable"
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={3}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Amount (USD)"
+                        type="number"
+                        value={service.amount}
+                        onChange={(e) => {
+                          const updated = [...serviceLineItems];
+                          updated[idx] = { ...updated[idx], amount: parseFloat(e.target.value) || 0 };
+                          setServiceLineItems(updated);
+                        }}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={1}>
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          const updated = serviceLineItems.filter((_, i) => i !== idx);
+                          setServiceLineItems(updated.length ? updated : [{ service: '', basis: '', amount: 0 }]);
+                        }}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Grid>
+                  </Grid>
+                ))}
+                <Button
+                  startIcon={<AddIcon />}
+                  size="small"
+                  onClick={() => setServiceLineItems([...serviceLineItems, { service: '', basis: '', amount: 0 }])}
+                >
+                  Add Service
+                </Button>
+              </Box>
+            )}
           </Box>
 
           <Divider />

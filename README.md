@@ -163,11 +163,21 @@ A comprehensive procurement requisition system built for 1PWR to manage purchase
 
 ### Backend
 - Firebase
-  - Authentication
+  - Authentication (emergency fallback only — Nexus is the primary IdP)
   - Firestore Database
   - Storage
   - Functions
 - Express.js for API endpoints
+
+### Nexus Integration (Phase 2)
+The PR system is embedded in the **Nexus** platform (`nexus.1pwrafrica.com`) as a federated tool. Key linkages:
+
+- **Centralized Auth (SSO):** Nexus is the Identity Provider. Unauthenticated users are redirected by `PrivateRoute.tsx` to `https://nexus.1pwrafrica.com/sso/authorize?tool=pr&redirect_uri=<current URL>`. Nexus mints a Firebase custom token; `NexusSSOHandler.tsx` consumes `?sso_token=&from=nexus` via `signInWithCustomToken`. Emergency fallback: local Firebase email/password login at `/login?fallback=1` (e.g., Nexus outage).
+- **Identity Store:** PR reads identity + permissions from `nexus_users/{uid}.systemAccess.pr` (canonical, owned by Nexus) and PR-profile fields from `users/{uid}` (extension, owned by PR). If a user has no `nexus_users` doc yet, falls back to the legacy `users`-only path. Controlled by `READ_NEXUS_IDENTITY` flag in `src/services/auth.ts`.
+- **Firestore Rules:** Canonical Firestore security rules live in `nexus-portal/firestore.rules`. PR CI deploys **hosting only** — do not deploy `firestore:rules` from this repo.
+- **Catalog APIs:** PR exposes reference data (countries, organizations, sites, vendors) via the `prCatalogApi` Cloud Function. Nexus (and AM) consume these endpoints. Changes to item shapes must be additive only.
+- **HR Sync Mirror:** `functions/src/hr/hrEmployeeSyncCore.ts` mirrors identity into `nexus_users/{uid}` with merge writes. Provisioning changes must preserve this mirror.
+- **Cross-Repo Docs:** See `nexus-portal/docs/PR_NEXUS_COEXISTENCE_PLAN.md` and `nexus-portal/docs/NEXUS_AUTH_RUNBOOK.md` for full coexistence and outage procedures. API contracts are in `CROSS_REPO_API_CONTRACT.md`.
 
 ### Development Tools
 - Vite for development and building
@@ -267,7 +277,7 @@ npm run dev
 
 The frontend is a Vite build (`npm run build`) served from Firebase Hosting (`dist/`). Vite inlines `VITE_*` variables **at build time**, so the Firebase config must be present in the build environment — not just at runtime.
 
-**Production deploys (CI):** `.github/workflows/deploy.yml` builds and deploys on every push to `main` (and via `workflow_dispatch`). It injects `VITE_FIREBASE_*` from GitHub repo secrets during `npm run build`, then runs `firebase deploy --only hosting,firestore:rules`.
+**Production deploys (CI):** `.github/workflows/deploy.yml` builds and deploys on every push to `main` (and via `workflow_dispatch`). It injects `VITE_FIREBASE_*` from GitHub repo secrets during `npm run build`, then runs `firebase deploy --only hosting`. **Note:** Firestore rules are canonical in `nexus-portal/firestore.rules` — PR CI does **not** deploy `firestore:rules`.
 
 Required GitHub secrets (repo `mso9999/pr-system`):
 - `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_STORAGE_BUCKET`, `VITE_FIREBASE_MESSAGING_SENDER_ID`, `VITE_FIREBASE_APP_ID` (and optionally `VITE_FIREBASE_MEASUREMENT_ID`)
@@ -322,10 +332,7 @@ firebase deploy --only functions
    firebase functions:config:set sendgrid.api_key="YOUR_SENDGRID_API_KEY"
    ```
 
-3. **Firebase Security Rules**: Ensure Firestore rules are deployed:
-   ```bash
-   firebase deploy --only firestore:rules
-   ```
+3. **Firebase Security Rules**: Rules are canonical in `nexus-portal/firestore.rules`. Do not deploy rules from this repo. See `CROSS_REPO_API_CONTRACT.md` for details.
 
 ### Post-Deployment Checklist
 - [ ] Database migration completed successfully

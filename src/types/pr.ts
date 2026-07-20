@@ -308,6 +308,7 @@ export interface PRRequest {
   /** Mode of delivery/shipment */
   modeOfDelivery?: 'Air' | 'Sea' | 'Courier' | 'Pickup' | 'Road' | 'Rail' | 'Other';
   modeOfDeliveryOther?: string; // If "Other" is selected
+  incoterm?: string;
   
   /** Packing or labeling instructions */
   packingInstructions?: string;
@@ -355,6 +356,51 @@ export interface PRRequest {
     totalAmount: number;
     currency: string;
     notes?: string;
+    origin?: string; // Country of origin per line item (contract PO template)
+  }>;
+
+  // Contract-Specific Optional PO Sections (Software Procurement & Supply Agreement)
+
+  /** OEM / Manufacturer information (contract Annex A) */
+  oemManufacturer?: {
+    name?: string;
+    address?: string;
+    contact?: string;
+  };
+  /** Role of manufacturer (e.g., "Manufacturer / physical shipper / export declarant") */
+  manufacturerRole?: string;
+  /** Certificate of origin (country / issuing body) */
+  certificateOfOrigin?: string;
+  /** HS Codes for customs classification */
+  hsCodes?: string;
+  /** Shipment lot description (e.g., "200 DHL / 1,800 sea") */
+  shipmentLots?: string;
+  /** Entity issuing the destination import invoice (contract compliance) */
+  importInvoiceIssuer?: string;
+  /** Basis for destination import value (e.g., "Supplier Sale Price") */
+  importValueBasis?: string;
+
+  /** Takeover Schedule fields (contract Annex B — regularization of in-flight transactions) */
+  takeoverScheduleNumber?: string;
+  oemOrderReference?: string;
+  oemOrderDate?: string;
+  priorOemPaymentAmount?: number;
+  priorOemPaymentCredit?: number;
+  netAmountPayable?: number;
+
+  /** Structured payment milestones (contract Annex A payment milestone table) */
+  paymentMilestones?: Array<{
+    milestone: string;
+    amount: number;
+    trigger: string;
+    supportingDocs: string;
+  }>;
+
+  /** Separately contracted services (contract Annex A optional services section) */
+  serviceLineItems?: Array<{
+    service: string;
+    basis: string;
+    amount: number;
   }>;
   
   // Supplier Data Fields (for non-approved vendors)

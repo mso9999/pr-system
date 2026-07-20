@@ -249,9 +249,10 @@ export const PODocument: React.FC<PODocumentProps> = ({ pr, organizationDetails,
         description: item.description,
         quantity: item.quantity,
         uom: item.uom,
-        unitPrice: item.unitPrice || 0, // Use unitPrice from line item (entered by procurement)
-        totalAmount: (item.quantity || 0) * (item.unitPrice || 0), // Calculate total from quantity × unitPrice
+        unitPrice: item.unitPrice || 0,
+        totalAmount: (item.quantity || 0) * (item.unitPrice || 0),
         currency: pr.currency || 'LSL',
+        origin: undefined as string | undefined,
       })) || [];
 
   const subtotal = lineItems.reduce((sum, item) => sum + (item.totalAmount || 0), 0);
@@ -441,6 +442,9 @@ export const PODocument: React.FC<PODocumentProps> = ({ pr, organizationDetails,
               <Text style={styles.tableCellMedium}>UOM</Text>
               <Text style={styles.tableCellMedium}>Unit Price</Text>
               <Text style={styles.tableCellMedium}>Total</Text>
+              {lineItems.some(item => item.origin) && (
+                <Text style={styles.tableCellMedium}>Origin</Text>
+              )}
             </View>
 
             {/* Rows */}
@@ -460,6 +464,9 @@ export const PODocument: React.FC<PODocumentProps> = ({ pr, organizationDetails,
                 <Text style={styles.tableCellMedium}>
                   {formatCurrency(item.totalAmount || 0, item.currency || pr.currency || 'LSL', false)}
                 </Text>
+                {lineItems.some(i => i.origin) && (
+                  <Text style={styles.tableCellMedium}>{item.origin || '-'}</Text>
+                )}
               </View>
             ))}
           </View>
@@ -516,6 +523,10 @@ export const PODocument: React.FC<PODocumentProps> = ({ pr, organizationDetails,
                   ? pr.modeOfDeliveryOther || 'Not specified'
                   : pr.modeOfDelivery || 'Not specified'}
               </Text>
+            </View>
+            <View style={styles.column}>
+              <Text style={styles.label}>Incoterm</Text>
+              <Text style={styles.value}>{pr.incoterm || 'CIF'}</Text>
             </View>
           </View>
           {pr.packingInstructions && (
@@ -587,6 +598,153 @@ export const PODocument: React.FC<PODocumentProps> = ({ pr, organizationDetails,
           </View>
         )}
 
+        {/* OEM & Documentation Information */}
+        {pr.oemManufacturer && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>OEM & Documentation Information</Text>
+            <View style={styles.row}>
+              <View style={styles.column}>
+                <Text style={styles.label}>OEM / Manufacturer</Text>
+                <Text style={styles.value}>{pr.oemManufacturer.name || 'Not specified'}</Text>
+                {pr.oemManufacturer.address && (
+                  <Text style={styles.address}>{pr.oemManufacturer.address}</Text>
+                )}
+                {pr.oemManufacturer.contact && (
+                  <Text style={styles.value}>{pr.oemManufacturer.contact}</Text>
+                )}
+              </View>
+              <View style={styles.column}>
+                {pr.manufacturerRole && (
+                  <>
+                    <Text style={styles.label}>Manufacturer Role</Text>
+                    <Text style={styles.value}>{pr.manufacturerRole}</Text>
+                  </>
+                )}
+                {pr.certificateOfOrigin && (
+                  <>
+                    <Text style={styles.label}>Certificate of Origin</Text>
+                    <Text style={styles.value}>{pr.certificateOfOrigin}</Text>
+                  </>
+                )}
+              </View>
+            </View>
+            <View style={styles.row}>
+              {pr.hsCodes && (
+                <View style={styles.column}>
+                  <Text style={styles.label}>HS Codes</Text>
+                  <Text style={styles.value}>{pr.hsCodes}</Text>
+                </View>
+              )}
+              {pr.shipmentLots && (
+                <View style={styles.column}>
+                  <Text style={styles.label}>Shipment Lots</Text>
+                  <Text style={styles.value}>{pr.shipmentLots}</Text>
+                </View>
+              )}
+            </View>
+            {(pr.importInvoiceIssuer || pr.importValueBasis) && (
+              <View style={styles.row}>
+                {pr.importInvoiceIssuer && (
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Import Invoice Issuer</Text>
+                    <Text style={styles.value}>{pr.importInvoiceIssuer}</Text>
+                  </View>
+                )}
+                {pr.importValueBasis && (
+                  <View style={styles.column}>
+                    <Text style={styles.label}>Import Value Basis</Text>
+                    <Text style={styles.value}>{pr.importValueBasis}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Payment Milestones */}
+        {pr.paymentMilestones && pr.paymentMilestones.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Payment Milestones</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.tableCellSmall}>#</Text>
+                <Text style={styles.tableCellMedium}>Milestone</Text>
+                <Text style={styles.tableCellMedium}>Amount (USD)</Text>
+                <Text style={styles.tableCellLarge}>Trigger</Text>
+                <Text style={styles.tableCellLarge}>Supporting Documents</Text>
+              </View>
+              {pr.paymentMilestones.map((m, idx) => (
+                <View key={idx} style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
+                  <Text style={styles.tableCellSmall}>{idx + 1}</Text>
+                  <Text style={styles.tableCellMedium}>{m.milestone}</Text>
+                  <Text style={styles.tableCellMedium}>{formatCurrency(m.amount, 'USD', false)}</Text>
+                  <Text style={styles.tableCellLarge}>{m.trigger}</Text>
+                  <Text style={styles.tableCellLarge}>{m.supportingDocs}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Separately Contracted Services */}
+        {pr.serviceLineItems && pr.serviceLineItems.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Separately Contracted Services</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={styles.tableCellSmall}>#</Text>
+                <Text style={styles.tableCellLarge}>Service</Text>
+                <Text style={styles.tableCellMedium}>Basis</Text>
+                <Text style={styles.tableCellMedium}>Amount (USD)</Text>
+              </View>
+              {pr.serviceLineItems.map((s, idx) => (
+                <View key={idx} style={idx % 2 === 0 ? styles.tableRow : styles.tableRowAlt}>
+                  <Text style={styles.tableCellSmall}>{idx + 1}</Text>
+                  <Text style={styles.tableCellLarge}>{s.service}</Text>
+                  <Text style={styles.tableCellMedium}>{s.basis}</Text>
+                  <Text style={styles.tableCellMedium}>{formatCurrency(s.amount, 'USD', false)}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Takeover Schedule */}
+        {pr.takeoverScheduleNumber && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Takeover Schedule — Regularization of In-Flight Transaction</Text>
+            <Text style={styles.valueBold}>Takeover Schedule No.: {pr.takeoverScheduleNumber}</Text>
+            <View style={styles.row}>
+              {pr.oemOrderReference && (
+                <View style={styles.column}>
+                  <Text style={styles.label}>Original OEM Order Reference</Text>
+                  <Text style={styles.value}>{pr.oemOrderReference}</Text>
+                </View>
+              )}
+              {pr.oemOrderDate && (
+                <View style={styles.column}>
+                  <Text style={styles.label}>Original Order Date</Text>
+                  <Text style={styles.value}>{formatDate(pr.oemOrderDate)}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.row}>
+              {pr.priorOemPaymentAmount !== undefined && (
+                <View style={styles.column}>
+                  <Text style={styles.label}>Prior Payment Made to OEM</Text>
+                  <Text style={styles.value}>{formatCurrency(pr.priorOemPaymentAmount, 'USD', false)}</Text>
+                </View>
+              )}
+              {pr.priorOemPaymentCredit !== undefined && (
+                <View style={styles.column}>
+                  <Text style={styles.label}>Prior OEM Payment Credit</Text>
+                  <Text style={styles.value}>{formatCurrency(pr.priorOemPaymentCredit, 'USD', false)}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Remarks */}
         {pr.poRemarks && (
           <View style={styles.section}>
@@ -618,6 +776,11 @@ export const PODocument: React.FC<PODocumentProps> = ({ pr, organizationDetails,
           <Text style={{ marginTop: 5 }}>
             For any queries, please contact {organizationDetails?.companyPhone || 'the buyer'}.
           </Text>
+          {(pr.oemManufacturer || pr.takeoverScheduleNumber) && (
+            <Text style={{ marginTop: 5, fontSize: 7, fontStyle: 'italic' }}>
+              Pricing Note: The Supplier Sale Price is the commercial transaction price charged by Supplier to Customer. It may include Supplier's procurement work, supply-chain coordination, documentation support, risk assumption, overhead and margin without separate line-item disclosure. OEM purchase price is Supplier's internal cost and is not the basis of Customer's ordinary import invoice.
+            </Text>
+          )}
           {(pr.internalProjectCode || pr.internalExpenseCode) && (
             <Text style={{ marginTop: 5, fontSize: 7 }}>
               Internal Reference: 
