@@ -9,7 +9,7 @@ const mockFormState: FormState = {
   organization: '1PWR LESOTHO',
   requestor: 'John Doe',
   email: 'john@example.com',
-  department: 'IT',
+  department: 'IS&T',
   projectCategory: 'Infrastructure',
   description: 'Test PR',
   site: 'Main Office',

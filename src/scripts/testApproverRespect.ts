@@ -30,7 +30,7 @@ async function testApproverRespect() {
     
     const prData = {
       organization: '1PWR LESOTHO',
-      department: 'IT',
+      department: 'IS&T',
       projectCategory: 'Software',
       description: 'Test PR for approver logic',
       site: 'Office',

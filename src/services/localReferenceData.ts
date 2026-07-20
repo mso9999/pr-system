@@ -15,7 +15,7 @@ export const departments = [
   { id: "finance", name: "Finance", isActive: true },
   { id: "hr", name: "HR", isActive: true },
   { id: "legal", name: "Legal", isActive: true },
-  { id: "it", name: "IT", isActive: true },
+  { id: "ist", name: "IS&T — Information Systems and Technology", isActive: true },
   { id: "operations", name: "Operations", isActive: true },
   { id: "ehs", name: "EHS", isActive: true },
   { id: "communications", name: "Communications", isActive: true },

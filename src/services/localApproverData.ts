@@ -6,7 +6,7 @@ export const approvers: User[] = [
     name: 'System Admin',
     email: 'admin@1pwrafrica.com',
     role: 'ADMIN',
-    department: 'IT',
+    department: 'IS&T',
     isActive: true,
     approvalLimit: 1000
   },

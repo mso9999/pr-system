@@ -9,7 +9,7 @@ const mockFormState: FormState = {
   organization: '1PWR LESOTHO',
   requestor: 'John Doe',
   email: 'john@example.com',
-  department: 'IT',
+  department: 'IS&T',
   projectCategory: '',
   description: '',
   site: '',
@@ -27,7 +27,7 @@ const mockFormState: FormState = {
 
 const mockReferenceData = {
   departments: [
-    { id: 'IT', name: 'IT', code: 'IT', isActive: true },
+    { id: 'IST', name: 'IS&T — Information Systems and Technology', code: 'IST', isActive: true },
     { id: 'FIN', name: 'Finance', code: 'FIN', isActive: true }
   ],
   projectCategories: [

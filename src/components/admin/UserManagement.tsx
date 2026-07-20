@@ -729,7 +729,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           // Provide specific error messages for email update failures
           let errorMessage = 'Failed to update email';
           if (emailError?.code === 'functions/permission-denied') {
-            errorMessage = 'You do not have permission to update user emails. Only Superadmin or IT Support can update emails.';
+            errorMessage = 'You do not have permission to update user emails. Only Superadmin or IS&T Support can update emails.';
           } else if (emailError?.code === 'functions/already-exists') {
             errorMessage = 'This email is already in use by another account';
           } else if (emailError?.code === 'functions/invalid-argument') {
