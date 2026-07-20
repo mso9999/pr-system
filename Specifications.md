@@ -903,6 +903,13 @@ Users assigned to the Asset Management department have special permissions:
   - Organization assignment determines approval scope
   - **Key Difference from Finance Admin:** Has approval limits based on rule thresholds
 
+- Level 9: IT Administrator (IT)
+  - Can manage sites in Reference Data Management (full CRUD)
+  - Focused access for IS&T (Information Systems and Technology) staff
+  - Can add, edit, deactivate, and delete site/location records
+  - Cannot manage other reference data types (departments, vendors, currencies, etc.)
+  - Cannot approve PRs or perform procurement actions
+
 ### Organization Assignment
 - Users can be assigned to one primary organization
 - Additional organization access can be granted through the `additionalOrganizations` field

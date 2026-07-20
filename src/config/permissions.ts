@@ -9,6 +9,7 @@ export const PERMISSION_LEVELS = {
   FIN_APPROVER: 6,
   SITE_MANAGER: 7,
   USER_ADMIN: 8,
+  IT: 9,
 } as const;
 
 export const REFERENCE_DATA_TYPES = {
@@ -40,6 +41,7 @@ export const PERMISSION_NAMES = {
   [PERMISSION_LEVELS.FIN_APPROVER]: 'Finance Approver',
   [PERMISSION_LEVELS.SITE_MANAGER]: 'Site Manager',
   [PERMISSION_LEVELS.USER_ADMIN]: 'User Administrator',
+  [PERMISSION_LEVELS.IT]: 'IT Administrator',
 } as const;
 
 export const PERMISSION_DESCRIPTIONS: Record<number, string> = {
@@ -59,6 +61,8 @@ export const PERMISSION_DESCRIPTIONS: Record<number, string> = {
     'Site manager – can submit and monitor PRs for specific sites and view site-level dashboards.',
   [PERMISSION_LEVELS.USER_ADMIN]:
     'User administrator – can view the admin area, manage user accounts (except super administrators), and reset passwords.',
+  [PERMISSION_LEVELS.IT]:
+    'IT administrator – can manage sites in Reference Data Management (CRUD). Focused access for IS&T staff to maintain site/location data.',
 };
 
 export function getPermissionInfo(level?: number) {
@@ -102,7 +106,7 @@ export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
   },
   [REFERENCE_DATA_TYPES.sites]: {
     canEdit: false,
-    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.APPROVER], PERMISSION_NAMES[PERMISSION_LEVELS.PROC]],
+    editableBy: [PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN], PERMISSION_NAMES[PERMISSION_LEVELS.APPROVER], PERMISSION_NAMES[PERMISSION_LEVELS.PROC], PERMISSION_NAMES[PERMISSION_LEVELS.IT]],
   },
   [REFERENCE_DATA_TYPES.vehicles]: {
     canEdit: false,

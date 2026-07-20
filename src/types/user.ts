@@ -37,7 +37,8 @@ export enum UserRole {
   PROC = 'PROC',            // Level 3: Can manage procurement process
   FIN_AD = 'FIN_AD',        // Level 4: Can process procurement requests
   REQ = 'REQ',              // Level 5: Can create and view requests
-  FIN_APPROVER = 'FIN_APPROVER' // Level 6: Finance Approver with approval limits
+  FIN_APPROVER = 'FIN_APPROVER', // Level 6: Finance Approver with approval limits
+  IT = 'IT',                // Level 9: IT Administrator — site CRUD in Reference Data
 }
 
 /**
