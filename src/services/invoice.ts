@@ -15,7 +15,7 @@ import {
   orderBy,
   serverTimestamp,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { db } from '@/config/firebase';
 import { Invoice, InvoiceLineItem } from '@/types/invoice';
 
 const INVOICE_COLLECTION = 'invoices';

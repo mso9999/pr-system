@@ -545,8 +545,33 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
           // For dual approval, update the appropriate approval flag
           if (requiresDual) {
-            const firstComplete = isFirstAppr ? true : (prData.approvalWorkflow?.firstApprovalComplete || false);
-            const secondComplete = isSecondAppr ? true : (prData.approvalWorkflow?.secondApprovalComplete || false);
+            // Reconcile flags against approvalHistory to catch stale flags from
+            // partial writes. If an approver has an approved entry in history,
+            // their flag should be true regardless of what the stored flag says.
+            const history = prData.approvalWorkflow?.approvalHistory || [];
+            const firstApproverId = prData.approver;
+            const secondApproverId = prData.approver2;
+            const firstApprovedInHistory = history.some(
+              h => h.approverId === firstApproverId && h.approved === true
+            );
+            const secondApprovedInHistory = history.some(
+              h => h.approverId === secondApproverId && h.approved === true
+            );
+            const staleFirstFlag = firstApprovedInHistory && !prData.approvalWorkflow?.firstApprovalComplete;
+            const staleSecondFlag = secondApprovedInHistory && !prData.approvalWorkflow?.secondApprovalComplete;
+            if (staleFirstFlag || staleSecondFlag) {
+              console.warn('Reconciling stale approval flags from history:', {
+                firstApprovalComplete: { stored: prData.approvalWorkflow?.firstApprovalComplete, historySays: firstApprovedInHistory },
+                secondApprovalComplete: { stored: prData.approvalWorkflow?.secondApprovalComplete, historySays: secondApprovedInHistory }
+              });
+            }
+
+            const firstComplete = isFirstAppr
+              ? true
+              : (prData.approvalWorkflow?.firstApprovalComplete || firstApprovedInHistory);
+            const secondComplete = isSecondAppr
+              ? true
+              : (prData.approvalWorkflow?.secondApprovalComplete || secondApprovedInHistory);
 
             // Use notes field for adjudication/justification
             const approverNotes = notes.trim() || 'Approved';
