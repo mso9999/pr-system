@@ -55,6 +55,7 @@ export interface User {
   isActive: boolean;
   permissionLevel: number;
   additionalOrganizations?: string[];
+  secondments?: { organizationId: string; startDate?: string | null; endDate?: string | null; reason?: string | null }[];
   multiDepartmentAppointmentsEnabled?: boolean;
   departmentMemberships?: { departmentId: string; isLead: boolean }[];
   isHrLead?: boolean;
@@ -73,6 +74,10 @@ interface AuthState {
   loading: boolean;
   /** Last authentication error message */
   error: string | null;
+  /** IS&T "View As" role ID (e.g. 'requester', 'approver') or null */
+  viewAs: string | null;
+  /** Derived: true when viewAs is set */
+  isViewingAs: boolean;
 }
 
 /** Initial authentication state */
@@ -80,6 +85,8 @@ const initialState: AuthState = {
   user: null,
   loading: false,
   error: null,
+  viewAs: null,
+  isViewingAs: false,
 };
 
 /**
@@ -134,12 +141,24 @@ const authSlice = createSlice({
       state.user = null;
       state.loading = false;
       state.error = null;
+      state.viewAs = null;
+      state.isViewingAs = false;
+    },
+
+    setViewAs(state, action: PayloadAction<string | null>) {
+      state.viewAs = action.payload;
+      state.isViewingAs = action.payload !== null;
+    },
+
+    clearViewAs(state) {
+      state.viewAs = null;
+      state.isViewingAs = false;
     },
   },
 });
 
 // Export actions for use in components and services
-export const { setUser, setLoading, setError, clearUser } = authSlice.actions;
+export const { setUser, setLoading, setError, clearUser, setViewAs, clearViewAs } = authSlice.actions;
 
 // Export the reducer for store configuration
 export default authSlice.reducer;

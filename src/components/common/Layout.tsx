@@ -49,6 +49,7 @@ import { TutorialPickerDialog } from '@/components/tutorial/TutorialPickerDialog
 import { WhatsNewDialog } from '@/components/common/WhatsNewDialog';
 import { fetchUnseenWhatsNew, markWhatsNewSeen } from '@/services/whatsNew';
 import type { WhatsNewItem } from '@/types/whatsNew';
+import { ViewAsBanner } from './ViewAsBanner';
 
 const NavItem = styled('div')(({ theme }) => ({
   display: 'flex',
@@ -400,6 +401,7 @@ const LayoutInner = () => {
           boxSizing: 'border-box',
         }}
       >
+        <ViewAsBanner />
         <Outlet />
       </Box>
       <TutorialPickerDialog />

@@ -66,6 +66,28 @@ import { normalizeOrganizationId } from '@/utils/organization';
 // Check if we're in development mode
 const isDevelopment = import.meta.env.MODE === 'development';
 
+// IS&T "View As" — maps Nexus view-as role IDs to PR permission levels.
+// Used by getUserDetails to override the displayed permission level when
+// an IS&T staff member is previewing the system as another role.
+// Write actions are always blocked when viewAs is active.
+const VIEW_AS_PERMISSION_MAP: Record<string, number> = {
+  requester: 5,        // REQ — Requester
+  procurement: 3,      // PROC — Procurement Officer
+  approver: 2,         // APPROVER — Senior Approver
+  finance_admin: 4,    // FIN_AD — Finance Admin
+  finance_approver: 6, // FIN_APPROVER — Finance Approver
+  site_manager: 7,     // SITE_MANAGER — Site Manager
+};
+
+const VIEW_AS_ROLE_LABELS: Record<string, string> = {
+  requester: 'Requester',
+  procurement: 'Procurement Officer',
+  approver: 'Senior Approver',
+  finance_admin: 'Finance Admin',
+  finance_approver: 'Finance Approver',
+  site_manager: 'Site Manager',
+};
+
 let refreshTokenInterval: NodeJS.Timeout | null = null;
 
 const startTokenRefresh = async (user: FirebaseUser) => {
@@ -265,6 +287,46 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       approvalLimit: getApprovalLimit(permissionLevel)
     };
 
+    // IS&T "View As" override: if pr_view_as is set in localStorage, override
+    // the permission level for display purposes but block ALL write actions.
+    // This lets IS&T see the system as another role would, without being able
+    // to actually perform any actions.
+    const viewAsRole = localStorage.getItem('pr_view_as');
+    if (viewAsRole) {
+      const viewAsPerm = VIEW_AS_PERMISSION_MAP[viewAsRole];
+      if (viewAsPerm !== undefined) {
+        return {
+          id: uid,
+          email,
+          firstName,
+          lastName,
+          role: VIEW_AS_ROLE_LABELS[viewAsRole] || role,
+          organization: userData.organization,
+          isActive,
+          permissionLevel: viewAsPerm,
+          additionalOrganizations: userData.additionalOrganizations || [],
+          secondments: Array.isArray(userData.secondments) ? userData.secondments : undefined,
+          multiDepartmentAppointmentsEnabled: userData.multiDepartmentAppointmentsEnabled === true,
+          departmentMemberships: Array.isArray(userData.departmentMemberships)
+            ? userData.departmentMemberships
+            : undefined,
+          isHrLead: userData.isHrLead === true,
+          hrLeadCountryCodes: Array.isArray(userData.hrLeadCountryCodes)
+            ? userData.hrLeadCountryCodes.map((c: string) => String(c).toUpperCase())
+            : undefined,
+          lastWhatsNewSeenAt: typeof userData.lastWhatsNewSeenAt === 'string' ? userData.lastWhatsNewSeenAt : undefined,
+          permissions: {
+            canCreatePR: false,
+            canApprovePR: false,
+            canProcessPR: false,
+            canManageUsers: false,
+            canViewReports: true,
+            approvalLimit: 0,
+          }
+        };
+      }
+    }
+
     return {
       id: uid,
       email,
@@ -275,6 +337,7 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       isActive,
       permissionLevel,
       additionalOrganizations: userData.additionalOrganizations || [],
+      secondments: Array.isArray(userData.secondments) ? userData.secondments : undefined,
       multiDepartmentAppointmentsEnabled: userData.multiDepartmentAppointmentsEnabled === true,
       departmentMemberships: Array.isArray(userData.departmentMemberships)
         ? userData.departmentMemberships

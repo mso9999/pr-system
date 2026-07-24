@@ -4,7 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { onAuthStateChanged } from 'firebase/auth';
 import { PersistGate } from 'redux-persist/integration/react';
 import { auth } from './config/firebase';
-import { setUser, setLoading, setError } from './store/slices/authSlice';
+import { setUser, setLoading, setError, setViewAs } from './store/slices/authSlice';
 import { RootState } from './store';
 import { persistor } from './store';
 import { LoginPage } from './components/auth/LoginPage';
@@ -51,8 +51,13 @@ function App() {
           console.log('App: Getting user details for:', firebaseUser.uid);
           const userDetails = await getUserDetails(firebaseUser.uid);
           if (userDetails) {
-            console.log('App: User details loaded:', userDetails);
             dispatch(setUser(userDetails));
+            const viewAs = localStorage.getItem('pr_view_as');
+            if (viewAs) {
+              dispatch(setViewAs(viewAs));
+            } else {
+              dispatch(setViewAs(null));
+            }
           } else {
             console.error('App: No user details found');
             dispatch(setError('User account not found'));

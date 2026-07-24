@@ -10,6 +10,10 @@ import i18n from '../../config/i18n';
  * Nexus mintSSOToken Cloud Function), then strips the SSO params from the URL.
  * The app's normal onAuthStateChanged flow then loads the user. Native login is
  * preserved.
+ *
+ * Also reads the optional `view_as` param (set by Nexus IS&T "View As" mode)
+ * and stores it in localStorage so the auth flow can apply a display-only
+ * permission override while blocking all write actions.
  */
 export function NexusSSOHandler() {
   const [params] = useSearchParams();
@@ -31,12 +35,21 @@ export function NexusSSOHandler() {
       i18n.changeLanguage(lang);
     }
 
+    // Pick up view_as param (IS&T "View As" mode from Nexus)
+    const viewAs = params.get('view_as');
+    if (viewAs) {
+      localStorage.setItem('pr_view_as', viewAs);
+    } else {
+      localStorage.removeItem('pr_view_as');
+    }
+
     signInWithCustomToken(auth, token)
       .then(() => {
         params.delete('sso_token');
         params.delete('nonce');
         params.delete('from');
         params.delete('lang');
+        params.delete('view_as');
         navigate({ search: params.toString() }, { replace: true });
       })
       .catch((err) => console.error('[Nexus SSO] sign-in failed:', err));
