@@ -57,12 +57,14 @@ export function AdminDashboard() {
   const permissionName = user?.permissionLevel ? PERMISSION_NAMES[user.permissionLevel] : '';
   const isSuperadmin = user?.permissionLevel === PERMISSION_LEVELS.ADMIN;
   const isUserAdmin = user?.permissionLevel === PERMISSION_LEVELS.USER_ADMIN;
+  const isItAdmin = user?.permissionLevel === PERMISSION_LEVELS.IT;
   const PROVISIONING_EDIT_LEVELS: number[] = [PERMISSION_LEVELS.ADMIN, PERMISSION_LEVELS.PROC, PERMISSION_LEVELS.FIN_AD, PERMISSION_LEVELS.FIN_APPROVER];
   const canSeeProvisioningStudio = user?.permissionLevel != null
     && PROVISIONING_EDIT_LEVELS.includes(user.permissionLevel);
   
   // Initialize from localStorage or default to 0
   const [value, setValue] = useState(() => {
+    if (isItAdmin) return 1;
     const savedTab = localStorage.getItem('adminDashboardTab')
     return savedTab ? parseInt(savedTab, 10) : 0
   })
@@ -83,7 +85,7 @@ export function AdminDashboard() {
           {t('admin.administration')}
         </Typography>
         <Chip 
-          label={`${permissionName} ${isReadOnly ? `(${t('admin.viewOnly')})` : ''}`}
+          label={`${permissionName} ${isItAdmin ? '(site management)' : isReadOnly ? `(${t('admin.viewOnly')})` : ''}`}
           color={isReadOnly ? 'default' : 'primary'}
           sx={{ ml: 2 }}
         />
@@ -91,7 +93,7 @@ export function AdminDashboard() {
 
       <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
         <Tabs value={value} onChange={handleChange} aria-label="admin tabs">
-          <Tab label={t('admin.userManagement')} {...a11yProps(0)} />
+          <Tab label={t('admin.userManagement')} {...a11yProps(0)} disabled={isItAdmin} />
           <Tab
             label={t('admin.referenceData')}
             {...a11yProps(1)}

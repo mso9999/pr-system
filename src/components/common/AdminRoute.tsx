@@ -13,12 +13,16 @@ export const AdminRoute = () => {
   const { user, loading, error } = useSelector((state: RootState) => state.auth);
   const permissionLevel = user?.permissionLevel ?? 999;
 
-  // Level 1-4 have full admin access, level 8 (User Admin) has limited admin UI access
-  const hasAdminAccess = permissionLevel <= 4 || permissionLevel === PERMISSION_LEVELS.USER_ADMIN;
-  // Level 2-4 are read-only; level 8 should have edit rights in user management
+  // Level 1-4 have admin-area access; levels 8 and 9 have scoped admin access.
+  const hasAdminAccess =
+    permissionLevel <= 4 ||
+    permissionLevel === PERMISSION_LEVELS.USER_ADMIN ||
+    permissionLevel === PERMISSION_LEVELS.IT;
+  // Scoped editing is enforced by each admin panel. IT is read-only everywhere
+  // except the Sites reference-data type.
   const isReadOnly =
-    permissionLevel >= 2 &&
-    permissionLevel !== PERMISSION_LEVELS.USER_ADMIN;
+    (permissionLevel >= 2 && permissionLevel <= 4) ||
+    permissionLevel === PERMISSION_LEVELS.IT;
 
   if (loading) {
     return (

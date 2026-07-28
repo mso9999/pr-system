@@ -658,7 +658,7 @@ function getFieldValue(
   return (item as Record<string, unknown>)[key];
 }
 
-export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementProps) {
+export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDataManagementProps) {
   const { user } = useSelector((state: RootState) => state.auth);
   const navigate = useNavigate();
 
@@ -697,7 +697,10 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
   const isFleetManagedType = selectedType === 'vehicles';
   /** Departments are canonical in the HR portal as of 2026-06-30 — PR mirrors HR's catalog. */
   const isHrManagedType = selectedType === 'departments';
-  const effectiveCanEdit = canEdit && !isFleetManagedType && !isHrManagedType && !isReadOnly;
+  // Reference-data permissions are type-specific. A globally read-only admin
+  // role may still edit the explicitly authorized types (for example, IT can
+  // manage Sites and nothing else).
+  const effectiveCanEdit = canEdit && !isFleetManagedType && !isHrManagedType;
 
   // Get editable roles for the current type
   const getEditableRoles = useMemo(() => (type: string): string => {
@@ -1588,7 +1591,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
                 {renderCellContent(item, field)}
               </TableCell>
             ))}
-            {!isReadOnly && effectiveCanEdit && (
+            {effectiveCanEdit && (
               <TableCell sx={{ width: 120 }}>
                 <IconButton 
                   onClick={(e) => {
@@ -2082,7 +2085,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
               Download CSV
             </Button>
           )}
-          {!isReadOnly && effectiveCanEdit && (
+          {effectiveCanEdit && (
             <>
               {shouldShowOrgSelect && (
                 <Button 
@@ -2113,7 +2116,7 @@ export function ReferenceDataManagement({ isReadOnly }: ReferenceDataManagementP
                   {field.label}
                 </TableCell>
               ))}
-              {!isReadOnly && effectiveCanEdit && <TableCell sx={{ width: 120 }}>Actions</TableCell>}
+              {effectiveCanEdit && <TableCell sx={{ width: 120 }}>Actions</TableCell>}
             </TableRow>
           </TableHead>
           {renderTableBody()}

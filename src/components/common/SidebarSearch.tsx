@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import { PERMISSION_LEVELS } from '@/config/permissions';
 import {
   Box,
   TextField,
@@ -97,7 +98,12 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
   const inputRef = useRef<HTMLInputElement>(null);
 
   const hasAdminAccess = user?.role === 'ADMIN' ||
-    (user?.permissionLevel && (user.permissionLevel <= 4 || user.permissionLevel === 7));
+    (user?.permissionLevel && (
+      user.permissionLevel <= 4 ||
+      user.permissionLevel === PERMISSION_LEVELS.SITE_MANAGER ||
+      user.permissionLevel === PERMISSION_LEVELS.USER_ADMIN ||
+      user.permissionLevel === PERMISSION_LEVELS.IT
+    ));
 
   const loadVendors = useCallback(async () => {
     if (vendorsLoaded || vendorsLoading) return;

@@ -149,7 +149,11 @@ const LayoutInner = () => {
   const hasAdminAccess =
     user?.role === 'ADMIN' ||
     (user?.permissionLevel &&
-      (user.permissionLevel <= 4 || user.permissionLevel === PERMISSION_LEVELS.USER_ADMIN));
+      (
+        user.permissionLevel <= 4 ||
+        user.permissionLevel === PERMISSION_LEVELS.USER_ADMIN ||
+        user.permissionLevel === PERMISSION_LEVELS.IT
+      ));
 
   const { openPicker } = useTutorial();
 
