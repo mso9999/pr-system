@@ -335,11 +335,11 @@
       },
       "step3": {
         "title": "User management",
-        "content": "Add, edit, activate, and deactivate users. Assign permission levels (L1–L6), organizations, and departments. Users must use their Google account email. Permission level determines what they can see and do in the system."
+        "content": "Add, edit, activate, and deactivate eligible users. PR uses Levels 1–9; protected accounts and elevated levels remain restricted. Assign organizations and HR-synchronized departments within your own authority."
       },
       "step4": {
         "title": "Reference data",
-        "content": "Manage all lookup data: departments, sites, categories, expense types, currencies, vehicles, and units of measure. This data drives dropdowns and validation throughout the app. Keep it current to avoid errors."
+        "content": "Reference Data is type-scoped. Departments are a read-only mirror owned by HR, vehicles are owned by Fleet, and sites may be maintained only by the specifically authorized PR roles, including Level 9 for IS&T. Other catalogs follow their listed editable roles."
       },
       "step5": {
         "title": "Approval rules",
@@ -1115,4 +1115,3 @@
     }
   }
 }
-

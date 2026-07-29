@@ -53,11 +53,13 @@ export function AdminDashboard() {
   const { t } = useTranslation();
   const context = useOutletContext<AdminContext>();
   const { user } = useSelector((state: RootState) => state.auth);
-  const isReadOnly = context?.isReadOnly ?? (user?.permissionLevel === 2);
-  const permissionName = user?.permissionLevel ? PERMISSION_NAMES[user.permissionLevel] : '';
   const isSuperadmin = user?.permissionLevel === PERMISSION_LEVELS.ADMIN;
   const isUserAdmin = user?.permissionLevel === PERMISSION_LEVELS.USER_ADMIN;
   const isItAdmin = user?.permissionLevel === PERMISSION_LEVELS.IT;
+  const isReadOnly = context?.isReadOnly === true
+    || user?.permissionLevel === PERMISSION_LEVELS.APPROVER
+    || isUserAdmin;
+  const permissionName = user?.permissionLevel ? PERMISSION_NAMES[user.permissionLevel] : '';
   const PROVISIONING_EDIT_LEVELS: number[] = [PERMISSION_LEVELS.ADMIN, PERMISSION_LEVELS.PROC, PERMISSION_LEVELS.FIN_AD, PERMISSION_LEVELS.FIN_APPROVER];
   const canSeeProvisioningStudio = user?.permissionLevel != null
     && PROVISIONING_EDIT_LEVELS.includes(user.permissionLevel);
@@ -97,7 +99,6 @@ export function AdminDashboard() {
           <Tab
             label={t('admin.referenceData')}
             {...a11yProps(1)}
-            disabled={isUserAdmin}
           />
           {isSuperadmin && (
             <Tab label={t('admin.organizationSettings')} {...a11yProps(2)} />
@@ -119,13 +120,7 @@ export function AdminDashboard() {
       </TabPanel>
 
       <TabPanel value={value} index={1}>
-        {isUserAdmin ? (
-          <Typography variant="body2" color="text.secondary">
-            {t('admin.userAdminReferenceDataNotice', 'Reference data is view-only for User Administrators.')}
-          </Typography>
-        ) : (
-          <ReferenceDataManagement isReadOnly={isReadOnly} />
-        )}
+        <ReferenceDataManagement isReadOnly={isReadOnly} />
       </TabPanel>
 
       {isSuperadmin && (

@@ -1,5 +1,3 @@
-import { PermissionLevel } from '../types/user';
-
 export const PERMISSION_LEVELS = {
   ADMIN: 1,
   APPROVER: 2,
@@ -86,11 +84,8 @@ export interface ReferenceDataAccess {
 export const REFERENCE_DATA_ACCESS: Record<string, ReferenceDataAccess> = {
   [REFERENCE_DATA_TYPES.departments]: {
     canEdit: false,
-    editableBy: [
-      PERMISSION_NAMES[PERMISSION_LEVELS.ADMIN],
-      PERMISSION_NAMES[PERMISSION_LEVELS.PROC],
-      PERMISSION_NAMES[PERMISSION_LEVELS.USER_ADMIN],
-    ],
+    // HR owns the department catalog. PR mirrors it for selection and reporting.
+    editableBy: [],
   },
   [REFERENCE_DATA_TYPES.currencies]: {
     canEdit: false,
@@ -166,6 +161,6 @@ export function hasEditAccess(permissionLevel: number, referenceDataType: string
 export function getEditableTypes(permissionLevel: number): string[] {
   const permissionName = PERMISSION_NAMES[permissionLevel as keyof typeof PERMISSION_NAMES];
   return Object.entries(REFERENCE_DATA_ACCESS)
-    .filter(([_, access]) => access.editableBy.includes(permissionName))
+    .filter(([, access]) => access.editableBy.includes(permissionName))
     .map(([type]) => type);
 }

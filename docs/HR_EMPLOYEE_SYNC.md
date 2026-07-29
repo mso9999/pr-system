@@ -126,9 +126,10 @@ vars, read via `process.env`. Rotate by re-deploying with a new value.
    `hrEmployeeId`, overwrites HR-owned fields, provisions new hires, and
    writes a report to `hrReconciliationReports/<ts>`.
 4. Review the report:
-   - **Unmapped departments** — HR uses a department name with no matching
-     PR `referenceData_departments` doc. Add or rename a department in PR,
-     then re-run.
+   - **Unmapped departments** — HR uses a department name that the PR mirror
+     cannot resolve. Confirm or correct the department in HR, run the department
+     catalog sync, then re-run the employee reconciliation. Do not add or rename
+     departments in PR: HR owns the catalog and PR is a read-only consumer.
    - **Provisioned** — new accounts created. Assign `organization` to each
      from the User Management screen.
    - **Email-updated** — PR Auth emails changed to match HR. Users will need
@@ -363,4 +364,3 @@ cp scripts/_slowbuffer-polyfill.cjs /tmp/_slowbuffer-polyfill.cjs
 NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run seed-countries -- --dry-run
 NODE_OPTIONS="--require /tmp/_slowbuffer-polyfill.cjs" npm run seed-countries
 ```
-

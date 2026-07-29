@@ -139,12 +139,14 @@ A comprehensive procurement requisition system built for 1PWR to manage purchase
 - **Reference Data Management**:
   - Departments, Sites, Vehicles, Project Categories, Expense Types
   - Currencies, UOM, Vendors
-  - CRUD operations with validation
+  - Type-scoped CRUD operations with validation
   - Organization-specific filtering
   - Active/Inactive status tracking
 
 ### Reference Data Management
-- CRUD operations for all reference data types (directly in Firestore)
+- Departments are owned by HR and mirrored read-only into PR
+- Vehicles are owned by Fleet and mirrored read-only into PR
+- Sites and other PR-owned catalogs use type-specific editable roles
 - Code-based ID generation for currencies and UOM
 - Duplicate prevention for codes
 - Active/Inactive status tracking

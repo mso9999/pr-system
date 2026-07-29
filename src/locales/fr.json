@@ -327,11 +327,11 @@
       },
       "step3": {
         "title": "Gestion des utilisateurs",
-        "content": "Ajoutez, modifiez, activez et désactivez les utilisateurs. Attribuez les niveaux de permission (L1–L6), les organisations et les départements. Les utilisateurs doivent utiliser l'email de leur compte Google. Le niveau de permission détermine ce qu'ils peuvent voir et faire."
+        "content": "Ajoutez, modifiez, activez et désactivez les utilisateurs autorisés. PR utilise les niveaux 1 à 9 ; les comptes protégés et les niveaux élevés restent restreints. Attribuez les organisations et les départements synchronisés depuis HR dans les limites de votre autorité."
       },
       "step4": {
         "title": "Données de référence",
-        "content": "Gérez toutes les données de référence : départements, sites, catégories, types de dépenses, devises, véhicules et unités de mesure. Ces données alimentent les listes déroulantes et la validation dans toute l'application. Tenez-les à jour pour éviter les erreurs."
+        "content": "Les données de référence sont autorisées par type. Les départements sont un miroir en lecture seule géré par HR, les véhicules sont gérés par Fleet et les sites ne peuvent être modifiés que par les rôles PR expressément autorisés, y compris le niveau 9 pour IS&T."
       },
       "step5": {
         "title": "Règles d'approbation",
@@ -1059,4 +1059,3 @@
     }
   }
 }
-
