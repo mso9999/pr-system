@@ -2,6 +2,7 @@ import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import { RootState } from '../../store';
+import { PrivilegeDenied } from './PrivilegeDenied';
 
 interface PrivateRouteProps {
   requiredRoles?: string[];
@@ -96,25 +97,8 @@ export const PrivateRoute = ({ requiredRoles }: PrivateRouteProps) => {
   }
 
   if (requiredRoles && !requiredRoles.some(role => user.roles?.includes(role))) {
-    return (
-      <Box 
-        sx={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          height: '100vh',
-          bgcolor: 'background.default'
-        }}
-      >
-        <Typography variant="h6" color="error" gutterBottom>
-          Access Denied
-        </Typography>
-        <Typography color="textSecondary">
-          You don't have the required permissions to access this page
-        </Typography>
-      </Box>
-    );
+    const assignedRoles = user.roles?.length ? user.roles : [user.role || 'REQ'];
+    return <PrivilegeDenied assignedRoles={assignedRoles} requiredRoles={requiredRoles} countryCode={user.hrCountry} />;
   }
 
   return <Outlet />;
