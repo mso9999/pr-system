@@ -31,6 +31,7 @@ export { ingestUgpSite, fanoutSiteChanges } from './siteSync';
 
 // Export user management functions
 export { updateUserPassword } from './updateUserPassword';
+export { updateUserEmail } from './updateUserEmail';
 export { createUser } from './createUser';
 
 // User-sync drift detection
