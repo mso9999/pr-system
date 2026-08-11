@@ -45,6 +45,7 @@ import { Attachment } from '@/types/pr';
 import { User } from '@/types/user';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 export const VendorDetailsPage: React.FC = () => {
   const { vendorId } = useParams<{ vendorId: string }>();
@@ -63,11 +64,13 @@ export const VendorDetailsPage: React.FC = () => {
   const [justification, setJustification] = useState('');
   const [justificationRequired, setJustificationRequired] = useState(false);
 
-  // Permission checks
-  const canManageVendors = 
-    currentUser?.permissionLevel === 1 || // Admin
-    currentUser?.permissionLevel === 3 || // Procurement
-    currentUser?.permissionLevel === 4;   // Finance/Admin
+  // Claim-based (2026-08): admin, procurement, or finance administration.
+  const canManageVendors = hasPrAction(
+    currentUser,
+    'administer_pr',
+    'process_procurement_queue',
+    'finance_administration'
+  );
 
   useEffect(() => {
     if (vendorId) {

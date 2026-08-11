@@ -55,6 +55,7 @@ import { organizationService } from '@/services/organizationService';
 import { imageUrlToBase64ViaImage } from '@/utils/imageUtils';
 import { prService } from '@/services/pr';
 import { referenceDataService } from '@/services/referenceData';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface InQueueStatusActionsProps {
   pr: PRRequest;
@@ -91,8 +92,8 @@ export const InQueueStatusActions: React.FC<InQueueStatusActionsProps> = ({
     specialInstructions: ''
   });
 
-  // Permission check - Procurement and Superadmin can generate RFQ
-  const canGenerateRFQ = currentUser.permissionLevel === 1 || currentUser.permissionLevel === 3;
+  // Claim-based (2026-08): procurement queue processing covers RFQ generation.
+  const canGenerateRFQ = hasPrAction(currentUser, 'process_procurement_queue', 'administer_pr');
 
   const handleGenerateRFQ = async () => {
     console.log('🎯 RFQ Generation started', {

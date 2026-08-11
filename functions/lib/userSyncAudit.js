@@ -242,14 +242,13 @@ exports.weeklyUserSyncAudit = functions
     return null;
 });
 exports.runUserSyncAudit = functions.https.onCall(async (_data, context) => {
-    var _a;
     if (!context.auth) {
         throw new functions.https.HttpsError("unauthenticated", "Sign-in required");
     }
-    const callerDoc = await db.collection("users").doc(context.auth.uid).get();
-    const lvl = Number((_a = callerDoc.data()) === null || _a === void 0 ? void 0 : _a.permissionLevel);
-    if (lvl !== ADMIN_LEVEL && lvl !== USER_ADMIN_LEVEL) {
-        throw new functions.https.HttpsError("permission-denied", "Superadmin or User Admin only");
+    // Claim-only: signed manage_pr_users (legacy 8) or administer_pr (legacy 1).
+    const { callerHasPrAction } = await Promise.resolve().then(() => __importStar(require("./prClaimAuth")));
+    if (!callerHasPrAction(context.auth, "manage_pr_users", "administer_pr")) {
+        throw new functions.https.HttpsError("permission-denied", "Signed PR user-administration or administrator grant required");
     }
     const result = await runAudit();
     const docId = `userSync_${new Date().toISOString().replace(/[:.]/g, "-")}`;

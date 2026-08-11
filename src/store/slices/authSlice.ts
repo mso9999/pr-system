@@ -54,6 +54,8 @@ export interface User {
   organization: string;
   isActive: boolean;
   permissionLevel: number;
+  /** Signed Nexus `effectivePrivilege` claim (targetSystem 'pr') — see types/user.ts */
+  privilege?: unknown;
   additionalOrganizations?: string[];
   secondments?: { organizationId: string; startDate?: string | null; endDate?: string | null; reason?: string | null }[];
   multiDepartmentAppointmentsEnabled?: boolean;

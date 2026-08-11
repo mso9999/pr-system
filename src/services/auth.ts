@@ -62,6 +62,29 @@ import { User, UserPermissions } from '../types/user';
 import { store } from '../store';
 import { setUser, clearUser, setLoading, setError } from '../store/slices/authSlice';
 import { normalizeOrganizationId } from '@/utils/organization';
+import { hasPrAction } from '@/utils/prPrivilege';
+
+/**
+ * Read the signed Nexus `effectivePrivilege` claim (targetSystem 'pr') from
+ * the current ID token. Returns null for sessions without one (the
+ * ?fallback=1 emergency login), which the app treats as read-only.
+ */
+const readSignedPrPrivilege = async (): Promise<Record<string, unknown> | null> => {
+  const current = getAuth().currentUser;
+  if (!current) return null;
+  try {
+    const tokenResult = await current.getIdTokenResult();
+    const claims = tokenResult.claims as Record<string, unknown>;
+    if (claims.nexus_sso !== true || String(claims.targetSystem ?? '') !== 'pr') return null;
+    if (!claims.privilegeVersion) return null;
+    const raw = claims.effectivePrivilege;
+    if (!raw || typeof raw !== 'object') return null;
+    return { ...(raw as Record<string, unknown>), version: String(claims.privilegeVersion) };
+  } catch (e) {
+    console.warn('auth.ts: could not read signed PR privilege from token', e);
+    return null;
+  }
+};
 
 // Check if we're in development mode
 const isDevelopment = import.meta.env.MODE === 'development';
@@ -95,10 +118,18 @@ const startTokenRefresh = async (user: FirebaseUser) => {
     clearInterval(refreshTokenInterval);
   }
 
-  // Refresh token every 30 minutes
+  // Refresh token every 30 minutes. The refreshed ID token carries the
+  // current signed Nexus privilege, so re-attach it to the stored user —
+  // otherwise role changes in Nexus would only appear after a full re-login.
   refreshTokenInterval = setInterval(async () => {
     try {
       await getIdToken(user, true);
+      const fresh = await readSignedPrPrivilege();
+      const stored = store.getState().auth.user;
+      if (stored && JSON.stringify(stored.privilege ?? null) !== JSON.stringify(fresh)) {
+        store.dispatch(setUser({ ...stored, privilege: fresh }));
+        console.log('auth.ts: signed PR privilege refreshed from token');
+      }
       console.log('auth.ts: Token refreshed successfully');
     } catch (error) {
       console.error('auth.ts: Token refresh failed:', error);
@@ -277,14 +308,30 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       userData.organization = '1PWR LESOTHO';
     }
 
-    // Map permissions based on role and permission level
+    // Signed Nexus PR claim — the sole client-side authorization authority.
+    // `permissionLevel` above stays as a display/directory value only.
+    const privilege = await readSignedPrPrivilege();
+    const claimSubject = { privilege };
+
+    // Map permissions from the signed claim (legacy numeric mapping retired).
+    // Unsigned sessions (emergency fallback login) get a read-only set.
     const permissions: UserPermissions = {
-      canCreatePR: true, // All users can create PRs
-      canApprovePR: permissionLevel <= 4, // Levels 1-4 can approve
-      canProcessPR: permissionLevel <= 3, // Levels 1-3 can process
-      canManageUsers: permissionLevel === 1, // Only admins
-      canViewReports: permissionLevel <= 4, // Levels 1-4 can view reports
-      approvalLimit: getApprovalLimit(permissionLevel)
+      canCreatePR: hasPrAction(claimSubject, 'view_and_request'),
+      canApprovePR: hasPrAction(claimSubject, 'approve_and_finance'),
+      canProcessPR: hasPrAction(claimSubject, 'process_procurement_queue'),
+      canManageUsers: hasPrAction(claimSubject, 'manage_pr_users', 'administer_pr'),
+      canViewReports: hasPrAction(
+        claimSubject,
+        'approve_and_finance',
+        'process_procurement_queue',
+        'administer_pr',
+        'manage_pr_users'
+      ),
+      approvalLimit: hasPrAction(claimSubject, 'approve_high_value')
+        ? Infinity
+        : hasPrAction(claimSubject, 'approve_within_finance_limit')
+          ? 100000
+          : 0
     };
 
     // IS&T "View As" override: if pr_view_as is set in localStorage, override
@@ -304,6 +351,8 @@ export const getUserDetails = async (uid: string): Promise<User> => {
           organization: userData.organization,
           isActive,
           permissionLevel: viewAsPerm,
+          // View As is diagnostic: no signed authority attaches to the preview.
+          privilege: null,
           additionalOrganizations: userData.additionalOrganizations || [],
           secondments: Array.isArray(userData.secondments) ? userData.secondments : undefined,
           multiDepartmentAppointmentsEnabled: userData.multiDepartmentAppointmentsEnabled === true,
@@ -336,6 +385,7 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       organization: userData.organization,
       isActive,
       permissionLevel,
+      privilege,
       additionalOrganizations: userData.additionalOrganizations || [],
       secondments: Array.isArray(userData.secondments) ? userData.secondments : undefined,
       multiDepartmentAppointmentsEnabled: userData.multiDepartmentAppointmentsEnabled === true,

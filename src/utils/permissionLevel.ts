@@ -1,6 +1,32 @@
 /**
- * Firestore sometimes stores permissionLevel as a string (e.g. "3").
- * Always normalize before strict equality checks (=== 3).
+ * Claim-based identity predicates (2026-08 authorization migration).
+ *
+ * The signed Nexus `effectivePrivilege` claim on the session user is the
+ * sole authorization authority. The numeric `permissionLevel` field is a
+ * display/directory value only and is no longer consulted here.
+ *
+ * These functions keep their historical signatures so existing call sites
+ * compile unchanged: pass the Redux session user (which now carries
+ * `privilege`) and the check is answered from the signed action set.
+ * Users fetched for display (admin lists, profiles) have no signed claim
+ * and therefore answer false — safe default, buttons simply hide.
+ */
+import { hasPrAction } from './prPrivilege';
+
+type PrivilegedSubject = { privilege?: unknown } | null | undefined;
+
+export function isProcurementUser(user?: PrivilegedSubject): boolean {
+  return hasPrAction(user, 'process_procurement_queue');
+}
+
+export function isAdminUser(user?: PrivilegedSubject): boolean {
+  return hasPrAction(user, 'administer_pr');
+}
+
+/**
+ * @deprecated Numeric levels are retired as an authorization input. Kept
+ * only for parsing legacy display values (e.g. showing a user's directory
+ * permission level in admin screens).
  */
 export function normalizePermissionLevel(level: unknown): number {
   if (typeof level === 'number' && !Number.isNaN(level)) {
@@ -11,14 +37,4 @@ export function normalizePermissionLevel(level: unknown): number {
     return Number.isNaN(parsed) ? 5 : parsed;
   }
   return 5;
-}
-
-export function isProcurementUser(user?: { permissionLevel?: unknown } | null): boolean {
-  return normalizePermissionLevel(user?.permissionLevel) === 3;
-}
-
-export function isAdminUser(user?: { permissionLevel?: unknown; role?: string } | null): boolean {
-  return (
-    normalizePermissionLevel(user?.permissionLevel) === 1 || user?.role === 'admin'
-  );
 }

@@ -28,8 +28,6 @@ import { buildDepartmentResolver, type DepartmentResolver } from "./departmentRe
 const db = admin.firestore();
 const auth = admin.auth();
 
-const ADMIN_LEVEL = 1;
-const USER_ADMIN_LEVEL = 8;
 const DEFAULT_PROVISIONED_LEVEL = 5; // Requester
 
 const HR_OWNED_FIELDS = [
@@ -220,7 +218,9 @@ async function provisionUser(
   }
 
   try {
-    await auth.setCustomUserClaims(uid, { permissionLevel: DEFAULT_PROVISIONED_LEVEL });
+    // Legacy permissionLevel custom claims are retired: the PR assignment is
+    // recorded on nexus_users.systemAccess.pr below and signed into the SSO
+    // claim by Nexus at launch time.
     const userDoc: Record<string, unknown> = {
       id: uid,
       email,
@@ -563,11 +563,16 @@ async function persistReport(report: SyncReport): Promise<string> {
 
 // ── Authz helper for callables ────────────────────────────────────────────
 
-export async function assertAdmin(uid: string): Promise<void> {
-  const doc = await db.collection("users").doc(uid).get();
-  const lvl = Number(doc.data()?.permissionLevel);
-  if (lvl !== ADMIN_LEVEL && lvl !== USER_ADMIN_LEVEL) {
-    throw new Error("Superadmin or User Admin only");
+/**
+ * Caller authorization is claim-only: the signed Nexus effectivePrivilege
+ * claim must carry manage_pr_users (legacy level 8) or administer_pr
+ * (legacy level 1). The callable wrappers pass the decoded token; the
+ * Firestore permissionLevel field is no longer consulted.
+ */
+export async function assertAdmin(auth: { token?: Record<string, unknown> } | undefined): Promise<void> {
+  const { callerHasPrAction } = await import("../prClaimAuth");
+  if (!callerHasPrAction(auth, "manage_pr_users", "administer_pr")) {
+    throw new Error("Signed PR user-administration or administrator grant required");
   }
 }
 

@@ -17,6 +17,7 @@ import { prService } from '@/services/pr';
 import { notificationService } from '@/services/notification';
 import { User } from '@/types/user';
 import { RestoreFromTrash as ResurrectIcon } from '@mui/icons-material';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface ResurrectionActionsProps {
   pr: PRRequest;
@@ -36,9 +37,9 @@ export const ResurrectionActions: React.FC<ResurrectionActionsProps> = ({
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Permission checks
-  const isProcurement = currentUser.permissionLevel === 3;
-  const isAdmin = currentUser.permissionLevel === 1;
+  // Claim-based (2026-08): capabilities from the signed Nexus action set.
+  const isProcurement = hasPrAction(currentUser, 'process_procurement_queue');
+  const isAdmin = hasPrAction(currentUser, 'administer_pr');
   const isOriginalRequestor = pr.requestorEmail?.toLowerCase() === currentUser.email?.toLowerCase();
 
   // Determine if user can resurrect

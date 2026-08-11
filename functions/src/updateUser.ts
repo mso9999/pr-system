@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { callerHasPrAction, requirePrAction } from './prClaimAuth';
 
 export interface UpdateUserData {
     userId: string;
@@ -14,14 +15,11 @@ export interface UpdateUserData {
 
 export const updateUser = functions.https.onCall(async (data: UpdateUserData, context) => {
     try {
-        // Check if the caller has admin privileges
-        if (!context.auth?.token?.admin) {
-            throw new functions.https.HttpsError('permission-denied', 'Only admins can update users');
-        }
+        requirePrAction(context.auth, 'update user accounts', 'manage_pr_users', 'administer_pr');
 
         // Get user reference
         const userRef = admin.firestore().collection('users').doc(data.userId);
-        
+
         // Update user data in Firestore
         const updateData: any = {
             firstName: data.firstName,
@@ -32,12 +30,22 @@ export const updateUser = functions.https.onCall(async (data: UpdateUserData, co
             isActive: data.isActive
         };
 
-        // If permission level is being updated, set custom claims
+        // Permission-level changes update the Nexus assignment record
+        // (nexus_users.systemAccess.pr) — the resolver signs it into the
+        // target's next SSO claim. Legacy custom claims are no longer
+        // written; the users/{uid} field stays as a display cache only.
         if (data.permissionLevel !== undefined) {
-            await admin.auth().setCustomUserClaims(data.userId, {
-                permissionLevel: data.permissionLevel,
-                admin: data.permissionLevel === 1
-            });
+            if (!callerHasPrAction(context.auth, 'administer_pr')) {
+                throw new functions.https.HttpsError(
+                    'permission-denied',
+                    'Only PR administrators can change permission levels'
+                );
+            }
+            await admin.firestore().doc(`nexus_users/${data.userId}`).set({
+                systemAccess: {
+                    pr: { enabled: true, permissionLevel: data.permissionLevel }
+                }
+            }, { merge: true });
             updateData.permissionLevel = data.permissionLevel;
         }
 
@@ -50,18 +58,14 @@ export const updateUser = functions.https.onCall(async (data: UpdateUserData, co
         };
     } catch (error) {
         console.error('Error updating user:', error);
+        if (error instanceof functions.https.HttpsError) throw error;
         throw new functions.https.HttpsError('internal', 'Error updating user');
     }
 });
 
 export const getUserClaims = functions.https.onCall(async (data: { userId: string }, context) => {
   // Verify that the caller is an admin
-  if (!context.auth?.token?.admin) {
-    throw new functions.https.HttpsError(
-      'permission-denied',
-      'Only admins can get user claims'
-    );
-  }
+  requirePrAction(context.auth, 'inspect user claims', 'manage_pr_users', 'administer_pr');
 
   try {
     const user = await admin.auth().getUser(data.userId);

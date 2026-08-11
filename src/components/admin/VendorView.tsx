@@ -55,6 +55,7 @@ import { FileUploadManager } from '@/components/common/FileUploadManager';
 import { formatCurrency } from '@/utils/formatters';
 import { archiveService } from '@/services/archive';
 import { ArchivePR } from '@/types/archive';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 export const VendorView: React.FC = () => {
   const { vendorId } = useParams<{ vendorId: string }>();
@@ -83,18 +84,18 @@ export const VendorView: React.FC = () => {
   // Document category for new uploads
   const [selectedDocCategory, setSelectedDocCategory] = useState<VendorDocument['category']>('other');
 
-  // Permission checks
-  const isSuperuser = currentUser?.permissionLevel === 1;
-  const isProcurement = currentUser?.permissionLevel === 3;
-  const isFinanceAdmin = currentUser?.permissionLevel === 4;
-  
+  // Claim-based (2026-08): capabilities from the signed Nexus action set.
+  const isSuperuser = hasPrAction(currentUser, 'administer_pr');
+  const isProcurement = hasPrAction(currentUser, 'process_procurement_queue');
+  const isFinanceAdmin = hasPrAction(currentUser, 'finance_administration', 'approve_and_finance');
+
   const canEditProcurementApproval = isSuperuser || isProcurement;
   const canEditFinanceApproval = isSuperuser || isFinanceAdmin;
   const canEdit = canEditProcurementApproval || canEditFinanceApproval;
-  
-  const canView = 
-    canEdit || 
-    currentUser?.permissionLevel === 2;    // Approvers can view
+
+  const canView =
+    canEdit ||
+    hasPrAction(currentUser, 'approve_high_value');    // Senior approvers can view
 
   useEffect(() => {
     const isEditPath = location.pathname.endsWith('/edit');

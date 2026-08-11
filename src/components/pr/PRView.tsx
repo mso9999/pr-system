@@ -6,7 +6,8 @@ import { useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
 import { referenceDataService } from '@/services/referenceData';
 import { organizationService } from '@/services/organizationService';
-import { normalizePermissionLevel, isProcurementUser, isAdminUser } from '@/utils/permissionLevel';
+import { isProcurementUser, isAdminUser } from '@/utils/permissionLevel';
+import { hasPrAction } from '@/utils/prPrivilege';
 import {
   Box,
   Paper,
@@ -499,9 +500,10 @@ export function PRView() {
   const [selectedQuote, setSelectedQuote] = useState<Quote | null>(null);
   const [lineItems, setLineItems] = useState<Array<ExtendedLineItem>>([]);
   const currentUser = useSelector((state: RootState) => state.auth.user);
-  const userPermissionLevel = normalizePermissionLevel(currentUser?.permissionLevel);
-  const isProcurement = isProcurementUser(currentUser); // Level 3 = Procurement Officer
-  const isAdmin = isAdminUser(currentUser); // Level 1 = Admin
+  // Claim-based (2026-08): numeric level is display-only; capabilities come
+  // from the signed Nexus action set.
+  const isProcurement = isProcurementUser(currentUser);
+  const isAdmin = isAdminUser(currentUser);
   const isRequestor = pr?.requestorEmail?.toLowerCase() === currentUser?.email?.toLowerCase();
   const isDesignatedApprover = currentUser?.id === pr?.approver || currentUser?.id === pr?.approvalWorkflow?.currentApprover;
   const bulkImportAllowedStatuses = new Set<PRStatus>([
@@ -1022,36 +1024,45 @@ export function PRView() {
     pr?.status === PRStatus.APPROVED ||
     pr?.status === PRStatus.ORDERED ||
     pr?.status === PRStatus.COMPLETED;
+  // Claim-based (2026-08): isProcurement/isAdmin already resolve through the
+  // signed action set; the operational-edit check is edit_operational_prs.
+  const claimCanEditOperational = hasPrAction(currentUser, 'edit_operational_prs', 'administer_pr');
+  const claimSeniorApprover = hasPrAction(currentUser, 'approve_high_value');
   const canEdit =
-    userPermissionLevel === 1 || // Admin
+    isAdmin || // Admin
     (pr?.status === PRStatus.REVISION_REQUIRED && pr?.requestor?.id === currentUser?.id) || // Requestor in REVISION_REQUIRED
     (isPOStatusForEdit && (isProcurement || isAdmin)) || // PO amendment: procurement/admin only
     (!isPOStatusForEdit &&
       pr?.status !== PRStatus.REVISION_REQUIRED &&
-      userPermissionLevel <= 3);
-  const isFinanceOnPO = userPermissionLevel === 4 || userPermissionLevel === 6;
+      (claimCanEditOperational || isProcurement || isAdmin));
+  const isFinanceOnPO = hasPrAction(currentUser, 'finance_administration', 'approve_and_finance', 'approve_within_finance_limit');
   const showApprovedPOReadOnlyGuidance =
     pr?.status === PRStatus.APPROVED &&
     !hasPendingAmendment &&
-    (isRequestor || userPermissionLevel === 2);
+    (isRequestor || (claimSeniorApprover && !isProcurement && !isAdmin));
   const showApprovedPOProcurementGuidance =
     pr?.status === PRStatus.APPROVED && !hasPendingAmendment && (isProcurement || isAdmin);
   const showApprovedPOFinanceGuidance =
     pr?.status === PRStatus.APPROVED && !hasPendingAmendment && isFinanceOnPO;
-  const canEditInQueue = pr?.status === PRStatus.IN_QUEUE && (currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 3);
-  
+  // Claim-based (2026-08): edit capabilities from the signed Nexus action set.
+  const claimIsAdmin = hasPrAction(currentUser, 'administer_pr');
+  const claimIsProcurement = hasPrAction(currentUser, 'process_procurement_queue');
+  const claimIsFinance = hasPrAction(currentUser, 'finance_administration', 'approve_and_finance');
+  const claimIsApprover = hasPrAction(currentUser, 'approve_high_value', 'approve_within_finance_limit', 'approve_and_finance');
+  const canEditInQueue = pr?.status === PRStatus.IN_QUEUE && (claimIsAdmin || claimIsProcurement);
+
   // Determine who can edit Project Category and Expense Type based on status
   const canEditFinancialFields = (() => {
-    // In REVISION_REQUIRED status: ONLY requestor (or superadmin) can edit
+    // In REVISION_REQUIRED status: ONLY requestor (or admin) can edit
     if (pr?.status === 'REVISION_REQUIRED') {
-      return currentUser?.permissionLevel === 1 || currentUser?.id === pr?.requestorId;
+      return claimIsAdmin || currentUser?.id === pr?.requestorId;
     }
-    // In COMPLETED status: Only Finance/Admin (Level 4) or Admin (Level 1) - finalization phase
+    // In COMPLETED status: Only finance or admin - finalization phase
     if (pr?.status === 'COMPLETED') {
-      return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 4;
+      return claimIsAdmin || claimIsFinance;
     }
-    // In all other statuses (SUBMITTED through ORDERED): Procurement (L3), Finance/Admin (L4), or Admin (L1)
-    return currentUser?.permissionLevel === 1 || currentUser?.permissionLevel === 3 || currentUser?.permissionLevel === 4;
+    // In all other statuses (SUBMITTED through ORDERED): procurement, finance, or admin
+    return claimIsAdmin || claimIsProcurement || claimIsFinance;
   })();
   
   const isReadOnlyField = (fieldName: string) => {
@@ -2875,17 +2886,17 @@ export function PRView() {
     }
   };
 
-  // Procurement (Level 3) cannot edit Required Date in any status
-  // Requestor can edit in REVISION_REQUIRED, others with appropriate permissions can edit in other statuses
+  // Claim-based (2026-08). Procurement cannot edit Required Date in any
+  // status; requestor can edit in REVISION_REQUIRED.
   const canEditRequiredDate = (() => {
     // Admin can always edit
-    if (currentUser?.permissionLevel === 1) return true;
+    if (claimIsAdmin) return true;
     // Requestor can edit in REVISION_REQUIRED
     if (pr?.status === 'REVISION_REQUIRED' && currentUser?.id === pr?.requestorId) return true;
-    // Procurement (Level 3) CANNOT edit Required Date
-    if (currentUser?.permissionLevel === 3) return false;
-    // Finance/Admin and Senior Approvers can edit (Levels 2, 4)
-    return currentUser?.permissionLevel && [2, 4].includes(currentUser.permissionLevel);
+    // Procurement CANNOT edit Required Date
+    if (claimIsProcurement) return false;
+    // Finance and approvers can edit
+    return claimIsFinance || claimIsApprover;
   })();
 
   return (

@@ -24,19 +24,23 @@
  */
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
+import { callerHasPrAction } from "../prClaimAuth";
 
 const db = admin.firestore();
 const PREFIX = "referenceData_";
 
-const LEVEL = { ADMIN: 1, PROC: 3, FIN_AD: 4, FIN_APPROVER: 6 } as const;
-
 type ProvisioningType = "rations" | "provisioningMenus" | "rationPrices" | "provisioningDefaults";
 
-const ALLOWED_LEVELS: Record<ProvisioningType, number[]> = {
-  rations: [LEVEL.ADMIN, LEVEL.PROC],
-  provisioningMenus: [LEVEL.ADMIN, LEVEL.PROC],
-  rationPrices: [LEVEL.ADMIN, LEVEL.PROC, LEVEL.FIN_AD, LEVEL.FIN_APPROVER],
-  provisioningDefaults: [LEVEL.ADMIN],
+// Claim-only caller authorization (signed Nexus effectivePrivilege for PR).
+// Mapping preserves the legacy numeric-level allowlists:
+//   rations / menus:  levels 1,3   -> process_procurement_queue | administer_pr
+//   rationPrices:     1,3,4,6      -> queue | manage_finance_reference_data | administer
+//   defaults:         level 1      -> administer_pr
+const ALLOWED_ACTIONS: Record<ProvisioningType, string[]> = {
+  rations: ["process_procurement_queue", "administer_pr"],
+  provisioningMenus: ["process_procurement_queue", "administer_pr"],
+  rationPrices: ["process_procurement_queue", "manage_finance_reference_data", "administer_pr"],
+  provisioningDefaults: ["administer_pr"],
 };
 
 function standardizeOrgId(id: string): string {
@@ -50,20 +54,14 @@ function requireAuth(context: any): admin.auth.DecodedIdToken {
   return context.auth as admin.auth.DecodedIdToken;
 }
 
-async function getCallerPermissionLevel(uid: string): Promise<number> {
-  const snap = await db.collection("users").doc(uid).get();
-  const lvl = snap.data()?.permissionLevel;
-  const n = typeof lvl === "number" ? lvl : typeof lvl === "string" ? Number(lvl) : NaN;
-  return Number.isFinite(n) ? n : 99;
-}
-
 async function requireEdit(context: any, type: ProvisioningType): Promise<string> {
   const auth = requireAuth(context);
-  const level = await getCallerPermissionLevel(auth.uid);
-  if (!ALLOWED_LEVELS[type].includes(level)) {
+  const allowed = ALLOWED_ACTIONS[type] as Array<Parameters<typeof callerHasPrAction>[1]>;
+  if (!callerHasPrAction(auth, ...allowed)) {
     throw new functions.https.HttpsError(
       "permission-denied",
-      `Your permission level (${level}) is not authorised to manage provisioning ${type}.`
+      `Your signed PR privileges do not allow you to manage provisioning ${type}. ` +
+      "Ask your HR team or the Nexus/IS&T administrator to correct the assignment, then sign out and relaunch PR from Nexus."
     );
   }
   return auth.uid;

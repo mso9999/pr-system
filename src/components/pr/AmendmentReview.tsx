@@ -25,6 +25,7 @@ import { PRRequest, PendingAmendment, UserReference, LineItem } from '@/types/pr
 import { prService } from '@/services/pr';
 import { formatCurrency } from '@/utils/formatters';
 import { User } from '@/types/user';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface AmendmentReviewProps {
   open: boolean;
@@ -141,7 +142,7 @@ export function AmendmentReview({ open, onClose, pr, currentUser, onResolved }: 
   const isDualApproval = pr.requiresDualApproval || pr.approvalWorkflow?.requiresDualApproval;
   const isApprover1 = currentUser.id === pr.approver || currentUser.id === pr.approvalWorkflow?.currentApprover;
   const isApprover2 = currentUser.id === pr.approver2 || currentUser.id === pr.approvalWorkflow?.secondApprover;
-  const isAdmin = currentUser.permissionLevel === 1;
+  const isAdmin = hasPrAction(currentUser, 'administer_pr'); // claim-based (2026-08)
   const canResolve = isApprover1 || isApprover2 || isAdmin;
 
   const alreadyDecided = (

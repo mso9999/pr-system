@@ -20,6 +20,7 @@ import { PRRequest, PRStatus } from '@/types/pr';
 import { prService } from '@/services/pr';
 import { User } from '@/types/user';
 import { PriorityHigh as UrgentIcon, Flag as FlagIcon } from '@mui/icons-material';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface UrgencyControlProps {
   pr: PRRequest;
@@ -36,10 +37,10 @@ export const UrgencyControl: React.FC<UrgencyControlProps> = ({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newUrgency, setNewUrgency] = useState(pr.isUrgent ? 'urgent' : 'normal');
 
-  // Permission checks based on status and role
+  // Permission checks based on status and signed Nexus action set (2026-08)
   const canChangeUrgency = (): boolean => {
     // Administrator can always change
-    if (currentUser.permissionLevel === 1) return true;
+    if (hasPrAction(currentUser, 'administer_pr')) return true;
 
     // Check if current user is the requestor
     const isRequestor = currentUser.id === pr.requestorId || 
@@ -58,7 +59,7 @@ export const UrgencyControl: React.FC<UrgencyControlProps> = ({
     }
 
     // PENDING_APPROVAL onward: Procurement can change
-    if (currentUser.permissionLevel === 3) {
+    if (hasPrAction(currentUser, 'process_procurement_queue')) {
       return [
         PRStatus.PENDING_APPROVAL,
         PRStatus.APPROVED,
@@ -67,8 +68,8 @@ export const UrgencyControl: React.FC<UrgencyControlProps> = ({
       ].includes(pr.status);
     }
 
-    // APPROVED onward (PO): Approvers (Level 2, 4) can change
-    if (currentUser.permissionLevel === 2 || currentUser.permissionLevel === 4) {
+    // APPROVED onward (PO): approvers and finance can change
+    if (hasPrAction(currentUser, 'approve_and_finance', 'approve_high_value', 'approve_within_finance_limit')) {
       return [
         PRStatus.APPROVED,
         PRStatus.ORDERED,

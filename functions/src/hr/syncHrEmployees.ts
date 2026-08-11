@@ -37,7 +37,7 @@ export const runHrEmployeeSyncNow = functions
       throw new functions.https.HttpsError("unauthenticated", "Sign-in required");
     }
     try {
-      await assertAdmin(context.auth.uid);
+      await assertAdmin(context.auth);
     } catch (err) {
       throw new functions.https.HttpsError("permission-denied", err instanceof Error ? err.message : String(err));
     }
