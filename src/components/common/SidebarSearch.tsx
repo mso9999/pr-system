@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
-import { PERMISSION_LEVELS } from '@/config/permissions';
+import { canEnterAdminArea } from '@/utils/prPrivilege';
 import {
   Box,
   TextField,
@@ -97,13 +97,9 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
   const anchorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const hasAdminAccess = user?.role === 'ADMIN' ||
-    (user?.permissionLevel && (
-      user.permissionLevel <= 4 ||
-      user.permissionLevel === PERMISSION_LEVELS.SITE_MANAGER ||
-      user.permissionLevel === PERMISSION_LEVELS.USER_ADMIN ||
-      user.permissionLevel === PERMISSION_LEVELS.IT
-    ));
+  // Claim-based (2026-08 migration): admin link visibility follows the
+  // signed Nexus action set.
+  const hasAdminAccess = canEnterAdminArea(user);
 
   const loadVendors = useCallback(async () => {
     if (vendorsLoaded || vendorsLoading) return;

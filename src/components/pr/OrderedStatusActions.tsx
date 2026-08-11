@@ -40,6 +40,7 @@ import {
 } from '@mui/icons-material';
 import { FileUploadManager } from '@/components/common/FileUploadManager';
 import { QuoteList } from './QuoteList';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface OrderedStatusActionsProps {
   pr: PRRequest;
@@ -81,11 +82,11 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
   const [previewFile, setPreviewFile] = useState<{ name: string; url: string } | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
 
-  // Permission checks
-  const isProcurement = currentUser.permissionLevel === 3;
-  const isFinanceAdmin = currentUser.permissionLevel === 4;
+  // Claim-based (2026-08): capabilities from the signed Nexus action set.
+  const isProcurement = hasPrAction(currentUser, 'process_procurement_queue');
+  const isFinanceAdmin = hasPrAction(currentUser, 'finance_administration', 'approve_and_finance');
   const isAssetManagement = currentUser.department?.toLowerCase().includes('asset');
-  const isAdmin = currentUser.permissionLevel === 1;
+  const isAdmin = hasPrAction(currentUser, 'administer_pr');
   
   // Finance can only complete below Rule 1 threshold
   const rule1Threshold = 5000; // TODO: Fetch from org config

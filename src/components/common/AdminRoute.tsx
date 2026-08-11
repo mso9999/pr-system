@@ -2,7 +2,8 @@ import { Navigate, useLocation, Outlet } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { CircularProgress, Box, Typography } from '@mui/material';
 import { RootState } from '../../store';
-import { PERMISSION_LEVELS } from '@/config/permissions';
+import { canEnterAdminArea, hasPrAction, assignedPrRoleLabels } from '@/utils/prPrivilege';
+import { PrivilegeDenied } from './PrivilegeDenied';
 
 interface AdminContext {
   isReadOnly: boolean;
@@ -11,18 +12,13 @@ interface AdminContext {
 export const AdminRoute = () => {
   const location = useLocation();
   const { user, loading, error } = useSelector((state: RootState) => state.auth);
-  const permissionLevel = user?.permissionLevel ?? 999;
 
-  // Level 1-4 have admin-area access; levels 8 and 9 have scoped admin access.
-  const hasAdminAccess =
-    permissionLevel <= 4 ||
-    permissionLevel === PERMISSION_LEVELS.USER_ADMIN ||
-    permissionLevel === PERMISSION_LEVELS.IT;
-  // Scoped editing is enforced by each admin panel. IT is read-only everywhere
-  // except the Sites reference-data type.
-  const isReadOnly =
-    (permissionLevel >= 2 && permissionLevel <= 4) ||
-    permissionLevel === PERMISSION_LEVELS.IT;
+  // Claim-based (2026-08 migration): admin-area entry is decided by the
+  // signed Nexus action set, not the numeric permissionLevel.
+  const hasAdminAccess = canEnterAdminArea(user);
+  // Full admins edit everything; scoped roles (approver/proc/finance/IT)
+  // are read-only except where a panel grants a type-specific action.
+  const isReadOnly = !hasPrAction(user, 'administer_pr');
 
   if (loading) {
     return (
@@ -49,7 +45,15 @@ export const AdminRoute = () => {
   }
 
   if (!hasAdminAccess) {
-    return <Navigate to="/dashboard" replace />;
+    // Explain the denial instead of silently bouncing to the dashboard:
+    // assigned vs required roles and who owns role CRUD.
+    return (
+      <PrivilegeDenied
+        action="You tried to open the PR admin area."
+        assignedRoles={assignedPrRoleLabels(user)}
+        requiredRoles={['ADMIN (administer_pr)', 'USER_ADMIN (manage_pr_users)', 'PROC (process_procurement_queue)', 'APPROVER/FINANCE (approve actions)', 'IT (manage_pr_sites)']}
+      />
+    );
   }
 
   if (error) {

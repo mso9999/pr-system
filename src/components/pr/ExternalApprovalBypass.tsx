@@ -32,6 +32,7 @@ import { User } from '@/types/user';
 import { prService } from '@/services/pr';
 import { notificationService } from '@/services/notification';
 import { StorageService } from '@/services/storage';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface ExternalApprovalBypassProps {
   pr: PRRequest;
@@ -53,8 +54,8 @@ export const ExternalApprovalBypass: React.FC<ExternalApprovalBypassProps> = ({
   const [uploadedDocument, setUploadedDocument] = useState<Attachment | null>(null);
   const { enqueueSnackbar } = useSnackbar();
 
-  // Only Finance Admin (level 4) and Superuser (level 1) can use this feature
-  const canBypassApproval = currentUser.permissionLevel === 1 || currentUser.permissionLevel === 4;
+  // Claim-based (2026-08): finance administration covers the external-approval bypass.
+  const canBypassApproval = hasPrAction(currentUser, 'finance_administration', 'administer_pr');
 
   // Only show in PENDING_APPROVAL status
   if (pr.status !== PRStatus.PENDING_APPROVAL || !canBypassApproval) {

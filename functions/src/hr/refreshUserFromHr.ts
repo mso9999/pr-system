@@ -14,7 +14,7 @@ export const refreshUserFromHr = functions.https.onCall(
       throw new functions.https.HttpsError("unauthenticated", "Sign-in required");
     }
     try {
-      await assertAdmin(context.auth.uid);
+      await assertAdmin(context.auth);
     } catch (err) {
       throw new functions.https.HttpsError("permission-denied", err instanceof Error ? err.message : String(err));
     }
@@ -39,7 +39,7 @@ export const hrSmokeTest = functions.https.onCall(async (_data, context) => {
     throw new functions.https.HttpsError("unauthenticated", "Sign-in required");
   }
   try {
-    await assertAdmin(context.auth.uid);
+    await assertAdmin(context.auth);
   } catch (err) {
     throw new functions.https.HttpsError("permission-denied", err instanceof Error ? err.message : String(err));
   }

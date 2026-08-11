@@ -5,6 +5,7 @@ import { referenceDataService } from '../../services/referenceData';
 import { ReferenceData } from '@/types/referenceData';
 import { RootState } from '@/store';
 import { normalizeOrganizationId, organizationMatchesUser } from '@/utils/organization';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 export const ALL_ORGANIZATIONS_OPTION = { id: 'ALL_ORGS', name: 'All Organizations' };
 
@@ -85,19 +86,11 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
               setInternalError('No organizations available for your account');
             }
           } else {
-            // Normalize permission level to number
-            const permissionLevel = typeof user.permissionLevel === 'number' 
-              ? user.permissionLevel 
-              : Number(user.permissionLevel) || 0;
-            
-            // Superadmin (level 1), Admin role, Finance Admin (level 4), and Procurement (level 3) see all orgs
+            // Claim-based (2026-08): admin, finance, and procurement see all orgs.
             if (
-              permissionLevel === 1 || // Superadmin
-              user.role === 'ADMIN' || 
-              user.role === 'FINANCE_ADMIN' || 
-              user.role === 'PROCUREMENT' ||
-              permissionLevel === 3 || // Procurement
-              permissionLevel === 4    // Finance Admin
+              hasPrAction(user, 'administer_pr') ||
+              hasPrAction(user, 'finance_administration', 'approve_and_finance') ||
+              hasPrAction(user, 'process_procurement_queue')
             ) {
               filteredOrgs = allOrgs;
             } else {

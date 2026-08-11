@@ -39,12 +39,12 @@ import { db } from '@/config/firebase'
 import { ReferenceDataItem } from "@/types/referenceData"
 import { useSelector } from 'react-redux'
 import { RootState } from '@/store'
-import { 
-  REFERENCE_DATA_ACCESS, 
-  hasEditAccess, 
+import {
+  REFERENCE_DATA_ACCESS,
   PERMISSION_NAMES,
   REFERENCE_DATA_TYPES
 } from '@/config/permissions'
+import { canEditReferenceDataType } from '@/utils/prPrivilege'
 import { referenceDataAdminService } from '@/services/referenceDataAdmin'
 import { organizationService, Organization } from '@/services/organizationService'
 import { ORG_INDEPENDENT_TYPES } from '@/services/referenceData'
@@ -689,9 +689,11 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
   const [isLoadingSourceItems, setIsLoadingSourceItems] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
 
+  // Claim-based: the signed Nexus action set decides per-type edit access
+  // (numeric permissionLevel is display-only as of the 2026-08 migration).
   const canEdit = useMemo(() => {
-    return user?.permissionLevel ? hasEditAccess(user.permissionLevel, selectedType) : false;
-  }, [user?.permissionLevel, selectedType]);
+    return canEditReferenceDataType(user, selectedType);
+  }, [user, selectedType]);
 
   /** Vehicles mirror FM Fleet Hub — never editable in PR. */
   const isFleetManagedType = selectedType === 'vehicles';

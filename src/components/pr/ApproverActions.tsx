@@ -22,6 +22,7 @@ import { referenceDataService } from '@/services/referenceData';
 import { User } from '@/types/user';
 import { Rule } from '@/types/referenceData';
 import { validatePRForApproval } from '@/utils/prValidation';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface ApproverActionsProps {
   pr: PRRequest;
@@ -144,14 +145,15 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
 
   // Check if user has permission to take actions
   const canTakeAction = useMemo(() => {
-    const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
+    // Claim-based (2026-08): procurement capability from the signed action set.
+    const isProcurement = hasPrAction(currentUser, 'process_procurement_queue');
     // Check both new fields (approver, approver2) and legacy array (approvers)
     const isApprover = currentUser.id === pr.approver || 
                        currentUser.id === pr.approver2 || 
                        pr.approvers?.includes(currentUser.id) ||
                        currentUser.id === assignedApprover?.id;
-    const isAdmin = currentUser.permissionLevel === 1;
-    const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
+    const isAdmin = hasPrAction(currentUser, 'administer_pr');
+    const isFinanceApprover = hasPrAction(currentUser, 'approve_and_finance', 'approve_high_value', 'approve_within_finance_limit');
 
     console.log('Permission check:', {
       userId: currentUser.id,
@@ -195,14 +197,15 @@ export function ApproverActions({ pr, currentUser, assignedApprover, onStatusCha
   }
 
   const getAvailableActions = () => {
-    const isProcurement = currentUser.permissionLevel === 3; // Level 3 = Procurement Officer
+    // Claim-based (2026-08): procurement capability from the signed action set.
+    const isProcurement = hasPrAction(currentUser, 'process_procurement_queue');
     // Check both new fields (approver, approver2) and legacy array (approvers)
     const isApprover = currentUser.id === assignedApprover?.id || 
                        currentUser.id === pr.approver || 
                        currentUser.id === pr.approver2 ||
                        pr.approvers?.includes(currentUser.id);
-    const isAdmin = currentUser.permissionLevel === 1;
-    const isFinanceApprover = currentUser.permissionLevel === 4 || currentUser.permissionLevel === 6; // Level 4 = Finance Admin, Level 6 = Finance Approver
+    const isAdmin = hasPrAction(currentUser, 'administer_pr');
+    const isFinanceApprover = hasPrAction(currentUser, 'approve_and_finance', 'approve_high_value', 'approve_within_finance_limit');
     
     // In PENDING_APPROVAL status
     if (pr.status === PRStatus.PENDING_APPROVAL) {

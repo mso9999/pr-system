@@ -42,6 +42,7 @@ import { normalizeOrganizationId } from '@/utils/organization';
 import { useResponsive } from '../../hooks/useResponsive';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface StatusHistoryEntry {
   status: PRStatus;
@@ -741,15 +742,15 @@ export const Dashboard = () => {
       PRStatus.COMPLETED,
     ];
 
-    return userPRs.filter(pr => {
-      // Requestors (Level 5): Own PRs in REVISION_REQUIRED only
-      if (user.permissionLevel === 5) {
-        return pr.status === PRStatus.REVISION_REQUIRED && 
-               pr.requestorEmail?.toLowerCase() === user.email?.toLowerCase();
-      }
+    // Claim-based (2026-08): queue composition follows the signed action set.
+    const claimIsAdmin = hasPrAction(user, 'administer_pr');
+    const claimIsProc = hasPrAction(user, 'process_procurement_queue');
+    const claimIsFinance = hasPrAction(user, 'finance_administration', 'approve_and_finance', 'approve_within_finance_limit', 'approve_high_value');
+    const claimIsApprover = hasPrAction(user, 'approve_and_finance', 'approve_high_value', 'approve_within_finance_limit');
 
-      // Approvers (Level 2): PRs in PENDING_APPROVAL assigned to them and not yet approved by them
-      if (user.permissionLevel === 2) {
+    return userPRs.filter(pr => {
+      // Approvers: PRs in PENDING_APPROVAL assigned to them and not yet approved by them
+      if (claimIsApprover && !claimIsAdmin && !claimIsProc && !claimIsFinance) {
         if (pr.status !== PRStatus.PENDING_APPROVAL) return false;
         const isFirstApprover = pr.approver === user.id;
         const isSecondApprover = pr.approver2 === user.id;
@@ -761,18 +762,18 @@ export const Dashboard = () => {
         return true;
       }
 
-      // Finance (Level 4, 6): POs in APPROVED status (need to move to ORDERED)
-      if (user.permissionLevel === 4 || user.permissionLevel === 6) {
+      // Finance: POs in APPROVED status (need to move to ORDERED)
+      if (claimIsFinance && !claimIsAdmin && !claimIsProc) {
         return pr.status === PRStatus.APPROVED;
       }
 
-      // Procurement (Level 3): All statuses EXCEPT PENDING_APPROVAL, REVISION_REQUIRED, CANCELED, REJECTED
-      if (user.permissionLevel === 3) {
+      // Procurement: All statuses EXCEPT PENDING_APPROVAL, REVISION_REQUIRED, CANCELED, REJECTED
+      if (claimIsProc && !claimIsAdmin) {
         return procurementActionableStatuses.includes(pr.status as PRStatus);
       }
 
-      // Admin (Level 1): See all actionable items - combination of above
-      if (user.permissionLevel === 1) {
+      // Admin: See all actionable items - combination of above
+      if (claimIsAdmin) {
         // PRs assigned to them for approval and not yet approved by them
         const workflow = pr.approvalWorkflow;
         const isFirstApprover = pr.approver === user.id;
@@ -790,7 +791,9 @@ export const Dashboard = () => {
         return isAssignedApprover || isProcurementActionable || isFinanceActionable;
       }
 
-      return false;
+      // Requestors (no elevated actions): own PRs in REVISION_REQUIRED only
+      return pr.status === PRStatus.REVISION_REQUIRED &&
+             pr.requestorEmail?.toLowerCase() === user.email?.toLowerCase();
     });
   };
 
@@ -802,9 +805,17 @@ export const Dashboard = () => {
     dispatch(setMyActionsFilter(!myActionsFilter));
   };
 
-  // Check if user should see MY ACTIONS button
-  // All users with actionable items should see the button (Levels 1-6)
-  const showMyActionsButton = user?.permissionLevel !== undefined && user.permissionLevel <= 6;
+  // Claim-based (2026-08): anyone with an action beyond plain requesting can
+  // have actionable items.
+  const showMyActionsButton = hasPrAction(
+    user,
+    'approve_and_finance',
+    'approve_high_value',
+    'approve_within_finance_limit',
+    'process_procurement_queue',
+    'finance_administration',
+    'administer_pr'
+  );
 
   // Determine which PRs to display based on active filters
   let statusPRs: PRRequest[];

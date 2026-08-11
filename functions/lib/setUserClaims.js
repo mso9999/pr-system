@@ -35,57 +35,20 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.setUserClaims = void 0;
 const functions = __importStar(require("firebase-functions"));
-const admin = __importStar(require("firebase-admin"));
-exports.setUserClaims = functions.https.onCall(async (data, context) => {
-    try {
-        // Check if request is made by an admin user (either by claim or by checking Firestore)
-        if (!context.auth) {
-            throw new functions.https.HttpsError('unauthenticated', 'Must be logged in to set user claims');
-        }
-        // First check if user has admin claim
-        const hasAdminClaim = context.auth.token.admin === true;
-        // If no admin claim, check Firestore for admin permission level
-        let hasAdminPermission = false;
-        if (!hasAdminClaim) {
-            const userDoc = await admin.firestore()
-                .collection('users')
-                .doc(context.auth.uid)
-                .get();
-            if (userDoc.exists) {
-                const userData = userDoc.data();
-                hasAdminPermission = (userData === null || userData === void 0 ? void 0 : userData.permissionLevel) <= 2;
-            }
-        }
-        if (!hasAdminClaim && !hasAdminPermission) {
-            throw new functions.https.HttpsError('permission-denied', 'Only admins can modify user claims');
-        }
-        const { email, permissionLevel } = data;
-        if (!email || typeof permissionLevel !== 'number') {
-            throw new functions.https.HttpsError('invalid-argument', 'Email and permission level are required');
-        }
-        // Get user by email
-        const user = await admin.auth().getUserByEmail(email);
-        // Set custom claims based on permission level
-        const claims = {
-            admin: permissionLevel <= 2, // Admin is level 1 or 2
-            procurement: permissionLevel <= 4, // Procurement is level 3 or 4
-            requester: permissionLevel <= 5 // Requester is level 5
-        };
-        // Update user claims
-        await admin.auth().setCustomUserClaims(user.uid, claims);
-        // Get the updated user to verify claims were set
-        const updatedUser = await admin.auth().getUser(user.uid);
-        return {
-            success: true,
-            userId: user.uid,
-            email: user.email,
-            claims: updatedUser.customClaims,
-            message: 'User claims updated successfully. The user must sign out and sign back in for the changes to take effect.'
-        };
-    }
-    catch (error) {
-        console.error('Error setting user claims:', error);
-        throw new functions.https.HttpsError('internal', 'Failed to set user claims');
-    }
+/**
+ * RETIRED (2026-08-11) — this function used to write the legacy PR custom
+ * claims (admin / procurement / requester / permissionLevel). Authorization
+ * is now claim-only: the signed Nexus `effectivePrivilege` claim, minted at
+ * SSO time from the nexus_users.systemAccess.pr assignment, is the sole
+ * authority, and no PR component reads the legacy claims anymore.
+ *
+ * The export is kept (failing closed) so a stale caller gets a clear error
+ * instead of silently succeeding against a claim nobody enforces. The
+ * function can be fully deleted in a later deploy once no caller remains.
+ */
+exports.setUserClaims = functions.https.onCall(async () => {
+    throw new functions.https.HttpsError('failed-precondition', 'Legacy PR custom claims are retired. PR access is assigned in Nexus ' +
+        '(systemAccess.pr.permissionLevel) and signed into the SSO claim at ' +
+        'launch; the user relaunches PR from the Nexus portal to receive it.');
 });
 //# sourceMappingURL=setUserClaims.js.map

@@ -62,8 +62,6 @@ const hrDirectoryClient_1 = require("./hrDirectoryClient");
 const departmentResolver_1 = require("./departmentResolver");
 const db = admin.firestore();
 const auth = admin.auth();
-const ADMIN_LEVEL = 1;
-const USER_ADMIN_LEVEL = 8;
 const DEFAULT_PROVISIONED_LEVEL = 5; // Requester
 const HR_OWNED_FIELDS = [
     "hrEmployeeId",
@@ -219,7 +217,9 @@ async function provisionUser(emp, resolver, report, now) {
         }
     }
     try {
-        await auth.setCustomUserClaims(uid, { permissionLevel: DEFAULT_PROVISIONED_LEVEL });
+        // Legacy permissionLevel custom claims are retired: the PR assignment is
+        // recorded on nexus_users.systemAccess.pr below and signed into the SSO
+        // claim by Nexus at launch time.
         const userDoc = Object.assign({ id: uid, email,
             firstName,
             lastName, isActive: true, permissionLevel: DEFAULT_PROVISIONED_LEVEL, 
@@ -523,12 +523,16 @@ async function persistReport(report) {
     return docId;
 }
 // ── Authz helper for callables ────────────────────────────────────────────
-async function assertAdmin(uid) {
-    var _a;
-    const doc = await db.collection("users").doc(uid).get();
-    const lvl = Number((_a = doc.data()) === null || _a === void 0 ? void 0 : _a.permissionLevel);
-    if (lvl !== ADMIN_LEVEL && lvl !== USER_ADMIN_LEVEL) {
-        throw new Error("Superadmin or User Admin only");
+/**
+ * Caller authorization is claim-only: the signed Nexus effectivePrivilege
+ * claim must carry manage_pr_users (legacy level 8) or administer_pr
+ * (legacy level 1). The callable wrappers pass the decoded token; the
+ * Firestore permissionLevel field is no longer consulted.
+ */
+async function assertAdmin(auth) {
+    const { callerHasPrAction } = await Promise.resolve().then(() => __importStar(require("../prClaimAuth")));
+    if (!callerHasPrAction(auth, "manage_pr_users", "administer_pr")) {
+        throw new Error("Signed PR user-administration or administrator grant required");
     }
 }
 //# sourceMappingURL=hrEmployeeSyncCore.js.map

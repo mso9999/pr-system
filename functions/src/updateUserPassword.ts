@@ -1,5 +1,6 @@
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
+import { callerHasPrAction, requirePrAction } from './prClaimAuth';
 
 interface UpdatePasswordData {
   userId: string;
@@ -36,34 +37,13 @@ export const updateUserPassword = functions.https.onCall(async (data: UpdatePass
     );
   }
 
-  // Get the calling user's data from Firestore to check permission level
+  // Claim-only: password resets need the signed manage_pr_users grant
+  // (legacy level 8) or full PR administration (legacy level 1). The signed
+  // Nexus claim is the sole authority — Firestore permissionLevel is no
+  // longer consulted for authorization.
   const db = admin.firestore();
-  let callingUserDoc;
-  let callingUserData;
-  let callingUserPermissionLevel;
-  
-  try {
-    callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
-    callingUserData = callingUserDoc.data();
-    
-    // Only Level 1 (Superadmin) or Level 8 (IT Support/User Admin) can reset passwords
-    callingUserPermissionLevel = callingUserData?.permissionLevel;
-    if (!callingUserData || (callingUserPermissionLevel !== 1 && callingUserPermissionLevel !== 8)) {
-      throw new functions.https.HttpsError(
-        'permission-denied',
-        'Only Superadmin (Level 1) or IT Support (Level 8) can update user passwords'
-      );
-    }
-  } catch (error) {
-    if (error instanceof functions.https.HttpsError) {
-      throw error;
-    }
-    throw new functions.https.HttpsError(
-      'internal',
-      'Error checking permissions',
-      error instanceof Error ? error.message : undefined
-    );
-  }
+  requirePrAction(context.auth, 'reset user passwords', 'manage_pr_users', 'administer_pr');
+  const callerIsAdmin = callerHasPrAction(context.auth, 'administer_pr');
 
   try {
     // Log incoming data for debugging
@@ -103,15 +83,18 @@ export const updateUserPassword = functions.https.onCall(async (data: UpdatePass
       );
     }
 
-    // If caller is IT Support (Level 8), prevent resetting superadmin (Level 1) passwords
-    if (callingUserPermissionLevel === 8) {
-      const targetUserDoc = await db.collection('users').doc(data.userId).get();
-      const targetUserData = targetUserDoc.data();
-      
-      if (targetUserData?.permissionLevel === 1) {
+    // A non-administrator user manager cannot reset an administrator's
+    // password. The target's level is read from the nexus_users assignment
+    // record (display data, not the caller's authority source).
+    if (!callerIsAdmin) {
+      const targetNexusDoc = await db.collection('nexus_users').doc(data.userId).get();
+      const targetLevel = Number(
+        targetNexusDoc.data()?.systemAccess?.pr?.permissionLevel ?? 0
+      );
+      if (targetLevel === 1) {
         throw new functions.https.HttpsError(
           'permission-denied',
-          'IT Support cannot reset passwords for Superadmin accounts'
+          'Only PR administrators can reset passwords for administrator accounts'
         );
       }
     }

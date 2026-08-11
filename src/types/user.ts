@@ -62,8 +62,15 @@ export interface User {
   organization?: string;
   /** Whether user is active */
   isActive?: boolean;
-  /** Permission level */
+  /** Permission level (display/directory only — NOT an authorization input) */
   permissionLevel?: number;
+  /**
+   * Signed Nexus `effectivePrivilege` claim (targetSystem 'pr'), read from
+   * the Firebase ID token at login and on every token refresh. Sole
+   * client-side authorization authority — check via utils/prPrivilege.
+   * Null for unsigned sessions (emergency fallback login = read-only).
+   */
+  privilege?: unknown;
   /** Additional organizations */
   additionalOrganizations?: string[];
   /** When true, user has 2–3 department assignments (see departmentMemberships). Default false. */
@@ -74,8 +81,8 @@ export interface User {
   isHrLead?: boolean;
   /** ISO 3166-1 alpha-2 country codes (e.g. LS, ZM) where this HR Lead may manage employee department assignments. */
   hrLeadCountryCodes?: string[];
-  /** User permissions */
-  permissions?: string[];
+  /** User permissions (derived from the signed Nexus claim in services/auth) */
+  permissions?: UserPermissions;
   /** User's name */
   name?: string;
 

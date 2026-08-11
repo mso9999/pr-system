@@ -1,17 +1,16 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
+import { callerHasPrAction, requirePrAction } from './prClaimAuth';
 
 export interface UpdateUserEmailData {
     userId: string;
     newEmail: string;
 }
 
-const ADMIN_LEVEL = 1;
-const USER_ADMIN_LEVEL = 8;
-
 /**
  * Cloud Function to update a user's email in both Firebase Auth and Firestore.
- * Only Superadmin (Level 1) or IT Support (Level 8) can update user emails.
+ * Requires the signed manage_pr_users grant (legacy level 8) or full PR
+ * administration (legacy level 1); the Nexus claim is the sole authority.
  */
 export const updateUserEmail = functions.https.onCall(async (data: UpdateUserEmailData, context) => {
     // Check if the caller is authenticated
@@ -24,31 +23,8 @@ export const updateUserEmail = functions.https.onCall(async (data: UpdateUserEma
 
     const db = admin.firestore();
 
-    // Get the calling user's data from Firestore to check permission level
-    // (Don't rely on custom claims as they may not be set)
-    let callingUserPermissionLevel: number | undefined;
-    try {
-        const callingUserDoc = await db.collection('users').doc(context.auth.uid).get();
-        const callingUserData = callingUserDoc.data();
-        callingUserPermissionLevel = callingUserData?.permissionLevel;
-        
-        // Only Level 1 (Superadmin) or Level 8 (IT Support/User Admin) can update emails
-        if (!callingUserData || (callingUserPermissionLevel !== ADMIN_LEVEL && callingUserPermissionLevel !== USER_ADMIN_LEVEL)) {
-            throw new functions.https.HttpsError(
-                'permission-denied',
-                'Only Superadmin (Level 1) or IT Support (Level 8) can update user emails'
-            );
-        }
-    } catch (error) {
-        if (error instanceof functions.https.HttpsError) {
-            throw error;
-        }
-        throw new functions.https.HttpsError(
-            'internal',
-            'Error checking permissions',
-            error instanceof Error ? error.message : undefined
-        );
-    }
+    requirePrAction(context.auth, 'update user emails', 'manage_pr_users', 'administer_pr');
+    const callerIsAdmin = callerHasPrAction(context.auth, 'administer_pr');
 
     // Validate required fields
     if (!data.userId || !data.newEmail) {
@@ -71,15 +47,18 @@ export const updateUserEmail = functions.https.onCall(async (data: UpdateUserEma
         );
     }
 
-    // If caller is IT Support (Level 8), prevent updating superadmin (Level 1) emails
-    if (callingUserPermissionLevel === USER_ADMIN_LEVEL) {
-        const targetUserDoc = await db.collection('users').doc(data.userId).get();
-        const targetUserData = targetUserDoc.data();
-        
-        if (targetUserData?.permissionLevel === ADMIN_LEVEL) {
+    // A non-administrator user manager cannot change an administrator's
+    // email. The target's level is read from the nexus_users assignment
+    // record (display data, not the caller's authority source).
+    if (!callerIsAdmin) {
+        const targetNexusDoc = await db.collection('nexus_users').doc(data.userId).get();
+        const targetLevel = Number(
+            targetNexusDoc.data()?.systemAccess?.pr?.permissionLevel ?? 0
+        );
+        if (targetLevel === 1) {
             throw new functions.https.HttpsError(
                 'permission-denied',
-                'IT Support cannot update emails for Superadmin accounts'
+                'Only PR administrators can update emails for administrator accounts'
             );
         }
     }

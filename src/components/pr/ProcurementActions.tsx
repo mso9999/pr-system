@@ -30,6 +30,7 @@ import { organizationService } from '@/services/organizationService';
 import { Rule } from '@/types/referenceData';
 import { convertAmountWithMetadata, getRuleCurrency, ConversionResult } from '@/utils/currencyConverter';
 import { approverService } from '@/services/approver';
+import { hasPrAction } from '@/utils/prPrivilege';
 
 interface ProcurementActionsProps {
   prId: string;
@@ -660,13 +661,9 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
     }
   };
 
-  // Show different actions based on user role and PR status
-  // Normalize permission level to number (Firestore may return string)
-  const permissionLevel = typeof currentUser.permissionLevel === 'number' 
-    ? currentUser.permissionLevel 
-    : Number(currentUser.permissionLevel) || 0;
-  const isProcurement = permissionLevel === 3; // Level 3 = Procurement Officer
-  const isAdmin = permissionLevel === 1; // Level 1 = Superadmin
+  // Claim-based (2026-08): capabilities from the signed Nexus action set.
+  const isProcurement = hasPrAction(currentUser, 'process_procurement_queue');
+  const isAdmin = hasPrAction(currentUser, 'administer_pr');
   const isRequestor = currentUser.email.toLowerCase() === requestorEmail.toLowerCase();
 
   if (!isProcurement && !isRequestor && !isAdmin) {

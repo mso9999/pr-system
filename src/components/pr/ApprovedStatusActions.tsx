@@ -25,6 +25,7 @@ import { prService } from '@/services/pr';
 import { notificationService } from '@/services/notification';
 import { StorageService } from '@/services/storage';
 import { User } from '@/types/user';
+import { hasPrAction } from '@/utils/prPrivilege';
 import { formatCurrency } from '@/utils/formatters';
 import {
   CloudUpload as UploadIcon,
@@ -223,19 +224,15 @@ export const ApprovedStatusActions: React.FC<ApprovedStatusActionsProps> = ({
     loadRulesAndCalculateThresholds();
   }, [pr.organization, pr.estimatedAmount, pr.currency]);
 
-  // Permission checks (normalize permissionLevel to number in case it's stored as string)
-  const permissionLevel = typeof currentUser.permissionLevel === 'number'
-    ? currentUser.permissionLevel
-    : Number(currentUser.permissionLevel ?? 0);
-
-  const isProcurement = permissionLevel === 3;
-  const isFinanceAdmin = permissionLevel === 4;
-  const isFinanceApprover = permissionLevel === 6;
-  const isAdminApprover = permissionLevel === 2;
-  const isAdmin = permissionLevel === 1;
+  // Claim-based (2026-08): capabilities come from the signed Nexus action set.
+  const isProcurement = hasPrAction(currentUser, 'process_procurement_queue');
+  const isFinanceAdmin = hasPrAction(currentUser, 'finance_administration', 'approve_and_finance');
+  const isFinanceApprover = hasPrAction(currentUser, 'approve_high_value', 'approve_within_finance_limit');
+  const isAdminApprover = hasPrAction(currentUser, 'approve_high_value');
+  const isAdmin = hasPrAction(currentUser, 'administer_pr');
   const canCancelPO = isAdmin || isAdminApprover || isFinanceAdmin || isFinanceApprover;
   const canRejectPO = isAdmin || isFinanceAdmin || isFinanceApprover;
-  // Finance Admin (Level 4) can upload PoP, Proforma, and move PO to ORDERED status
+  // Finance Admin can upload PoP, Proforma, and move PO to ORDERED status
   const canTakeAction = isProcurement || isFinanceAdmin || isFinanceApprover || isAdmin;
 
   // Use loaded rule thresholds with currency conversion (with fallbacks)

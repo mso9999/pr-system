@@ -36,8 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.createUser = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const prClaimAuth_1 = require("./prClaimAuth");
 const ADMIN_LEVEL = 1;
-const USER_ADMIN_LEVEL = 8;
 const MIN_REQUESTER_LEVEL = 5;
 function normalizePermissionLevel(level) {
     if (typeof level === 'number')
@@ -49,12 +49,6 @@ function normalizePermissionLevel(level) {
     }
     return MIN_REQUESTER_LEVEL;
 }
-function isUserAdminLevel(level) {
-    return level === USER_ADMIN_LEVEL;
-}
-function canManageUsers(level) {
-    return level > 0 && (level <= 4 || isUserAdminLevel(level));
-}
 function normalizeCountry(code) {
     return typeof code === 'string' ? code.trim().toUpperCase() : '';
 }
@@ -64,9 +58,14 @@ async function getOrgCountry(db, organizationId) {
     const c = (_a = snap.data()) === null || _a === void 0 ? void 0 : _a.country;
     return typeof c === 'string' ? c.trim() : undefined;
 }
-function callerCanEnableMultiDepartment(caller, orgCountry) {
-    const level = normalizePermissionLevel(caller === null || caller === void 0 ? void 0 : caller.permissionLevel);
-    if (level === ADMIN_LEVEL)
+/**
+ * Multi-department appointments: PR administrator (administer_pr) or an HR
+ * Lead whose signed-off country list covers the organization's country. The
+ * HR Lead flags ride on the caller's users/{uid} profile (HR-owned data),
+ * never on legacy custom claims.
+ */
+function callerCanEnableMultiDepartment(caller, orgCountry, callerIsAdmin) {
+    if (callerIsAdmin)
         return true;
     if (!(caller === null || caller === void 0 ? void 0 : caller.isHrLead) || !Array.isArray(caller.hrLeadCountryCodes) || caller.hrLeadCountryCodes.length === 0) {
         return false;
@@ -103,20 +102,26 @@ exports.createUser = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to manage users.');
     }
     const db = admin.firestore();
+    (0, prClaimAuth_1.requirePrAction)(context.auth, 'create user accounts', 'manage_pr_users', 'administer_pr', 'process_procurement_queue');
+    // Legacy distinction preserved: procurement officers (legacy level 3) may
+    // only create requester-level accounts; user administrators (legacy 8)
+    // cannot create administrators or sub-requester levels.
+    const callerIsAdmin = (0, prClaimAuth_1.callerHasPrAction)(context.auth, 'administer_pr');
+    const callerIsUserAdmin = !callerIsAdmin && (0, prClaimAuth_1.callerHasPrAction)(context.auth, 'manage_pr_users');
+    const callerIsProcOnly = !callerIsAdmin && !callerIsUserAdmin && (0, prClaimAuth_1.callerHasPrAction)(context.auth, 'process_procurement_queue');
     const callerDoc = await db.collection('users').doc(context.auth.uid).get();
     const callerData = callerDoc.data();
-    const callerPermissionLevel = normalizePermissionLevel(callerData === null || callerData === void 0 ? void 0 : callerData.permissionLevel);
-    if (!canManageUsers(callerPermissionLevel)) {
-        throw new functions.https.HttpsError('permission-denied', 'You do not have access to manage users.');
-    }
     const requestedPermissionLevel = normalizePermissionLevel(data.permissionLevel);
     if (!data.email || !data.password || !data.firstName || !data.lastName || !data.organization || !data.department) {
         throw new functions.https.HttpsError('invalid-argument', 'Missing required fields.');
     }
-    if (callerPermissionLevel === USER_ADMIN_LEVEL) {
+    if (callerIsUserAdmin) {
         if (requestedPermissionLevel === ADMIN_LEVEL || requestedPermissionLevel < MIN_REQUESTER_LEVEL) {
             throw new functions.https.HttpsError('permission-denied', 'User Administrators can only create non-administrator accounts at requester level or higher.');
         }
+    }
+    if (callerIsProcOnly && requestedPermissionLevel !== MIN_REQUESTER_LEVEL) {
+        throw new functions.https.HttpsError('permission-denied', 'Procurement officers can only create requester-level accounts.');
     }
     if (requestedPermissionLevel <= 0) {
         throw new functions.https.HttpsError('invalid-argument', 'Invalid permission level.');
@@ -126,10 +131,10 @@ exports.createUser = functions.https.onCall(async (data, context) => {
     let resolvedDepartment = data.department;
     let resolvedMemberships;
     if (wantsMulti) {
-        if (callerPermissionLevel === USER_ADMIN_LEVEL) {
-            throw new functions.https.HttpsError('permission-denied', 'User Administrators cannot enable multi-department assignments.');
+        if (callerIsUserAdmin || callerIsProcOnly) {
+            throw new functions.https.HttpsError('permission-denied', 'Only administrators or HR Leads may enable multi-department assignments.');
         }
-        if (!callerCanEnableMultiDepartment(callerData, orgCountry)) {
+        if (!callerCanEnableMultiDepartment(callerData, orgCountry, callerIsAdmin)) {
             throw new functions.https.HttpsError('permission-denied', 'Only administrators or HR Leads for this organization country may enable multi-department appointments.');
         }
         const v = validateMemberships(true, data.departmentMemberships, data.department);
@@ -137,7 +142,7 @@ exports.createUser = functions.https.onCall(async (data, context) => {
         resolvedMemberships = v.memberships;
     }
     if (data.isHrLead || (data.hrLeadCountryCodes && data.hrLeadCountryCodes.length > 0)) {
-        if (callerPermissionLevel !== ADMIN_LEVEL) {
+        if (!(0, prClaimAuth_1.callerHasPrAction)(context.auth, 'manage_hr_lead_meta', 'administer_pr')) {
             throw new functions.https.HttpsError('permission-denied', 'Only administrators may assign HR Lead role.');
         }
     }
@@ -153,9 +158,15 @@ exports.createUser = functions.https.onCall(async (data, context) => {
             displayName: `${data.firstName} ${data.lastName}`
         });
         createdAuthUid = userRecord.uid;
-        await admin.auth().setCustomUserClaims(userRecord.uid, {
-            permissionLevel: requestedPermissionLevel
-        });
+        // Authorization now flows through Nexus: record the PR assignment on
+        // nexus_users.systemAccess.pr — the resolver signs it into the user's
+        // claim at SSO time. Legacy custom claims are no longer written.
+        await db.doc(`nexus_users/${userRecord.uid}`).set({
+            email: data.email,
+            systemAccess: {
+                pr: { enabled: true, permissionLevel: requestedPermissionLevel, role: null }
+            }
+        }, { merge: true });
         const userDoc = {
             id: userRecord.uid,
             email: data.email,
@@ -178,7 +189,7 @@ exports.createUser = functions.https.onCall(async (data, context) => {
         else {
             userDoc.multiDepartmentAppointmentsEnabled = false;
         }
-        if (callerPermissionLevel === ADMIN_LEVEL) {
+        if (callerIsAdmin) {
             if (data.isHrLead && Array.isArray(data.hrLeadCountryCodes) && data.hrLeadCountryCodes.length > 0) {
                 userDoc.isHrLead = true;
                 userDoc.hrLeadCountryCodes = data.hrLeadCountryCodes

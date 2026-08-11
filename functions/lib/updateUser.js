@@ -36,13 +36,10 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUserClaims = exports.updateUser = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
+const prClaimAuth_1 = require("./prClaimAuth");
 exports.updateUser = functions.https.onCall(async (data, context) => {
-    var _a, _b;
     try {
-        // Check if the caller has admin privileges
-        if (!((_b = (_a = context.auth) === null || _a === void 0 ? void 0 : _a.token) === null || _b === void 0 ? void 0 : _b.admin)) {
-            throw new functions.https.HttpsError('permission-denied', 'Only admins can update users');
-        }
+        (0, prClaimAuth_1.requirePrAction)(context.auth, 'update user accounts', 'manage_pr_users', 'administer_pr');
         // Get user reference
         const userRef = admin.firestore().collection('users').doc(data.userId);
         // Update user data in Firestore
@@ -54,12 +51,19 @@ exports.updateUser = functions.https.onCall(async (data, context) => {
             additionalOrganizations: data.additionalOrganizations,
             isActive: data.isActive
         };
-        // If permission level is being updated, set custom claims
+        // Permission-level changes update the Nexus assignment record
+        // (nexus_users.systemAccess.pr) — the resolver signs it into the
+        // target's next SSO claim. Legacy custom claims are no longer
+        // written; the users/{uid} field stays as a display cache only.
         if (data.permissionLevel !== undefined) {
-            await admin.auth().setCustomUserClaims(data.userId, {
-                permissionLevel: data.permissionLevel,
-                admin: data.permissionLevel === 1
-            });
+            if (!(0, prClaimAuth_1.callerHasPrAction)(context.auth, 'administer_pr')) {
+                throw new functions.https.HttpsError('permission-denied', 'Only PR administrators can change permission levels');
+            }
+            await admin.firestore().doc(`nexus_users/${data.userId}`).set({
+                systemAccess: {
+                    pr: { enabled: true, permissionLevel: data.permissionLevel }
+                }
+            }, { merge: true });
             updateData.permissionLevel = data.permissionLevel;
         }
         // Update Firestore
@@ -71,15 +75,14 @@ exports.updateUser = functions.https.onCall(async (data, context) => {
     }
     catch (error) {
         console.error('Error updating user:', error);
+        if (error instanceof functions.https.HttpsError)
+            throw error;
         throw new functions.https.HttpsError('internal', 'Error updating user');
     }
 });
 exports.getUserClaims = functions.https.onCall(async (data, context) => {
-    var _a, _b;
     // Verify that the caller is an admin
-    if (!((_b = (_a = context.auth) === null || _a === void 0 ? void 0 : _a.token) === null || _b === void 0 ? void 0 : _b.admin)) {
-        throw new functions.https.HttpsError('permission-denied', 'Only admins can get user claims');
-    }
+    (0, prClaimAuth_1.requirePrAction)(context.auth, 'inspect user claims', 'manage_pr_users', 'administer_pr');
     try {
         const user = await admin.auth().getUser(data.userId);
         return {
