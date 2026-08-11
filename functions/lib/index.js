@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.saveProvisioningMenu = exports.saveProvisioningDefaults = exports.retireProvisioningPrice = exports.saveProvisioningPrice = exports.retireProvisioningRation = exports.saveProvisioningRation = exports.listProvisioningCatalog = exports.fleetSmokeTest = exports.getFleetMission = exports.listFleetMissions = exports.prCatalogApi = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.saveProvisioningMenu = exports.saveProvisioningDefaults = exports.retireProvisioningPrice = exports.saveProvisioningPrice = exports.retireProvisioningRation = exports.saveProvisioningRation = exports.listProvisioningCatalog = exports.fleetSmokeTest = exports.getFleetMission = exports.listFleetMissions = exports.prCatalogApi = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserEmail = exports.updateUserPassword = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
@@ -71,6 +71,8 @@ Object.defineProperty(exports, "fanoutSiteChanges", { enumerable: true, get: fun
 // Export user management functions
 var updateUserPassword_1 = require("./updateUserPassword");
 Object.defineProperty(exports, "updateUserPassword", { enumerable: true, get: function () { return updateUserPassword_1.updateUserPassword; } });
+var updateUserEmail_1 = require("./updateUserEmail");
+Object.defineProperty(exports, "updateUserEmail", { enumerable: true, get: function () { return updateUserEmail_1.updateUserEmail; } });
 var createUser_1 = require("./createUser");
 Object.defineProperty(exports, "createUser", { enumerable: true, get: function () { return createUser_1.createUser; } });
 // User-sync drift detection
