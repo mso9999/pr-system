@@ -14,6 +14,21 @@
 const DEFAULT_BASE_URL = "https://hr.1pwrafrica.com";
 const TIMEOUT_MS = 8000;
 
+/**
+ * Represents an organization secondment (temporary assignment to another org).
+ * HR owns this data; PR mirrors it read-only.
+ */
+export interface HrSecondment {
+  /** Target organization ID (normalized, e.g. "1pwr_benin") */
+  organizationId: string;
+  /** Secondment start date (YYYY-MM-DD) */
+  startDate: string | null;
+  /** Secondment end date (YYYY-MM-DD), null = open-ended */
+  endDate: string | null;
+  /** Free-text reason/purpose from HR */
+  reason: string | null;
+}
+
 export interface HrEmployee {
   id: number;
   employee_id: string | null;
@@ -30,6 +45,13 @@ export interface HrEmployee {
   current_position_title: string | null;
   phone: string | null;
   last_updated_at: string | null;
+  // ── Organization assignment (HR-owned) ──
+  /** Primary organization ID (normalized, e.g. "1pwr_lesotho"). HR canonical. */
+  primary_organization?: string | null;
+  /** Additional (tertiary) organization IDs the employee belongs to. */
+  additional_organizations?: string[] | null;
+  /** Active secondments to other organizations. */
+  secondments?: HrSecondment[] | null;
 }
 
 export interface HrDirectoryResponse {

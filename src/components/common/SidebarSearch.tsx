@@ -31,6 +31,7 @@ import {
 } from '@mui/icons-material';
 import { PRRequest, PRStatus } from '@/types/pr';
 import { referenceDataService, ReferenceData } from '@/services/referenceData';
+import { searchPRsByNumber } from '@/services/pr';
 import { db } from '@/config/firebase';
 import { collection, getDocs } from 'firebase/firestore';
 
@@ -94,8 +95,11 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
   const [userDirectory, setUserDirectory] = useState<Record<string, { name: string; email: string }>>({});
   const [usersLoaded, setUsersLoaded] = useState(false);
   const [usersLoading, setUsersLoading] = useState(false);
+  const [remotePRs, setRemotePRs] = useState<PRRequest[]>([]);
+  const [remoteLoading, setRemoteLoading] = useState(false);
   const anchorRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const remoteSearchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Claim-based (2026-08 migration): admin link visibility follows the
   // signed Nexus action set.
@@ -145,6 +149,37 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
       loadUsersDirectory();
     }
   }, [searchText, vendorsLoaded, usersLoaded, loadVendors, loadUsersDirectory]);
+
+  // Firestore fallback: when local PR matches are empty and term is >= 3 chars,
+  // query Firestore by prNumber prefix after a short debounce.
+  const localPRMatches = useMemo(() => {
+    const term = searchText.toLowerCase().trim();
+    if (term.length < 2) return 0;
+    return userPRs.filter(pr => matchesTerm(pr.prNumber, term)).length;
+  }, [searchText, userPRs]);
+
+  useEffect(() => {
+    if (remoteSearchTimer.current) {
+      clearTimeout(remoteSearchTimer.current);
+    }
+    const term = searchText.trim();
+    if (term.length < 3 || localPRMatches > 0) {
+      setRemotePRs([]);
+      setRemoteLoading(false);
+      return;
+    }
+    setRemoteLoading(true);
+    remoteSearchTimer.current = setTimeout(async () => {
+      const results = await searchPRsByNumber(term, 10);
+      setRemotePRs(results);
+      setRemoteLoading(false);
+    }, 400);
+    return () => {
+      if (remoteSearchTimer.current) {
+        clearTimeout(remoteSearchTimer.current);
+      }
+    };
+  }, [searchText, localPRMatches]);
 
   const results = useMemo((): SearchResult[] => {
     const term = searchText.toLowerCase().trim();
@@ -208,6 +243,31 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
     }
     matches.push(...prMatches);
 
+    // Merge remote PR results from Firestore fallback (deduped against local matches)
+    if (remotePRs.length > 0) {
+      const localIds = new Set(userPRs.map(pr => pr.id));
+      for (const pr of remotePRs) {
+        if (prMatches.length >= 15) break;
+        if (localIds.has(pr.id)) continue;
+        const objectType = pr.objectType || (
+          [PRStatus.APPROVED, PRStatus.ORDERED, PRStatus.COMPLETED].includes(pr.status) ? 'PO' : 'PR'
+        );
+        prMatches.push({
+          id: `pr-${pr.id}`,
+          label: `${pr.prNumber}`,
+          sublabel: pr.description?.substring(0, 60) || pr.preferredVendor || undefined,
+          category: 'pr',
+          path: `/pr/${pr.id}`,
+          icon: <PRIcon fontSize="small" />,
+          chip: {
+            label: `${objectType} · ${pr.status.replace(/_/g, ' ')}`,
+            color: STATUS_COLORS[pr.status] || 'default',
+          },
+        });
+      }
+      matches.push(...prMatches.slice(matches.filter(m => m.category === 'pr').length));
+    }
+
     // Search vendors (from reference data) — link to admin vendor view if admin, otherwise to suppliers page
     if (vendors.length > 0) {
       let vendorMatches = 0;
@@ -233,7 +293,7 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
     }
 
     return matches;
-  }, [searchText, userPRs, vendors, hasAdminAccess, userDirectory]);
+  }, [searchText, userPRs, vendors, hasAdminAccess, userDirectory, remotePRs]);
 
   const groupedResults = useMemo(() => {
     const groups: Record<string, SearchResult[]> = {};
@@ -326,7 +386,7 @@ export const SidebarSearch = ({ onNavigate }: SidebarSearchProps) => {
           >
             {results.length === 0 ? (
               <Box sx={{ p: 2, textAlign: 'center' }}>
-                {vendorsLoading ? (
+                {vendorsLoading || remoteLoading ? (
                   <CircularProgress size={20} />
                 ) : (
                   <Typography variant="body2" color="text.secondary">

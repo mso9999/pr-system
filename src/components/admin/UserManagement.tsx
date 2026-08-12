@@ -451,6 +451,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
           currentPositionTitle: typeof data.currentPositionTitle === 'string' ? data.currentPositionTitle : undefined,
           phone: typeof data.phone === 'string' ? data.phone : undefined,
           hrSyncedAt: typeof data.hrSyncedAt === 'string' ? data.hrSyncedAt : undefined,
+          secondments: Array.isArray(data.secondments) ? data.secondments : undefined,
         });
       });
       
@@ -908,14 +909,16 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
         if (multiDepartmentAppointmentsEnabled && departmentMemberships) {
           updatePayload.departmentMemberships = departmentMemberships;
         }
-        // HR-linked users: firstName/lastName/email are HR-owned and were
-        // read-only in the form. Strip them so we never send a write the
-        // Firestore rules will reject. `department` stays editable (PR-owned
-        // per rules; the next sync may reset it for non-multi users).
+        // HR-linked users: firstName/lastName/email/organization/additionalOrganizations
+        // are HR-owned and were read-only in the form. Strip them so we never
+        // send a write the Firestore rules will reject. `department` stays
+        // editable (PR-owned per rules; the next sync may reset it for non-multi users).
         if (editingUser.hrEmployeeId) {
           delete updatePayload.firstName;
           delete updatePayload.lastName;
           delete updatePayload.email;
+          delete updatePayload.organization;
+          delete updatePayload.additionalOrganizations;
         }
 
         await handleUserUpdate(editingUser.id, updatePayload, editingUser.email);
@@ -1441,12 +1444,12 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                     This profile is linked to HR employee {editingUser.hrEmployeeId}.
                   </Typography>
                   <Typography variant="body2">
-                    Name, email, and HR metadata are owned by the HR portal and synced
+                    Name, email, organization, and HR metadata are owned by the HR portal and synced
                     automatically. Edit them in HR, then use <strong>Sync HR Now</strong>
                     or the row refresh button. Identity, permission level, and the active
                     flag are managed in the{' '}
                     <a href="https://nexus.1pwrafrica.com" target="_blank" rel="noreferrer">Nexus admin</a>.
-                    PR controls organization, multi-department appointments, and the HR-Lead role.
+                    PR controls multi-department appointments and the HR-Lead role.
                   </Typography>
                   <Box sx={{ mt: 1, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                     {editingUser.hrStatus && (
@@ -1507,6 +1510,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                     setDeptSlots(emptyDeptSlots());
                   }}
                   label="Organization"
+                  disabled={isHrLinked}
+                  readOnly={isHrLinked}
                 >
                   {organizations.map((org) => (
                     <MenuItem key={org.id} value={org.id}>
@@ -1705,6 +1710,8 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                     });
                   }}
                   label="Additional Organizations"
+                  disabled={isHrLinked}
+                  readOnly={isHrLinked}
                   renderValue={(selected) => (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                       {(selected as string[]).map((value) => {
@@ -1727,6 +1734,30 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                   ))}
                 </Select>
               </FormControl>
+              {isHrLinked && editingUser?.secondments && editingUser.secondments.length > 0 && (
+                <Box sx={{ mt: 1, mb: 1 }}>
+                  <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                    Secondments (HR-owned)
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {editingUser.secondments.map((sec, idx) => {
+                      const org = organizations.find(o => o.id === sec.organizationId);
+                      const dateRange = [
+                        sec.startDate ? `from ${sec.startDate}` : null,
+                        sec.endDate ? `until ${sec.endDate}` : 'open-ended',
+                      ].filter(Boolean).join(' ');
+                      return (
+                        <Chip
+                          key={idx}
+                          size="small"
+                          label={`${org?.name || sec.organizationId}${dateRange ? ` (${dateRange})` : ''}${sec.reason ? ` — ${sec.reason}` : ''}`}
+                          variant="outlined"
+                        />
+                      );
+                    })}
+                  </Box>
+                </Box>
+              )}
               <FormControl fullWidth margin="normal">
                 <InputLabel>Permission Level</InputLabel>
                 <Select

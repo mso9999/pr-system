@@ -49,6 +49,7 @@ import { referenceDataAdminService } from '@/services/referenceDataAdmin'
 import { organizationService, Organization } from '@/services/organizationService'
 import { ORG_INDEPENDENT_TYPES } from '@/services/referenceData'
 import { SimpleMapPicker } from "./SimpleMapPicker";
+import { UgpProjectPicker, UgpProjectWithSource } from "./UgpProjectPicker";
 
 const REFERENCE_DATA_TYPE_LABELS = {
   departments: "Departments",
@@ -673,6 +674,7 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editItem, setEditItem] = useState<ReferenceDataItem | null>(null);
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [ugpPickerOpen, setUgpPickerOpen] = useState(false);
   const [snackbar, setSnackbar] = useState<{
     open: boolean;
     message: string;
@@ -996,6 +998,45 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
     handleSave();
   };
 
+  const handleUgpProjectPicked = (project: UgpProjectWithSource) => {
+    if (!editItem) return;
+    const existing = Array.isArray(editItem.ugpProjects) ? editItem.ugpProjects : [];
+    if (existing.some((p) => p.ugpProjectId === project.ugpProjectId)) {
+      setSnackbar({
+        open: true,
+        message: 'This UGP project is already linked to this site.',
+        severity: 'error',
+      });
+      return;
+    }
+    const updated: ReferenceDataItem = {
+      ...editItem,
+      ugpProjects: [...existing, {
+        ugpProjectId: project.ugpProjectId,
+        ugpProjectCode: project.ugpProjectCode,
+        ugpProjectName: project.ugpProjectName,
+      }],
+    };
+    if (!editItem.name && project.ugpProjectName) {
+      updated.name = project.ugpProjectName;
+    }
+    if (!editItem.code && project.sourceSiteCode) {
+      updated.code = project.sourceSiteCode;
+    }
+    if (editItem.latitude == null && project.latitude != null) {
+      updated.latitude = project.latitude;
+    }
+    if (editItem.longitude == null && project.longitude != null) {
+      updated.longitude = project.longitude;
+    }
+    setEditItem(updated);
+    setSnackbar({
+      open: true,
+      message: `Linked UGP project "${project.ugpProjectName || project.ugpProjectId}". Name and coordinates auto-filled from source site.`,
+      severity: 'success',
+    });
+  };
+
   const handleDelete = async (id: string) => {
     try {
       console.log(`Attempting to delete ${selectedType} item with id: ${id}`);
@@ -1112,19 +1153,6 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
 
     if (field.type === 'ugpProjects') {
       const projects = Array.isArray(editItem?.ugpProjects) ? editItem!.ugpProjects! : [];
-      const updateProject = (idx: number, key: 'ugpProjectId' | 'ugpProjectCode' | 'ugpProjectName', val: string) => {
-        if (!editItem) return;
-        const next = [...projects];
-        next[idx] = { ...next[idx], [key]: val };
-        setEditItem({ ...editItem, ugpProjects: next });
-      };
-      const addProject = () => {
-        if (!editItem) return;
-        setEditItem({
-          ...editItem,
-          ugpProjects: [...projects, { ugpProjectId: '' }],
-        });
-      };
       const removeProject = (idx: number) => {
         if (!editItem) return;
         setEditItem({
@@ -1140,42 +1168,28 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
           <Stack spacing={1.5}>
             {projects.length === 0 && (
               <Typography variant="body2" color="text.secondary">
-                No UGP projects linked yet.
+                No UGP projects linked yet. Click "Pick from UGP projects" to select from existing projects.
               </Typography>
             )}
             {projects.map((p, idx) => (
-              <Stack key={idx} direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems={{ xs: 'stretch', sm: 'flex-start' }}>
-                <TextField
-                  size="small"
-                  label="UGP project ID"
-                  value={p.ugpProjectId ?? ''}
-                  onChange={(e) => updateProject(idx, 'ugpProjectId', e.target.value)}
-                  sx={{ flex: 1 }}
-                  autoComplete="off"
+              <Stack key={idx} direction="row" spacing={1} alignItems="center">
+                <Chip
+                  label={`${p.ugpProjectName || p.ugpProjectId}${p.ugpProjectCode ? ` (${p.ugpProjectCode})` : ''}`}
+                  onDelete={() => removeProject(idx)}
+                  deleteIcon={<DeleteIcon fontSize="small" />}
+                  color="primary"
+                  variant="outlined"
                 />
-                <TextField
-                  size="small"
-                  label="Project code"
-                  value={p.ugpProjectCode ?? ''}
-                  onChange={(e) => updateProject(idx, 'ugpProjectCode', e.target.value)}
-                  sx={{ flex: 1 }}
-                  autoComplete="off"
-                />
-                <TextField
-                  size="small"
-                  label="Project name"
-                  value={p.ugpProjectName ?? ''}
-                  onChange={(e) => updateProject(idx, 'ugpProjectName', e.target.value)}
-                  sx={{ flex: 1.5 }}
-                  autoComplete="off"
-                />
-                <IconButton size="small" onClick={() => removeProject(idx)} aria-label="Remove project">
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
               </Stack>
             ))}
-            <Button startIcon={<AddIcon />} onClick={addProject} size="small" variant="outlined" sx={{ alignSelf: 'flex-start' }}>
-              Add UGP project
+            <Button
+              startIcon={<AddIcon />}
+              onClick={() => setUgpPickerOpen(true)}
+              size="small"
+              variant="outlined"
+              sx={{ alignSelf: 'flex-start' }}
+            >
+              Pick from UGP projects
             </Button>
           </Stack>
           {helperText && <FormHelperText>{helperText}</FormHelperText>}
@@ -2127,6 +2141,13 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
 
       {renderDialog()}
       {renderImportDialog()}
+
+      <UgpProjectPicker
+        open={ugpPickerOpen}
+        onClose={() => setUgpPickerOpen(false)}
+        sites={items}
+        onPick={handleUgpProjectPicked}
+      />
 
       <Snackbar
         open={snackbar.open}

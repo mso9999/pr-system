@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Container,
@@ -31,6 +31,7 @@ import {
   Search as SearchIcon,
   Print as PrintIcon,
   Download as DownloadIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import { useSelector } from 'react-redux';
 import { RootState } from '@/store';
@@ -57,6 +58,90 @@ function TabPanel(props: TabPanelProps) {
   );
 }
 
+interface SearchSection {
+  tabId: number;
+  tabLabelKey: string;
+  sectionTitleKey: string;
+  contentKeys: string[];
+}
+
+const SEARCH_INDEX: SearchSection[] = [
+  // Getting Started
+  { tabId: 0, tabLabelKey: 'manual.tabs.gettingStarted', sectionTitleKey: 'manual.gettingStarted.loggingIn',
+    contentKeys: ['manual.gettingStarted.loginStep1', 'manual.gettingStarted.loginStep1Desc', 'manual.gettingStarted.loginStep2', 'manual.gettingStarted.loginStep2Desc', 'manual.gettingStarted.loginStep3', 'manual.gettingStarted.loginStep3Desc'] },
+  { tabId: 0, tabLabelKey: 'manual.tabs.gettingStarted', sectionTitleKey: 'manual.gettingStarted.userRoles',
+    contentKeys: ['manual.gettingStarted.roleRequestor', 'manual.gettingStarted.roleRequestorDesc', 'manual.gettingStarted.roleApprover', 'manual.gettingStarted.roleApproverDesc', 'manual.gettingStarted.roleProcurement', 'manual.gettingStarted.roleProcurementDesc', 'manual.gettingStarted.roleFinance', 'manual.gettingStarted.roleFinanceDesc', 'manual.gettingStarted.roleSuperadmin', 'manual.gettingStarted.roleSuperadminDesc'] },
+  { tabId: 0, tabLabelKey: 'manual.tabs.gettingStarted', sectionTitleKey: 'manual.gettingStarted.dashboardOverview',
+    contentKeys: ['manual.gettingStarted.dashboardMetrics', 'manual.gettingStarted.dashboardMetricsDesc', 'manual.gettingStarted.dashboardMyPRs', 'manual.gettingStarted.dashboardMyPRsDesc', 'manual.gettingStarted.dashboardTable', 'manual.gettingStarted.dashboardTableDesc', 'manual.gettingStarted.dashboardSearch', 'manual.gettingStarted.dashboardSearchDesc'] },
+  { tabId: 0, tabLabelKey: 'manual.tabs.gettingStarted', sectionTitleKey: 'manual.gettingStarted.prStatusFlow',
+    contentKeys: ['manual.gettingStarted.statusSubmitted', 'manual.gettingStarted.statusSubmittedDesc', 'manual.gettingStarted.statusInQueue', 'manual.gettingStarted.statusInQueueDesc', 'manual.gettingStarted.statusPendingApproval', 'manual.gettingStarted.statusPendingApprovalDesc', 'manual.gettingStarted.statusApproved', 'manual.gettingStarted.statusApprovedDesc', 'manual.gettingStarted.statusOrdered', 'manual.gettingStarted.statusOrderedDesc', 'manual.gettingStarted.statusCompleted', 'manual.gettingStarted.statusCompletedDesc'] },
+  // Requestor
+  { tabId: 1, tabLabelKey: 'manual.tabs.requestor', sectionTitleKey: 'manual.requestor.creatingPR',
+    contentKeys: ['manual.requestor.step1', 'manual.requestor.step1Desc', 'manual.requestor.step2', 'manual.requestor.step2Desc', 'manual.requestor.step3', 'manual.requestor.step3Desc', 'manual.requestor.step4', 'manual.requestor.step4Desc', 'manual.requestor.step5', 'manual.requestor.step5Desc', 'manual.requestor.important', 'manual.requestor.importantNote'] },
+  { tabId: 1, tabLabelKey: 'manual.tabs.requestor', sectionTitleKey: 'manual.requestor.trackingPRs',
+    contentKeys: ['manual.requestor.trackingDesc', 'manual.requestor.trackingStep1', 'manual.requestor.trackingStep2', 'manual.requestor.trackingStep3', 'manual.requestor.trackingStep4'] },
+  { tabId: 1, tabLabelKey: 'manual.tabs.requestor', sectionTitleKey: 'manual.requestor.revisionRequests',
+    contentKeys: ['manual.requestor.revisionAlert', 'manual.requestor.revisionStep1', 'manual.requestor.revisionStep2', 'manual.requestor.revisionStep3', 'manual.requestor.revisionStep4', 'manual.requestor.revisionStep5', 'manual.requestor.revisionStep6'] },
+  { tabId: 1, tabLabelKey: 'manual.tabs.requestor', sectionTitleKey: 'manual.requestor.tips',
+    contentKeys: ['manual.requestor.do', 'manual.requestor.do1', 'manual.requestor.do2', 'manual.requestor.do3', 'manual.requestor.do4', 'manual.requestor.dont', 'manual.requestor.dont1', 'manual.requestor.dont2', 'manual.requestor.dont3', 'manual.requestor.dont4'] },
+  // Approver
+  { tabId: 2, tabLabelKey: 'manual.tabs.approver', sectionTitleKey: 'manual.approver.findingPRs',
+    contentKeys: ['manual.approver.findingStep1', 'manual.approver.findingStep1Desc', 'manual.approver.findingStep2', 'manual.approver.findingStep2Desc', 'manual.approver.findingStep3', 'manual.approver.findingStep3Desc'] },
+  { tabId: 2, tabLabelKey: 'manual.tabs.approver', sectionTitleKey: 'manual.approver.checkBeforeApproving',
+    contentKeys: ['manual.approver.check1', 'manual.approver.check2', 'manual.approver.check3', 'manual.approver.check4', 'manual.approver.check5', 'manual.approver.check6', 'manual.approver.check7', 'manual.approver.check8'] },
+  { tabId: 2, tabLabelKey: 'manual.tabs.approver', sectionTitleKey: 'manual.approver.approvalActions',
+    contentKeys: ['manual.approver.approve', 'manual.approver.approveSteps', 'manual.approver.requestRevision', 'manual.approver.revisionSteps', 'manual.approver.reject', 'manual.approver.rejectSteps'] },
+  { tabId: 2, tabLabelKey: 'manual.tabs.approver', sectionTitleKey: 'manual.approver.quoteRequirements',
+    contentKeys: ['manual.approver.quoteInfo', 'manual.approver.quoteBelowRule1', 'manual.approver.quoteBelowRule1Desc', 'manual.approver.quoteBetweenRules', 'manual.approver.quoteBetweenRulesDesc', 'manual.approver.quoteAboveRule2', 'manual.approver.quoteAboveRule2Desc', 'manual.approver.quoteNote'] },
+  { tabId: 2, tabLabelKey: 'manual.tabs.approver', sectionTitleKey: 'manual.approver.amendmentTitle',
+    contentKeys: ['manual.approver.amendmentDesc', 'manual.approver.amendReviewStep1', 'manual.approver.amendReviewStep1Desc', 'manual.approver.amendReviewStep2', 'manual.approver.amendReviewStep2Desc', 'manual.approver.amendReviewStep3', 'manual.approver.amendReviewStep3Desc', 'manual.approver.amendDualNote'] },
+  // Procurement
+  { tabId: 3, tabLabelKey: 'manual.tabs.procurement', sectionTitleKey: 'manual.procurement.processingNewPRs',
+    contentKeys: ['manual.procurement.processStep1', 'manual.procurement.processStep1Desc', 'manual.procurement.processStep2', 'manual.procurement.processStep2Desc', 'manual.procurement.processStep3', 'manual.procurement.processStep3Desc'] },
+  { tabId: 3, tabLabelKey: 'manual.tabs.procurement', sectionTitleKey: 'manual.procurement.addingQuotes',
+    contentKeys: ['manual.procurement.quoteWarning', 'manual.procurement.quoteStep1', 'manual.procurement.quoteStep2', 'manual.procurement.quoteStep3', 'manual.procurement.quoteStep4', 'manual.procurement.quoteStep5', 'manual.procurement.quoteStep6', 'manual.procurement.quoteStep7', 'manual.procurement.quoteStep8'] },
+  { tabId: 3, tabLabelKey: 'manual.tabs.procurement', sectionTitleKey: 'manual.procurement.quoteOverride',
+    contentKeys: ['manual.procurement.overrideDesc', 'manual.procurement.overrideStep1', 'manual.procurement.overrideStep2', 'manual.procurement.overrideStep3', 'manual.procurement.overrideNote'] },
+  { tabId: 3, tabLabelKey: 'manual.tabs.procurement', sectionTitleKey: 'manual.procurement.generatingRFQs',
+    contentKeys: ['manual.procurement.rfqDesc', 'manual.procurement.rfqTwoWays', 'manual.procurement.rfqManual', 'manual.procurement.rfqBulk', 'manual.procurement.rfqBulkProcess', 'manual.procurement.rfqStep1', 'manual.procurement.rfqStep1Desc', 'manual.procurement.rfqStep2', 'manual.procurement.rfqStep2Desc', 'manual.procurement.rfqStep3', 'manual.procurement.rfqStep3Desc', 'manual.procurement.rfqStep4', 'manual.procurement.rfqStep4Desc', 'manual.procurement.rfqStep5', 'manual.procurement.rfqStep5Desc', 'manual.procurement.rfqStep6', 'manual.procurement.rfqStep6Desc', 'manual.procurement.rfqAutoConversion', 'manual.procurement.rfqDropbox', 'manual.procurement.rfqGoogleDrive', 'manual.procurement.rfqOneDrive', 'manual.procurement.rfqAutoNote', 'manual.procurement.rfqTroubleshooting', 'manual.procurement.rfqTrouble1', 'manual.procurement.rfqTrouble1Desc', 'manual.procurement.rfqTrouble2', 'manual.procurement.rfqTrouble2Desc', 'manual.procurement.rfqTrouble3', 'manual.procurement.rfqTrouble3Desc'] },
+  { tabId: 3, tabLabelKey: 'manual.tabs.procurement', sectionTitleKey: 'manual.procurement.managingVendors',
+    contentKeys: ['manual.procurement.vendorAccess', 'manual.procurement.vendorStep1', 'manual.procurement.vendorStep2', 'manual.procurement.vendorStep3', 'manual.procurement.vendorStep4', 'manual.procurement.vendorStep5'] },
+  { tabId: 3, tabLabelKey: 'manual.tabs.procurement', sectionTitleKey: 'manual.procurement.placingOrders',
+    contentKeys: ['manual.procurement.orderStep1', 'manual.procurement.orderStep2', 'manual.procurement.orderStep3', 'manual.procurement.orderStep4', 'manual.procurement.orderStep5', 'manual.procurement.orderStep6', 'manual.procurement.orderStep7'] },
+  { tabId: 3, tabLabelKey: 'manual.tabs.procurement', sectionTitleKey: 'manual.procurement.amendmentTitle',
+    contentKeys: ['manual.procurement.amendmentInfo', 'manual.procurement.amendmentDesc', 'manual.procurement.amendStep1', 'manual.procurement.amendStep1Desc', 'manual.procurement.amendStep2', 'manual.procurement.amendStep2Desc', 'manual.procurement.amendStep3', 'manual.procurement.amendStep3Desc', 'manual.procurement.amendStep4', 'manual.procurement.amendStep4Desc', 'manual.procurement.amendStep5', 'manual.procurement.amendStep5Desc', 'manual.procurement.amendNote'] },
+  // Finance/Admin
+  { tabId: 4, tabLabelKey: 'manual.tabs.financeAdmin', sectionTitleKey: 'manual.finance.reviewingApproved',
+    contentKeys: ['manual.finance.reviewStep1', 'manual.finance.reviewStep2', 'manual.finance.reviewStep3', 'manual.finance.reviewStep4', 'manual.finance.reviewStep5'] },
+  { tabId: 4, tabLabelKey: 'manual.tabs.financeAdmin', sectionTitleKey: 'manual.finance.uploadingPoP',
+    contentKeys: ['manual.finance.uploadingPoPDesc', 'manual.finance.popStep1', 'manual.finance.popStep2', 'manual.finance.popStep3', 'manual.finance.popStep4', 'manual.finance.popStep5', 'manual.finance.popStep6', 'manual.finance.popNote'] },
+  { tabId: 4, tabLabelKey: 'manual.tabs.financeAdmin', sectionTitleKey: 'manual.finance.closingCompleted',
+    contentKeys: ['manual.finance.closingDesc', 'manual.finance.closingStep1', 'manual.finance.closingStep2', 'manual.finance.closingStep3', 'manual.finance.closingStep4', 'manual.finance.closingStep5', 'manual.finance.closingSuccess', 'manual.finance.closingSuccess1', 'manual.finance.closingSuccess2', 'manual.finance.closingSuccess3', 'manual.finance.closingWarning', 'manual.finance.closingWarning1', 'manual.finance.closingWarning2', 'manual.finance.closingWarning3', 'manual.finance.closingWarning4'] },
+  // Superadmin
+  { tabId: 5, tabLabelKey: 'manual.tabs.superadmin', sectionTitleKey: 'manual.superadmin.userManagement',
+    contentKeys: ['manual.superadmin.userAccess', 'manual.superadmin.userStep1', 'manual.superadmin.userStep2', 'manual.superadmin.userStep3', 'manual.superadmin.userStep4'] },
+  { tabId: 5, tabLabelKey: 'manual.tabs.superadmin', sectionTitleKey: 'manual.superadmin.orgConfig',
+    contentKeys: ['manual.superadmin.orgAccess', 'manual.superadmin.orgStep1', 'manual.superadmin.orgStep2', 'manual.superadmin.orgStep3', 'manual.superadmin.orgStep4'] },
+  { tabId: 5, tabLabelKey: 'manual.tabs.superadmin', sectionTitleKey: 'manual.superadmin.referenceData',
+    contentKeys: ['manual.superadmin.refAccess', 'manual.superadmin.refManage', 'manual.superadmin.refDept', 'manual.superadmin.refCategory', 'manual.superadmin.refSite', 'manual.superadmin.refExpense', 'manual.superadmin.refVehicle', 'manual.superadmin.refVendor', 'manual.superadmin.refCurrency', 'manual.superadmin.refUOM'] },
+  { tabId: 5, tabLabelKey: 'manual.tabs.superadmin', sectionTitleKey: 'manual.superadmin.siteManagement',
+    contentKeys: ['manual.superadmin.siteAccess', 'manual.superadmin.siteWhoCanManage', 'manual.superadmin.siteDesc', 'manual.superadmin.siteStep1', 'manual.superadmin.siteStep1Desc', 'manual.superadmin.siteStep2', 'manual.superadmin.siteStep2Desc', 'manual.superadmin.siteStep3', 'manual.superadmin.siteStep3Desc', 'manual.superadmin.siteStep4', 'manual.superadmin.siteStep4Desc', 'manual.superadmin.siteStep5', 'manual.superadmin.siteStep5Desc', 'manual.superadmin.siteStep6', 'manual.superadmin.siteStep6Desc', 'manual.superadmin.siteStep7', 'manual.superadmin.siteStep7Desc', 'manual.superadmin.siteNote'] },
+  // FAQs
+  { tabId: 6, tabLabelKey: 'manual.tabs.faqs', sectionTitleKey: 'manual.faqs.title',
+    contentKeys: ['manual.faqs.q1', 'manual.faqs.a1', 'manual.faqs.q2', 'manual.faqs.a2', 'manual.faqs.q3', 'manual.faqs.a3', 'manual.faqs.q4', 'manual.faqs.a4', 'manual.faqs.q5', 'manual.faqs.a5', 'manual.faqs.q6', 'manual.faqs.a6', 'manual.faqs.q7', 'manual.faqs.a7', 'manual.faqs.q8', 'manual.faqs.a8'] },
+];
+
+function findMatchingSnippet(term: string, contentKeys: string[], t: (key: string) => string): string | null {
+  const lowerTerm = term.toLowerCase();
+  for (const key of contentKeys) {
+    const text = t(key);
+    if (text && text.toLowerCase().includes(lowerTerm)) {
+      return text;
+    }
+  }
+  return null;
+}
+
 export const UserManual: React.FC = () => {
   const { t } = useTranslation();
   const [tabValue, setTabValue] = useState(0);
@@ -65,6 +150,29 @@ export const UserManual: React.FC = () => {
 
   const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
     setTabValue(newValue);
+  };
+
+  const isSearching = searchTerm.trim().length >= 2;
+
+  const searchResults = useMemo(() => {
+    if (!isSearching) return [];
+    const term = searchTerm.trim().toLowerCase();
+    return SEARCH_INDEX
+      .map((section) => {
+        const titleText = t(section.sectionTitleKey);
+        const titleMatch = titleText.toLowerCase().includes(term);
+        const snippet = findMatchingSnippet(searchTerm.trim(), section.contentKeys, t);
+        if (titleMatch || snippet) {
+          return { section, titleText, snippet, tabLabel: t(section.tabLabelKey) };
+        }
+        return null;
+      })
+      .filter((r): r is NonNullable<typeof r> => r !== null);
+  }, [searchTerm, isSearching, t]);
+
+  const handleSearchResultClick = (tabId: number) => {
+    setTabValue(tabId);
+    setSearchTerm('');
   };
 
   const handlePrint = () => {
@@ -124,13 +232,57 @@ export const UserManual: React.FC = () => {
                 <SearchIcon />
               </InputAdornment>
             ),
+            endAdornment: searchTerm && (
+              <InputAdornment position="end" sx={{ cursor: 'pointer' }} onClick={() => setSearchTerm('')}>
+                <ClearIcon fontSize="small" />
+              </InputAdornment>
+            ),
           }}
           sx={{ mb: 3 }}
         />
 
         <Divider sx={{ mb: 3 }} />
 
-        {/* Role-based Tabs */}
+        {/* Search Results */}
+        {isSearching && (
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h6" gutterBottom>
+              {searchResults.length > 0
+                ? `${searchResults.length} ${t('manual.searchResultsFound')}`
+                : t('manual.searchNoResults')}
+            </Typography>
+            {searchResults.map((result, idx) => (
+              <Paper
+                key={idx}
+                variant="outlined"
+                sx={{ p: 2, mb: 1, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+                onClick={() => handleSearchResultClick(result.section.tabId)}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                  <Chip label={result.tabLabel} size="small" color="primary" variant="outlined" />
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {result.titleText}
+                  </Typography>
+                </Box>
+                {result.snippet && (
+                  <Typography variant="body2" color="textSecondary" sx={{
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                  }}>
+                    {result.snippet}
+                  </Typography>
+                )}
+              </Paper>
+            ))}
+          </Box>
+        )}
+
+        {/* Role-based Tabs — hidden during search */}
+        {!isSearching && (
+        <>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs value={tabValue} onChange={handleTabChange} variant="scrollable" scrollButtons="auto">
             <Tab label={t('manual.tabs.gettingStarted')} />
@@ -1094,6 +1246,70 @@ APPROVED → ORDERED → COMPLETED`}
               </Box>
             </AccordionDetails>
           </Accordion>
+
+          <Accordion>
+            <AccordionSummary expandIcon={<ExpandIcon />}>
+              <Typography variant="h6">{t('manual.superadmin.siteManagement')}</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="body2" paragraph>
+                {t('manual.superadmin.siteAccess')}
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {t('manual.superadmin.siteWhoCanManage')}
+              </Alert>
+              <Typography variant="body2" paragraph>
+                {t('manual.superadmin.siteDesc')}
+              </Typography>
+              <List dense>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.superadmin.siteStep1')}
+                    secondary={t('manual.superadmin.siteStep1Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.superadmin.siteStep2')}
+                    secondary={t('manual.superadmin.siteStep2Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.superadmin.siteStep3')}
+                    secondary={t('manual.superadmin.siteStep3Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.superadmin.siteStep4')}
+                    secondary={t('manual.superadmin.siteStep4Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.superadmin.siteStep5')}
+                    secondary={t('manual.superadmin.siteStep5Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.superadmin.siteStep6')}
+                    secondary={t('manual.superadmin.siteStep6Desc')}
+                  />
+                </ListItem>
+                <ListItem>
+                  <ListItemText
+                    primary={t('manual.superadmin.siteStep7')}
+                    secondary={t('manual.superadmin.siteStep7Desc')}
+                  />
+                </ListItem>
+              </List>
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                {t('manual.superadmin.siteNote')}
+              </Alert>
+            </AccordionDetails>
+          </Accordion>
         </TabPanel>
 
         {/* FAQs */}
@@ -1190,6 +1406,8 @@ APPROVED → ORDERED → COMPLETED`}
             </AccordionDetails>
           </Accordion>
         </TabPanel>
+        </>
+        )}
 
         {/* Footer */}
         <Divider sx={{ my: 3 }} />

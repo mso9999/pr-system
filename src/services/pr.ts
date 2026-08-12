@@ -783,7 +783,17 @@ export async function reassignOrganization(
 
   if (isRequestorInRevision && !isAdmin) {
     const extra = (user as UserReference & { additionalOrganizations?: string[] }).additionalOrganizations;
-    const orgEntries = [user.organization, ...(extra || [])];
+    const secondments = (user as UserReference & { secondments?: { organizationId: string; startDate?: string | null; endDate?: string | null }[] }).secondments;
+    const now = new Date().toISOString().slice(0, 10);
+    const activeSecondmentOrgs = (secondments || [])
+      .filter((s) => {
+        if (!s.organizationId) return false;
+        const started = !s.startDate || s.startDate <= now;
+        const notEnded = !s.endDate || s.endDate >= now;
+        return started && notEnded;
+      })
+      .map((s) => s.organizationId);
+    const orgEntries = [user.organization, ...(extra || []), ...activeSecondmentOrgs];
     const userOrgIds = new Set(
       orgEntries.map((o) => normalizeOrganizationId(o)).filter((id): id is string => Boolean(id))
     );
@@ -1281,6 +1291,64 @@ export async function getUserPRs(
         console.error(`Failed to fetch PRs for user ${userId}:`, error);
         throw new Error(`Failed to retrieve purchase requests: ${error instanceof Error ? error.message : String(error)}`);
     }
+}
+
+/**
+ * Searches PRs by prNumber prefix via Firestore. Used as a fallback when the
+ * sidebar search finds no matches in the locally-loaded Redux store.
+ * @param searchTerm - The search string (min 3 chars).
+ * @param maxResults - Maximum number of results to return.
+ * @returns A promise resolving with matching PRs.
+ */
+export async function searchPRsByNumber(searchTerm: string, maxResults: number = 10): Promise<PRRequest[]> {
+  const term = searchTerm.trim();
+  if (term.length < 3) return [];
+
+  try {
+    const prCollectionRef = collection(db, PR_COLLECTION);
+    const prefixEnd = term + '\uf8ff';
+    const q = query(
+      prCollectionRef,
+      where('prNumber', '>=', term),
+      where('prNumber', '<=', prefixEnd),
+      limit(maxResults)
+    );
+
+    const querySnapshot = await getDocs(q);
+    const prs: PRRequest[] = [];
+    querySnapshot.forEach((docSnapshot) => {
+      const data = docSnapshot.data();
+      prs.push({
+        id: docSnapshot.id,
+        ...data,
+        createdAt: safeTimestampToISO(data.createdAt),
+        updatedAt: safeTimestampToISO(data.updatedAt),
+        requiredDate: safeTimestampToISO(data.requiredDate),
+        lastModifiedAt: safeTimestampToISO(data.lastModifiedAt),
+        history: (data.history || []).map((item: any): HistoryItem => ({
+          ...item,
+          timestamp: safeTimestampToISO(item.timestamp),
+        })),
+        statusHistory: (data.statusHistory || []).map((item: any): StatusHistoryItem => ({
+          ...item,
+          timestamp: safeTimestampToISO(item.timestamp),
+        })),
+        approvalWorkflow: data.approvalWorkflow ? {
+          ...data.approvalWorkflow,
+          lastUpdated: safeTimestampToISO(data.approvalWorkflow.lastUpdated),
+          approvalHistory: (data.approvalWorkflow.approvalHistory || []).map((item: any): ApprovalHistoryItem => ({
+            ...item,
+            timestamp: safeTimestampToISO(item.timestamp),
+          })),
+        } : undefined,
+      } as PRRequest);
+    });
+
+    return prs;
+  } catch (error) {
+    console.error(`Failed to search PRs by number "${term}":`, error);
+    return [];
+  }
 }
 
 /**

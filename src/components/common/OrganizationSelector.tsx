@@ -36,9 +36,19 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
   
   const userOrgIds = useMemo(() => {
     if (!user) return new Set<string>();
+    const now = new Date().toISOString().slice(0, 10);
+    const activeSecondmentOrgs = (user.secondments || [])
+      .filter((s) => {
+        if (!s.organizationId) return false;
+        const started = !s.startDate || s.startDate <= now;
+        const notEnded = !s.endDate || s.endDate >= now;
+        return started && notEnded;
+      })
+      .map((s) => s.organizationId);
     const orgEntries = [
       user.organization,
-      ...(user.additionalOrganizations || [])
+      ...(user.additionalOrganizations || []),
+      ...activeSecondmentOrgs,
     ];
     const normalized = orgEntries
       .map(entry => normalizeOrganizationId(entry as any))

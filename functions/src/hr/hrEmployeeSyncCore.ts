@@ -3,8 +3,9 @@
  * live in sibling files and delegate here.
  *
  * HR is canonical for the biographical fields listed in the HR-owned block
- * of `src/types/user.ts`. PR keeps ownership of permissionLevel,
- * organization, additionalOrganizations, isActive, isHrLead, etc.
+ * of `src/types/user.ts`. HR is also canonical for organization assignment
+ * (primary org, additional orgs, and secondments). PR keeps ownership of
+ * permissionLevel, isActive, isHrLead, etc.
  *
  * Matching: existing PR users are matched to HR employees by email
  * (case-insensitive). On match we stamp `hrEmployeeId` and overwrite the
@@ -47,6 +48,10 @@ const HR_OWNED_FIELDS = [
   "firstName",
   "lastName",
   "email",
+  // Organization assignment is now HR-owned (primary + additional + secondments)
+  "organization",
+  "additionalOrganizations",
+  "secondments",
   // `department` (PR dept id) is mirrored from HR but is PR-owned — admins
   // may override it, and multi-department appointments are PR-owned.
 ] as const;
@@ -135,6 +140,14 @@ function hrOwnedPatch(
     hrSyncedAt: now,
     firstName,
     lastName,
+    // Organization assignment — HR-owned. Always overwrite from HR.
+    organization: emp.primary_organization || null,
+    additionalOrganizations: Array.isArray(emp.additional_organizations)
+      ? emp.additional_organizations.filter(Boolean)
+      : [],
+    secondments: Array.isArray(emp.secondments)
+      ? emp.secondments.filter((s) => s && s.organizationId)
+      : [],
   };
   // Only mirror HR's department into PR's `department` (id) when the user
   // is NOT in multi-department mode — multi-department appointments and
@@ -228,8 +241,8 @@ async function provisionUser(
       lastName,
       isActive: true,
       permissionLevel: DEFAULT_PROVISIONED_LEVEL,
-      // PR-owned fields intentionally left unset: organization, additionalOrganizations, isHrLead, etc.
-      // Admin assigns organization after reviewing the reconciliation report.
+      // organization, additionalOrganizations, and secondments are now HR-owned
+      // and included via patch. PR-owned fields: permissionLevel, isActive, isHrLead, etc.
       createdAt: now,
       updatedAt: now,
       ...patch,

@@ -329,6 +329,7 @@ export const Dashboard = () => {
           console.log('Dashboard: User organization data:', {
             primaryOrg: user?.organization,
             additionalOrgs: user?.additionalOrganizations,
+            secondments: user?.secondments,
             userPermissionLevel: user?.permissionLevel
           });
 
@@ -354,6 +355,21 @@ export const Dashboard = () => {
                   orgStr !== 'ALL_ORGS' &&
                   orgStr.trim() !== '') {
                 const normalizedId = normalizeOrganizationId(orgStr);
+                if (normalizedId && !userAssignedOrgIds.includes(normalizedId)) {
+                  userAssignedOrgIds.push(normalizedId);
+                }
+              }
+            });
+          }
+
+          if (user?.secondments && Array.isArray(user.secondments)) {
+            const now = new Date().toISOString().slice(0, 10);
+            user.secondments.forEach(sec => {
+              if (!sec.organizationId) return;
+              const started = !sec.startDate || sec.startDate <= now;
+              const notEnded = !sec.endDate || sec.endDate >= now;
+              if (started && notEnded) {
+                const normalizedId = normalizeOrganizationId(sec.organizationId);
                 if (normalizedId && !userAssignedOrgIds.includes(normalizedId)) {
                   userAssignedOrgIds.push(normalizedId);
                 }

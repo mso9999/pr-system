@@ -7,6 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "build:check": "tsc && vite build",
+    "deploy:functions": "scripts/deploy-functions.sh",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
     "preview": "vite preview",
     "seed": "tsx src/scripts/seed.ts",

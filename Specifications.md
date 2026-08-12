@@ -911,13 +911,25 @@ Users assigned to the Asset Management department have special permissions:
   - Cannot approve PRs or perform procurement actions
 
 ### Organization Assignment
-- Users can be assigned to one primary organization
-- Additional organization access can be granted through the `additionalOrganizations` field
+- Organization assignment is HR-owned: primary organization, additional organizations, and secondments are all managed in the HR portal and synced into PR
+- Users can be assigned to one primary organization (`organization` field)
+- Additional organization access is granted through the `additionalOrganizations` field (HR-owned)
+- Secondments (temporary assignments to other organizations) are tracked via the `secondments` field with start/end dates and reason
 - Organization IDs are normalized for consistency:
   - Converted to lowercase
   - Special characters replaced with underscores
   - Example: "1PWR LESOTHO" becomes "1pwr_lesotho"
 - Organization matching uses normalized IDs for comparison
+- In the User Management UI, organization fields are read-only when a user is HR-linked (has an `hrEmployeeId`)
+- For non-HR-linked users (e.g. service accounts), admins can still manually set organization fields
+
+### HR Sync Organization Migration
+- Organization ownership has migrated from PR to HR as the canonical source of truth
+- The HR API provides `primary_organization`, `additional_organizations`, and `secondments` fields per employee
+- During HR sync, these fields are always overwritten from HR data (they are HR-owned fields)
+- Active secondments (where current date is within start/end dates) are included in organization filtering on the dashboard and organization selector
+- PR retains ownership of: `permissionLevel`, `isActive`, `isHrLead`, `multiDepartmentAppointmentsEnabled`, `departmentMemberships`
+- The `department` field (PR department ID) remains PR-owned but is mirrored from HR during sync unless multi-department appointments are enabled
 
 ## Approver System
 
@@ -948,8 +960,9 @@ Users assigned to the Asset Management department have special permissions:
 - This ensures audit trail integrity while preventing new selections of invalid approvers
 
 ### Organization Assignment
-- Users can be assigned to one primary organization
-- Additional organization access can be granted through the `additionalOrganizations` field
+- Organization assignment is HR-owned (see User Management > Organization Assignment for details)
+- Primary organization, additional organizations, and secondments are synced from HR
+- Active secondments are included in approver organization matching
 - Organization IDs are normalized for consistency:
   - Converted to lowercase
   - Special characters replaced with underscores

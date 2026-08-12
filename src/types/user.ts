@@ -28,6 +28,21 @@ export interface DepartmentMembership {
 }
 
 /**
+ * Organization secondment (temporary assignment to another org).
+ * HR-owned; mirrored read-only into PR via sync.
+ */
+export interface Secondment {
+  /** Target organization ID (normalized, e.g. "1pwr_benin") */
+  organizationId: string;
+  /** Secondment start date (YYYY-MM-DD) */
+  startDate?: string | null;
+  /** Secondment end date (YYYY-MM-DD), null = open-ended */
+  endDate?: string | null;
+  /** Free-text reason/purpose from HR */
+  reason?: string | null;
+}
+
+/**
  * User Role Enum
  * Defines possible user roles and their hierarchy
  */
@@ -58,8 +73,6 @@ export interface User {
   role: string;
   /** User's department */
   department?: string;
-  /** Associated organization */
-  organization?: string;
   /** Whether user is active */
   isActive?: boolean;
   /** Permission level (display/directory only — NOT an authorization input) */
@@ -71,8 +84,6 @@ export interface User {
    * Null for unsigned sessions (emergency fallback login = read-only).
    */
   privilege?: unknown;
-  /** Additional organizations */
-  additionalOrganizations?: string[];
   /** When true, user has 2–3 department assignments (see departmentMemberships). Default false. */
   multiDepartmentAppointmentsEnabled?: boolean;
   /** Used when multiDepartmentAppointmentsEnabled is true: 2–3 departments, each with optional Lead. */
@@ -113,6 +124,13 @@ export interface User {
   hrSyncedAt?: string;
   /** Last time the user dismissed the "What's New" primer (ISO 8601). */
   lastWhatsNewSeenAt?: string;
+  // ── Organization assignment (HR-owned, mirrored via sync) ──
+  /** Primary organization ID (normalized, e.g. "1pwr_lesotho"). HR canonical. */
+  organization?: string;
+  /** Additional (tertiary) organization IDs the employee belongs to. */
+  additionalOrganizations?: string[];
+  /** Active secondments to other organizations. */
+  secondments?: Secondment[];
 }
 
 /**
