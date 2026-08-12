@@ -221,6 +221,8 @@ export const signOut = async (): Promise<void> => {
       clearInterval(refreshTokenInterval);
       refreshTokenInterval = null;
     }
+    sessionStorage.removeItem('pr_fallback_session');
+    sessionStorage.removeItem('pr_relaunch_attempted');
     store.dispatch(clearUser());
     console.log('auth.ts: Sign out successful');
   } catch (error) {
@@ -322,6 +324,30 @@ export const getUserDetails = async (uid: string): Promise<User> => {
     // Signed Nexus PR claim — the sole client-side authorization authority.
     // `permissionLevel` above stays as a display/directory value only.
     const privilege = await readSignedPrPrivilege();
+
+    // Self-heal stale sessions (2026-08-12 outage): custom claims never
+    // recompute on token refresh, so a session minted before the PR claim
+    // existed stays claim-less forever. If this session has no signed claim
+    // and is NOT the emergency fallback login, bounce through Nexus SSO once
+    // to re-mint. The sessionStorage guard prevents a redirect loop if the
+    // resolver legitimately grants nothing.
+    if (
+      !privilege &&
+      sessionStorage.getItem('pr_fallback_session') !== '1' &&
+      !sessionStorage.getItem('pr_relaunch_attempted')
+    ) {
+      sessionStorage.setItem('pr_relaunch_attempted', '1');
+      console.warn('auth.ts: no signed PR claim — relaunching via Nexus SSO to re-mint');
+      window.location.replace(
+        'https://nexus.1pwrafrica.com/sso/authorize?tool=pr&redirect_uri=' +
+          encodeURIComponent(window.location.origin + '/dashboard')
+      );
+      await new Promise(() => {}); // navigation in progress
+    }
+    if (privilege) {
+      sessionStorage.removeItem('pr_relaunch_attempted');
+    }
+
     const claimSubject = { privilege };
 
     // Map permissions from the signed claim (legacy numeric mapping retired).

@@ -45,6 +45,9 @@ export const LoginPage = () => {
 
     try {
       console.log('LoginPage: Attempting login with email:', email);
+      // Mark this as an emergency fallback session so auth.ts does not
+      // bounce the user back to Nexus SSO for a signed claim.
+      sessionStorage.setItem('pr_fallback_session', '1');
       await signIn(email, password);
       console.log('LoginPage: Login successful, redirecting to:', from);
       // Navigate to the intended destination (e.g. /jobcards or /dashboard)
