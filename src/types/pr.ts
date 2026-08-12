@@ -113,6 +113,10 @@ export interface PRRequest {
   objectType?: 'PR' | 'PO';
   /** Organization the PR belongs to */
   organization: string;
+  /** Canonical org id (normalized, e.g. "1pwr_lesotho") for scope enforcement */
+  organizationId?: string;
+  /** Org's operating country, ISO-2 (matches Nexus claim scopeCountries) */
+  organizationCountry?: string;
   /** Department making the request */
   department: string;
   /** Project or category the PR falls under */

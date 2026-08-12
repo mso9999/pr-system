@@ -28,7 +28,7 @@ import { PRRequest, PRStatus, UserReference, HistoryItem, LineItem, ApprovalWork
 import { approverService } from '@/services/approver';
 import { User } from '@/types/user'; 
 import { mapFirebaseUserToUserReference } from '@/utils/userMapper';
-import { normalizeOrganizationId, organizationMatchesUser } from '@/utils/organization';
+import { normalizeOrganizationId, normalizeCountryIso2, organizationCountryFallback, organizationMatchesUser } from '@/utils/organization';
 import { referenceDataService } from '@/services/referenceData';
 import { getOrgCodes, mapIsoCountryToPrCountryCode } from '@/utils/prOrgCountryCodes';
 
@@ -832,10 +832,29 @@ export async function reassignOrganization(
   const needsStatusRevert = approversCleared &&
     (currentPR.status === PRStatus.PENDING_APPROVAL || currentPR.status === PRStatus.APPROVED);
 
+  // Keep the canonical scope fields in sync with the new org so the
+  // claim-based read gate follows reassignment.
+  const reassignedOrgId = normalizeOrganizationId(newOrganization);
+  let reassignedOrgCountry = '';
+  try {
+    const { organizationService } = await import('./organizationService');
+    const org =
+      (await organizationService.getOrganizationById(newOrganization)) ||
+      (await organizationService.getOrganizationByName(newOrganization));
+    reassignedOrgCountry = normalizeCountryIso2(org?.country);
+  } catch (orgLookupError) {
+    console.warn('[PR SERVICE] Org country lookup failed on reassign (continuing without):', orgLookupError);
+  }
+  if (!reassignedOrgCountry) {
+    reassignedOrgCountry = organizationCountryFallback(newOrganization);
+  }
+
   // Build update payload
   const updatePayload: Partial<PRRequest> = {
     organization: newOrganization,
     prNumber: newPrNumber,
+    ...(reassignedOrgId && { organizationId: reassignedOrgId }),
+    ...(reassignedOrgCountry && { organizationCountry: reassignedOrgCountry }),
   };
 
   if (approversCleared) {
@@ -1066,9 +1085,35 @@ export async function createPR(
      const initialStatus =
        prData.status === PRStatus.PENDING_APPROVAL ? PRStatus.PENDING_APPROVAL : PRStatus.SUBMITTED;
 
+     // Canonical org scope fields for the Nexus claim-based Firestore read
+     // gate: organizationId (normalized 1pwr_*-style slug) and
+     // organizationCountry (ISO-2, matching claim scopeCountries). Country is
+     // resolved from the org catalog best-effort; rules treat a missing
+     // organizationCountry as not-yet-backfilled (transitionally readable).
+     const organizationId = normalizeOrganizationId(
+       (prData as any).organizationId || prData.organization
+     ) || undefined;
+     let organizationCountry = normalizeCountryIso2((prData as any).organizationCountry);
+     if (!organizationCountry && prData.organization) {
+       try {
+         const { organizationService } = await import('./organizationService');
+         const org =
+           (await organizationService.getOrganizationById(prData.organization)) ||
+           (await organizationService.getOrganizationByName(prData.organization));
+         organizationCountry = normalizeCountryIso2(org?.country);
+       } catch (orgLookupError) {
+         console.warn('[PR SERVICE] Org country lookup failed (continuing without):', orgLookupError);
+       }
+     }
+     if (!organizationCountry) {
+       organizationCountry = organizationCountryFallback(prData.organization);
+     }
+
      const finalPRData: Omit<PRRequest, 'id'> = {
        ...prData,
        prNumber,
+       ...(organizationId && { organizationId }),
+       ...(organizationCountry && { organizationCountry }),
        status: initialStatus,
        totalAmount: prData.estimatedAmount, // Add totalAmount, using estimatedAmount initially
        createdAt: new Date().toISOString(), // Set server-side or consistent client-side
