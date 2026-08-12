@@ -75,9 +75,20 @@ const readSignedPrPrivilege = async (): Promise<Record<string, unknown> | null> 
   try {
     const tokenResult = await current.getIdTokenResult();
     const claims = tokenResult.claims as Record<string, unknown>;
-    if (claims.nexus_sso !== true || String(claims.targetSystem ?? '') !== 'pr') return null;
+    if (claims.nexus_sso !== true) return null;
     if (!claims.privilegeVersion) return null;
-    const raw = claims.effectivePrivilege;
+    // Fresh SSO tokens carry the PR grant at top level (targetSystem 'pr').
+    // Refreshed tokens rebuilt from the Auth user record may target another
+    // portal launched later; the PR grant then lives in systems.pr.
+    let raw: unknown;
+    if (String(claims.targetSystem ?? '') === 'pr') {
+      raw = claims.effectivePrivilege;
+    } else {
+      const systems = claims.systems;
+      raw = systems && typeof systems === 'object'
+        ? (systems as Record<string, unknown>).pr
+        : null;
+    }
     if (!raw || typeof raw !== 'object') return null;
     return { ...(raw as Record<string, unknown>), version: String(claims.privilegeVersion) };
   } catch (e) {
