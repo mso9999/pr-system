@@ -69,6 +69,15 @@ import { hasPrAction } from '@/utils/prPrivilege';
  * the current ID token. Returns null for sessions without one (the
  * ?fallback=1 emergency login), which the app treats as read-only.
  */
+/**
+ * Minimum acceptable privilegeVersion in a signed claim. Claims minted by an
+ * older resolver are treated as stale and re-minted via one Nexus SSO bounce
+ * (custom claims never recompute on token refresh). Bump when a resolver
+ * change must reach existing sessions. Lexicographically comparable
+ * (zero-padded date segments).
+ */
+const MIN_PRIVILEGE_VERSION = '2026.08.13.1';
+
 const readSignedPrPrivilege = async (): Promise<Record<string, unknown> | null> => {
   const current = getAuth().currentUser;
   if (!current) return null;
@@ -328,23 +337,32 @@ export const getUserDetails = async (uid: string): Promise<User> => {
     // Self-heal stale sessions (2026-08-12 outage): custom claims never
     // recompute on token refresh, so a session minted before the PR claim
     // existed stays claim-less forever. If this session has no signed claim
-    // and is NOT the emergency fallback login, bounce through Nexus SSO once
-    // to re-mint. The sessionStorage guard prevents a redirect loop if the
-    // resolver legitimately grants nothing.
+    // — or carries a claim minted before MIN_PRIVILEGE_VERSION (resolver
+    // fixes only take effect at mint time, e.g. the 2026-08-13 widened-
+    // letter sub-action drop) — and is NOT the emergency fallback login,
+    // bounce through Nexus SSO once to re-mint. The sessionStorage guard
+    // prevents a redirect loop if the resolver legitimately grants nothing.
+    const staleClaim =
+      privilege !== null &&
+      String((privilege as Record<string, unknown>).version || '') < MIN_PRIVILEGE_VERSION;
     if (
-      !privilege &&
+      (!privilege || staleClaim) &&
       sessionStorage.getItem('pr_fallback_session') !== '1' &&
       !sessionStorage.getItem('pr_relaunch_attempted')
     ) {
       sessionStorage.setItem('pr_relaunch_attempted', '1');
-      console.warn('auth.ts: no signed PR claim — relaunching via Nexus SSO to re-mint');
+      console.warn(
+        staleClaim
+          ? `auth.ts: PR claim version ${(privilege as Record<string, unknown>).version} predates ${MIN_PRIVILEGE_VERSION} — relaunching via Nexus SSO to re-mint`
+          : 'auth.ts: no signed PR claim — relaunching via Nexus SSO to re-mint'
+      );
       window.location.replace(
         'https://nexus.1pwrafrica.com/sso/authorize?tool=pr&redirect_uri=' +
           encodeURIComponent(window.location.origin + '/dashboard')
       );
       await new Promise(() => {}); // navigation in progress
     }
-    if (privilege) {
+    if (privilege && !staleClaim) {
       sessionStorage.removeItem('pr_relaunch_attempted');
     }
 
