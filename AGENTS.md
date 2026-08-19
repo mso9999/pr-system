@@ -16,3 +16,22 @@ This repo shares Firebase project `pr-system-4ea55` with
   `firestore:*` from this repo.
 - `npm run deploy` is safe: it composes `deploy:hosting` +
   `deploy:functions`.
+
+## Canonical site lifecycle (PR → uGP → CC)
+
+Sites are **born in PR** (Admin → Reference Data → Sites; pre-survey spend
+references them). Codes are exactly 3 uppercase letters — the same code is
+used by uGP project codes and CC gateway/account identities.
+
+- `linkUgpProject` (HTTPS, `SITE_SYNC_UGP_API_KEY`): uGP registers THE
+  canonical design for a site. PR is authoritative for **one canonical
+  design per site** (409 names the incumbent; 404 = create the site in PR
+  first). Sets `canonicalUgpProjectId` + appends `ugpProjects`.
+- `fanoutSiteChanges` (Firestore trigger on `referenceData_sites`) POSTs
+  every write to AM/FM (`SITE_SYNC_AM/FM_ENDPOINT`) and to every CC lane
+  (`SITE_SYNC_CC_ENDPOINTS`, comma-separated; lanes self-filter by
+  country). Payload carries `district` + `canonicalUgpProjectId`.
+- `prCatalogApi` `GET /sites` rows expose `code` + `canonicalUgpProjectId`
+  for the uGP creation picker (key: `HR_API_KEY_PR_PORTAL`).
+- `src/scripts/backfillSitesToCc.ts` replays existing sites to CC lanes
+  (legacy rows without coordinates are skipped by design).
