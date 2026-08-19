@@ -38,9 +38,9 @@
     "reconcile-hr-employees": "tsx scripts/reconcile-hr-employees.ts",
     "sync-department-catalog": "tsx scripts/sync-department-catalog.ts",
     "seed-countries": "tsx scripts/seed-countries.ts",
-  "seed-rations": "tsx scripts/seed-rations.ts",
-  "seed-benin-rations": "tsx scripts/seed-benin-rations.ts",
-  "seed-whats-new": "tsx scripts/seed-whats-new.ts"
+    "seed-rations": "tsx scripts/seed-rations.ts",
+    "seed-benin-rations": "tsx scripts/seed-benin-rations.ts",
+    "seed-whats-new": "tsx scripts/seed-whats-new.ts"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -104,7 +104,7 @@
     "eslint-plugin-react-refresh": "^0.4.16",
     "firebase": "^11.2.0",
     "firebase-admin": "^13.0.2",
-    "firebase-tools": "^13.22.0",
+    "firebase-tools": "^13.35.1",
     "globals": "^15.13.0",
     "googleapis": "^144.0.0",
     "jsdom": "^25.0.1",

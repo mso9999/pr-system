@@ -52,6 +52,17 @@ export const updateUser = functions.https.onCall(async (data: UpdateUserData, co
         // Update Firestore
         await userRef.update(updateData);
 
+        // Permission changes must reach the target's session: revoke refresh
+        // tokens so the next sign-in re-mints via Nexus SSO with the new
+        // claim. (The resolver runs in Nexus; PR cannot re-mint directly.)
+        if (data.permissionLevel !== undefined || data.isActive !== undefined) {
+            try {
+                await admin.auth().revokeRefreshTokens(data.userId);
+            } catch (revokeError) {
+                console.warn('updateUser: revokeRefreshTokens failed (non-fatal):', revokeError);
+            }
+        }
+
         return {
             success: true,
             message: 'User updated successfully'
