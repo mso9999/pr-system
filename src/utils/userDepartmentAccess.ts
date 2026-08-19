@@ -6,7 +6,7 @@ export function normalizeCountryCode(cc: string | undefined): string {
 }
 
 /**
- * Whether the current user may enable multi-department appointments (2–3 depts + Lead flags)
+ * Whether the current user may enable multi-department appointments (2–6 depts + Lead flags)
  * for an employee in `targetOrganizationId`.
  * — Superadmin (permission level 1), or
  * — HR Lead with the target org's country in `hrLeadCountryCodes`.
@@ -28,12 +28,12 @@ export function canManageHrLeadMeta(caller: Pick<User, 'permissionLevel'> | null
   return caller?.permissionLevel === 1;
 }
 
-/** Validate 2–3 unique department rows for multi mode. Returns memberships or null. */
+/** Validate 2–6 unique department rows for multi mode. Returns memberships or null. */
 export function validateDepartmentSlots(
   slots: Array<{ departmentId: string; isLead: boolean }>
 ): DepartmentMembership[] | null {
   const filled = slots.filter((s) => s.departmentId && s.departmentId.trim());
-  if (filled.length < 2 || filled.length > 3) return null;
+  if (filled.length < 2 || filled.length > 6) return null;
   const ids = filled.map((s) => s.departmentId.trim());
   if (new Set(ids).size !== ids.length) return null;
   return filled.map((s) => ({

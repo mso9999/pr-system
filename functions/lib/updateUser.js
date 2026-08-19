@@ -42,13 +42,14 @@ exports.updateUser = functions.https.onCall(async (data, context) => {
         (0, prClaimAuth_1.requirePrAction)(context.auth, 'update user accounts', 'manage_pr_users', 'administer_pr');
         // Get user reference
         const userRef = admin.firestore().collection('users').doc(data.userId);
-        // Update user data in Firestore
+        // department, organization, and additionalOrganizations are HR-owned
+        // (set in the HR portal, mirrored here by the HR sync). Editing them
+        // here never reaches the Nexus resolver — a silent no-op that reads
+        // as "role switched but nothing changed" (2026-08-19). They are no
+        // longer accepted; only PR-owned profile fields remain editable.
         const updateData = {
             firstName: data.firstName,
             lastName: data.lastName,
-            department: data.department,
-            organization: data.organization,
-            additionalOrganizations: data.additionalOrganizations,
             isActive: data.isActive
         };
         // Permission-level changes update the Nexus assignment record
@@ -68,6 +69,17 @@ exports.updateUser = functions.https.onCall(async (data, context) => {
         }
         // Update Firestore
         await userRef.update(updateData);
+        // Permission changes must reach the target's session: revoke refresh
+        // tokens so the next sign-in re-mints via Nexus SSO with the new
+        // claim. (The resolver runs in Nexus; PR cannot re-mint directly.)
+        if (data.permissionLevel !== undefined || data.isActive !== undefined) {
+            try {
+                await admin.auth().revokeRefreshTokens(data.userId);
+            }
+            catch (revokeError) {
+                console.warn('updateUser: revokeRefreshTokens failed (non-fatal):', revokeError);
+            }
+        }
         return {
             success: true,
             message: 'User updated successfully'

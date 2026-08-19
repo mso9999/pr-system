@@ -165,6 +165,9 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
     { departmentId: '', isLead: false },
     { departmentId: '', isLead: false },
     { departmentId: '', isLead: false },
+    { departmentId: '', isLead: false },
+    { departmentId: '', isLead: false },
+    { departmentId: '', isLead: false },
   ];
 
   const [deptSlots, setDeptSlots] = useState(emptyDeptSlots);
@@ -1535,7 +1538,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                         }}
                       />
                     }
-                    label="Multiple department appointments (2–3 departments)"
+                    label="Multiple department appointments (2–6 departments)"
                   />
                 </FormControl>
               )}
@@ -1557,7 +1560,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
 
               {formData.multiDepartmentAppointmentsEnabled ? (
                 <>
-                  {[0, 1, 2].map((idx) => (
+                  {[0, 1, 2, 3, 4, 5].map((idx) => (
                     <Box
                       key={idx}
                       sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mb: 0.5 }}
@@ -1613,7 +1616,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                     </Box>
                   ))}
                   <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
-                    Fill 2 or 3 rows with different departments. Primary department is the first row.
+                    Fill 2 to 6 rows with different departments. Primary department is the first row.
                   </Typography>
                 </>
               ) : (

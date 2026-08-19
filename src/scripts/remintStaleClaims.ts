@@ -30,10 +30,11 @@ async function main() {
   if (!signIn.ok) throw new Error(`signInWithCustomToken failed: HTTP ${signIn.status}`);
   const { idToken } = (await signIn.json()) as { idToken: string };
 
+  const emailArg = process.argv.find((a) => a.startsWith('--email='))?.split('=')[1];
   const response = await fetch(FUNCTION_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${idToken}` },
-    body: JSON.stringify({ data: { dryRun: !APPLY } }),
+    body: JSON.stringify({ data: { dryRun: !APPLY, ...(emailArg ? { email: emailArg } : {}) } }),
   });
   if (!response.ok) throw new Error(`callable failed: HTTP ${response.status} ${await response.text()}`);
   const payload = (await response.json()) as { result: Record<string, unknown> };
