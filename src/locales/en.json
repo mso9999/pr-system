@@ -140,6 +140,10 @@
       "provisioning": {
         "title": "Field Camp Provisioning",
         "description": "Plan a field-camp shopping list from the org's ration catalog, link a Fleet mission to prepopulate crew size and days, then generate a PR."
+      },
+      "roleSites": {
+        "title": "Site creation & the canonical lifecycle",
+        "description": "Who creates sites, the 3-letter code rule, GPS map picker, and how designs and Customer Care connect"
       }
     },
     "orientation": {
@@ -450,7 +454,38 @@
         "title": "Save plan and generate PR",
         "content": "Save plan records it with a sequential plan number (and snapshots the catalog/prices). Then Generate PR opens a dialog for department, project category, site, expense type, and required date, and creates a PR you can track through the normal approval flow."
       }
-    }
+    },
+    "roleSites": {
+      "step1": {
+        "title": "Where sites are born",
+        "content": "Every canonical site starts life here in PR — spending on a site (survey, transport, materials) begins before it is surveyed or built, so the site must exist in PR first. Later, exactly one uGridPLAN design is linked as the site's canonical design, and Customer Care activates the site when it is built. This tour shows how sites are created and by whom."
+      },
+      "step2": {
+        "title": "Select the Sites catalog",
+        "content": "Choose 'Sites' in this Type selector. Sites are organized per country (organization): a site's 3-letter code only has to be unique within its country — the system silently prefixes it with the country, e.g. MAK in Lesotho is stored as LS_MAK (1pwr_lesotho_mak)."
+      },
+      "step3": {
+        "title": "The site registry",
+        "content": "This table lists every site in the selected organization with its code, name, district, GPS coordinate, and linked uGridPLAN design. Customer Care gateway and account identities bind to the 3-letter code forever — codes are never reused or renamed after commissioning."
+      },
+      "step4": {
+        "title": "Who can create sites",
+        "content": "The Add button appears here when your signed role includes the site-editor action: superadmins, Procurement, Engineering, IS&T, and Management department members, plus PR approvers and IT administrators. If it is missing, the banner above the table explains exactly which role you need and who manages it (HR for department assignments, Nexus/IS&T for explicit access)."
+      },
+      "step5": {
+        "title": "Code and name rules",
+        "content": "New sites need a name and a 3-letter code (e.g. MAK for Makhaleng). The code must not collide with another site in the same country, nor with any 1PWR operating-country site, because Customer Care gateway names use the bare code. Existing legacy codes are grandfathered."
+      },
+      "step6": {
+        "title": "GPS coordinate is required",
+        "content": "Every site needs a GPS coordinate — pick it on the map in the creation form. When Engineering later places a gensite in the site's canonical uGridPLAN design, the site coordinate automatically moves to the gensite coordinate, so the registry always reflects the surveyed build location."
+      },
+      "step7": {
+        "title": "Provenance and the lifecycle",
+        "content": "Each site records who created it and when, on the object itself. After creation: the site syncs to Customer Care as inactive (staged), Engineering links the canonical uGridPLAN design, and Customer Care activates the site at commissioning. If a site arrives in Customer Care without its design link, activation is blocked until someone completes the association — that is the remediation path."
+      }
+    },
+    "sectionReferenceData": "Reference data"
   },
   "dashboard": {
     "title": "Purchase Request Dashboard",
@@ -514,8 +549,8 @@
     "editPR": "Edit Purchase Request",
     "viewPR": "View Purchase Request",
     "submitPR": "Submit Purchase Request",
-    "approvePR": "Approve Purchase Request",
-    "rejectPR": "Reject Purchase Request",
+    "approvePR": "Approve PR",
+    "rejectPR": "Reject PR",
     "cancelPR": "Cancel Purchase Request",
     "revisionRequired": "Revision Required",
     "adjudicationNotes": "Adjudication Notes",
@@ -584,8 +619,8 @@
     "noFilesUploaded": "No files uploaded",
     "estimatedDelivery": "Estimated Delivery",
     "orderSatisfactory": "Order closed without issues?",
-    "describeIssues": "Describe the issues",
-    "approveVendorDespiteIssues": "Approve vendor despite issues?",
+    "describeIssues": "Describe Issues Encountered",
+    "approveVendorDespiteIssues": "Approve vendor despite issues (requires justification)",
     "vendorApprovalAction": "Vendor Approval Action",
     "vendorAutoApproved": "Vendor will be auto-approved for {{months}} months",
     "vendorManualApproval": "Vendor will be manually approved for {{months}} months despite issues",
@@ -599,12 +634,9 @@
     "uploadProforma": "Upload Proforma Invoice",
     "uploadProofOfPayment": "Upload Proof of Payment",
     "sendNotification": "Send Notification",
-    "approvePR": "Approve PR",
-    "rejectPR": "Reject PR",
     "returnToQueue": "Return to Queue",
     "orderCompleted": "Order Completed",
     "created": "Created",
-    "completed": "Completed",
     "totalTime": "Total Time",
     "days": "days",
     "completionNotes": "Completion Notes",
@@ -612,11 +644,8 @@
     "allDocumentsDesc": "All documents uploaded throughout the order lifecycle",
     "approvalStageDocuments": "Approval Stage Documents",
     "deliveryStageDocuments": "Delivery Stage Documents",
-    "proformaInvoice": "Proforma Invoice",
-    "proofOfPayment": "Proof of Payment",
     "purchaseOrderGenerated": "Purchase Order (Generated)",
     "deliveryNote": "Delivery Note",
-    "deliveryPhotos": "Delivery Photos",
     "noDocumentsUploaded": "No documents were uploaded for this order",
     "notifyFinanceTeam": "Notify Finance Team",
     "notifyFinanceDesc": "Send notification to Finance team to execute payment",
@@ -659,9 +688,7 @@
     "vendorAutoApprovedDesc": "Vendor will be automatically approved for future orders",
     "issuesEncountered": "NO - Issues encountered during this order",
     "vendorRemainNonApproved": "Vendor will remain non-approved unless you override",
-    "describeIssues": "Describe Issues Encountered",
     "describeIssuesPlaceholder": "Describe quality issues, delivery problems, or other concerns...",
-    "approveVendorDespiteIssues": "Approve vendor despite issues (requires justification)",
     "overrideJustificationRequired": "Override Justification",
     "overrideJustificationPlaceholder": "Explain why vendor should be approved despite the issues...",
     "ruleOverrideRequired": "Rule Validation Override Required",

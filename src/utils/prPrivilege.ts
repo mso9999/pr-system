@@ -190,6 +190,29 @@ export function canSeeProvisioningStudio(subject: PrSubject | null | undefined):
   );
 }
 
+/** Human-readable roles that can edit a reference-data type (denial UX). */
+export function requiredRolesForReferenceDataType(type: string): string[] {
+  switch (type) {
+    case 'sites':
+      return ['ADMIN (administer_pr)', 'Site editor (manage_pr_sites: PROC/ENG/IS&T/Management dept or IT)'];
+    case 'vendors':
+      return ['ADMIN (administer_pr)', 'APPROVER (approve_high_value)', 'PROC (process_procurement_queue)'];
+    case 'expenseTypes':
+    case 'projectCategories':
+    case 'rules':
+      return ['ADMIN (administer_pr)', 'FIN_AD/FIN_APPROVER (manage_finance_reference_data)'];
+    case 'uom':
+    case 'rations':
+    case 'provisioningMenus':
+      return ['ADMIN (administer_pr)', 'PROC (process_procurement_queue)'];
+    case 'paymentTypes':
+    case 'rationPrices':
+      return ['ADMIN (administer_pr)', 'PROC (process_procurement_queue)', 'FIN_AD (manage_finance_reference_data)'];
+    default:
+      return ['ADMIN (administer_pr)'];
+  }
+}
+
 /** Reference-data edit matrix — mirrors the retired REFERENCE_DATA_ACCESS levels. */
 export function canEditReferenceDataType(subject: PrSubject | null | undefined, type: string): boolean {
   switch (type) {

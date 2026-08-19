@@ -22,6 +22,8 @@ import {
   seedTutorialSandboxPR,
   type TutorialSandboxSeedResult,
 } from '@/services/tutorialSandbox';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '@/config/firebase';
 import { RootState } from '@/store';
 
 const NAV_DELAY_MS = 500;
@@ -61,6 +63,10 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const sandboxRef = useRef<TutorialSandboxSeedResult | null>(null);
   const navTimerRef = useRef<number | null>(null);
+  // Nexus training deep-link state (?tutorial=<tour>&training_module=<id>&session=<id>):
+  // when set, finishing the tour reports tour_completed back to Nexus Training.
+  const trainingRef = useRef<{ moduleId: string; sessionId: string } | null>(null);
+  const deepLinkConsumedRef = useRef(false);
 
   const steps: Step[] = useMemo(() => {
     if (!activeTourId) return [];
@@ -90,6 +96,25 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
     setRun(false);
     setActiveTourId(null);
     setStepIndex(0);
+    trainingRef.current = null;
+    await runCleanup();
+  }, [clearNavTimer, runCleanup]);
+
+  const completeTour = useCallback(async () => {
+    const training = trainingRef.current;
+    trainingRef.current = null;
+    if (training) {
+      try {
+        const record = httpsCallable(functions, 'recordTrainingEvent');
+        await record({ module_id: training.moduleId, event: 'tour_completed', session_id: training.sessionId });
+      } catch (error) {
+        console.error('[tutorial] training completion report failed', error);
+      }
+    }
+    clearNavTimer();
+    setRun(false);
+    setActiveTourId(null);
+    setStepIndex(0);
     await runCleanup();
   }, [clearNavTimer, runCleanup]);
 
@@ -101,7 +126,7 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
         setRun(true);
       };
 
-      if (location.pathname !== path) {
+      if (`${location.pathname}${location.search}` !== path) {
         setRun(false);
         navigate(path);
         clearNavTimer();
@@ -110,7 +135,7 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
         resume();
       }
     },
-    [clearNavTimer, location.pathname, navigate]
+    [clearNavTimer, location.pathname, location.search, navigate]
   );
 
   const startTour = useCallback(
@@ -140,21 +165,25 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
         setRun(true);
       };
 
-      if (location.pathname !== path) {
+      if (`${location.pathname}${location.search}` !== path) {
         navigate(path);
         navTimerRef.current = window.setTimeout(launch, NAV_DELAY_MS);
       } else {
         launch();
       }
     },
-    [clearNavTimer, location.pathname, navigate, user]
+    [clearNavTimer, location.pathname, location.search, navigate, user]
   );
 
   const handleJoyrideCallback = useCallback(
     (data: CallBackProps) => {
       const { action, index, status, type } = data;
 
-      if (type === EVENTS.TOUR_END || status === STATUS.FINISHED || status === STATUS.SKIPPED) {
+      if (status === STATUS.FINISHED) {
+        void completeTour();
+        return;
+      }
+      if (type === EVENTS.TOUR_END || status === STATUS.SKIPPED) {
         void stopTour();
         return;
       }
@@ -164,7 +193,7 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
       if (action === ACTIONS.NEXT) {
         const nextIndex = index + 1;
         if (nextIndex >= steps.length) {
-          void stopTour();
+          void completeTour();
           return;
         }
         goToStep(activeTourId, nextIndex);
@@ -186,6 +215,27 @@ export function TutorialProvider({ children }: { children: React.ReactNode }) {
       }
     };
   }, [clearNavTimer, user?.id]);
+
+  // Nexus Training deep-link: ?tutorial=<tourId>&training_module=<id>&session=<id>
+  // auto-starts the tour; finishing it reports tour_completed to Nexus.
+  useEffect(() => {
+    if (deepLinkConsumedRef.current || !user) return;
+    const params = new URLSearchParams(location.search);
+    const tourParam = params.get('tutorial');
+    if (!tourParam || !TOUR_LIST.some((m) => m.id === tourParam)) return;
+    deepLinkConsumedRef.current = true;
+    const moduleId = params.get('training_module');
+    const sessionId = params.get('session');
+    if (moduleId) {
+      trainingRef.current = { moduleId, sessionId: sessionId || '' };
+    }
+    params.delete('tutorial');
+    params.delete('training_module');
+    params.delete('session');
+    const cleanSearch = params.toString();
+    navigate(`${location.pathname}${cleanSearch ? `?${cleanSearch}` : ''}`, { replace: true });
+    startTour(tourParam as TourId);
+  }, [user, location.search, location.pathname, navigate, startTour]);
 
   const value = useMemo(
     () => ({

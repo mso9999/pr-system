@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react"
-import { useNavigate } from "react-router-dom"
+import { useNavigate, useLocation } from "react-router-dom"
 import {
   Box,
   Button,
@@ -44,7 +44,8 @@ import {
   PERMISSION_NAMES,
   REFERENCE_DATA_TYPES
 } from '@/config/permissions'
-import { canEditReferenceDataType } from '@/utils/prPrivilege'
+import { canEditReferenceDataType, requiredRolesForReferenceDataType, assignedPrRoleLabels } from '@/utils/prPrivilege'
+import { PrivilegeDenied } from '@/components/common/PrivilegeDenied'
 import { referenceDataAdminService } from '@/services/referenceDataAdmin'
 import { organizationService, Organization } from '@/services/organizationService'
 import { ORG_INDEPENDENT_TYPES } from '@/services/referenceData'
@@ -803,12 +804,20 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
     loadItems();
   }, [selectedType, selectedOrganization]);
 
+  const routerLocation = useLocation();
+
   useEffect(() => {
+    const typeParam = new URLSearchParams(routerLocation.search).get('type');
+    if (typeParam && Object.keys(REFERENCE_DATA_TYPE_LABELS).includes(typeParam)) {
+      setSelectedType(typeParam as ReferenceDataType);
+      return;
+    }
     const savedType = localStorage.getItem('selectedReferenceDataType');
     if (savedType && Object.keys(REFERENCE_DATA_TYPE_LABELS).includes(savedType)) {
       setSelectedType(savedType as ReferenceDataType);
     }
-  }, []);
+    // routerLocation.search: react to ?type= deep-links while mounted (guided tours)
+  }, [routerLocation.search]);
 
   const filteredItems = useMemo(() => {
     let result = [...items];
@@ -2067,7 +2076,7 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
         </Alert>
       )}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <FormControl sx={{ minWidth: 200, mr: 2 }}>
+        <FormControl sx={{ minWidth: 200, mr: 2 }} data-tutorial="refdata-type">
           <InputLabel>Type</InputLabel>
           <Select
             value={selectedType}
@@ -2099,7 +2108,7 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
           </FormControl>
         )}
 
-        <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
+        <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }} data-tutorial="refdata-add">
           {selectedType === 'vehicles' && (
             <Button 
               variant="outlined" 
@@ -2131,7 +2140,18 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
         </Box>
       </Box>
 
-      <TableContainer component={Paper}>
+      {!canEdit && !isFleetManagedType && !isHrManagedType && (
+        <Box data-tutorial="refdata-denial">
+          <PrivilegeDenied
+            compact
+            action={`You can browse ${REFERENCE_DATA_TYPE_LABELS[selectedType]}, but creating or editing entries requires an additional role.`}
+            assignedRoles={assignedPrRoleLabels(user)}
+            requiredRoles={requiredRolesForReferenceDataType(selectedType)}
+          />
+        </Box>
+      )}
+
+      <TableContainer component={Paper} data-tutorial="refdata-table">
         <Table size="small" sx={{ tableLayout: 'fixed' }}>
           <TableHead>
             <TableRow>

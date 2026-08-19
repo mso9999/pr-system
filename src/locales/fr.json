@@ -132,6 +132,10 @@
       "provisioning": {
         "title": "Provisionnement de camp terrain",
         "description": "Établissez une liste d'achat de camp terrain à partir du catalogue de rations de l'organisation, liez une mission Fleet pour préremplir l'équipage et la durée, puis générez une BC."
+      },
+      "roleSites": {
+        "title": "Création de sites et cycle de vie canonique",
+        "description": "Qui crée les sites, la règle du code à 3 lettres, le sélecteur GPS, et le lien avec les designs et Customer Care"
       }
     },
     "orientation": {
@@ -394,7 +398,38 @@
         "title": "Enregistrer le plan et générer la BC",
         "content": "Enregistrer le plan lui attribue un numéro séquentiel (et archive le catalogue/prix). Ensuite Générer la BC ouvre une boîte pour département, catégorie de projet, site, type de dépense et date requise, et crée une BC à suivre dans le flux d'approbation normal."
       }
-    }
+    },
+    "roleSites": {
+      "step1": {
+        "title": "Où naissent les sites",
+        "content": "Chaque site canonique naît dans PR — les dépenses sur un site (étude, transport, matériaux) commencent avant l'arpentage ou la construction, donc le site doit d'abord exister dans PR. Ensuite, exactement un design uGridPLAN est lié comme design canonique du site, et Customer Care active le site une fois construit. Cette visite montre comment et par qui les sites sont créés."
+      },
+      "step2": {
+        "title": "Sélectionnez le catalogue Sites",
+        "content": "Choisissez 'Sites' dans ce sélecteur Type. Les sites sont organisés par pays (organisation) : le code à 3 lettres doit être unique dans son pays — le système le préfixe silencieusement du pays, ex. MAK au Lesotho devient LS_MAK (1pwr_lesotho_mak)."
+      },
+      "step3": {
+        "title": "Le registre des sites",
+        "content": "Ce tableau liste chaque site de l'organisation sélectionnée avec code, nom, district, coordonnée GPS et design uGridPLAN lié. Les identités de passerelle et de compte Customer Care se lient au code à 3 lettres définitivement — les codes ne sont ni réutilisés ni renommés après la mise en service."
+      },
+      "step4": {
+        "title": "Qui peut créer des sites",
+        "content": "Le bouton Ajouter apparaît ici lorsque votre rôle signé inclut l'action d'édition de sites : superadmins, membres des départements Procurement, Engineering, IS&T et Management, ainsi que les approbateurs PR et administrateurs IT. S'il est absent, la bannière au-dessus du tableau indique le rôle requis et qui le gère (RH pour les départements, Nexus/IS&T pour l'accès explicite)."
+      },
+      "step5": {
+        "title": "Règles de code et nom",
+        "content": "Un nouveau site requiert un nom et un code de 3 lettres (ex. MAK pour Makhaleng). Le code ne doit entrer en collision ni avec un site du même pays, ni avec un site d'un autre pays 1PWR, car les passerelles Customer Care utilisent le code brut. Les codes historiques sont conservés."
+      },
+      "step6": {
+        "title": "Coordonnée GPS obligatoire",
+        "content": "Chaque site requiert une coordonnée GPS — choisissez-la sur la carte du formulaire. Quand Engineering place ensuite un gensite dans le design canonique uGridPLAN du site, la coordonnée du site se déplace automatiquement vers celle du gensite."
+      },
+      "step7": {
+        "title": "Provenance et cycle de vie",
+        "content": "Chaque site enregistre qui l'a créé et quand, sur l'objet lui-même. Après création : le site se synchronise vers Customer Care en inactif, Engineering lie le design canonique uGridPLAN, et Customer Care active le site à la mise en service. Si un site arrive sans lien de design, l'activation est bloquée jusqu'à régularisation."
+      }
+    },
+    "sectionReferenceData": "Données de référence"
   },
   "dashboard": {
     "title": "Tableau de bord des demandes d'achat",
@@ -458,8 +493,8 @@
     "editPR": "Modifier la demande d'achat",
     "viewPR": "Voir la demande d'achat",
     "submitPR": "Soumettre la demande d'achat",
-    "approvePR": "Approuver la demande d'achat",
-    "rejectPR": "Rejeter la demande d'achat",
+    "approvePR": "Approuver la DR",
+    "rejectPR": "Rejeter la DR",
     "cancelPR": "Annuler la demande d'achat",
     "revisionRequired": "Révision requise",
     "adjudicationNotes": "Notes d'adjudication",
@@ -528,8 +563,8 @@
     "noFilesUploaded": "Aucun fichier téléversé",
     "estimatedDelivery": "Livraison estimée",
     "orderSatisfactory": "Commande clôturée sans problème?",
-    "describeIssues": "Décrire les problèmes",
-    "approveVendorDespiteIssues": "Approuver le fournisseur malgré les problèmes?",
+    "describeIssues": "Décrire les problèmes rencontrés",
+    "approveVendorDespiteIssues": "Approuver le fournisseur malgré les problèmes (nécessite une justification)",
     "vendorApprovalAction": "Action d'approbation du fournisseur",
     "vendorAutoApproved": "Le fournisseur sera automatiquement approuvé pour {{months}} mois",
     "vendorManualApproval": "Le fournisseur sera manuellement approuvé pour {{months}} mois malgré les problèmes",
@@ -543,12 +578,9 @@
     "uploadProforma": "Téléverser la facture proforma",
     "uploadProofOfPayment": "Téléverser la preuve de paiement",
     "sendNotification": "Envoyer une notification",
-    "approvePR": "Approuver la DR",
-    "rejectPR": "Rejeter la DR",
     "returnToQueue": "Retourner à la file d'attente",
     "orderCompleted": "Commande complétée",
     "created": "Créé",
-    "completed": "Complété",
     "totalTime": "Temps total",
     "days": "jours",
     "completionNotes": "Notes de complétion",
@@ -556,11 +588,8 @@
     "allDocumentsDesc": "Tous les documents téléversés tout au long du cycle de vie de la commande",
     "approvalStageDocuments": "Documents de l'étape d'approbation",
     "deliveryStageDocuments": "Documents de l'étape de livraison",
-    "proformaInvoice": "Facture proforma",
-    "proofOfPayment": "Preuve de paiement",
     "purchaseOrderGenerated": "Bon de commande (Généré)",
     "deliveryNote": "Bon de livraison",
-    "deliveryPhotos": "Photos de livraison",
     "noDocumentsUploaded": "Aucun document n'a été téléversé pour cette commande",
     "notifyFinanceTeam": "Notifier l'équipe des finances",
     "notifyFinanceDesc": "Envoyer une notification à l'équipe des finances pour exécuter le paiement",
@@ -603,9 +632,7 @@
     "vendorAutoApprovedDesc": "Le fournisseur sera automatiquement approuvé pour les commandes futures",
     "issuesEncountered": "NON - Problèmes rencontrés lors de cette commande",
     "vendorRemainNonApproved": "Le fournisseur restera non approuvé sauf si vous annulez",
-    "describeIssues": "Décrire les problèmes rencontrés",
     "describeIssuesPlaceholder": "Décrivez les problèmes de qualité, les problèmes de livraison ou d'autres préoccupations...",
-    "approveVendorDespiteIssues": "Approuver le fournisseur malgré les problèmes (nécessite une justification)",
     "overrideJustificationRequired": "Justification de la dérogation",
     "overrideJustificationPlaceholder": "Expliquez pourquoi le fournisseur devrait être approuvé malgré les problèmes...",
     "ruleOverrideRequired": "Dérogation à la validation des règles requise",

@@ -13,7 +13,8 @@ export type TourId =
   | 'roleFinanceAdmin'
   | 'roleFinanceApprover'
   | 'roleSuperadmin'
-  | 'provisioning';
+  | 'provisioning'
+  | 'roleSites';
 
 export interface TourMeta {
   id: TourId;
@@ -102,6 +103,13 @@ export const TOUR_LIST: TourMeta[] = [
     descriptionKey: 'tutorial.tours.provisioning.description',
     path: '/provisioning',
     badge: 'Procurement',
+  },
+  {
+    id: 'roleSites',
+    titleKey: 'tutorial.tours.roleSites.title',
+    descriptionKey: 'tutorial.tours.roleSites.description',
+    path: '/admin?tab=reference-data&type=sites',
+    badge: 'Sites',
   },
 ];
 
@@ -296,6 +304,17 @@ export function buildTourSteps(tourId: TourId, t: TFunction): Step[] {
         center(S('step4.title'), S('step4.content'), t),
         center(S('step5.title'), S('step5.content'), t),
         spot('pr-procurement-actions', S('step6.title'), S('step6.content'), t),
+        center(S('step7.title'), S('step7.content'), t),
+      ];
+
+    case 'roleSites':
+      return [
+        center(S('step1.title'), S('step1.content'), t),
+        spot('refdata-type', S('step2.title'), S('step2.content'), t, 'bottom'),
+        spot('refdata-table', S('step3.title'), S('step3.content'), t, 'top'),
+        spot('refdata-add', S('step4.title'), S('step4.content'), t, 'left'),
+        center(S('step5.title'), S('step5.content'), t),
+        center(S('step6.title'), S('step6.content'), t),
         center(S('step7.title'), S('step7.content'), t),
       ];
 

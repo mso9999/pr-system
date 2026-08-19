@@ -6,7 +6,7 @@ import { OrganizationConfig } from "./OrganizationConfig"
 import { DatabaseCleanup } from "./DatabaseCleanup"
 import { WhatsNewManagement } from "./WhatsNewManagement"
 import { ProvisioningStudio } from "./ProvisioningStudio"
-import { useOutletContext } from "react-router-dom"
+import { useOutletContext, useLocation } from "react-router-dom"
 import { useSelector } from 'react-redux'
 import { RootState } from '../../store'
 import { PERMISSION_LEVELS, PERMISSION_NAMES } from '../../config/permissions'
@@ -64,8 +64,10 @@ export function AdminDashboard() {
   const canSeeProvisioningStudio = user?.permissionLevel != null
     && PROVISIONING_EDIT_LEVELS.includes(user.permissionLevel);
   
-  // Initialize from localStorage or default to 0
+  // Initialize from ?tab= deep-link, else localStorage, else default to 0
   const [value, setValue] = useState(() => {
+    const tabParam = new URLSearchParams(window.location.search).get('tab');
+    if (tabParam === 'reference-data') return 1;
     if (isItAdmin) return 1;
     const savedTab = localStorage.getItem('adminDashboardTab')
     return savedTab ? parseInt(savedTab, 10) : 0
@@ -75,6 +77,13 @@ export function AdminDashboard() {
   useEffect(() => {
     localStorage.setItem('adminDashboardTab', value.toString())
   }, [value])
+
+  // React to ?tab= deep-links while already mounted (e.g. guided tours)
+  const routerLocation = useLocation()
+  useEffect(() => {
+    const tabParam = new URLSearchParams(routerLocation.search).get('tab')
+    if (tabParam === 'reference-data') setValue(1)
+  }, [routerLocation.search])
 
   const handleChange = (event: React.SyntheticEvent, newValue: number) => {
     setValue(newValue)

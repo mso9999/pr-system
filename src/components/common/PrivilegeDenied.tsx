@@ -5,11 +5,40 @@ interface Props {
   requiredRoles: string[];
   countryCode?: string;
   action?: string;
+  /** Inline rendering for embedding inside a page section (no full-page centering). */
+  compact?: boolean;
 }
 
-export function PrivilegeDenied({ assignedRoles, requiredRoles, countryCode, action }: Props) {
+export function PrivilegeDenied({ assignedRoles, requiredRoles, countryCode, action, compact }: Props) {
   const country = ({ BJ: 'Benin', BN: 'Benin', LS: 'Lesotho', ZM: 'Zambia' } as Record<string, string>)[countryCode || '']
     || 'your country';
+  if (compact) {
+    return (
+      <Paper variant="outlined" sx={{ overflow: 'hidden', mt: 2 }}>
+        <Alert severity="warning" sx={{ borderRadius: 0 }}>
+          <AlertTitle>View only — editing is not included in your current access</AlertTitle>
+          {action || 'You can browse this reference data, but changes require an additional role.'}
+        </Alert>
+        <Stack spacing={2} sx={{ p: 2 }}>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle2">Your effective PR role(s)</Typography>
+              <Stack direction="row" gap={1} flexWrap="wrap" mt={1}>{(assignedRoles.length ? assignedRoles : ['REQ']).map((role) => <Chip key={role} label={role} size="small" />)}</Stack>
+            </Box>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="subtitle2">Role needed to edit</Typography>
+              <Stack direction="row" gap={1} flexWrap="wrap" mt={1}>{requiredRoles.map((role) => <Chip key={role} label={role} size="small" color="warning" />)}</Stack>
+            </Box>
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            The {country} HR team manages department assignments; a Nexus/IS&amp;T User Administrator manages
+            explicit PR access. Sign out and back in after any change to refresh your signed privilege claim.
+          </Typography>
+        </Stack>
+      </Paper>
+    );
+  }
+
   return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '75vh', p: 3 }}>
       <Paper variant="outlined" sx={{ maxWidth: 760, width: '100%', overflow: 'hidden' }}>
