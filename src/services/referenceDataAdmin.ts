@@ -1,5 +1,5 @@
 import { ReferenceDataItem } from "@/types/referenceData"
-import { db } from "@/config/firebase"
+import { auth, db } from "@/config/firebase"
 import { collection, doc, getDocs, addDoc, updateDoc, deleteDoc, query, where, writeBatch, setDoc, getDoc, deleteField, or } from "firebase/firestore"
 
 const COLLECTION_PREFIX = "referenceData_"
@@ -15,6 +15,40 @@ function validateSiteCoordinates(type: string, item: Partial<ReferenceDataItem>)
   }
   if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
     throw new Error("Longitude must be a valid number between -180 and 180");
+  }
+}
+
+/**
+ * Canonical-site uniqueness: a 3-letter code must not collide with another
+ * site in the same organization (per-country scope), nor with any site in a
+ * 1PWR operating org globally — CC binds gateway names to the bare code
+ * account-wide, so cross-country collisions are rejected too. Codes are
+ * namespaced per country by the document id (`{org}_{code}`, e.g.
+ * `1pwr_lesotho_mak` ≡ LS_MAK).
+ */
+async function assertSiteCodeAvailable(code: string, organizationId: string, excludeId?: string): Promise<void> {
+  const upper = code.trim().toUpperCase();
+  if (!upper) return;
+  const variants = [...new Set([upper, upper.toLowerCase()])];
+  const snap = await getDocs(
+    query(collection(db, `${COLLECTION_PREFIX}sites`), where("code", "in", variants))
+  );
+  for (const d of snap.docs) {
+    if (excludeId && d.id === excludeId) continue;
+    const data = d.data() as Record<string, any>;
+    if (data.active === false) continue;
+    const otherOrg = String(data.organizationId || data.organization?.id || "");
+    if (otherOrg === organizationId) {
+      throw new Error(
+        `Site code ${upper} is already used by "${data.name || d.id}" in this country. Choose a different code.`
+      );
+    }
+    if (otherOrg.startsWith("1pwr_")) {
+      throw new Error(
+        `Site code ${upper} is already used by "${data.name || d.id}" (${otherOrg}). ` +
+        `Codes must be unique across 1PWR countries because Customer Care gateway names bind to the bare code.`
+      );
+    }
   }
 }
 
@@ -113,8 +147,17 @@ export class ReferenceDataAdminService {
     const collectionRef = collection(db, collectionName);
     validateSiteCoordinates(type, item);
     normalizeSiteMetadata(type, item);
-    if (type === "sites" && !item.siteSource) {
-      item.siteSource = "pr_admin";
+    if (type === "sites") {
+      if (!item.siteSource) {
+        item.siteSource = "pr_admin";
+      }
+      const orgIdForCheck = this.standardizeOrgId(item.organizationId || item.organization?.id || '');
+      await assertSiteCodeAvailable(String(item.code || ''), orgIdForCheck);
+      // Creation provenance lives on the site object itself (mutation logs
+      // capture it too, but consumers read the site record).
+      const user = auth.currentUser;
+      (item as any).createdBy = user?.email || user?.uid || 'unknown';
+      (item as any).createdByUid = user?.uid || null;
     }
 
     // Validate organization requirements
@@ -207,6 +250,16 @@ export class ReferenceDataAdminService {
     }
     validateSiteCoordinates(type, updates);
     normalizeSiteMetadata(type, updates);
+
+    if (type === "sites" && updates.code) {
+      const docRef0 = doc(db, collectionName, id);
+      const existing0 = await getDoc(docRef0);
+      const orgIdForCheck = this.standardizeOrgId(
+        updates.organizationId || updates.organization?.id ||
+        existing0.data()?.organizationId || existing0.data()?.organization?.id || ''
+      );
+      await assertSiteCodeAvailable(String(updates.code), orgIdForCheck, id);
+    }
 
     // For non-independent types, ensure organizationId is present
     if (!ORGANIZATION_INDEPENDENT_TYPES.includes(type as any)) {

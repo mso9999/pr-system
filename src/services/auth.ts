@@ -76,7 +76,7 @@ import { hasPrAction } from '@/utils/prPrivilege';
  * change must reach existing sessions. Lexicographically comparable
  * (zero-padded date segments).
  */
-const MIN_PRIVILEGE_VERSION = '2026.08.13.1';
+const MIN_PRIVILEGE_VERSION = '2026.08.19.2';
 
 const readSignedPrPrivilege = async (): Promise<Record<string, unknown> | null> => {
   const current = getAuth().currentUser;

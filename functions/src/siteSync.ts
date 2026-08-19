@@ -32,6 +32,8 @@ interface SitePayload {
   ugpProjects?: UgpProjectLink[];
   canonicalUgpProjectId?: string;
   externalIds?: Record<string, string>;
+  createdBy?: string;
+  createdAt?: string;
 }
 
 interface CanonicalSiteEvent {
@@ -249,6 +251,8 @@ function toCanonicalEvent(data: FirebaseFirestore.DocumentData, beforeExists: bo
     ugpProjects: asUgpProjects(data.ugpProjects),
     canonicalUgpProjectId: asString(data.canonicalUgpProjectId),
     externalIds: data.externalIds || {},
+    createdBy: asString(data.createdBy),
+    createdAt: asString(data.createdAt),
   };
 
   return {
@@ -342,6 +346,69 @@ export const ingestUgpSite = functions.https.onRequest(async (req, res) => {
     .set(payload, { merge: true });
 
   res.status(200).json({ success: true, id: docId, site: payload });
+});
+
+/**
+ * uGP gensite placement moves the canonical site coordinate: when a gensite
+ * is created inside a canonical design, uGP calls this so the site record's
+ * coordinate equals the gensite coordinate. Only latitude/longitude (plus
+ * provenance) are touched; the fanout trigger propagates the move to CC.
+ */
+export const updateSiteCoordinates = functions.https.onRequest(async (req, res) => {
+  setCors(res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    res.status(405).json({ success: false, error: "Method not allowed" });
+    return;
+  }
+  if (!(await isAllowedIngestCaller(req))) {
+    res.status(401).json({ success: false, error: "Unauthorized" });
+    return;
+  }
+
+  const input = (req.body || {}) as Record<string, unknown>;
+  const organizationId = normalizeOrgId(String(input.organizationId || ""));
+  const code = String(input.siteCode || input.code || "").trim().toUpperCase();
+  const latitude = asNumber(input.latitude);
+  const longitude = asNumber(input.longitude);
+  const ugpProjectId = asString(input.ugpProjectId);
+
+  if (!organizationId || !code || latitude === null || longitude === null) {
+    res.status(400).json({
+      success: false,
+      error: "organizationId, siteCode, latitude and longitude are required",
+    });
+    return;
+  }
+  if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
+    res.status(400).json({ success: false, error: "Coordinates are out of bounds" });
+    return;
+  }
+
+  const docId = buildDocId(organizationId, code);
+  const docRef = admin.firestore().collection("referenceData_sites").doc(docId);
+  const snap = await docRef.get();
+  if (!snap.exists) {
+    res.status(404).json({
+      success: false,
+      error: `Site '${code}' is not in the canonical registry for ${organizationId}. Create it in PR (Admin → Reference Data → Sites) first.`,
+    });
+    return;
+  }
+
+  const now = new Date().toISOString();
+  await docRef.update({
+    latitude,
+    longitude,
+    coordinatesUpdatedBy: ugpProjectId ? `ugp:${ugpProjectId}` : "ugp",
+    coordinatesUpdatedAt: now,
+    updatedAt: now,
+  });
+
+  res.status(200).json({ success: true, id: docId, latitude, longitude });
 });
 
 /**
