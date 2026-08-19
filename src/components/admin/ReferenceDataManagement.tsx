@@ -908,6 +908,14 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
         if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
           errors.longitude = 'Longitude must be a valid number between -180 and 180';
         }
+        // New sites use the cross-system 3-letter code convention (shared with
+        // uGP project codes and CC site codes). Existing records keep legacy codes.
+        if (!editItem.id) {
+          const code = String(getFieldValue(editItem, 'code') || '').trim().toUpperCase();
+          if (!/^[A-Z]{3}$/.test(code)) {
+            errors.code = 'Site code must be exactly 3 uppercase letters (e.g. GBO)';
+          }
+        }
       }
 
       console.log('Validation errors:', errors);

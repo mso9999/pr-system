@@ -122,10 +122,12 @@ async function listSites(countryFilter, orgFilter) {
         const data = d.data();
         return {
             id: String(d.id),
+            code: data.code ? String(data.code) : null,
             name: String(data.name || d.id),
             countryCode: data.countryCode || null,
             organizationId: data.organizationId || null,
             active: data.active !== false,
+            canonicalUgpProjectId: data.canonicalUgpProjectId || null,
         };
     }).sort((a, b) => a.name.localeCompare(b.name));
     return { count: rows.length, sites: rows };

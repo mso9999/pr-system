@@ -27,8 +27,10 @@ interface SitePayload {
   active: boolean;
   latitude: number;
   longitude: number;
+  district?: string;
   address?: SiteAddress;
   ugpProjects?: UgpProjectLink[];
+  canonicalUgpProjectId?: string;
   externalIds?: Record<string, string>;
 }
 
@@ -180,6 +182,12 @@ async function retryPost(url: string, payload: CanonicalSiteEvent, headers: Reco
 async function dispatchSiteFanout(event: CanonicalSiteEvent): Promise<void> {
   const amUrl = String(process.env.SITE_SYNC_AM_ENDPOINT || "").trim();
   const fmUrl = String(process.env.SITE_SYNC_FM_ENDPOINT || "").trim();
+  // CC runs one deployment per country lane; each lane self-filters payloads
+  // whose countryCode is not its own, so every lane URL receives every event.
+  const ccUrls = String(process.env.SITE_SYNC_CC_ENDPOINTS || "")
+    .split(",")
+    .map((u) => u.trim())
+    .filter((u) => u.length > 0);
   const fanoutKey = expectedFanoutApiKey();
 
   const headers: Record<string, string> = {
@@ -189,12 +197,15 @@ async function dispatchSiteFanout(event: CanonicalSiteEvent): Promise<void> {
   const adminBearer = String(process.env.FIREBASE_ADMIN_BEARER_TOKEN || "").trim();
   if (adminBearer) headers.Authorization = `Bearer ${adminBearer}`;
 
-  const deliveries: Array<{ target: "am" | "fm"; ok: boolean; status: number; body: string }> = [];
+  const deliveries: Array<{ target: string; ok: boolean; status: number; body: string }> = [];
   if (amUrl) {
     deliveries.push({ target: "am", ...(await retryPost(amUrl, event, headers)) });
   }
   if (fmUrl) {
     deliveries.push({ target: "fm", ...(await retryPost(fmUrl, event, headers)) });
+  }
+  for (const ccUrl of ccUrls) {
+    deliveries.push({ target: `cc:${ccUrl}`, ...(await retryPost(ccUrl, event, headers)) });
   }
 
   await admin.firestore().collection("siteSyncFanoutLogs").add({
@@ -224,6 +235,7 @@ function toCanonicalEvent(data: FirebaseFirestore.DocumentData, beforeExists: bo
       : "site.created";
   const source: SiteSource = data.source === "ugp" ? "ugp" : "pr_admin";
 
+  const address = asAddress(data.address) || asAddress(data.siteAddress);
   const payload: SitePayload = {
     organizationId: normalizeOrgId(String(data.organizationId || "")),
     countryCode: normalizeCountryCode(String(data.organizationId || ""), String(data.countryCode || "")),
@@ -232,8 +244,10 @@ function toCanonicalEvent(data: FirebaseFirestore.DocumentData, beforeExists: bo
     active,
     latitude: Number(data.latitude),
     longitude: Number(data.longitude),
-    address: asAddress(data.address) || asAddress(data.siteAddress),
+    district: asString(data.district) || (address && address.region) || undefined,
+    address,
     ugpProjects: asUgpProjects(data.ugpProjects),
+    canonicalUgpProjectId: asString(data.canonicalUgpProjectId),
     externalIds: data.externalIds || {},
   };
 
@@ -328,6 +342,96 @@ export const ingestUgpSite = functions.https.onRequest(async (req, res) => {
     .set(payload, { merge: true });
 
   res.status(200).json({ success: true, id: docId, site: payload });
+});
+
+/**
+ * Attach a uGP design to a canonical site. PR is authoritative for the
+ * "one canonical uGP design per canonical site" invariant: the first
+ * canonical link wins, subsequent attempts for a different project get
+ * 409 with the incumbent project id so the caller can remediate.
+ */
+export const linkUgpProject = functions.https.onRequest(async (req, res) => {
+  setCors(res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    res.status(405).json({ success: false, error: "Method not allowed" });
+    return;
+  }
+  if (!(await isAllowedIngestCaller(req))) {
+    res.status(401).json({ success: false, error: "Unauthorized" });
+    return;
+  }
+
+  const input = (req.body || {}) as Record<string, unknown>;
+  const organizationId = normalizeOrgId(String(input.organizationId || ""));
+  const code = String(input.siteCode || input.code || "").trim().toUpperCase();
+  const ugpProjectId = asString(input.ugpProjectId);
+  const ugpProjectCode = asString(input.ugpProjectCode);
+  const ugpProjectName = asString(input.ugpProjectName);
+  const canonical = input.role === undefined || input.role === null || String(input.role) === "canonical";
+
+  if (!organizationId || !code || !ugpProjectId) {
+    res.status(400).json({
+      success: false,
+      error: "organizationId, siteCode and ugpProjectId are required",
+    });
+    return;
+  }
+
+  const docId = buildDocId(organizationId, code);
+  const docRef = admin.firestore().collection("referenceData_sites").doc(docId);
+
+  try {
+    const result = await admin.firestore().runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      if (!snap.exists) {
+        return { status: 404 as const };
+      }
+      const data = snap.data() as FirebaseFirestore.DocumentData;
+      const incumbent = asString(data.canonicalUgpProjectId);
+      if (canonical && incumbent && incumbent !== ugpProjectId) {
+        return { status: 409 as const, incumbent };
+      }
+
+      const existing = asUgpProjects(data.ugpProjects) || [];
+      const link: UgpProjectLink = { ugpProjectId, ugpProjectCode, ugpProjectName };
+      const links = existing.some((p) => p.ugpProjectId === ugpProjectId)
+        ? existing
+        : [...existing, link];
+
+      const updates: Record<string, unknown> = {
+        ugpProjects: links,
+        updatedAt: new Date().toISOString(),
+      };
+      if (canonical) {
+        updates.canonicalUgpProjectId = ugpProjectId;
+      }
+      tx.update(docRef, updates);
+      return { status: 200 as const, incumbent: canonical ? ugpProjectId : incumbent };
+    });
+
+    if (result.status === 404) {
+      res.status(404).json({
+        success: false,
+        error: `Site '${code}' is not in the canonical registry for ${organizationId}. Create it in PR (Admin → Reference Data → Sites) first.`,
+      });
+      return;
+    }
+    if (result.status === 409) {
+      res.status(409).json({
+        success: false,
+        error: `Site '${code}' already has canonical uGP design '${result.incumbent}'.`,
+        canonicalUgpProjectId: result.incumbent,
+      });
+      return;
+    }
+    res.status(200).json({ success: true, id: docId, canonicalUgpProjectId: result.incumbent });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e instanceof Error ? e.message : String(e) });
+  }
 });
 
 export const fanoutSiteChanges = functions.firestore

@@ -113,10 +113,12 @@ async function listOrganizations(countryFilter?: string): Promise<{
 
 interface SiteRow {
   id: string;
+  code: string | null;
   name: string;
   countryCode: string | null;
   organizationId: string | null;
   active: boolean;
+  canonicalUgpProjectId: string | null;
 }
 
 interface VendorRow {
@@ -141,17 +143,21 @@ async function listSites(countryFilter?: string, orgFilter?: string): Promise<{
   const snap = await q.get();
   const rows: SiteRow[] = snap.docs.map((d) => {
     const data = d.data() as {
+      code?: string;
       name?: string;
       countryCode?: string | null;
       organizationId?: string | null;
       active?: boolean;
+      canonicalUgpProjectId?: string | null;
     };
     return {
       id: String(d.id),
+      code: data.code ? String(data.code) : null,
       name: String(data.name || d.id),
       countryCode: data.countryCode || null,
       organizationId: data.organizationId || null,
       active: data.active !== false,
+      canonicalUgpProjectId: data.canonicalUgpProjectId || null,
     };
   }).sort((a, b) => a.name.localeCompare(b.name));
   return { count: rows.length, sites: rows };
