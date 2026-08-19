@@ -1521,7 +1521,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                 </Select>
               </FormControl>
 
-              {showMultiDeptToggle && (
+              {showMultiDeptToggle && !isHrLinked && (
                 <FormControl fullWidth margin="dense">
                   <FormControlLabel
                     control={
@@ -1538,6 +1538,14 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                     label="Multiple department appointments (2–3 departments)"
                   />
                 </FormControl>
+              )}
+
+              {showMultiDeptToggle && isHrLinked && (
+                <Alert severity="info" sx={{ mb: 1 }}>
+                  This employee is HR-linked: primary and secondary department memberships are managed in the
+                  HR portal and propagate to permissions automatically. PR-local multi-department appointments
+                  are disabled for HR-linked users.
+                </Alert>
               )}
 
               {dialogExistingMulti && !canToggleMulti && (
@@ -1615,7 +1623,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                     value={formData.department}
                     onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                     label="Department"
-                    disabled={!formData.organization || isDepartmentsLoading}
+                    disabled={!formData.organization || isDepartmentsLoading || isHrLinked}
                   >
                     {isDepartmentsLoading ? (
                       <MenuItem disabled>Loading departments...</MenuItem>
@@ -1629,6 +1637,11 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                       ))
                     )}
                   </Select>
+                  {isHrLinked && (
+                    <Typography variant="caption" color="text.secondary">
+                      Managed in the HR portal — department membership drives app permissions via Nexus claims.
+                    </Typography>
+                  )}
                 </FormControl>
               )}
 

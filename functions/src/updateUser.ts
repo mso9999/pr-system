@@ -20,13 +20,14 @@ export const updateUser = functions.https.onCall(async (data: UpdateUserData, co
         // Get user reference
         const userRef = admin.firestore().collection('users').doc(data.userId);
 
-        // Update user data in Firestore
+        // department, organization, and additionalOrganizations are HR-owned
+        // (set in the HR portal, mirrored here by the HR sync). Editing them
+        // here never reaches the Nexus resolver — a silent no-op that reads
+        // as "role switched but nothing changed" (2026-08-19). They are no
+        // longer accepted; only PR-owned profile fields remain editable.
         const updateData: any = {
             firstName: data.firstName,
             lastName: data.lastName,
-            department: data.department,
-            organization: data.organization,
-            additionalOrganizations: data.additionalOrganizations,
             isActive: data.isActive
         };
 
