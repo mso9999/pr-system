@@ -68,7 +68,11 @@ class ApproverService {
           const additionalOrganizations: string[] = Array.isArray(data.additionalOrganizations)
             ? data.additionalOrganizations
             : [];
-          const normalizedOrganization = normalizeOrganizationId(data.organization || '');
+          // Fall back to the legacy organizationId when organization is unset:
+          // a null here silently removes Level 2 approvers from every approver
+          // list (2026-08-20: Tumelo Makhetha "disappeared" this way when the
+          // HR sync wrote organization:null over his existing assignment).
+          const normalizedOrganization = normalizeOrganizationId(data.organization || data.organizationId || '');
           const normalizedAdditionalOrganizations = additionalOrganizations
             .map(org => normalizeOrganizationId(org))
             .filter(Boolean);

@@ -140,15 +140,21 @@ function hrOwnedPatch(
     hrSyncedAt: now,
     firstName,
     lastName,
-    // Organization assignment — HR-owned. Always overwrite from HR.
-    organization: emp.primary_organization || null,
-    additionalOrganizations: Array.isArray(emp.additional_organizations)
-      ? emp.additional_organizations.filter(Boolean)
-      : [],
     secondments: Array.isArray(emp.secondments)
       ? emp.secondments.filter((s) => s && s.organizationId)
       : [],
   };
+  // Organization assignment is HR-owned, but a NULL in HR means "not yet
+  // assigned" — never erase an existing PR-side assignment with it.
+  // (2026-08-20: an HR edit re-synced Tumelo Makhetha with
+  // primary_organization NULL and wiped his PR organization, removing him
+  // from every Level 2 approver list.)
+  if (emp.primary_organization) {
+    patch.organization = emp.primary_organization;
+  }
+  if (Array.isArray(emp.additional_organizations) && emp.additional_organizations.length) {
+    patch.additionalOrganizations = emp.additional_organizations.filter(Boolean);
+  }
   // Only mirror HR's department into PR's `department` (id) when the user
   // is NOT in multi-department mode — multi-department appointments and
   // primary-department overrides are PR-owned.
