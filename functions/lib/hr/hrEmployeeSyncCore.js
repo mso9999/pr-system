@@ -405,11 +405,30 @@ async function runReconciliation(opts = {}) {
     }
     if (opts.detectDepartures !== false) {
         const prByHrId = await loadPrUsersByHrId();
+        // Mass-deactivation guard: if too many users leave the HR directory in one
+        // run, the feed is more likely broken than the org is genuinely shrinking.
+        // Mirror hrStatus but don't flip access off in that case.
+        const MAX_DEPARTURES_PER_RUN = 5;
+        const departureCandidates = [...prByHrId].filter(([hrId]) => !hrIds.has(hrId));
+        const allowDeactivation = departureCandidates.length <= MAX_DEPARTURES_PER_RUN;
+        if (!allowDeactivation) {
+            report.errors.push({
+                error: `Departure guard: ${departureCandidates.length} users left the HR directory in one run (limit ${MAX_DEPARTURES_PER_RUN}); mirrored hrStatus only, isActive left on. Verify the HR directory feed.`,
+            });
+        }
         for (const [hrId, { uid, data }] of prByHrId) {
             if (!hrIds.has(hrId)) {
                 // No longer in HR active directory — mirror inactive status.
                 try {
-                    await db.doc(`users/${uid}`).set({ hrStatus: "inactive", hrSyncedAt: now, updatedAt: now }, { merge: true });
+                    const departurePatch = { hrStatus: "inactive", hrSyncedAt: now, updatedAt: now };
+                    if (allowDeactivation) {
+                        // Departure propagation: an HR departure must also remove PR access
+                        // — otherwise departed staff keep appearing in approver pickers
+                        // (2026-08-21: Teboho Noko). The Nexus identity side is already
+                        // deactivated elsewhere in this flow.
+                        departurePatch.isActive = false;
+                    }
+                    await db.doc(`users/${uid}`).set(departurePatch, { merge: true });
                     report.departures.push({ uid, email: String(data.email || ""), employeeId: hrId });
                     report.totals.departures++;
                 }
