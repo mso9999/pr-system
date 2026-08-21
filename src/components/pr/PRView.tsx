@@ -6,10 +6,12 @@ import { useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
 import { referenceDataService } from '@/services/referenceData';
 import { organizationService } from '@/services/organizationService';
+import { listFleetWorkOrders, type FleetWorkOrder } from '@/services/fleetWorkOrders';
 import { isProcurementUser, isAdminUser } from '@/utils/permissionLevel';
 import { hasPrAction } from '@/utils/prPrivilege';
 import {
   Box,
+  Link,
   Paper,
   Typography,
   Grid,
@@ -529,6 +531,33 @@ export function PRView() {
   const [projectCategories, setProjectCategories] = useState<ReferenceDataItem[]>([]);
   const [sites, setSites] = useState<ReferenceDataItem[]>([]);
   const [expenseTypes, setExpenseTypes] = useState<ReferenceDataItem[]>([]);
+  const [fleetWorkOrders, setFleetWorkOrders] = useState<FleetWorkOrder[]>([]);
+  const [fleetWoLoading, setFleetWoLoading] = useState(false);
+
+  // Load open Fleet Hub work orders for the WO picker when editing a vehicle PR.
+  const activeVehicleId = isEditMode ? (editedPR.vehicle || pr?.vehicle) : pr?.vehicle;
+  useEffect(() => {
+    if (!isEditMode || !activeVehicleId) {
+      setFleetWorkOrders([]);
+      return;
+    }
+    let cancelled = false;
+    setFleetWoLoading(true);
+    listFleetWorkOrders({ vehicleId: activeVehicleId, status: 'open' })
+      .then((res) => {
+        if (!cancelled) setFleetWorkOrders(res.workOrders || []);
+      })
+      .catch(() => {
+        if (!cancelled) setFleetWorkOrders([]);
+      })
+      .finally(() => {
+        if (!cancelled) setFleetWoLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, activeVehicleId]);
   const [vehicles, setVehicles] = useState<ReferenceDataItem[]>([]);
   const [vendors, setVendors] = useState<ReferenceDataItem[]>([]);
   const [currencies, setCurrencies] = useState<ReferenceDataItem[]>([]);
@@ -1807,27 +1836,73 @@ export function PRView() {
                     const isVehicleExpense = currentExpenseType?.name.toLowerCase() === 'vehicle';
                     
                     return isVehicleExpense ? (
-                      <FormControl fullWidth disabled={!isEditMode}>
-                        <InputLabel>{t('pr.vehicle')}</InputLabel>
-                        <Select
-                          value={isEditMode ? (editedPR.vehicle || pr?.vehicle || '') : (pr?.vehicle || '')}
-                          onChange={(e) => handleFieldChange('vehicle', e.target.value)}
-                          label={t('pr.vehicle')}
-                          renderValue={(value) => {
-                            const vehicle = vehicles.find(v => v.id === value);
-                            return vehicle ? (vehicle.fleetCode || vehicle.code || vehicle.registrationNumber || vehicle.name) : value;
-                          }}
-                        >
-                          {vehicles.map((vehicle) => {
-                            const displayName = vehicle.fleetCode || vehicle.code || vehicle.registrationNumber || vehicle.name;
-                            return (
-                              <MenuItem key={vehicle.id} value={vehicle.id}>
-                                {displayName}
-                              </MenuItem>
-                            );
-                          })}
-                        </Select>
-                      </FormControl>
+                      <>
+                        <FormControl fullWidth disabled={!isEditMode}>
+                          <InputLabel>{t('pr.vehicle')}</InputLabel>
+                          <Select
+                            value={isEditMode ? (editedPR.vehicle || pr?.vehicle || '') : (pr?.vehicle || '')}
+                            onChange={(e) => handleFieldChange('vehicle', e.target.value)}
+                            label={t('pr.vehicle')}
+                            renderValue={(value) => {
+                              const vehicle = vehicles.find(v => v.id === value);
+                              return vehicle ? (vehicle.fleetCode || vehicle.code || vehicle.registrationNumber || vehicle.name) : value;
+                            }}
+                          >
+                            {vehicles.map((vehicle) => {
+                              const displayName = vehicle.fleetCode || vehicle.code || vehicle.registrationNumber || vehicle.name;
+                              return (
+                                <MenuItem key={vehicle.id} value={vehicle.id}>
+                                  {displayName}
+                                </MenuItem>
+                              );
+                            })}
+                          </Select>
+                        </FormControl>
+                        {/* Fleet Hub work order link — required for vehicle expenses */}
+                        <Box sx={{ mt: 1 }}>
+                          {isEditMode ? (
+                            <FormControl fullWidth size="small">
+                              <InputLabel id="fleet-wo-edit-label">Fleet work order</InputLabel>
+                              <Select
+                                labelId="fleet-wo-edit-label"
+                                value={editedPR.fleetWorkOrderId || pr?.fleetWorkOrderId || ''}
+                                onChange={(e) => handleFieldChange('fleetWorkOrderId', e.target.value)}
+                                label="Fleet work order"
+                                disabled={fleetWoLoading}
+                              >
+                                <MenuItem value="">
+                                  <em>Select the work order this PR funds</em>
+                                </MenuItem>
+                                {fleetWorkOrders.map((wo) => (
+                                  <MenuItem key={wo.id} value={wo.id}>
+                                    {(wo.title || 'Work order')} — {wo.status}
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                              <FormHelperText>
+                                {fleetWoLoading
+                                  ? 'Loading open work orders…'
+                                  : 'Required before this PR can go to an approver'}
+                              </FormHelperText>
+                            </FormControl>
+                          ) : (
+                            <Typography variant="body2" color={pr?.fleetWorkOrderId ? 'text.secondary' : 'error'}>
+                              Fleet work order:{' '}
+                              {pr?.fleetWorkOrderId ? (
+                                <Link
+                                  href="https://fm.1pwrafrica.com/work-orders"
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  {pr.fleetWorkOrderId}
+                                </Link>
+                              ) : (
+                                'not linked — required before approval'
+                              )}
+                            </Typography>
+                          )}
+                        </Box>
+                      </>
                     ) : null;
                   })()}
                 </Grid>

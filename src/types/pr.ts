@@ -131,6 +131,12 @@ export interface PRRequest {
   expenseType: string;
   /** Vehicle associated with request (if applicable) */
   vehicle?: string;
+  /** Fleet Hub work order id — required for vehicle-expense PRs (code 4); validated before PENDING_APPROVAL */
+  fleetWorkOrderId?: string;
+  /** Set when the onCreate trigger registered the PR link back in Fleet Hub */
+  fleetLinkRegisteredAt?: string;
+  /** Last FM link-back error, if any (trigger logs here instead of retrying) */
+  fleetLinkError?: string;
   /** Estimated total cost */
   estimatedAmount: number;
   /** Amount when last approved (used for approval rescinding on significant changes) */

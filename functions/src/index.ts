@@ -27,7 +27,7 @@ const serverTimestamp = admin.firestore.FieldValue.serverTimestamp;
 export { dailyVendorExpiryCheck } from './scheduledVendorExpiryCheck';
 export { dailyReminders, urgentReminders, deliveryDelayCheck } from './scheduledReminders';
 export { sendDailyQuoteConflictReminders } from './scheduled/sendDailyQuoteConflictReminders';
-export { ingestUgpSite, fanoutSiteChanges, linkUgpProject, updateSiteCoordinates } from './siteSync';
+export { ingestUgpSite, fanoutSiteChanges, linkUgpProject, repointCanonicalUgpProject, updateSiteCoordinates } from './siteSync';
 
 // Export user management functions
 export { updateUserPassword } from './updateUserPassword';
@@ -55,6 +55,14 @@ export { prCatalogApi } from './prCatalogApi';
 
 // Fleet Hub mission client (used by the field-camp provisioning wizard)
 export { listFleetMissions, getFleetMission, fleetSmokeTest } from './fleet/fleetMissions';
+
+// Fleet Hub work-order gate (vehicle-expense PRs must link an open FM work order)
+export {
+  listFleetWorkOrders,
+  getFleetWorkOrder,
+  validateFleetWorkOrderForPr,
+  fleetPrLinkOnCreate,
+} from './fleet/fleetWorkOrders';
 
 // Permission-gated provisioning catalog CRUD (ADMIN/PROC; bypasses Firestore rules via Admin SDK)
 export {

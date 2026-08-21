@@ -133,6 +133,8 @@ export interface FormState {
   sites: string[];
   expenseType: string;
   vehicle?: string;
+  /** Fleet Hub work order id — required for vehicle-expense PRs (code 4). */
+  fleetWorkOrderId?: string;
   estimatedAmount: number;
   currency: string;
   requiredDate: string | null;
@@ -675,10 +677,20 @@ export const NewPRForm = () => {
       }
 
       // Check vehicle if expense type is "4 - Vehicle"
-      if (formState.expenseType === '4' && !formState.vehicle) {
+      if (isVehicleExpenseSelected() && !formState.vehicle) {
         console.log('Vehicle not selected for vehicle expense type');
         errors.push('Please select a vehicle for vehicle expense');
         enqueueSnackbar('Please select a vehicle for vehicle expense', { variant: 'error' });
+      }
+
+      // Vehicle parts/service PRs must trace to a logged FM work order
+      if (isVehicleExpenseSelected() && formState.vehicle && !formState.fleetWorkOrderId) {
+        console.log('Fleet work order not selected for vehicle expense');
+        errors.push('Please link the Fleet Hub work order this PR funds');
+        enqueueSnackbar(
+          'Vehicle parts/service PRs require a Fleet Hub work order — log the maintenance need in FM first',
+          { variant: 'error' }
+        );
       }
 
       // Check approvers
@@ -908,9 +920,19 @@ export const NewPRForm = () => {
       }
 
       // Check vehicle if expense type is "4 - Vehicle"
-      if (formState.expenseType === '4' && !formState.vehicle) {
+      if (isVehicleExpenseSelected() && !formState.vehicle) {
         console.log('Vehicle not selected for vehicle expense type');
         enqueueSnackbar('Please select a vehicle for vehicle expense', { variant: 'error' });
+        return false;
+      }
+
+      // Vehicle parts/service PRs must trace to a logged FM work order
+      if (isVehicleExpenseSelected() && formState.vehicle && !formState.fleetWorkOrderId) {
+        console.log('Fleet work order not selected for vehicle expense');
+        enqueueSnackbar(
+          'Vehicle parts/service PRs require a Fleet Hub work order — log the maintenance need in FM first',
+          { variant: 'error' }
+        );
         return false;
       }
 
@@ -1159,6 +1181,11 @@ export const NewPRForm = () => {
       if (formState.vehicle && formState.vehicle.trim() !== '') {
         prData.vehicle = formState.vehicle;
       }
+
+      // Fleet Hub work order linkage (vehicle-expense gate)
+      if (formState.fleetWorkOrderId && formState.fleetWorkOrderId.trim() !== '') {
+        prData.fleetWorkOrderId = formState.fleetWorkOrderId.trim();
+      }
       
       if (formState.preferredVendor && formState.preferredVendor.trim() !== '') {
         if (formState.preferredVendor === 'other') {
@@ -1233,6 +1260,17 @@ export const NewPRForm = () => {
     }
   };
 
+  // Vehicle expense detection that works whether expenseType stores the doc id
+  // or the code — resolve the reference-data row when available.
+  const isVehicleExpenseSelected = (): boolean => {
+    const t = expenseTypes.find((type) => type.id === formState.expenseType);
+    return (
+      t?.code === '4' ||
+      formState.expenseType === '4' ||
+      formState.expenseType === '4 - Vehicle'
+    );
+  };
+
   const handleInputChange = (field: string, value: any) => {
     setFormState(prev => {
       // If changing expense type from vehicle to something else, clear the vehicle field
@@ -1245,9 +1283,15 @@ export const NewPRForm = () => {
           return {
             ...prev,
             [field]: value,
-            vehicle: undefined // Clear vehicle when changing from vehicle expense type
+            vehicle: undefined, // Clear vehicle when changing from vehicle expense type
+            fleetWorkOrderId: undefined
           };
         }
+      }
+
+      if (field === 'vehicle') {
+        // Vehicle change invalidates the picked work order (WOs are per-vehicle).
+        return { ...prev, [field]: value, fleetWorkOrderId: undefined };
       }
       
       return {

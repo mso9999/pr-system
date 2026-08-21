@@ -8,7 +8,7 @@
  * project category, and initial approvers.
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Grid,
   TextField,
@@ -34,6 +34,7 @@ import { organizations } from '../../../services/localReferenceData';
 import { OrganizationSelector } from '../../common/OrganizationSelector';
 import { VendorSelectionDialog } from '../../common/VendorSelectionDialog';
 import { convertAmount, getRuleCurrency } from '../../../utils/currencyConverter';
+import { listFleetWorkOrders, type FleetWorkOrder } from '../../../services/fleetWorkOrders';
 
 interface BasicInformationStepProps {
   formState: FormState;
@@ -76,6 +77,9 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
 }) => {
   const [approverAmountError, setApproverAmountError] = useState<string | null>(null);
   const [vendorDialogOpen, setVendorDialogOpen] = useState(false);
+  const [fleetWorkOrders, setFleetWorkOrders] = useState<FleetWorkOrder[]>([]);
+  const [fleetWorkOrdersLoading, setFleetWorkOrdersLoading] = useState(false);
+  const [fleetWorkOrdersError, setFleetWorkOrdersError] = useState<string | null>(null);
   const handleChange = (field: keyof FormState) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<any>
   ) => {
@@ -286,6 +290,35 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
 
   // Show vehicle field only for vehicle expense type
   const showVehicleField = expenseTypes.find(type => type.id === formState.expenseType)?.code === '4';
+
+  // Vehicle-expense PRs must link an open Fleet Hub work order (procurement
+  // diligence gate). Load the open WOs for the selected vehicle.
+  useEffect(() => {
+    if (!showVehicleField || !formState.vehicle) {
+      setFleetWorkOrders([]);
+      setFleetWorkOrdersError(null);
+      return;
+    }
+    let cancelled = false;
+    setFleetWorkOrdersLoading(true);
+    setFleetWorkOrdersError(null);
+    listFleetWorkOrders({ vehicleId: formState.vehicle, status: 'open' })
+      .then((res) => {
+        if (cancelled) return;
+        setFleetWorkOrders(res.workOrders || []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setFleetWorkOrders([]);
+        setFleetWorkOrdersError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (!cancelled) setFleetWorkOrdersLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showVehicleField, formState.vehicle]);
 
   // Filter vehicles by organization
   const filteredVehicles = vehicles.filter(vehicle => 
@@ -560,6 +593,49 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
               {isSubmitted && showVehicleField && !formState.vehicle 
                 ? 'Vehicle is required for vehicle expense' 
                 : 'Please select a vehicle'}
+            </FormHelperText>
+          </FormControl>
+        </Grid>
+      )}
+
+      {/* Fleet Hub work order — required for vehicle expenses (parts/service).
+          Fuel and consumable fluids are exempt; everything substantial must
+          trace to a documented maintenance need in FM before approval. */}
+      {showVehicleField && formState.vehicle && (
+        <Grid item xs={12} md={6}>
+          <FormControl
+            fullWidth
+            required
+            error={isSubmitted && !formState.fleetWorkOrderId}
+          >
+            <InputLabel id="fleet-wo-label">Fleet work order</InputLabel>
+            <Select
+              labelId="fleet-wo-label"
+              id="fleet-wo-select"
+              value={formState.fleetWorkOrderId || ''}
+              onChange={handleChange('fleetWorkOrderId')}
+              label="Fleet work order"
+              disabled={loading || fleetWorkOrdersLoading}
+            >
+              <MenuItem value="">
+                <em>Select the work order this PR funds</em>
+              </MenuItem>
+              {fleetWorkOrders.map(wo => (
+                <MenuItem key={wo.id} value={wo.id}>
+                  {(wo.title || 'Work order')} — {wo.status}
+                </MenuItem>
+              ))}
+            </Select>
+            <FormHelperText>
+              {fleetWorkOrdersLoading
+                ? 'Loading open work orders for this vehicle…'
+                : fleetWorkOrdersError
+                  ? `Could not load work orders: ${fleetWorkOrdersError}`
+                  : isSubmitted && !formState.fleetWorkOrderId
+                    ? 'A Fleet Hub work order is required for vehicle parts/service'
+                    : fleetWorkOrders.length === 0
+                      ? 'No open work orders for this vehicle — log one in Fleet Hub first (fm.1pwrafrica.com → Work orders)'
+                      : 'Vehicle parts/service PRs cannot go to an approver without a logged FM work order'}
             </FormHelperText>
           </FormControl>
         </Grid>

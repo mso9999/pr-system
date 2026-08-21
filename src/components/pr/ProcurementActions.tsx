@@ -22,6 +22,7 @@ import {
 import { useSnackbar } from 'notistack';
 import { PRStatus } from '@/types/pr';
 import { prService, canProceedToPendingApproval, recordPoCapAudit } from '@/services/pr';
+import { validateFleetWorkOrderForPr } from '@/services/fleetWorkOrders';
 import { notificationService } from '@/services/notification';
 import { User } from '@/types/user';
 import { validatePRForApproval } from '@/utils/prValidation';
@@ -358,6 +359,47 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
             return;
           }
           console.log('[ProcurementActions] Payment Type validation passed, proceeding to status update');
+
+          // Fleet work-order gate: vehicle parts/service PRs (expense code 4)
+          // must link an open Fleet Hub work order before going to an approver.
+          // Fuel (code 11) and consumable fluids are exempt by expense type.
+          try {
+            const expenseTypesData = await referenceDataService.getItemsByType('expenseTypes', pr.organization);
+            const expenseTypeRow = (expenseTypesData || []).find((t: any) => t.id === pr.expenseType);
+            const isVehicleExpense =
+              expenseTypeRow?.code === '4' ||
+              pr.expenseType === '4' ||
+              pr.expenseType === '4 - Vehicle';
+            if (isVehicleExpense) {
+              if (!pr.fleetWorkOrderId) {
+                setError(
+                  'FLEET WORK ORDER REQUIRED:\n\n' +
+                  'Vehicle parts/service PRs must link a Fleet Hub work order before going to an approver. ' +
+                  'Edit the PR and select the work order this spend funds — if none exists, log the maintenance need in FM first (fm.1pwrafrica.com → Work orders).'
+                );
+                return;
+              }
+              const woCheck = await validateFleetWorkOrderForPr({
+                workOrderId: pr.fleetWorkOrderId,
+                vehicleId: pr.vehicle,
+              });
+              if (!woCheck.ok) {
+                setError(
+                  'FLEET WORK ORDER PROBLEM:\n\n' +
+                  (woCheck.reason || 'The linked work order is not valid.') +
+                  '\n\nEdit the PR to link an open work order before pushing to approval.'
+                );
+                return;
+              }
+            }
+          } catch (woErr) {
+            console.error('[ProcurementActions] Fleet WO validation failed:', woErr);
+            setError(
+              'Could not validate the Fleet Hub work order (FM may be unreachable). ' +
+              'Vehicle parts/service PRs cannot go to approval without it — please try again in a few minutes.'
+            );
+            return;
+          }
 
           // Determine if dual approval is required (above Rule 3 threshold - high-value PRs)
           // Rule 3 is the high-value threshold that triggers dual approval requirement (Rule 5)
