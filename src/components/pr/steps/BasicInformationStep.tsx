@@ -89,8 +89,8 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       if (field === 'expenseType') {
         const selectedType = expenseTypes.find(type => type.id === value);
         const previousType = expenseTypes.find(type => type.id === prev.expenseType);
-        const isVehicleExpense = selectedType?.code === '4';
-        const wasVehicleExpense = previousType?.code === '4';
+        const isVehicleExpense = selectedType?.code === '4' || selectedType?.code === '4F';
+        const wasVehicleExpense = previousType?.code === '4' || previousType?.code === '4F';
         
         if (isVehicleExpense) {
           // When switching to vehicle expense type
@@ -288,8 +288,11 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     }
   }, [formState.approvers, formState.estimatedAmount, formState.currency, rules.length]);
 
-  // Show vehicle field only for vehicle expense type
-  const showVehicleField = expenseTypes.find(type => type.id === formState.expenseType)?.code === '4';
+  // Show vehicle field for vehicle expenses (code 4) and consumable fluids (4F);
+  // the Fleet work-order requirement applies to code 4 only — fluids are exempt.
+  const selectedExpenseCode = expenseTypes.find(type => type.id === formState.expenseType)?.code;
+  const showVehicleField = selectedExpenseCode === '4' || selectedExpenseCode === '4F';
+  const workOrderRequired = selectedExpenseCode === '4';
 
   // Vehicle-expense PRs must link an open Fleet Hub work order (procurement
   // diligence gate). Load the open WOs for the selected vehicle.
@@ -563,13 +566,13 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
         </FormControl>
       </Grid>
 
-      {/* Vehicle Selection - Only shown for vehicle-related expenses */}
+      {/* Vehicle Selection - vehicle expenses (required) and consumable fluids (optional) */}
       {showVehicleField && (
         <Grid item xs={12} md={6}>
           <FormControl 
             fullWidth 
-            required
-            error={isSubmitted && showVehicleField && !formState.vehicle}
+            required={workOrderRequired}
+            error={isSubmitted && workOrderRequired && !formState.vehicle}
           >
             <InputLabel id="vehicle-label">Vehicle</InputLabel>
             <Select
@@ -590,9 +593,11 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
               ))}
             </Select>
             <FormHelperText>
-              {isSubmitted && showVehicleField && !formState.vehicle 
+              {isSubmitted && workOrderRequired && !formState.vehicle 
                 ? 'Vehicle is required for vehicle expense' 
-                : 'Please select a vehicle'}
+                : workOrderRequired
+                  ? 'Please select a vehicle'
+                  : 'Optional for fluids — tag the vehicle so the cost attributes to it'}
             </FormHelperText>
           </FormControl>
         </Grid>
@@ -601,7 +606,7 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       {/* Fleet Hub work order — required for vehicle expenses (parts/service).
           Fuel and consumable fluids are exempt; everything substantial must
           trace to a documented maintenance need in FM before approval. */}
-      {showVehicleField && formState.vehicle && (
+      {workOrderRequired && formState.vehicle && (
         <Grid item xs={12} md={6}>
           <FormControl
             fullWidth
