@@ -91,9 +91,6 @@ class ApproverService {
           } as Approver;
         })
         .filter(approver => {
-          if (approver.permissionLevel === 6) {
-            return approver.email?.toLowerCase() === 'admin@1pwrafrica.com';
-          }
           // Level 1 approvers (global) are always included
           if (approver.permissionLevel === 1) return true;
           
