@@ -501,6 +501,127 @@ export const linkUgpProject = functions.https.onRequest(async (req, res) => {
   }
 });
 
+/**
+ * Re-point a canonical site to a different uGP design (canonical switch).
+ *
+ * linkUgpProject refuses (409) when a different design already holds the
+ * pointer, so there was no way to switch which variant is canonical as a site
+ * evolves (redesign / fork becomes the build). This endpoint performs a
+ * deliberate, audited re-point: it records the handoff in `canonicalHistory[]`
+ * (from → to, when, who, why) before moving `canonicalUgpProjectId`.
+ *
+ * Safety: pass `expectedIncumbent` (the project you believe currently holds the
+ * pointer) to make the switch conditional — a mismatch returns 409 with the
+ * actual incumbent so a stale caller can't silently hijack the site.
+ */
+export const repointCanonicalUgpProject = functions.https.onRequest(async (req, res) => {
+  setCors(res);
+  if (req.method === "OPTIONS") {
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    res.status(405).json({ success: false, error: "Method not allowed" });
+    return;
+  }
+  if (!(await isAllowedIngestCaller(req))) {
+    res.status(401).json({ success: false, error: "Unauthorized" });
+    return;
+  }
+
+  const input = (req.body || {}) as Record<string, unknown>;
+  const organizationId = normalizeOrgId(String(input.organizationId || ""));
+  const code = String(input.siteCode || input.code || "").trim().toUpperCase();
+  const ugpProjectId = asString(input.ugpProjectId);
+  const ugpProjectCode = asString(input.ugpProjectCode);
+  const ugpProjectName = asString(input.ugpProjectName);
+  const expectedIncumbent = asString(input.expectedIncumbent);
+  const reason = asString(input.reason);
+  const switchedBy = asString(input.switchedBy);
+
+  if (!organizationId || !code || !ugpProjectId) {
+    res.status(400).json({
+      success: false,
+      error: "organizationId, siteCode and ugpProjectId are required",
+    });
+    return;
+  }
+
+  const docId = buildDocId(organizationId, code);
+  const docRef = admin.firestore().collection("referenceData_sites").doc(docId);
+
+  try {
+    const result = await admin.firestore().runTransaction(async (tx) => {
+      const snap = await tx.get(docRef);
+      if (!snap.exists) {
+        return { status: 404 as const };
+      }
+      const data = snap.data() as FirebaseFirestore.DocumentData;
+      const incumbent = asString(data.canonicalUgpProjectId);
+
+      // Conditional-switch guard: if the caller named the expected incumbent and
+      // it doesn't match reality, refuse (stale caller / race).
+      if (expectedIncumbent && incumbent && incumbent !== expectedIncumbent) {
+        return { status: 409 as const, incumbent };
+      }
+      // No-op: already canonical.
+      if (incumbent === ugpProjectId) {
+        return { status: 200 as const, incumbent, unchanged: true };
+      }
+
+      const now = new Date().toISOString();
+      const existing = asUgpProjects(data.ugpProjects) || [];
+      const link: UgpProjectLink = { ugpProjectId, ugpProjectCode, ugpProjectName };
+      const links = existing.some((p) => p.ugpProjectId === ugpProjectId)
+        ? existing
+        : [...existing, link];
+
+      // Audit trail of canonical handoffs for this site.
+      const history = Array.isArray(data.canonicalHistory) ? data.canonicalHistory : [];
+      const handoff: Record<string, unknown> = {
+        from: incumbent || null,
+        to: ugpProjectId,
+        at: now,
+      };
+      if (switchedBy) handoff.by = switchedBy;
+      if (reason) handoff.reason = reason;
+
+      tx.update(docRef, {
+        canonicalUgpProjectId: ugpProjectId,
+        ugpProjects: links,
+        canonicalHistory: [...history, handoff],
+        updatedAt: now,
+      });
+      return { status: 200 as const, incumbent, unchanged: false };
+    });
+
+    if (result.status === 404) {
+      res.status(404).json({
+        success: false,
+        error: `Site '${code}' is not in the canonical registry for ${organizationId}. Create it in PR (Admin → Reference Data → Sites) first.`,
+      });
+      return;
+    }
+    if (result.status === 409) {
+      res.status(409).json({
+        success: false,
+        error: `Site '${code}' canonical design is '${result.incumbent}', not the expected '${expectedIncumbent}'. Re-read and retry.`,
+        canonicalUgpProjectId: result.incumbent,
+      });
+      return;
+    }
+    res.status(200).json({
+      success: true,
+      id: docId,
+      previousCanonicalUgpProjectId: result.incumbent || null,
+      canonicalUgpProjectId: ugpProjectId,
+      unchanged: result.unchanged === true,
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e instanceof Error ? e.message : String(e) });
+  }
+});
+
 export const fanoutSiteChanges = functions.firestore
   .document("referenceData_sites/{siteId}")
   .onWrite(async (change) => {
