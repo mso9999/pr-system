@@ -11,23 +11,29 @@ type OrganizationInput =
 const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   '1pwr_lesotho': '1pwr_lesotho',
   '1pwr lesotho': '1pwr_lesotho',
+  '1pwr_lso': '1pwr_lesotho',
+  '1pwr_lso_ls': '1pwr_lesotho',
   '1pl': '1pwr_lesotho',
   lesotho: '1pwr_lesotho',
   '1pwr_benin': '1pwr_benin',
   '1pwr benin': '1pwr_benin',
+  '1pwr_ben': '1pwr_benin',
   '1pb': '1pwr_benin',
   benin: '1pwr_benin',
   '1pwr_zambia': '1pwr_zambia',
   '1pwr zambia': '1pwr_zambia',
+  '1pwr_zam': '1pwr_zambia',
   '1pz': '1pwr_zambia',
   zambia: '1pwr_zambia',
   neo1: 'neo1',
   neo: 'neo1',
   'pueco_lesotho': 'pueco_lesotho',
   'pueco lesotho': 'pueco_lesotho',
+  pueco_lso: 'pueco_lesotho',
   pcl: 'pueco_lesotho',
   'pueco_benin': 'pueco_benin',
   'pueco benin': 'pueco_benin',
+  pueco_ben: 'pueco_benin',
   pcb: 'pueco_benin',
   'inclusive_pueco_benin': 'pueco_benin',
   'inclusive_pueco benin': 'pueco_benin',
@@ -36,9 +42,13 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   'inclusive_pue': 'pueco_benin',
   'inclusive pue': 'pueco_benin',
   smp: 'smp',
+  smp_ls: 'smp',
+  ls_smp: 'smp',
   'sotho_minigrid_portfolio': 'smp',
   'sotho minigrid portfolio': 'smp',
   'sotho_minigrid': 'smp',
+  'sotho_minigrid_portfolio_ltd': 'smp',
+  'sotho_minigrid_portfolio_limited': 'smp',
   mgb: 'mgb',
   'mionwa_gen': 'mgb',
   'mionwa gen': 'mgb',
@@ -49,6 +59,17 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   'inclusive mionwa': 'mgb',
   mionwa_inclusive: 'mgb',
   'mionwa inclusive': 'mgb',
+};
+
+/**
+ * Operating pairings: 1PWR Lesotho staff routinely charge minigrid
+ * materials/equipment to SMP (Sotho Minigrid Portfolio). Users assigned to
+ * either org can select the other when creating or filtering PRs, without
+ * needing an extra HR additional-organization assignment.
+ */
+const RELATED_ORGANIZATIONS: Record<string, readonly string[]> = {
+  '1pwr_lesotho': ['smp'],
+  smp: ['1pwr_lesotho'],
 };
 
 const normalizeRawValue = (value: string | null | undefined): string => {
@@ -62,9 +83,11 @@ export const normalizeOrganizationId = (input: OrganizationInput): string => {
   let rawValue: string;
 
   if (typeof input === 'object') {
+    // Document id is canonical (smp, 1pwr_lesotho). Prefer it over `code`
+    // (SMP, 1PWR_LSO) so catalog rows still match user assignments.
     rawValue =
-      normalizeRawValue(input.code) ||
       normalizeRawValue(input.id) ||
+      normalizeRawValue(input.code) ||
       normalizeRawValue(input.name);
   } else {
     rawValue = normalizeRawValue(input);
@@ -76,13 +99,46 @@ export const normalizeOrganizationId = (input: OrganizationInput): string => {
   return ORGANIZATION_ALIAS_MAP[normalized] || normalized;
 };
 
+/** Every normalized identifier a catalog row or stored value might be known by. */
+export const organizationIdentifiers = (organization: OrganizationInput): string[] => {
+  if (!organization) return [];
+  if (typeof organization === 'string') {
+    const normalized = normalizeOrganizationId(organization);
+    return normalized ? [normalized] : [];
+  }
+  const ids = [organization.id, organization.code, organization.name]
+    .map((value) => normalizeOrganizationId(value))
+    .filter((id): id is string => Boolean(id));
+  return [...new Set(ids)];
+};
+
 export const organizationMatchesUser = (
   organization: OrganizationInput,
   userOrganizationIds: Set<string>
 ): boolean => {
   if (userOrganizationIds.size === 0) return false;
-  const normalized = normalizeOrganizationId(organization);
-  return normalized ? userOrganizationIds.has(normalized) : false;
+  const normalizedUserIds = new Set(
+    [...userOrganizationIds].map((id) => normalizeOrganizationId(id)).filter(Boolean)
+  );
+  if (normalizedUserIds.size === 0) return false;
+  return organizationIdentifiers(organization).some((id) => normalizedUserIds.has(id));
+};
+
+/**
+ * Add operational pairings (e.g. 1pwr_lesotho ↔ smp) to a set of assigned
+ * organization ids so those orgs appear in selectors.
+ */
+export const expandRelatedOrganizationIds = (ids: Iterable<string>): Set<string> => {
+  const out = new Set<string>();
+  for (const raw of ids) {
+    const normalized = normalizeOrganizationId(raw);
+    if (!normalized) continue;
+    out.add(normalized);
+    for (const related of RELATED_ORGANIZATIONS[normalized] || []) {
+      out.add(related);
+    }
+  }
+  return out;
 };
 
 /**
@@ -121,4 +177,24 @@ export const ORG_COUNTRY_FALLBACK: Record<string, string> = {
 export const organizationCountryFallback = (organization: OrganizationInput): string => {
   const id = normalizeOrganizationId(organization);
   return id ? (ORG_COUNTRY_FALLBACK[id] || '') : '';
+};
+
+/** True unless the catalog row is explicitly inactive. */
+export const isCatalogItemActive = (item: {
+  active?: unknown;
+  Active?: unknown;
+  isActive?: unknown;
+} | null | undefined): boolean => {
+  if (!item) return true;
+  const raw =
+    item.active !== undefined && item.active !== null
+      ? item.active
+      : item.Active !== undefined && item.Active !== null
+        ? item.Active
+        : item.isActive;
+  if (raw === undefined || raw === null || raw === '') return true;
+  if (raw === false || raw === 'false' || raw === 'FALSE' || raw === 'N' || raw === 'n' || raw === 0) {
+    return false;
+  }
+  return true;
 };

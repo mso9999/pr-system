@@ -77,16 +77,45 @@ async function listCountries(): Promise<{ count: number; countries: CountryRow[]
   return { count: rows.length, countries: rows };
 }
 
+function resolveOrgCountryIso2(
+  id: string,
+  data: { countryCode?: string | null; country?: string | null }
+): string | null {
+  const fromField = String(data.countryCode || "").trim().toUpperCase();
+  if (fromField) return fromField;
+  const fallback: Record<string, string> = {
+    "1pwr_lesotho": "LS",
+    "1pwr_benin": "BJ",
+    "1pwr_zambia": "ZM",
+    pueco_lesotho: "LS",
+    pueco_benin: "BJ",
+    smp: "LS",
+    neo1: "LS",
+    mgb: "BJ",
+  };
+  if (fallback[id]) return fallback[id];
+  const countryName = String(data.country || "").trim().toUpperCase();
+  const byName: Record<string, string> = {
+    LESOTHO: "LS",
+    LSO: "LS",
+    BENIN: "BJ",
+    BEN: "BJ",
+    BN: "BJ",
+    ZAMBIA: "ZM",
+    ZMB: "ZM",
+  };
+  return byName[countryName] || null;
+}
+
 async function listOrganizations(countryFilter?: string): Promise<{
   count: number;
   organizations: OrganizationRow[];
 }> {
-  let q: admin.firestore.Query =
-    db.collection("referenceData_organizations");
-  if (countryFilter) {
-    q = q.where("countryCode", "==", countryFilter.toUpperCase());
-  }
-  const snap = await q.get();
+  // Filter in memory. A Firestore `where("countryCode", "==", "LS")` drops
+  // catalog rows (notably SMP) that still have `country: "Lesotho"` from the
+  // original import and were never backfilled with countryCode.
+  const snap = await db.collection("referenceData_organizations").get();
+  const wanted = countryFilter ? countryFilter.trim().toUpperCase() : "";
   const rows: OrganizationRow[] = snap.docs
     .map((d) => {
       const data = d.data() as {
@@ -95,18 +124,20 @@ async function listOrganizations(countryFilter?: string): Promise<{
         country?: string | null;
         currency?: string | null;
         timezoneOffset?: number | null;
-        active?: boolean;
+        active?: boolean | string;
       };
+      const countryCode = resolveOrgCountryIso2(String(d.id), data);
       return {
         id: String(d.id),
         name: String(data.name || d.id),
-        countryCode: data.countryCode || null,
+        countryCode,
         country: data.country || null,
         currency: data.currency || null,
         timezoneOffset: typeof data.timezoneOffset === "number" ? data.timezoneOffset : null,
-        active: data.active !== false,
+        active: data.active !== false && data.active !== "false" && data.active !== "N",
       };
     })
+    .filter((row) => !wanted || row.countryCode === wanted)
     .sort((a, b) => a.id.localeCompare(b.id));
   return { count: rows.length, organizations: rows };
 }

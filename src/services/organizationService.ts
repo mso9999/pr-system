@@ -1,6 +1,7 @@
 import { db } from "@/config/firebase"
 import { collection, getDocs, query, where, doc, getDoc, updateDoc, setDoc } from "firebase/firestore"
 import { Organization } from "@/types/organization"
+import { normalizeOrganizationId } from "@/utils/organization"
 
 const COLLECTION_NAME = "referenceData_organizations"
 
@@ -28,14 +29,15 @@ export class OrganizationService {
 
   async getOrganizationById(id: string): Promise<Organization | null> {
     try {
-      const docRef = doc(db, COLLECTION_NAME, id)
-      const docSnap = await getDoc(docRef)
-      
-      if (docSnap.exists()) {
-        return {
-          id: docSnap.id,
-          ...docSnap.data()
-        } as Organization
+      const tryIds = [...new Set([id, normalizeOrganizationId(id)].filter(Boolean))]
+      for (const candidate of tryIds) {
+        const docSnap = await getDoc(doc(db, COLLECTION_NAME, candidate))
+        if (docSnap.exists()) {
+          return {
+            id: docSnap.id,
+            ...docSnap.data()
+          } as Organization
+        }
       }
       return null
     } catch (error) {

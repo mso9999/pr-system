@@ -4,7 +4,11 @@ import { Select, MenuItem, FormControl, InputLabel, CircularProgress, FormHelper
 import { referenceDataService } from '../../services/referenceData';
 import { ReferenceData } from '@/types/referenceData';
 import { RootState } from '@/store';
-import { normalizeOrganizationId, organizationMatchesUser } from '@/utils/organization';
+import {
+  expandRelatedOrganizationIds,
+  normalizeOrganizationId,
+  organizationMatchesUser,
+} from '@/utils/organization';
 import { hasPrAction } from '@/utils/prPrivilege';
 
 export const ALL_ORGANIZATIONS_OPTION = { id: 'ALL_ORGS', name: 'All Organizations' };
@@ -13,13 +17,13 @@ interface OrganizationSelectorProps {
   value: { id: string; name: string } | null | string;
   onChange: (value: { id: string; name: string }) => void;
   includeAllOption?: boolean;
-  restrictToUserOrgs?: boolean; // If true, only show user's assigned organizations (primary + additional)
+  restrictToUserOrgs?: boolean; // If true, requestors only see assigned + related orgs
   onOrganizationsLoaded?: (orgs: { id: string; name: string }[]) => void;
   error?: boolean;
   helperText?: string;
 }
 
-export const OrganizationSelector = ({ value, onChange, includeAllOption = false, restrictToUserOrgs = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
+export const OrganizationSelector = ({ value, onChange, includeAllOption = false, restrictToUserOrgs: _restrictToUserOrgs = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalError, setInternalError] = useState<string | null>(null);
@@ -33,6 +37,14 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
     onChangeRef.current = onChange;
     onOrganizationsLoadedRef.current = onOrganizationsLoaded;
   });
+
+  const canSeeAllOrganizations = Boolean(
+    user && (
+      hasPrAction(user, 'administer_pr') ||
+      hasPrAction(user, 'finance_administration', 'approve_and_finance') ||
+      hasPrAction(user, 'process_procurement_queue')
+    )
+  );
   
   const userOrgIds = useMemo(() => {
     if (!user) return new Set<string>();
@@ -53,7 +65,7 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
     const normalized = orgEntries
       .map(entry => normalizeOrganizationId(entry as any))
       .filter((id): id is string => Boolean(id));
-    return new Set(normalized);
+    return expandRelatedOrganizationIds(normalized);
   }, [user]);
 
   // Normalize value to string for comparison (prevent re-runs on object reference changes)
@@ -82,36 +94,23 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
           setOrganizations([]);
           return;
         }
+
+        allOrgs.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
         
-        // Filter organizations based on user role and permission level
+        // Filter organizations based on user role and permission level.
+        // Privileged users always see the full active catalog (including SMP).
+        // Requestors see assigned orgs plus operational pairings (1PWR Lesotho ↔ SMP).
         let filteredOrgs;
         if (!user) {
           filteredOrgs = [];
+        } else if (canSeeAllOrganizations) {
+          filteredOrgs = allOrgs;
         } else {
-          // If restrictToUserOrgs is true, always filter to user's assigned organizations
-          if (restrictToUserOrgs) {
-            filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
-            if (filteredOrgs.length === 0) {
-              console.error('User has no matching organizations');
-              setInternalError('No organizations available for your account');
-            }
-          } else {
-            // Claim-based (2026-08): admin, finance, and procurement see all orgs.
-            if (
-              hasPrAction(user, 'administer_pr') ||
-              hasPrAction(user, 'finance_administration', 'approve_and_finance') ||
-              hasPrAction(user, 'process_procurement_queue')
-            ) {
-              filteredOrgs = allOrgs;
-            } else {
-              // Approvers and Requestors see their primary org and additional orgs
-              filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
+          filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
 
-              if (filteredOrgs.length === 0) {
-                console.error('User has no matching organizations');
-                setInternalError('No organizations available for your account');
-              }
-            }
+          if (filteredOrgs.length === 0) {
+            console.error('User has no matching organizations');
+            setInternalError('No organizations available for your account');
           }
         }
         
@@ -129,7 +128,11 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
           // Check if current value is a valid organization in the filtered list
           const currentValueIsValid = valueId && (
             valueId === ALL_ORGANIZATIONS_OPTION.id ||
-            filteredOrgs.some(org => org.id === valueId || org.name === valueId)
+            filteredOrgs.some(org =>
+              org.id === valueId ||
+              org.name === valueId ||
+              organizationMatchesUser(org, new Set([String(valueId)]))
+            )
           );
           
           console.log('[OrganizationSelector] Default check:', { 
@@ -159,7 +162,7 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
             if (user?.organization && filteredOrgs.length > 0) {
               // Try to find org by normalized ID
               const targetId = normalizeOrganizationId(user.organization as any);
-              const userOrg = filteredOrgs.find(org => normalizeOrganizationId(org) === targetId);
+              const userOrg = filteredOrgs.find(org => organizationMatchesUser(org, new Set([targetId])));
               
               if (userOrg) {
                 console.log('[OrganizationSelector] Setting default organization:', userOrg);
@@ -180,9 +183,8 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
     loadOrganizations();
     // Only re-run when user changes - not when value or callbacks change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userOrgIds, restrictToUserOrgs, includeAllOption]);
+  }, [user, userOrgIds, includeAllOption, canSeeAllOrganizations]);
 
-  // Convert organization object or string to display value
   const organizationOptions = useMemo(() => {
     if (includeAllOption) {
       return [ALL_ORGANIZATIONS_OPTION, ...organizations];
@@ -190,22 +192,25 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
     return organizations;
   }, [includeAllOption, organizations]);
 
-  const displayValue = useMemo(() => {
+  // Select value is the catalog document id so short names like "SMP" cannot
+  // collide with an unmatched stored name vs id (SMP vs smp).
+  const selectValue = useMemo(() => {
     if (!value) return '';
-    if (typeof value === 'object') return value.name;
-    
-    // If value is a string, try to find matching organization
-    if (value === ALL_ORGANIZATIONS_OPTION.id || value === ALL_ORGANIZATIONS_OPTION.name) {
-      return ALL_ORGANIZATIONS_OPTION.name;
+    if (typeof value === 'object') {
+      if (value.id === ALL_ORGANIZATIONS_OPTION.id || value.name === ALL_ORGANIZATIONS_OPTION.name) {
+        return ALL_ORGANIZATIONS_OPTION.id;
+      }
+    } else if (value === ALL_ORGANIZATIONS_OPTION.id || value === ALL_ORGANIZATIONS_OPTION.name) {
+      return ALL_ORGANIZATIONS_OPTION.id;
     }
-    const normalizedValue = normalizeOrganizationId(value as any);
-    const org = organizations.find(o => 
-      o.id === value || 
-      o.name === value || 
-      normalizeOrganizationId(o) === normalizedValue
+    const raw = typeof value === 'object' ? (value.id || value.name) : value;
+    const match = organizationOptions.find((org) =>
+      org.id === raw ||
+      org.name === raw ||
+      organizationMatchesUser(org, new Set([String(raw)]))
     );
-    return org ? org.name : value;
-  }, [value, organizations]);
+    return match ? match.id : '';
+  }, [value, organizationOptions]);
 
   if (loading) {
     return <CircularProgress size={24} />;
@@ -217,16 +222,16 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
       <Select
         labelId="organization-label"
         id="organization-select"
-        value={displayValue}
+        value={selectValue}
         label="Organization"
         onChange={(e) => {
-          // Find the selected organization object
-          if (includeAllOption && e.target.value === ALL_ORGANIZATIONS_OPTION.name) {
+          if (includeAllOption && e.target.value === ALL_ORGANIZATIONS_OPTION.id) {
             console.log('Organization selected: ALL');
             onChange(ALL_ORGANIZATIONS_OPTION);
             return;
           }
-          const selectedOrg = organizations.find(org => org.name === e.target.value);
+          const selectedOrg = organizations.find(org => org.id === e.target.value)
+            || organizations.find(org => organizationMatchesUser(org, new Set([String(e.target.value)])));
           if (selectedOrg) {
             console.log('Organization selected:', selectedOrg);
             onChange({ id: selectedOrg.id, name: selectedOrg.name });
@@ -234,7 +239,7 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
         }}
       >
         {organizationOptions.map((org) => (
-          <MenuItem key={org.id} value={org.name}>
+          <MenuItem key={org.id} value={org.id}>
             {org.name}
           </MenuItem>
         ))}

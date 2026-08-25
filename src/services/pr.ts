@@ -28,7 +28,7 @@ import { PRRequest, PRStatus, UserReference, HistoryItem, LineItem, ApprovalWork
 import { approverService } from '@/services/approver';
 import { User } from '@/types/user'; 
 import { mapFirebaseUserToUserReference } from '@/utils/userMapper';
-import { normalizeOrganizationId, normalizeCountryIso2, organizationCountryFallback, organizationMatchesUser } from '@/utils/organization';
+import { expandRelatedOrganizationIds, normalizeOrganizationId, normalizeCountryIso2, organizationCountryFallback, organizationMatchesUser } from '@/utils/organization';
 import { referenceDataService } from '@/services/referenceData';
 import { getOrgCodes, mapIsoCountryToPrCountryCode } from '@/utils/prOrgCountryCodes';
 
@@ -794,7 +794,7 @@ export async function reassignOrganization(
       })
       .map((s) => s.organizationId);
     const orgEntries = [user.organization, ...(extra || []), ...activeSecondmentOrgs];
-    const userOrgIds = new Set(
+    const userOrgIds = expandRelatedOrganizationIds(
       orgEntries.map((o) => normalizeOrganizationId(o)).filter((id): id is string => Boolean(id))
     );
     if (!organizationMatchesUser(newOrganization, userOrgIds)) {

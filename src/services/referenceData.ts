@@ -1,6 +1,6 @@
 import { db } from "@/config/firebase";
 import { collection, getDocs, query, where, addDoc, writeBatch, doc, setDoc, getDoc } from "firebase/firestore";
-import { normalizeOrganizationId as normalizeOrgId } from "@/utils/organization";
+import { isCatalogItemActive, normalizeOrganizationId as normalizeOrgId } from "@/utils/organization";
 
 export interface OrganizationData {
   id: string;
@@ -93,12 +93,17 @@ class ReferenceDataService {
           
           return shouldInclude;
         }
-        // For departments and other types, check 'active' field
-        // Default to true if not specified (include items without active field)
-        const active = item.active !== undefined ? item.active : (item.Active !== undefined ? item.Active : true);
-        const isActive = active === true || active === 'true' || active === undefined || active === null;
-        if (!isActive && organization) {
-          console.log(`[getItemsByType] Filtered out inactive ${type} item:`, { id: item.id, name: item.name, active, organization: this.normalizeOrganizationId(organization) });
+        // Exclude only rows that are explicitly inactive. CSV imports and
+        // older catalog docs store active as "Y"/isActive; a strict
+        // `active === true` check hid SMP from organization pickers.
+        const isActive = isCatalogItemActive(item);
+        if (!isActive && (organization || type === 'organizations')) {
+          console.log(`[getItemsByType] Filtered out inactive ${type} item:`, {
+            id: item.id,
+            name: item.name,
+            active: item.active,
+            isActive: item.isActive,
+          });
         }
         return isActive;
       });

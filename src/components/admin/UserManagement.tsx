@@ -49,6 +49,7 @@ import {
   validateDepartmentSlots,
 } from '@/utils/userDepartmentAccess';
 import { HR_COUNTRY_OPTIONS } from '@/config/hrCountries';
+import { organizationMatchesUser } from '@/utils/organization';
 import type { DepartmentMembership } from '@/types/user';
 import {
   runHrEmployeeSyncNow,
@@ -68,6 +69,24 @@ function generateRandomPassword(): string {
     password += charset[randomIndex];
   }
   return password;
+}
+
+function catalogOrgId(
+  stored: string | undefined | null,
+  orgs: ReferenceData[]
+): string {
+  if (!stored) return '';
+  const match = orgs.find(
+    (org) =>
+      org.id === stored ||
+      org.name === stored ||
+      organizationMatchesUser(org, new Set([stored]))
+  );
+  return match?.id || stored;
+}
+
+function catalogOrgIds(stored: string[] | undefined, orgs: ReferenceData[]): string[] {
+  return (stored || []).map((value) => catalogOrgId(value, orgs)).filter(Boolean);
 }
 
 interface PasswordDialogProps {
@@ -1501,7 +1520,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
               <FormControl fullWidth margin="dense">
                 <InputLabel>Organization</InputLabel>
                 <Select
-                  value={formData.organization}
+                  value={catalogOrgId(formData.organization, organizations)}
                   onChange={(e) => {
                     const v = e.target.value as string;
                     setFormData((prev) => ({
@@ -1717,7 +1736,7 @@ export function UserManagement({ isReadOnly }: UserManagementProps) {
                 <InputLabel>Additional Organizations</InputLabel>
                 <Select
                   multiple
-                  value={formData.additionalOrganizations || []}
+                  value={catalogOrgIds(formData.additionalOrganizations, organizations)}
                   onChange={(e) => {
                     const value = e.target.value as string[];
                     setFormData({

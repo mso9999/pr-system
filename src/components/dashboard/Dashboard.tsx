@@ -38,7 +38,7 @@ import { SearchResultsAnalytics } from './SearchResultsAnalytics';
 import { exportPRsToCSV } from '@/utils/exportUtils';
 import { Link } from 'react-router-dom';
 import { referenceDataService } from '../../services/referenceData';
-import { normalizeOrganizationId } from '@/utils/organization';
+import { expandRelatedOrganizationIds, normalizeOrganizationId } from '@/utils/organization';
 import { useResponsive } from '../../hooks/useResponsive';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '@/config/firebase';
@@ -377,6 +377,11 @@ export const Dashboard = () => {
             });
           }
 
+          const relatedIds = expandRelatedOrganizationIds(userAssignedOrgIds);
+          relatedIds.forEach((id) => {
+            if (!userAssignedOrgIds.includes(id)) userAssignedOrgIds.push(id);
+          });
+
           if (userAssignedOrgIds.length === 0) {
             console.log('Dashboard: User has no assigned organizations');
             setIsLoading(false);
@@ -394,6 +399,9 @@ export const Dashboard = () => {
               const normalizedId = normalizeOrganizationId(org);
               if (normalizedId) {
                 orgMap.set(normalizedId, org.name);
+              }
+              if (org.id && org.name) {
+                orgMap.set(org.id, org.name);
               }
             });
 
