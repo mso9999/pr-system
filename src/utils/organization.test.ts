@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  expandRelatedOrganizationIds,
   isCatalogItemActive,
   listIncludesOrganization,
   normalizeOrganizationId,
@@ -41,26 +40,13 @@ describe('organizationMatchesUser', () => {
     const smpOrg = { id: 'smp', code: 'SMP', name: 'SMP' };
     expect(organizationMatchesUser(smpOrg, new Set(['smp']))).toBe(true);
     expect(organizationMatchesUser(smpOrg, new Set(['SMP']))).toBe(true);
-    expect(organizationMatchesUser(smpOrg, expandRelatedOrganizationIds(['SMP']))).toBe(true);
+    expect(organizationMatchesUser(smpOrg, new Set(['1pwr_lesotho']))).toBe(false);
   });
 
   it('matches when only the catalog code or name lines up with the assignment', () => {
     const smpOrg = { id: 'smp', code: 'Sotho Minigrid Portfolio Ltd', name: 'SMP' };
     expect(organizationMatchesUser(smpOrg, new Set(['smp']))).toBe(true);
     expect(organizationIdentifiers(smpOrg)).toEqual(['smp']);
-  });
-});
-
-describe('expandRelatedOrganizationIds', () => {
-  it('lets Lesotho operating-company users select SMP', () => {
-    expect([...expandRelatedOrganizationIds(['1pwr_lesotho'])].sort()).toEqual([
-      '1pwr_lesotho',
-      'smp',
-    ]);
-    expect([...expandRelatedOrganizationIds(['neo1'])].sort()).toEqual(['neo1', 'smp']);
-    expect([...expandRelatedOrganizationIds(['SMP'])]).toEqual(
-      expect.arrayContaining(['smp', '1pwr_lesotho', 'pueco_lesotho', 'neo1'])
-    );
   });
 });
 

@@ -5,7 +5,6 @@ import { referenceDataService } from '../../services/referenceData';
 import { ReferenceData } from '@/types/referenceData';
 import { RootState } from '@/store';
 import {
-  expandRelatedOrganizationIds,
   normalizeOrganizationId,
   organizationDisplayName,
   organizationMatchesUser,
@@ -18,14 +17,13 @@ interface OrganizationSelectorProps {
   value: { id: string; name: string } | null | string;
   onChange: (value: { id: string; name: string }) => void;
   includeAllOption?: boolean;
-  restrictToUserOrgs?: boolean; // If true, requestors only see assigned + related orgs
-  allowAllOrgs?: boolean; // If true, show the full catalog (used by New PR)
+  restrictToUserOrgs?: boolean; // If true, only show orgs assigned to the user (primary, additional, secondment)
   onOrganizationsLoaded?: (orgs: { id: string; name: string }[]) => void;
   error?: boolean;
   helperText?: string;
 }
 
-export const OrganizationSelector = ({ value, onChange, includeAllOption = false, restrictToUserOrgs = false, allowAllOrgs = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
+export const OrganizationSelector = ({ value, onChange, includeAllOption = false, restrictToUserOrgs = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalError, setInternalError] = useState<string | null>(null);
@@ -67,7 +65,7 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
     const normalized = orgEntries
       .map(entry => normalizeOrganizationId(entry as any))
       .filter((id): id is string => Boolean(id));
-    return expandRelatedOrganizationIds(normalized);
+    return new Set(normalized);
   }, [user]);
 
   // Normalize value to string for comparison (prevent re-runs on object reference changes)
@@ -99,12 +97,14 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
 
         allOrgs.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
         
-        // New PR (allowAllOrgs) and privileged users see the full catalog so
-        // SMP is always offered. Other pickers keep the assigned + related list.
+        // New PR passes restrictToUserOrgs: only primary, additional, and
+        // active secondments. SMP appears only if it is one of those.
+        // Dashboard (unrestricted) still shows the full catalog to admin /
+        // finance / procurement.
         let filteredOrgs;
         if (!user) {
           filteredOrgs = [];
-        } else if (allowAllOrgs || canSeeAllOrganizations) {
+        } else if (!restrictToUserOrgs && canSeeAllOrganizations) {
           filteredOrgs = allOrgs;
         } else {
           filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
@@ -184,7 +184,7 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
     loadOrganizations();
     // Only re-run when user changes - not when value or callbacks change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userOrgIds, includeAllOption, canSeeAllOrganizations, allowAllOrgs, restrictToUserOrgs]);
+  }, [user, userOrgIds, includeAllOption, canSeeAllOrganizations, restrictToUserOrgs]);
 
   const organizationOptions = useMemo(() => {
     if (includeAllOption) {

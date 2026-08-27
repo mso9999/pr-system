@@ -61,19 +61,6 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   'mionwa inclusive': 'mgb',
 };
 
-/**
- * Operating pairings: 1PWR Lesotho staff routinely charge minigrid
- * materials/equipment to SMP (Sotho Minigrid Portfolio). Users assigned to
- * either org can select the other when creating or filtering PRs, without
- * needing an extra HR additional-organization assignment.
- */
-const RELATED_ORGANIZATIONS: Record<string, readonly string[]> = {
-  '1pwr_lesotho': ['smp'],
-  pueco_lesotho: ['smp'],
-  neo1: ['smp'],
-  smp: ['1pwr_lesotho', 'pueco_lesotho', 'neo1'],
-};
-
 /** Catalog row injected when Firestore is missing or hiding SMP. */
 export const SMP_FALLBACK_ORGANIZATION = {
   id: 'smp',
@@ -132,23 +119,6 @@ export const organizationMatchesUser = (
   );
   if (normalizedUserIds.size === 0) return false;
   return organizationIdentifiers(organization).some((id) => normalizedUserIds.has(id));
-};
-
-/**
- * Add operational pairings (e.g. 1pwr_lesotho ↔ smp) to a set of assigned
- * organization ids so those orgs appear in selectors.
- */
-export const expandRelatedOrganizationIds = (ids: Iterable<string>): Set<string> => {
-  const out = new Set<string>();
-  for (const raw of ids) {
-    const normalized = normalizeOrganizationId(raw);
-    if (!normalized) continue;
-    out.add(normalized);
-    for (const related of RELATED_ORGANIZATIONS[normalized] || []) {
-      out.add(related);
-    }
-  }
-  return out;
 };
 
 /**
