@@ -361,7 +361,8 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
               };
             });
           }}
-          restrictToUserOrgs={true}
+          restrictToUserOrgs={false}
+          allowAllOrgs
           error={isSubmitted && !formState.organization}
           helperText={isSubmitted && !formState.organization ? "Organization is required" : ""}
         />

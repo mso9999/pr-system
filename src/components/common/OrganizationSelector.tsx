@@ -7,6 +7,7 @@ import { RootState } from '@/store';
 import {
   expandRelatedOrganizationIds,
   normalizeOrganizationId,
+  organizationDisplayName,
   organizationMatchesUser,
 } from '@/utils/organization';
 import { hasPrAction } from '@/utils/prPrivilege';
@@ -18,12 +19,13 @@ interface OrganizationSelectorProps {
   onChange: (value: { id: string; name: string }) => void;
   includeAllOption?: boolean;
   restrictToUserOrgs?: boolean; // If true, requestors only see assigned + related orgs
+  allowAllOrgs?: boolean; // If true, show the full catalog (used by New PR)
   onOrganizationsLoaded?: (orgs: { id: string; name: string }[]) => void;
   error?: boolean;
   helperText?: string;
 }
 
-export const OrganizationSelector = ({ value, onChange, includeAllOption = false, restrictToUserOrgs: _restrictToUserOrgs = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
+export const OrganizationSelector = ({ value, onChange, includeAllOption = false, restrictToUserOrgs = false, allowAllOrgs = false, onOrganizationsLoaded, error, helperText }: OrganizationSelectorProps) => {
   const [organizations, setOrganizations] = useState<ReferenceData[]>([]);
   const [loading, setLoading] = useState(true);
   const [internalError, setInternalError] = useState<string | null>(null);
@@ -97,13 +99,12 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
 
         allOrgs.sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id));
         
-        // Filter organizations based on user role and permission level.
-        // Privileged users always see the full active catalog (including SMP).
-        // Requestors see assigned orgs plus operational pairings (1PWR Lesotho ↔ SMP).
+        // New PR (allowAllOrgs) and privileged users see the full catalog so
+        // SMP is always offered. Other pickers keep the assigned + related list.
         let filteredOrgs;
         if (!user) {
           filteredOrgs = [];
-        } else if (canSeeAllOrganizations) {
+        } else if (allowAllOrgs || canSeeAllOrganizations) {
           filteredOrgs = allOrgs;
         } else {
           filteredOrgs = allOrgs.filter(org => organizationMatchesUser(org, userOrgIds));
@@ -183,7 +184,7 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
     loadOrganizations();
     // Only re-run when user changes - not when value or callbacks change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userOrgIds, includeAllOption, canSeeAllOrganizations]);
+  }, [user, userOrgIds, includeAllOption, canSeeAllOrganizations, allowAllOrgs, restrictToUserOrgs]);
 
   const organizationOptions = useMemo(() => {
     if (includeAllOption) {
@@ -240,7 +241,7 @@ export const OrganizationSelector = ({ value, onChange, includeAllOption = false
       >
         {organizationOptions.map((org) => (
           <MenuItem key={org.id} value={org.id}>
-            {org.name}
+            {organizationDisplayName(org)}
           </MenuItem>
         ))}
       </Select>

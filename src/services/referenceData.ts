@@ -1,6 +1,11 @@
 import { db } from "@/config/firebase";
 import { collection, getDocs, query, where, addDoc, writeBatch, doc, setDoc, getDoc } from "firebase/firestore";
-import { isCatalogItemActive, normalizeOrganizationId as normalizeOrgId } from "@/utils/organization";
+import {
+  isCatalogItemActive,
+  listIncludesOrganization,
+  normalizeOrganizationId as normalizeOrgId,
+  SMP_FALLBACK_ORGANIZATION,
+} from "@/utils/organization";
 
 export interface OrganizationData {
   id: string;
@@ -225,7 +230,32 @@ class ReferenceDataService {
   }
 
   async getOrganizations(): Promise<ReferenceData[]> {
-    return this.getItemsByType('organizations');
+    const items = await this.getItemsByType('organizations');
+    return this.ensureSmpOrganization(items);
+  }
+
+  /**
+   * SMP is a first-class charging entity but has historically been missing,
+   * inactive, or stored under a different doc id. New-PR pickers must still
+   * offer it. Pull the doc directly (bypassing the active-list filter) and
+   * fall back to a known catalog row if Firestore has no SMP document.
+   */
+  private async ensureSmpOrganization(items: ReferenceData[]): Promise<ReferenceData[]> {
+    if (listIncludesOrganization(items, 'smp')) {
+      return items;
+    }
+    for (const candidate of ['smp', 'SMP', 'sotho_minigrid_portfolio']) {
+      try {
+        const snap = await getDoc(doc(this.db, this.getCollectionName('organizations'), candidate));
+        if (snap.exists()) {
+          return [...items, { id: snap.id, ...snap.data() } as ReferenceData];
+        }
+      } catch (error) {
+        console.warn(`[getOrganizations] Could not load SMP candidate ${candidate}:`, error);
+      }
+    }
+    console.warn('[getOrganizations] SMP catalog row missing — adding fallback so it remains selectable');
+    return [...items, { ...SMP_FALLBACK_ORGANIZATION }];
   }
 
   async getCurrencies(): Promise<ReferenceData[]> {

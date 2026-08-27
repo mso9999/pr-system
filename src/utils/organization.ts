@@ -69,8 +69,18 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
  */
 const RELATED_ORGANIZATIONS: Record<string, readonly string[]> = {
   '1pwr_lesotho': ['smp'],
-  smp: ['1pwr_lesotho'],
+  pueco_lesotho: ['smp'],
+  neo1: ['smp'],
+  smp: ['1pwr_lesotho', 'pueco_lesotho', 'neo1'],
 };
+
+/** Catalog row injected when Firestore is missing or hiding SMP. */
+export const SMP_FALLBACK_ORGANIZATION = {
+  id: 'smp',
+  name: 'SMP',
+  code: 'SMP',
+  active: true,
+} as const;
 
 const normalizeRawValue = (value: string | null | undefined): string => {
   if (!value) return '';
@@ -177,6 +187,31 @@ export const ORG_COUNTRY_FALLBACK: Record<string, string> = {
 export const organizationCountryFallback = (organization: OrganizationInput): string => {
   const id = normalizeOrganizationId(organization);
   return id ? (ORG_COUNTRY_FALLBACK[id] || '') : '';
+};
+
+export const listIncludesOrganization = (
+  organizations: OrganizationInput[],
+  target: OrganizationInput
+): boolean => {
+  const wanted = new Set(organizationIdentifiers(target));
+  if (wanted.size === 0) return false;
+  return organizations.some((org) => organizationIdentifiers(org).some((id) => wanted.has(id)));
+};
+
+/** Label for pickers. SMP always reads as "SMP" even if the catalog name is the legal entity. */
+export const organizationDisplayName = (organization: OrganizationInput): string => {
+  if (!organization) return '';
+  const name =
+    typeof organization === 'string'
+      ? organization.trim()
+      : (organization.name || organization.code || organization.id || '').trim();
+  const ids = organizationIdentifiers(organization);
+  if (ids.includes('smp')) {
+    if (!name || /^smp$/i.test(name)) return 'SMP';
+    if (/smp/i.test(name)) return name;
+    return `SMP — ${name}`;
+  }
+  return name;
 };
 
 /** True unless the catalog row is explicitly inactive. */

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   expandRelatedOrganizationIds,
   isCatalogItemActive,
+  listIncludesOrganization,
   normalizeOrganizationId,
+  organizationDisplayName,
   organizationIdentifiers,
   organizationMatchesUser,
 } from './organization';
@@ -50,15 +52,31 @@ describe('organizationMatchesUser', () => {
 });
 
 describe('expandRelatedOrganizationIds', () => {
-  it('lets 1PWR Lesotho users select SMP and vice versa', () => {
+  it('lets Lesotho operating-company users select SMP', () => {
     expect([...expandRelatedOrganizationIds(['1pwr_lesotho'])].sort()).toEqual([
       '1pwr_lesotho',
       'smp',
     ]);
-    expect([...expandRelatedOrganizationIds(['SMP'])].sort()).toEqual([
-      '1pwr_lesotho',
-      'smp',
-    ]);
+    expect([...expandRelatedOrganizationIds(['neo1'])].sort()).toEqual(['neo1', 'smp']);
+    expect([...expandRelatedOrganizationIds(['SMP'])]).toEqual(
+      expect.arrayContaining(['smp', '1pwr_lesotho', 'pueco_lesotho', 'neo1'])
+    );
+  });
+});
+
+describe('organizationDisplayName', () => {
+  it('always labels the SMP catalog row as SMP', () => {
+    expect(organizationDisplayName({ id: 'smp', name: 'SMP' })).toBe('SMP');
+    expect(organizationDisplayName({ id: 'smp', name: 'Sotho Minigrid Portfolio' })).toBe(
+      'SMP — Sotho Minigrid Portfolio'
+    );
+  });
+});
+
+describe('listIncludesOrganization', () => {
+  it('finds SMP whether the list uses id or display name', () => {
+    expect(listIncludesOrganization([{ id: 'smp', name: 'SMP' }], 'SMP')).toBe(true);
+    expect(listIncludesOrganization([{ id: '1pwr_lesotho', name: '1PWR LESOTHO' }], 'smp')).toBe(false);
   });
 });
 
