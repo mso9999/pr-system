@@ -1163,7 +1163,8 @@ export function PRView() {
     // Special handling for expense type changes
     if (field === 'expenseType') {
       const selectedType = expenseTypes.find(type => type.id === value);
-      const isVehicleExpense = selectedType?.name.toLowerCase() === 'vehicle';
+      // Vehicle-tagged expense codes: 4 (parts/service), 4F (fluids), 4W (wash)
+      const isVehicleExpense = ['4', '4F', '4W'].includes(selectedType?.code || '');
 
       setEditedPR(prev => {
         if (!isVehicleExpense) {
@@ -1833,7 +1834,7 @@ export function PRView() {
                       ? expenseTypes.find(t => t.id === (editedPR.expenseType || pr?.expenseType))
                       : expenseTypes.find(t => t.id === pr?.expenseType);
                     
-                    const isVehicleExpense = currentExpenseType?.name.toLowerCase() === 'vehicle';
+                    const isVehicleExpense = ['4', '4F', '4W'].includes(currentExpenseType?.code || '');
                     
                     return isVehicleExpense ? (
                       <>
@@ -1858,7 +1859,8 @@ export function PRView() {
                             })}
                           </Select>
                         </FormControl>
-                        {/* Fleet Hub work order link — required for vehicle expenses */}
+                        {/* Fleet Hub work order link — required for vehicle expenses (code 4 only; fluids 4F / wash 4W exempt) */}
+                        {currentExpenseType?.code === '4' && (
                         <Box sx={{ mt: 1 }}>
                           {isEditMode ? (
                             <FormControl fullWidth size="small">
@@ -1902,6 +1904,7 @@ export function PRView() {
                             </Typography>
                           )}
                         </Box>
+                        )}
                       </>
                     ) : null;
                   })()}

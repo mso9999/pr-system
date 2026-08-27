@@ -89,8 +89,8 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       if (field === 'expenseType') {
         const selectedType = expenseTypes.find(type => type.id === value);
         const previousType = expenseTypes.find(type => type.id === prev.expenseType);
-        const isVehicleExpense = selectedType?.code === '4' || selectedType?.code === '4F';
-        const wasVehicleExpense = previousType?.code === '4' || previousType?.code === '4F';
+        const isVehicleExpense = ['4', '4F', '4W'].includes(selectedType?.code || '');
+        const wasVehicleExpense = ['4', '4F', '4W'].includes(previousType?.code || '');
         
         if (isVehicleExpense) {
           // When switching to vehicle expense type
@@ -288,10 +288,11 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     }
   }, [formState.approvers, formState.estimatedAmount, formState.currency, rules.length]);
 
-  // Show vehicle field for vehicle expenses (code 4) and consumable fluids (4F);
-  // the Fleet work-order requirement applies to code 4 only — fluids are exempt.
+  // Show vehicle field for vehicle expenses (code 4), consumable fluids (4F),
+  // and wash/cleaning (4W); the Fleet work-order requirement applies to code 4
+  // only — fluids and washes are exempt.
   const selectedExpenseCode = expenseTypes.find(type => type.id === formState.expenseType)?.code;
-  const showVehicleField = selectedExpenseCode === '4' || selectedExpenseCode === '4F';
+  const showVehicleField = selectedExpenseCode === '4' || selectedExpenseCode === '4F' || selectedExpenseCode === '4W';
   const workOrderRequired = selectedExpenseCode === '4';
 
   // Vehicle-expense PRs must link an open Fleet Hub work order (procurement
