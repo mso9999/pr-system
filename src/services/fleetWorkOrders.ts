@@ -36,6 +36,37 @@ export interface ValidateFleetWorkOrderResult {
   workOrder?: FleetWorkOrder;
 }
 
+/**
+ * PR organization → Fleet Hub organization (the fleet is registered under the
+ * main country org in FM; sub-entities share it).
+ */
+export function prOrgToFleetOrg(prOrgId?: string | null): string {
+  switch ((prOrgId || '').toLowerCase()) {
+    case '1pwr_zambia':
+      return '1pwr_zambia';
+    case '1pwr_benin':
+    case 'mgb':
+    case 'pueco_benin':
+      return '1pwr_benin';
+    default:
+      return '1pwr_lesotho';
+  }
+}
+
+/** Benin chart-of-accounts codes for vehicle repair/maintenance (Entretien réparation). */
+export const BENIN_WO_GATED_CODES = ['624200', '624300', '624800'];
+
+/**
+ * The FM work-order gate applies to code 4 (vehicle parts/service) everywhere,
+ * and to Benin's repair codes only for the 1PWR Benin org (mgb / pueco_benin
+ * have no FM-registered vehicles yet — gating them would block with no remedy).
+ */
+export function isWoGatedExpense(code: string | undefined, prOrgId?: string | null): boolean {
+  if (code === '4') return true;
+  if ((prOrgId || '') === '1pwr_benin' && BENIN_WO_GATED_CODES.includes(code || '')) return true;
+  return false;
+}
+
 export async function listFleetWorkOrders(opts: {
   org?: string;
   vehicleId?: string;

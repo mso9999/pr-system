@@ -94,6 +94,7 @@ import { approverService } from '../../services/approver';
 import { Attachment } from '../../types/pr'; // Import Attachment
 import { ReferenceDataItem } from '../../types/referenceData'; // Re-add import
 import { BasicInformationStep } from './steps/BasicInformationStep';
+import { isWoGatedExpense } from '../../services/fleetWorkOrders';
 import { LineItemsStep } from './steps/LineItemsStep';
 import { ReviewStep } from './steps/ReviewStep';
 import { createPR, getUserPRs, canProceedToPendingApproval, recordPoCapAudit } from '../../services/pr';
@@ -1261,14 +1262,12 @@ export const NewPRForm = () => {
   };
 
   // Vehicle expense detection that works whether expenseType stores the doc id
-  // or the code — resolve the reference-data row when available.
+  // or the code — resolve the reference-data row when available. Covers the
+  // Benin gated repair codes (624200/624300/624800) for the 1PWR Benin org.
   const isVehicleExpenseSelected = (): boolean => {
     const t = expenseTypes.find((type) => type.id === formState.expenseType);
-    return (
-      t?.code === '4' ||
-      formState.expenseType === '4' ||
-      formState.expenseType === '4 - Vehicle'
-    );
+    const code = t?.code || (formState.expenseType === '4' || formState.expenseType === '4 - Vehicle' ? '4' : '');
+    return isWoGatedExpense(code, formState.organization?.id);
   };
 
   const handleInputChange = (field: string, value: any) => {

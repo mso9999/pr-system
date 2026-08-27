@@ -22,7 +22,7 @@ import {
 import { useSnackbar } from 'notistack';
 import { PRStatus } from '@/types/pr';
 import { prService, canProceedToPendingApproval, recordPoCapAudit } from '@/services/pr';
-import { validateFleetWorkOrderForPr } from '@/services/fleetWorkOrders';
+import { validateFleetWorkOrderForPr, isWoGatedExpense } from '@/services/fleetWorkOrders';
 import { notificationService } from '@/services/notification';
 import { User } from '@/types/user';
 import { validatePRForApproval } from '@/utils/prValidation';
@@ -366,10 +366,11 @@ export function ProcurementActions({ prId, currentStatus, requestorEmail, curren
           try {
             const expenseTypesData = await referenceDataService.getItemsByType('expenseTypes', pr.organization);
             const expenseTypeRow = (expenseTypesData || []).find((t: any) => t.id === pr.expenseType);
-            const isVehicleExpense =
-              expenseTypeRow?.code === '4' ||
-              pr.expenseType === '4' ||
-              pr.expenseType === '4 - Vehicle';
+            const expenseCode =
+              expenseTypeRow?.code ||
+              (pr.expenseType === '4' || pr.expenseType === '4 - Vehicle' ? '4' : '');
+            // Code 4 everywhere; Benin repair codes (624200/624300/624800) for 1PWR Benin.
+            const isVehicleExpense = isWoGatedExpense(expenseCode, pr.organization);
             if (isVehicleExpense) {
               if (!pr.fleetWorkOrderId) {
                 setError(

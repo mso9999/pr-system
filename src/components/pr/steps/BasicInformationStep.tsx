@@ -34,7 +34,13 @@ import { organizations } from '../../../services/localReferenceData';
 import { OrganizationSelector } from '../../common/OrganizationSelector';
 import { VendorSelectionDialog } from '../../common/VendorSelectionDialog';
 import { convertAmount, getRuleCurrency } from '../../../utils/currencyConverter';
-import { listFleetWorkOrders, type FleetWorkOrder } from '../../../services/fleetWorkOrders';
+import {
+  listFleetWorkOrders,
+  prOrgToFleetOrg,
+  isWoGatedExpense,
+  BENIN_WO_GATED_CODES,
+  type FleetWorkOrder,
+} from '../../../services/fleetWorkOrders';
 
 interface BasicInformationStepProps {
   formState: FormState;
@@ -89,8 +95,10 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
       if (field === 'expenseType') {
         const selectedType = expenseTypes.find(type => type.id === value);
         const previousType = expenseTypes.find(type => type.id === prev.expenseType);
-        const isVehicleExpense = ['4', '4F', '4W'].includes(selectedType?.code || '');
-        const wasVehicleExpense = ['4', '4F', '4W'].includes(previousType?.code || '');
+        const vehicleish = (code?: string) =>
+          ['4', '4F', '4W'].includes(code || '') || BENIN_WO_GATED_CODES.includes(code || '');
+        const isVehicleExpense = vehicleish(selectedType?.code);
+        const wasVehicleExpense = vehicleish(previousType?.code);
         
         if (isVehicleExpense) {
           // When switching to vehicle expense type
@@ -289,11 +297,13 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
   }, [formState.approvers, formState.estimatedAmount, formState.currency, rules.length]);
 
   // Show vehicle field for vehicle expenses (code 4), consumable fluids (4F),
-  // and wash/cleaning (4W); the Fleet work-order requirement applies to code 4
-  // only — fluids and washes are exempt.
+  // wash/cleaning (4W), and Benin's gated repair codes (624200/624300/624800
+  // for the 1PWR Benin org). The Fleet work-order requirement applies to code 4
+  // and the gated Benin codes — fluids and washes are exempt.
   const selectedExpenseCode = expenseTypes.find(type => type.id === formState.expenseType)?.code;
-  const showVehicleField = selectedExpenseCode === '4' || selectedExpenseCode === '4F' || selectedExpenseCode === '4W';
-  const workOrderRequired = selectedExpenseCode === '4';
+  const workOrderRequired = isWoGatedExpense(selectedExpenseCode, formState.organization?.id);
+  const showVehicleField =
+    workOrderRequired || selectedExpenseCode === '4F' || selectedExpenseCode === '4W';
 
   // Vehicle-expense PRs must link an open Fleet Hub work order (procurement
   // diligence gate). Load the open WOs for the selected vehicle.
@@ -306,7 +316,11 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     let cancelled = false;
     setFleetWorkOrdersLoading(true);
     setFleetWorkOrdersError(null);
-    listFleetWorkOrders({ vehicleId: formState.vehicle, status: 'open' })
+    listFleetWorkOrders({
+      org: prOrgToFleetOrg(formState.organization?.id),
+      vehicleId: formState.vehicle,
+      status: 'open',
+    })
       .then((res) => {
         if (cancelled) return;
         setFleetWorkOrders(res.workOrders || []);
@@ -322,7 +336,7 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [showVehicleField, formState.vehicle]);
+  }, [showVehicleField, formState.vehicle, formState.organization?.id]);
 
   // Filter vehicles by organization
   const filteredVehicles = vehicles.filter(vehicle => 
