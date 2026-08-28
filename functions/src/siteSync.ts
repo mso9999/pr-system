@@ -48,6 +48,7 @@ const ORG_TO_COUNTRY: Record<string, string> = {
   "1pwr_lesotho": "LSO",
   "1pwr_benin": "BEN",
   "1pwr_zambia": "ZMB",
+  "kuwala": "ZMB",
 };
 
 function normalizeOrgId(value: string): string {
@@ -276,6 +277,77 @@ function setCors(res: functions.Response): void {
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
 }
 
+/**
+ * Harmonized 3-letter site code. uGP sends internal design codes (e.g.
+ * "LGS01"); the canonical PR catalog uses short place-name codes (DAMOUTI ->
+ * DAM, BOHICON -> BOH). Derive a clean uppercase 3-letter code from the place
+ * name, falling back to a cleaned uGP code when the name yields nothing.
+ */
+function harmonizeSiteCode(name: string, rawCode: string): string {
+  const fromName = name.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
+  if (fromName.length === 3) return fromName;
+  const fromCode = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
+  if (/^[A-Z]{3}$/.test(fromCode)) return fromCode;
+  return (fromName + fromCode).replace(/[^A-Z0-9]/g, "").slice(0, 3).padEnd(3, "X");
+}
+
+/** Great-circle distance in meters (haversine). */
+function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+/**
+ * Sites within this distance of an incoming canonical uGP site are treated as
+ * the same physical place and merged/bound rather than duplicated.
+ */
+const SITE_MERGE_RADIUS_M = 150;
+
+interface MergeCandidate {
+  id: string;
+  data: FirebaseFirestore.DocumentData;
+  matchedBy: "code" | "proximity";
+}
+
+/**
+ * Find an existing PR site to merge/bind an incoming canonical uGP site into.
+ * Prefers an exact (org + harmonized code) match; otherwise falls back to the
+ * nearest site in the same org within SITE_MERGE_RADIUS_M of the coordinate.
+ */
+async function findSiteMergeCandidate(
+  organizationId: string,
+  harmonizedCode: string,
+  latitude: number,
+  longitude: number
+): Promise<MergeCandidate | null> {
+  const coll = admin.firestore().collection("referenceData_sites");
+  const byCode = await coll.doc(buildDocId(organizationId, harmonizedCode)).get();
+  if (byCode.exists) {
+    return { id: byCode.id, data: byCode.data() as FirebaseFirestore.DocumentData, matchedBy: "code" };
+  }
+  const orgSites = await coll.where("organizationId", "==", organizationId).get();
+  let best: MergeCandidate | null = null;
+  let bestDist = SITE_MERGE_RADIUS_M;
+  for (const doc of orgSites.docs) {
+    const d = doc.data() as FirebaseFirestore.DocumentData;
+    const lat = asNumber(d.latitude);
+    const lon = asNumber(d.longitude);
+    if (lat === null || lon === null) continue;
+    const dist = haversineMeters(latitude, longitude, lat, lon);
+    if (dist <= bestDist) {
+      bestDist = dist;
+      best = { id: doc.id, data: d, matchedBy: "proximity" };
+    }
+  }
+  return best;
+}
+
 export const ingestUgpSite = functions.https.onRequest(async (req, res) => {
   setCors(res);
   if (req.method === "OPTIONS") {
@@ -322,17 +394,74 @@ export const ingestUgpSite = functions.https.onRequest(async (req, res) => {
 
   const now = new Date().toISOString();
   const countryCode = normalizeCountryCode(organizationId, String(input.countryCode || ""));
-  const docId = buildDocId(organizationId, code);
+  // A canonical uGP site carries the design that should govern the PR record.
+  const canonical =
+    input.canonical === true || String(input.role || "") === "canonical";
+  const incomingUgpProjectId = asString(input.ugpProjectId);
+
+  // Harmonize to the canonical 3-letter place code, then merge/bind to an
+  // existing PR site (same code, or same physical location) instead of
+  // duplicating the catalog with uGP's internal design codes.
+  const harmonizedCode = harmonizeSiteCode(name, code);
+  const candidate = await findSiteMergeCandidate(organizationId, harmonizedCode, latitude, longitude);
+
+  if (candidate) {
+    const docRef = admin.firestore().collection("referenceData_sites").doc(candidate.id);
+    const existingLinks = asUgpProjects(candidate.data.ugpProjects) || [];
+    const mergedLinks = incomingUgpProjectId
+      ? existingLinks.some((p) => p.ugpProjectId === incomingUgpProjectId)
+        ? existingLinks
+        : [...existingLinks, { ugpProjectId: incomingUgpProjectId, ugpProjectCode: code, ugpProjectName: name }]
+      : existingLinks;
+    const mergeUpdate: Record<string, unknown> = {
+      // Canonical uGP placement governs the coordinate.
+      latitude,
+      longitude,
+      countryCode,
+      active,
+      ugpProjects: mergedLinks,
+      externalIds: { ...(candidate.data.externalIds || {}), ...externalIds },
+      updatedAt: now,
+      lastUgpIngestAt: now,
+    };
+    // Prefer the incoming human-readable name when the existing record is a
+    // bare code placeholder.
+    if (name && String(candidate.data.name || "").trim().toUpperCase() === String(candidate.data.code || "").trim().toUpperCase()) {
+      mergeUpdate.name = name;
+    }
+    if (canonical && incomingUgpProjectId) {
+      mergeUpdate.canonicalUgpProjectId = incomingUgpProjectId;
+    }
+    await docRef.set(mergeUpdate, { merge: true });
+    res.status(200).json({
+      success: true,
+      id: candidate.id,
+      merged: true,
+      matchedBy: candidate.matchedBy,
+      code: candidate.data.code,
+    });
+    return;
+  }
+
+  const docId = buildDocId(organizationId, harmonizedCode);
+  // Seed the project-link array from a singular ugpProjectId when the caller
+  // didn't send a ugpProjects array, so the canonical design is always linked.
+  const seedLinks =
+    ugpProjects ||
+    (incomingUgpProjectId
+      ? [{ ugpProjectId: incomingUgpProjectId, ugpProjectCode: code, ugpProjectName: name }]
+      : undefined);
   const payload = {
     organizationId,
     countryCode,
-    code,
+    code: harmonizedCode,
     name,
     active,
     latitude,
     longitude,
     ...(address ? { siteAddress: address } : {}),
-    ...(ugpProjects ? { ugpProjects } : {}),
+    ...(seedLinks ? { ugpProjects: seedLinks } : {}),
+    ...(canonical && incomingUgpProjectId ? { canonicalUgpProjectId: incomingUgpProjectId } : {}),
     externalIds,
     source: "ugp",
     updatedAt: now,
@@ -345,7 +474,7 @@ export const ingestUgpSite = functions.https.onRequest(async (req, res) => {
     .doc(docId)
     .set(payload, { merge: true });
 
-  res.status(200).json({ success: true, id: docId, site: payload });
+  res.status(200).json({ success: true, id: docId, merged: false, code: harmonizedCode, site: payload });
 });
 
 /**

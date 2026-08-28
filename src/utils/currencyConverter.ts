@@ -442,6 +442,8 @@ const ORG_CURRENCY_MAP: Record<string, string> = {
   // Zambia organizations → ZMW (Zambian Kwacha)
   '1pwr_zambia': 'ZMW',
   '1PWR ZAMBIA': 'ZMW',
+  'kuwala': 'ZMW',
+  'Kuwala': 'ZMW',
   
   // NEO1 - USD (international)
   'neo1': 'USD',

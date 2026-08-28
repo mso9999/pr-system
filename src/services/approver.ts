@@ -1,6 +1,8 @@
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { User } from '../types/user';
 import { normalizeOrganizationId } from '@/utils/organization';
+import { functions } from '@/config/firebase';
 
 interface Approver {
   id: string;
@@ -44,7 +46,29 @@ class ApproverService {
     }
   }
 
+  /**
+   * Canonical approver resolution via the getPrApprovers Cloud Function:
+   * approval authority from PR `users` joined with org coverage + active
+   * employment from the HR directory (the canonical source). A sync gap in
+   * the PR copy can no longer remove an approver. Falls back to the direct
+   * Firestore read if the function is unreachable (e.g. HR API outage).
+   */
+  private async getApproversFromCanonical(organizationId: string): Promise<Approver[]> {
+    const call = httpsCallable(functions, 'getPrApprovers');
+    const res = await call({ organizationId });
+    const payload = res.data as { approvers?: Approver[] };
+    if (!payload || !Array.isArray(payload.approvers)) {
+      throw new Error('getPrApprovers returned an unexpected payload');
+    }
+    return payload.approvers;
+  }
+
   async getApprovers(organizationId: string): Promise<Approver[]> {
+    try {
+      return await this.getApproversFromCanonical(organizationId);
+    } catch (canonicalError) {
+      console.warn('ApproverService: canonical getPrApprovers failed, falling back to direct read:', canonicalError);
+    }
     try {
       const usersRef = collection(this.db, 'users');
       

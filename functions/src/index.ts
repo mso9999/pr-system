@@ -33,6 +33,7 @@ export { ingestUgpSite, fanoutSiteChanges, linkUgpProject, repointCanonicalUgpPr
 export { updateUserPassword } from './updateUserPassword';
 export { updateUserEmail } from './updateUserEmail';
 export { createUser } from './createUser';
+export { getPrApprovers } from './prApprovers';
 
 // User-sync drift detection
 export { weeklyUserSyncAudit, runUserSyncAudit } from './userSyncAudit';

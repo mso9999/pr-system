@@ -41,7 +41,20 @@ PR is the canonical site hub. UGP and PR Admin writes converge in `referenceData
 
 ## UGP -> PR Ingest Payload
 
-`POST /ingestUgpSite` accepts the `site` object above plus `organizationId`, `code`, `name`, `latitude`, `longitude` (all required), and optionally `countryCode`, `active`, `address`, `ugpProjects`, `externalIds`. The ingest endpoint auto-records `externalIds.ugpSiteCode = code` when not already supplied.
+`POST /ingestUgpSite` accepts the `site` object above plus `organizationId`, `code`, `name`, `latitude`, `longitude` (all required), and optionally `countryCode`, `active`, `address`, `ugpProjects`, `ugpProjectId`, `canonical`, `externalIds`. The ingest endpoint auto-records `externalIds.ugpSiteCode = code` when not already supplied.
+
+### Harmonized code + merge/bind (2026-08-23)
+
+When ENG canonicalizes a site in uGP, the ingest does **not** blindly upsert uGP's internal design code. It:
+
+1. **Harmonizes the code** to the canonical 3-letter place code (`harmonizeSiteCode`): the first three letters of the place name (`DAMOUTI -> DAM`, `BOHICON -> BOH`), falling back to a cleaned uGP code when the name yields nothing. uGP's internal design code is preserved in `externalIds.ugpSiteCode`.
+2. **Merges/binds to an existing site** (`findSiteMergeCandidate`) instead of duplicating the catalog:
+   - exact match on `(organizationId + harmonized code)`, else
+   - the nearest site in the same org within **150 m** (`SITE_MERGE_RADIUS_M`) of the incoming coordinate.
+   - On a merge it updates the coordinate to the canonical uGP placement, appends the uGP project link, and — when `canonical: true` (or `role: "canonical"`) with a `ugpProjectId` — sets `canonicalUgpProjectId`.
+3. **Creates a new site** with the harmonized code + coordinate only when no merge candidate exists.
+
+The response reports `merged: true/false`, `matchedBy: "code" | "proximity"`, and the resulting `code`/`id` so the caller knows whether it created or bound.
 
 ## PR Changes
 

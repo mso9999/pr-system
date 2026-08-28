@@ -48,6 +48,7 @@ import {
 import {
   doc,
   getDoc,
+  getDocFromServer,
   collection,
   query,
   where,
@@ -246,11 +247,22 @@ export const signOut = async (): Promise<void> => {
 // path so nobody gets locked out. Flip READ_NEXUS_IDENTITY to false to roll back.
 const READ_NEXUS_IDENTITY = true;
 
+// Read the profile doc server-fresh so org/role assignments are always current.
+// The app enables Firestore persistentLocalCache; a plain getDoc can serve a
+// stale cached copy of the user doc (e.g. an org assignment corrected by the
+// nightly HR sync keeps showing the old value). Fall back to the cache when
+// offline so the app still loads without connectivity.
 export const getUserDetails = async (uid: string): Promise<User> => {
   try {
     // Profile extension (PR-owned): organization, dept memberships, HR-lead scope,
     // lastWhatsNewSeenAt, etc. Always read if present.
-    const prSnap = await getDoc(doc(db, 'users', uid));
+    const prRef = doc(db, 'users', uid);
+    let prSnap;
+    try {
+      prSnap = await getDocFromServer(prRef);
+    } catch {
+      prSnap = await getDoc(prRef);
+    }
     const pr = prSnap.exists() ? prSnap.data() : {};
 
     let permissionLevel: number;
@@ -266,7 +278,12 @@ export const getUserDetails = async (uid: string): Promise<User> => {
       // back to the legacy users doc (same as when the nexus doc is missing).
       let nexusSnap: Awaited<ReturnType<typeof getDoc>> | null = null;
       try {
-        nexusSnap = await getDoc(doc(db, 'nexus_users', uid));
+        const nxRef = doc(db, 'nexus_users', uid);
+        try {
+          nexusSnap = await getDocFromServer(nxRef);
+        } catch {
+          nexusSnap = await getDoc(nxRef);
+        }
       } catch (nexusReadError) {
         console.warn(`nexus_users read failed for ${uid}, falling back to users doc:`, nexusReadError);
       }
