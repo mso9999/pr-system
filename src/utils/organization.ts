@@ -9,6 +9,10 @@ type OrganizationInput =
     };
 
 const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
+  '1pwr_a_gbc': '1pwr_a_gbc',
+  '1pwr a_gbc': '1pwr_a_gbc',
+  '1pwr africa gbc': '1pwr_a_gbc',
+  gbc: '1pwr_a_gbc',
   '1pwr_lesotho': '1pwr_lesotho',
   '1pwr lesotho': '1pwr_lesotho',
   '1pwr_lso': '1pwr_lesotho',
@@ -19,6 +23,7 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   '1pwr benin': '1pwr_benin',
   '1pwr_ben': '1pwr_benin',
   '1pb': '1pwr_benin',
+  bj: '1pwr_benin',
   benin: '1pwr_benin',
   '1pwr_zambia': '1pwr_zambia',
   '1pwr zambia': '1pwr_zambia',
@@ -26,6 +31,7 @@ const ORGANIZATION_ALIAS_MAP: Record<string, string> = {
   '1pz': '1pwr_zambia',
   zambia: '1pwr_zambia',
   kuwala: 'kuwala',
+  kuw: 'kuwala',
   neo1: 'neo1',
   neo: 'neo1',
   'pueco_lesotho': 'pueco_lesotho',
