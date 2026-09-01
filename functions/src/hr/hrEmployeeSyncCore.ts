@@ -140,9 +140,6 @@ function hrOwnedPatch(
     hrSyncedAt: now,
     firstName,
     lastName,
-    secondments: Array.isArray(emp.secondments)
-      ? emp.secondments.filter((s) => s && s.organizationId)
-      : [],
   };
   // Organization assignment is HR-owned, but a NULL in HR means "not yet
   // assigned" — never erase an existing PR-side assignment with it.
@@ -154,6 +151,13 @@ function hrOwnedPatch(
   }
   if (Array.isArray(emp.additional_organizations) && emp.additional_organizations.length) {
     patch.additionalOrganizations = emp.additional_organizations.filter(Boolean);
+  }
+  // Same guard for secondments: only mirror the field when HR actually
+  // returns it. Writing [] on an omitted field wiped PR-side secondments on
+  // every nightly sync (an HR directory without the secondments feature
+  // never sends the key).
+  if (Array.isArray(emp.secondments)) {
+    patch.secondments = emp.secondments.filter((s) => s && s.organizationId);
   }
   // Only mirror HR's department into PR's `department` (id) when the user
   // is NOT in multi-department mode — multi-department appointments and
