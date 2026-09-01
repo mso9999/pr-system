@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.saveProvisioningMenu = exports.saveProvisioningDefaults = exports.retireProvisioningPrice = exports.saveProvisioningPrice = exports.retireProvisioningRation = exports.saveProvisioningRation = exports.listProvisioningCatalog = exports.fleetSmokeTest = exports.getFleetMission = exports.listFleetMissions = exports.prCatalogApi = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.createUser = exports.updateUserEmail = exports.updateUserPassword = exports.updateSiteCoordinates = exports.linkUgpProject = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.saveProvisioningMenu = exports.saveProvisioningDefaults = exports.retireProvisioningPrice = exports.saveProvisioningPrice = exports.retireProvisioningRation = exports.saveProvisioningRation = exports.listProvisioningCatalog = exports.fleetPrLinkOnCreate = exports.validateFleetWorkOrderForPr = exports.getFleetWorkOrder = exports.listFleetWorkOrders = exports.fleetSmokeTest = exports.getFleetMission = exports.listFleetMissions = exports.prCatalogApi = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.getPrApprovers = exports.createUser = exports.updateUserEmail = exports.updateUserPassword = exports.updateSiteCoordinates = exports.repointCanonicalUgpProject = exports.linkUgpProject = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
@@ -69,6 +69,7 @@ var siteSync_1 = require("./siteSync");
 Object.defineProperty(exports, "ingestUgpSite", { enumerable: true, get: function () { return siteSync_1.ingestUgpSite; } });
 Object.defineProperty(exports, "fanoutSiteChanges", { enumerable: true, get: function () { return siteSync_1.fanoutSiteChanges; } });
 Object.defineProperty(exports, "linkUgpProject", { enumerable: true, get: function () { return siteSync_1.linkUgpProject; } });
+Object.defineProperty(exports, "repointCanonicalUgpProject", { enumerable: true, get: function () { return siteSync_1.repointCanonicalUgpProject; } });
 Object.defineProperty(exports, "updateSiteCoordinates", { enumerable: true, get: function () { return siteSync_1.updateSiteCoordinates; } });
 // Export user management functions
 var updateUserPassword_1 = require("./updateUserPassword");
@@ -77,6 +78,8 @@ var updateUserEmail_1 = require("./updateUserEmail");
 Object.defineProperty(exports, "updateUserEmail", { enumerable: true, get: function () { return updateUserEmail_1.updateUserEmail; } });
 var createUser_1 = require("./createUser");
 Object.defineProperty(exports, "createUser", { enumerable: true, get: function () { return createUser_1.createUser; } });
+var prApprovers_1 = require("./prApprovers");
+Object.defineProperty(exports, "getPrApprovers", { enumerable: true, get: function () { return prApprovers_1.getPrApprovers; } });
 // User-sync drift detection
 var userSyncAudit_1 = require("./userSyncAudit");
 Object.defineProperty(exports, "weeklyUserSyncAudit", { enumerable: true, get: function () { return userSyncAudit_1.weeklyUserSyncAudit; } });
@@ -106,6 +109,12 @@ var fleetMissions_1 = require("./fleet/fleetMissions");
 Object.defineProperty(exports, "listFleetMissions", { enumerable: true, get: function () { return fleetMissions_1.listFleetMissions; } });
 Object.defineProperty(exports, "getFleetMission", { enumerable: true, get: function () { return fleetMissions_1.getFleetMission; } });
 Object.defineProperty(exports, "fleetSmokeTest", { enumerable: true, get: function () { return fleetMissions_1.fleetSmokeTest; } });
+// Fleet Hub work-order gate (vehicle-expense PRs must link an open FM work order)
+var fleetWorkOrders_1 = require("./fleet/fleetWorkOrders");
+Object.defineProperty(exports, "listFleetWorkOrders", { enumerable: true, get: function () { return fleetWorkOrders_1.listFleetWorkOrders; } });
+Object.defineProperty(exports, "getFleetWorkOrder", { enumerable: true, get: function () { return fleetWorkOrders_1.getFleetWorkOrder; } });
+Object.defineProperty(exports, "validateFleetWorkOrderForPr", { enumerable: true, get: function () { return fleetWorkOrders_1.validateFleetWorkOrderForPr; } });
+Object.defineProperty(exports, "fleetPrLinkOnCreate", { enumerable: true, get: function () { return fleetWorkOrders_1.fleetPrLinkOnCreate; } });
 // Permission-gated provisioning catalog CRUD (ADMIN/PROC; bypasses Firestore rules via Admin SDK)
 var provisioningAdmin_1 = require("./provisioning/provisioningAdmin");
 Object.defineProperty(exports, "listProvisioningCatalog", { enumerable: true, get: function () { return provisioningAdmin_1.listProvisioningCatalog; } });
