@@ -43,6 +43,7 @@ export interface ValidateFleetWorkOrderResult {
 export function prOrgToFleetOrg(prOrgId?: string | null): string {
   switch ((prOrgId || '').toLowerCase()) {
     case '1pwr_zambia':
+    case 'kuwala':
       return '1pwr_zambia';
     case '1pwr_benin':
     case 'mgb':
