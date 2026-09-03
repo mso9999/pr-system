@@ -68,7 +68,23 @@ exports.getPrApprovers = functions.https.onCall(async (data, context) => {
     if (!organizationId) {
         throw new functions.https.HttpsError("invalid-argument", "organizationId is required.");
     }
-    const target = normalizeOrgId(organizationId);
+    // Callers pass whatever they have — a catalog id ("smp"), a code ("SMP"),
+    // or the display name stored on the PR ("Sotho Minigrid Portfolio").
+    // normalizeOrgId alone is alias-free, so name-form input missed org-scoped
+    // approvers (2026-09-03: SMP PRs showed only global level-1 approvers).
+    // Resolve through the org catalog: any of id/code/name maps to the doc id.
+    const orgsSnap = await db.collection("referenceData_organizations").get();
+    const aliasToId = new Map();
+    orgsSnap.forEach((d) => {
+        const data = d.data();
+        for (const candidate of [d.id, data.code, data.name]) {
+            const key = normalizeOrgId(candidate);
+            if (key && !aliasToId.has(key))
+                aliasToId.set(key, normalizeOrgId(d.id));
+        }
+    });
+    const rawTarget = normalizeOrgId(organizationId);
+    const target = aliasToId.get(rawTarget) || rawTarget;
     // PR-owned approval authority.
     const usersSnap = await db.collection("users").where("isActive", "==", true).get();
     // HR canonical org coverage. If HR is unreachable this throws and the
