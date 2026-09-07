@@ -26,3 +26,24 @@
 - Incoterm field is optional, inferred from vendor classification for historical records
 - Vendor origin stored in reference data, not on individual PRs
 - Cloud Function will handle batch export of mapped cost data
+
+## 2026-09-07 — Cursor — Brief 02 procurement read API
+- What: Extended `prCatalogApi` with read-only purchase-request, commitment and lead-time endpoints for ugridPREDICT (forecast programme brief 02). Multi-key auth (`HR_API_KEY_PR_PORTAL` / `PR_CATALOG_API_KEY` / `UGRIDPREDICT_API_KEY`), per-consumer 60 req/min burst guard, structured call logs. `/api/vendors` now includes `country`, `origin`, `defaultCurrency`, `incotermDefault`. Added `/api/categories` and `/api/expense-types`.
+- Why: Forecast service is a consumer, not a store of record. PR is the only system that knows committed-but-undelivered spend and real vendor lead times. SMP cash model currently has no procurement schedule behind it.
+- Schema answers (do not escalate): `orderedAt` / `completedAt` / `estimatedDeliveryDate` / `statusHistory[]` exist on live PRs; no separate PO entity; `archivePRs` excluded from lead times. No AM movements join required.
+- Not in this change: AI part-mapping miner (nullable `ugpPartIds[]` / `mappingConfidence` / `mappingSource` exposed only; never overwrite human with AI). No UI or workflow writes.
+- Side effects: none yet — functions not deployed. Dedicated `UGRIDPREDICT_API_KEY` still to be written into `functions/.env` at deploy time (existing HR key will work immediately).
+- Key files: `functions/src/prCatalogApi.ts`, `functions/src/catalog/*`, `CROSS_REPO_API_CONTRACT.md`, `docs/BRIEF_02_PR_PROCUREMENT_READ_API.md`
+- Follow-ups: safe functions deploy (`npm run deploy:functions`); verify `mintSSOToken` survived; provision `UGRIDPREDICT_API_KEY`; commit nexus-portal `CANONICAL_DATA_OWNERSHIP.md` update; AI description→UGP part miner.
+
+## 2026-09-07 — Cursor — Brief 02 functions deploy
+- What: Deployed commit `5d36de9` (`cursor/brief-02-procurement-read-api`) via `npm run deploy:functions` (Node 18; 44/44 PR functions updated; no delete list). `prCatalogApi` now 512MB / 60s. Provisioned `UGRIDPREDICT_API_KEY` in `functions/.env` (not committed).
+- When / target: 2026-09-07 ~15:02 UTC, Firebase `pr-system-4ea55`, function `prCatalogApi` `https://us-central1-pr-system-4ea55.cloudfunctions.net/prCatalogApi`
+- Running state: catalog surface gained `/api/v1/purchase-requests`, `/api/v1/commitments`, `/api/v1/lead-times`, `/api/categories`, `/api/expense-types`; `/api/vendors` additive fields. Existing HR key still accepted.
+- Verify:
+  - Nexus still live: `mintSSOToken`, `verifyPin`, `nexusAssistant` present; 151 functions listed.
+  - 403 without key / junk key; 200 with HR and ugridpredict keys.
+  - Live: 1864 PRs, 237 commitment buckets (582 PRs), 391 lead-time groups (top n=222).
+  - SMP 2026-08 reconcile PASS: LSL 23444 n=12, USD 11789 n=1, ZAR 14919.66 n=2.
+- Side effects: Cloud Functions update only. Hosting unchanged. `.env` key added locally.
+- Follow-ups: merge PR #6; give ugridPREDICT the consumer key; commit nexus-portal ownership-map update on a clean branch; AI part miner.

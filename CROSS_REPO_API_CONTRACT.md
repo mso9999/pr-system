@@ -8,9 +8,9 @@ Master ownership map: `nexus-portal/docs/CANONICAL_DATA_OWNERSHIP.md`.
 
 ## Authentication
 
-Catalog API endpoints require `X-API-Key: <PR_CATALOG_API_KEY>`. Keys are
-validated in `functions/src/prCatalogApi.ts`. The HR↔PR key (`HR_API_KEY_PR_PORTAL`)
-is reused bidirectionally.
+Catalog API endpoints require `X-API-Key` matching any of `HR_API_KEY_PR_PORTAL`,
+`PR_CATALOG_API_KEY`, or `UGRIDPREDICT_API_KEY` (see `functions/src/catalog/auth.ts`).
+The HR↔PR key is reused bidirectionally. 60 req/min per consumer (per-instance).
 
 ## Exposed APIs
 
@@ -19,7 +19,12 @@ is reused bidirectionally.
 | GET | `prCatalogApi/api/countries` | Country list | `{count, countries[]}` | AM, Nexus |
 | GET | `prCatalogApi/api/organizations` | Organizations (`?country=LS`) | `{count, organizations[]}` | AM, Nexus, HR |
 | GET | `prCatalogApi/api/sites` | Sites (`?country=&org=`) | `{count, sites[]}` | AM, Nexus |
-| GET | `prCatalogApi/api/vendors` | Vendors | `{count, vendors[]}` | AM, Nexus |
+| GET | `prCatalogApi/api/vendors` | Vendors (+ country, origin, defaultCurrency, incotermDefault) | `{count, vendors[]}` | AM, Nexus, ugridpredict |
+| GET | `prCatalogApi/api/categories` | Project categories | `{count, items[]}` | ugridpredict |
+| GET | `prCatalogApi/api/expense-types` | Expense types | `{count, items[]}` | ugridpredict |
+| GET | `prCatalogApi/api/v1/purchase-requests` | Live PRs (`status`, `organization`, `site`, `created_since`, `expected_before`, `cursor`, `limit`) | `{count, items[], nextCursor}` | ugridpredict |
+| GET | `prCatalogApi/api/v1/commitments` | Approved/ordered, not delivered — by month × org × site × category × currency | `{count, items[]}` | ugridpredict |
+| GET | `prCatalogApi/api/v1/lead-times` | p50/p80/p95 from live PR history. `archivePRs` excluded. `lowConfidence` when n<5 | `{count, items[], notes}` | ugridpredict |
 
 Cloud Function base: `https://us-central1-pr-system-4ea55.cloudfunctions.net/prCatalogApi`.
 All items camelCase. `Cache-Control: no-store`.
@@ -34,8 +39,12 @@ AM's `am_reference_sites` cache fresh in real time.
 
 - Country: `code` (ISO-2), `name`, `active`
 - Organization: `id, name, countryCode, country, currency, timezoneOffset, active`
-- Site: `id, name, countryCode, organizationId, active`
-- Vendor: `id, name, email, phone, active`
+- Site: `id, code, name, countryCode, organizationId, active, canonicalUgpProjectId`
+- Vendor: `id, name, email, phone, country, active, defaultCurrency, origin, incotermDefault`
+  (`origin` is `local` / `regional` / `import`, derived from `country` when unset)
+- Purchase request: `id` (Firestore), `prId` (prNumber), `status, organization, organizationId, site, sites, department, description, category, expenseType, estimatedAmount, currency, vendorId, quotes, createdAt, approvedAt, orderedAt, expectedDelivery, deliveredAt, ugpPartIds, mappingConfidence, mappingSource, incoterm`
+- Commitment: `month, organization, organizationId, site, category, committedAmount, currency, prCount, earliestExpected, latestExpected`. Cash month = `expectedDelivery || orderedAt || createdAt`. APPROVED/ORDERED only; delivered excluded.
+- Lead time: `vendorId, category, origin, n, daysOrderToDelivery{p50,p80,p95,mean}, daysRequestToOrder{...}, window, lowConfidence`
 
 ## Identity (Phase 2)
 

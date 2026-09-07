@@ -227,6 +227,10 @@ export interface Vendor extends ReferenceDataItem {
   country?: string;
   productsServices?: string;
   active: boolean;
+  /** local / regional / import — optional override; API derives from country when unset */
+  origin?: 'local' | 'regional' | 'import';
+  defaultCurrency?: string;
+  incotermDefault?: string;
   
   // Dual-Authorization Approval System
   // Vendor is only approved if BOTH flags are true
