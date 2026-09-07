@@ -47,3 +47,10 @@
   - SMP 2026-08 reconcile PASS: LSL 23444 n=12, USD 11789 n=1, ZAR 14919.66 n=2.
 - Side effects: Cloud Functions update only. Hosting unchanged. `.env` key added locally.
 - Follow-ups: merge PR #6; give ugridPREDICT the consumer key; commit nexus-portal ownership-map update on a clean branch; AI part miner.
+
+## 2026-09-07 — Cursor — Brief 02 wrap-up (merge + consumers)
+- Merged [PR #6](https://github.com/mso9999/pr-system/pull/6) to `main` (`feab63f`, 2026-09-07 15:19 UTC).
+- Copied `UGRIDPREDICT_API_KEY` into gitignored `uGridPREDICT/.env`; consumer contract at `uGridPREDICT/docs/PR_CATALOG.md`.
+- Nexus ownership map updated on clean branch `docs/brief-02-pr-catalog-ownership` (worktree; AM WIP left untouched).
+- Side effects: GitHub merge only. Production functions already live from the earlier deploy. No further Firebase changes.
+- Follow-ups: merge the nexus ownership PR; D2 can consume live PR commitments/lead-times; AI part miner still open.
