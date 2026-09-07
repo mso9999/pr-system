@@ -1,6 +1,5 @@
 import { getFirestore, collection, query, where, getDocs } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
-import { User } from '../types/user';
 import { normalizeOrganizationId } from '@/utils/organization';
 import { functions } from '@/config/firebase';
 
@@ -55,7 +54,13 @@ class ApproverService {
    */
   private async getApproversFromCanonical(organizationId: string): Promise<Approver[]> {
     const call = httpsCallable(functions, 'getPrApprovers');
-    const res = await call({ organizationId });
+    // Normalize with the alias map before calling: PRView passes the stored
+    // org display name ("Sotho Minigrid Portfolio") while NewPRForm passes the
+    // catalog id ("smp"). The callable's server-side normalizer is
+    // alias-free, so name-form input silently dropped org-scoped (level 2/6)
+    // approvers — 2026-09-03, Tumelo vanished from SMP push-to-approver.
+    const normalized = normalizeOrganizationId(organizationId);
+    const res = await call({ organizationId: normalized || organizationId });
     const payload = res.data as { approvers?: Approver[] };
     if (!payload || !Array.isArray(payload.approvers)) {
       throw new Error('getPrApprovers returned an unexpected payload');

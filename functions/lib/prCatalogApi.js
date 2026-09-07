@@ -95,6 +95,7 @@ function resolveOrgCountryIso2(id, data) {
         "1pwr_lesotho": "LS",
         "1pwr_benin": "BJ",
         "1pwr_zambia": "ZM",
+        kuwala: "ZM",
         pueco_lesotho: "LS",
         pueco_benin: "BJ",
         smp: "LS",
