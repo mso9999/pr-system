@@ -26,3 +26,12 @@
 - Incoterm field is optional, inferred from vendor classification for historical records
 - Vendor origin stored in reference data, not on individual PRs
 - Cloud Function will handle batch export of mapped cost data
+
+## 2026-09-07 — Cursor — Brief 02 procurement read API
+- What: Extended `prCatalogApi` with read-only purchase-request, commitment and lead-time endpoints for ugridPREDICT (forecast programme brief 02). Multi-key auth (`HR_API_KEY_PR_PORTAL` / `PR_CATALOG_API_KEY` / `UGRIDPREDICT_API_KEY`), per-consumer 60 req/min burst guard, structured call logs. `/api/vendors` now includes `country`, `origin`, `defaultCurrency`, `incotermDefault`. Added `/api/categories` and `/api/expense-types`.
+- Why: Forecast service is a consumer, not a store of record. PR is the only system that knows committed-but-undelivered spend and real vendor lead times. SMP cash model currently has no procurement schedule behind it.
+- Schema answers (do not escalate): `orderedAt` / `completedAt` / `estimatedDeliveryDate` / `statusHistory[]` exist on live PRs; no separate PO entity; `archivePRs` excluded from lead times. No AM movements join required.
+- Not in this change: AI part-mapping miner (nullable `ugpPartIds[]` / `mappingConfidence` / `mappingSource` exposed only; never overwrite human with AI). No UI or workflow writes.
+- Side effects: none yet — functions not deployed. Dedicated `UGRIDPREDICT_API_KEY` still to be written into `functions/.env` at deploy time (existing HR key will work immediately).
+- Key files: `functions/src/prCatalogApi.ts`, `functions/src/catalog/*`, `CROSS_REPO_API_CONTRACT.md`, `docs/BRIEF_02_PR_PROCUREMENT_READ_API.md`
+- Follow-ups: safe functions deploy (`npm run deploy:functions`); verify `mintSSOToken` survived; provision `UGRIDPREDICT_API_KEY`; commit nexus-portal `CANONICAL_DATA_OWNERSHIP.md` update; AI description→UGP part miner.

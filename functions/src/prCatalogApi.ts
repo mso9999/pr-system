@@ -1,37 +1,29 @@
 /**
- * PR → HR read-only catalog API.
+ * PR read-only catalog + procurement API.
  *
- * PR is the canonical source of truth for COUNTRIES and ORGANIZATIONS (HR
- * is canonical for the department catalog and employee metadata). HR pulls
- * these two lists from this endpoint to replace its static
- * `config/pr_org_map.php` (see docs/HR_ORG_COUNTRY_SYNC_SPEC.md).
+ * Auth: `X-API-Key` matching any of HR_API_KEY_PR_PORTAL, PR_CATALOG_API_KEY,
+ * UGRIDPREDICT_API_KEY (see catalog/auth.ts). Cache-Control: no-store.
  *
- * Surface (HTTPS, server-to-server):
- *   GET /api/countries                  → { count, countries: [{ code, name, active }] }
- *   GET /api/organizations?country=LS   → { count, organizations: [{ id, name, countryCode, country, currency, timezoneOffset, active }] }
- *
- * Auth: `X-API-Key: <HR_API_KEY_PR_PORTAL>` header — the SAME key HR issues
- * for its own API and PR already stores in functions/.env. Reused in both
- * directions by explicit user decision (2026-07-01).
- *
- * Countries are org-independent parents; organizations are children that
- * carry a `countryCode` (ISO-2) linking back to their parent country.
+ * Existing catalog surface (camelCase, {count, items[]}):
+ *   GET /api/countries | /organizations | /sites | /vendors
+ * Brief 02 additions:
+ *   GET /api/v1/purchase-requests | /commitments | /lead-times
+ *   GET /api/categories | /expense-types
+ *   /api/vendors gains country, origin, defaultCurrency, incotermDefault
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { isRateLimited, logCatalogCall, resolveConsumer } from "./catalog/auth";
+import {
+  listCommitments,
+  listEnhancedVendors,
+  listExpenseTypes,
+  listLeadTimes,
+  listProjectCategories,
+  listPurchaseRequests,
+} from "./catalog/procurementRead";
 
 const db = admin.firestore();
-
-function apiKey(): string {
-  return String(process.env.HR_API_KEY_PR_PORTAL || "").trim();
-}
-
-function isAuthorized(req: functions.https.Request): boolean {
-  const expected = apiKey();
-  if (!expected) return false;
-  const presented = String(req.headers["x-api-key"] || "").trim();
-  return presented === expected;
-}
 
 function forbidden(res: functions.Response): void {
   res.status(403).json({ error: "Forbidden — valid X-API-Key required" });
@@ -153,13 +145,6 @@ interface SiteRow {
   canonicalUgpProjectId: string | null;
 }
 
-interface VendorRow {
-  id: string;
-  name: string;
-  email: string | null;
-  phone: string | null;
-  active: boolean;
-}
 
 async function listSites(countryFilter?: string, orgFilter?: string): Promise<{
   count: number;
@@ -195,33 +180,10 @@ async function listSites(countryFilter?: string, orgFilter?: string): Promise<{
   return { count: rows.length, sites: rows };
 }
 
-async function listVendors(): Promise<{
-  count: number;
-  vendors: VendorRow[];
-}> {
-  const snap = await db.collection("referenceData_vendors").get();
-  const rows: VendorRow[] = snap.docs.map((d) => {
-    const data = d.data() as {
-      name?: string;
-      email?: string | null;
-      phone?: string | null;
-      active?: boolean;
-    };
-    return {
-      id: String(d.id),
-      name: String(data.name || d.id),
-      email: data.email || null,
-      phone: data.phone || null,
-      active: data.active !== false,
-    };
-  }).sort((a, b) => a.name.localeCompare(b.name));
-  return { count: rows.length, vendors: rows };
-}
-
 export const prCatalogApi = functions
-  .runWith({ memory: "256MB", timeoutSeconds: 30 })
+  .runWith({ memory: "512MB", timeoutSeconds: 60 })
   .https.onRequest(async (req, res) => {
-    // CORS preflight (in case a browser tool ever probes; HR is server-side).
+    const started = Date.now();
     res.set("Access-Control-Allow-Origin", "*");
     res.set("Access-Control-Allow-Headers", "Content-Type, X-API-Key");
     res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
@@ -233,42 +195,78 @@ export const prCatalogApi = functions
       res.status(405).json({ error: "Method not allowed" });
       return;
     }
-    if (!isAuthorized(req)) {
+    const consumer = resolveConsumer(req);
+    if (!consumer) {
       forbidden(res);
       return;
     }
+    if (isRateLimited(consumer.name)) {
+      res.status(429).json({ error: "Rate limit exceeded (60 req/min per consumer)" });
+      logCatalogCall({ consumer: consumer.name, method: req.method, path: String(req.path || ""), status: 429, ms: Date.now() - started });
+      return;
+    }
 
-    // Strip a leading function-mount path segment if present (e.g. /prCatalogApi/api/countries).
     const path = String(req.path || "").replace(/^\/+/, "");
     const normalized = path.replace(/^prCatalogApi\/+/, "");
+    const q = req.query as Record<string, unknown>;
+
+    const ok = (body: unknown, status = 200) => {
+      res.status(status).set("Cache-Control", "no-store, max-age=0").json(body);
+      logCatalogCall({ consumer: consumer.name, method: req.method, path: normalized, status, ms: Date.now() - started });
+    };
 
     try {
       if (normalized === "api/countries" || normalized === "countries") {
-        const body = await listCountries();
-        res.set("Cache-Control", "no-store, max-age=0").json(body);
+        ok(await listCountries());
         return;
       }
       if (normalized === "api/organizations" || normalized === "organizations") {
         const country = String(req.query.country || "").trim();
-        const body = await listOrganizations(country || undefined);
-        res.set("Cache-Control", "no-store, max-age=0").json(body);
+        ok(await listOrganizations(country || undefined));
         return;
       }
       if (normalized === "api/sites" || normalized === "sites") {
         const country = String(req.query.country || "").trim();
         const org = String(req.query.org || "").trim();
-        const body = await listSites(country || undefined, org || undefined);
-        res.set("Cache-Control", "no-store, max-age=0").json(body);
+        ok(await listSites(country || undefined, org || undefined));
         return;
       }
-      if (normalized === "api/vendors" || normalized === "vendors") {
-        const body = await listVendors();
-        res.set("Cache-Control", "no-store, max-age=0").json(body);
+      if (
+        normalized === "api/vendors" ||
+        normalized === "vendors" ||
+        normalized === "api/v1/vendors"
+      ) {
+        ok(await listEnhancedVendors());
+        return;
+      }
+      if (normalized === "api/categories" || normalized === "api/v1/categories") {
+        ok(await listProjectCategories());
+        return;
+      }
+      if (normalized === "api/expense-types" || normalized === "api/v1/expense-types") {
+        ok(await listExpenseTypes());
+        return;
+      }
+      if (
+        normalized === "api/v1/purchase-requests" ||
+        normalized === "api/v1/purchaseRequests"
+      ) {
+        ok(await listPurchaseRequests(q));
+        return;
+      }
+      if (normalized === "api/v1/commitments") {
+        ok(await listCommitments(q));
+        return;
+      }
+      if (normalized === "api/v1/lead-times" || normalized === "api/v1/leadTimes") {
+        ok(await listLeadTimes(q));
         return;
       }
       notFound(res);
+      logCatalogCall({ consumer: consumer.name, method: req.method, path: normalized, status: 404, ms: Date.now() - started });
     } catch (err) {
       console.error("[prCatalogApi] error:", err);
       res.status(500).json({ error: "Internal error" });
+      logCatalogCall({ consumer: consumer.name, method: req.method, path: normalized, status: 500, ms: Date.now() - started });
     }
   });

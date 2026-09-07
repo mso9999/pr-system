@@ -123,6 +123,10 @@ export interface PRRequest {
   projectCategory: string;
   /** Detailed description of what is being requested */
   description: string;
+  /** UGP part IDs mined from the description (brief 02). Never overwrite human with AI. */
+  ugpPartIds?: string[];
+  mappingConfidence?: number;
+  mappingSource?: 'ai' | 'human' | 'rule';
   /** Sites or locations where items are needed (multiple selection) */
   sites: string[];
   /** @deprecated Use sites instead. Site or location where items are needed (legacy single site) */
