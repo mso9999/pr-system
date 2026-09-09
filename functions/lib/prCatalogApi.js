@@ -49,6 +49,7 @@ exports.prCatalogApi = void 0;
  */
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
+const archiveRead_1 = require("./catalog/archiveRead");
 const auth_1 = require("./catalog/auth");
 const procurementRead_1 = require("./catalog/procurementRead");
 const db = admin.firestore();
@@ -216,6 +217,10 @@ exports.prCatalogApi = functions
             ok(await (0, procurementRead_1.listPurchaseRequests)(q));
             return;
         }
+        if (normalized === "api/v1/archived-purchase-requests") {
+            ok(await (0, archiveRead_1.listArchivedPurchaseRequests)(q));
+            return;
+        }
         if (normalized === "api/v1/commitments") {
             ok(await (0, procurementRead_1.listCommitments)(q));
             return;
@@ -228,6 +233,11 @@ exports.prCatalogApi = functions
         (0, auth_1.logCatalogCall)({ consumer: consumer.name, method: req.method, path: normalized, status: 404, ms: Date.now() - started });
     }
     catch (err) {
+        if (err instanceof archiveRead_1.ArchiveQueryError) {
+            res.status(400).json({ error: err.message });
+            (0, auth_1.logCatalogCall)({ consumer: consumer.name, method: req.method, path: normalized, status: 400, ms: Date.now() - started });
+            return;
+        }
         console.error("[prCatalogApi] error:", err);
         res.status(500).json({ error: "Internal error" });
         (0, auth_1.logCatalogCall)({ consumer: consumer.name, method: req.method, path: normalized, status: 500, ms: Date.now() - started });

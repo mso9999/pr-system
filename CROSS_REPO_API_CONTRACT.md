@@ -46,6 +46,44 @@ AM's `am_reference_sites` cache fresh in real time.
 - Commitment: `month, organization, organizationId, site, category, committedAmount, currency, prCount, earliestExpected, latestExpected`. Cash month = `expectedDelivery || orderedAt || createdAt`. APPROVED/ORDERED only; delivered excluded.
 - Lead time: `vendorId, category, origin, n, daysOrderToDelivery{p50,p80,p95,mean}, daysRequestToOrder{...}, window, lowConfidence`
 
+## Purchasing detail extension — 9 Sep 2026 (local, awaiting deployment)
+
+Existing `GET /api/v1/purchase-requests` and `/api/v1/purchaseRequests` retain authentication, filters, order and pagination. The additions below are additive. Existing fields, including the legacy `deliveredAt` fallback to COMPLETED history, retain their previous behavior; that field is **not AM receipt evidence**.
+
+Each live request now exposes:
+
+- `sourceCollection: "purchaseRequests"`.
+- `lineItems[]`: the stored request `lineItems`, with `quantityBasis.lineItems: "requested"`.
+- `poLineItems[]`: stored `lineItemsWithSKU`, with `quantityBasis.poLineItems: "recorded_po_lines"`. No fallback, merge or summation between these arrays. A recorded PO line may be a draft/amendment and does not certify approval or delivery.
+- `lineItemsStatus` and `poLineItemsStatus`: `available`, `empty`, `missing`, or `invalid`. Available means the array exists, not that each line is valid; inspect line issues.
+- `receiptEvidenceStatus: "not_connected"`. Received/outstanding quantities cannot yet be established from this API; do not subtract guessed receipts from requested quantities.
+
+Each line contains `id` (nullable source ID), `sourceIndex` (zero-based position, **not a stable line ID**), `lineNumber` (nullable), `itemNumber` (nullable SKU), `description`, `notes`, `quantity`, `uom`, `attachmentCount`, `hasFileLink`, and `issues[]`.
+
+Finite nonnegative quantities preserve decimal precision and measured zero. Simple decimal numeric strings are accepted; booleans, blanks, negative/nonfinite values and non-decimal text become null with `quantity_unknown_or_invalid`. Units are preserved, not guessed or converted. Missing/duplicate IDs, missing descriptions/units and malformed rows are explicit issues; malformed rows are not silently discarded. No synthetic source IDs are generated. PO lines without IDs retain their recorded line number and SKU.
+
+Attachment counts/file-link presence support follow-up, but signed URLs, upload identities and arbitrary nested data are excluded. This extension does not retrieve documents or mine prices, mappings or stock.
+
+Example: `/api/v1/purchase-requests?organization=smp&site=mashai_smp&limit=100`.
+The existing `count` is the **total matching request count**, not page length. `items.length` is page length; pass `nextCursor` back as `cursor`. Sites and organization filters retain their existing exact-reference behavior: do not assume bare MAS automatically resolves every inherited organization record.
+
+### Explicit historical read
+
+`GET /api/v1/archived-purchase-requests?limit=100&cursor=...` reads `archivePRs` only, using the same GET-only, API-key, rate-limit and no-store controls. It is a separate endpoint so archives never enter live commitments or lead-time calculations.
+
+- `limit`: integer 1–500, default 100. Only `limit` and `cursor` are accepted; unsupported filters or malformed/cross-source cursors return 400 rather than silently ignoring them.
+- Ordered by Firestore document ID, with a bounded read of at most limit+1 documents. No custom Firestore index required. Cursor resumes after the last returned ID even if that record is later removed.
+- Envelope `{count, items, nextCursor}`: **archive count is returned page length**, not collection total. Stop only when `nextCursor` is null. This endpoint does not implement organization/site/date/search filtering; consumers may filter captured pages. Record the full traversal period; this is not a frozen database transaction.
+- Fields: `id`, `sourceCollection: "archivePRs"`, `submittedDate`, `importedAt`, `organization`, `site`, `description`, `reason`, `category`, `vendorName`, `vendorCode`, `status`, `lineItems`, `lineItemsStatus`, `quantityBasis: "legacy_record_only"`, `receiptEvidenceStatus: "not_connected"`, `attachmentCount`.
+- Original date strings and organization/site labels are preserved. No canonical IDs, completion status, quantities, delivery dates or receipt evidence are inferred. Missing fields stay null/missing. Historical `lineItems` are projected only if actually stored; descriptions are not parsed into invented lines.
+- Requestor identities, originalData, raw legacy responses, attachment URLs and import-user metadata are excluded. No archive source files are exposed.
+
+### Verification and release
+
+Run `./node_modules/.bin/vitest run --config functions/vitest.config.ts` (35 tests) and `./functions/node_modules/.bin/tsc -p functions/tsconfig.json --noEmit`. Tests use a dedicated local Firestore double; no production data or credentials are needed.
+
+Build tracked functions output before release. Deploy only through the repository's safe explicit-selector script per AGENTS.md; never the unsafe functions-package deploy command or bare Firebase functions deploy. This task has not deployed, changed authentication, altered source records, or implemented the PR–AM receipt-closeout workflow.
+
 ## Identity (Phase 2)
 
 PR reads identity + permissions from `nexus_users/{uid}.systemAccess.pr`

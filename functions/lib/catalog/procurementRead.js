@@ -49,6 +49,7 @@ exports.listExpenseTypes = listExpenseTypes;
  * statusHistory) — no AM movements join required.
  */
 const admin = __importStar(require("firebase-admin"));
+const procurementLines_1 = require("./procurementLines");
 const stats_1 = require("./stats");
 const vendorOrigin_1 = require("./vendorOrigin");
 Object.defineProperty(exports, "deriveVendorOrigin", { enumerable: true, get: function () { return vendorOrigin_1.deriveVendorOrigin; } });
@@ -89,6 +90,8 @@ function firstHistory(hist, status) {
 }
 function loadRawPr(id, data) {
     var _a;
+    const requestLines = (0, procurementLines_1.projectLines)(data.lineItems);
+    const poLines = (0, procurementLines_1.projectLines)(data.lineItemsWithSKU);
     const hist = Array.isArray(data.statusHistory) ? data.statusHistory : [];
     const sites = [];
     if (Array.isArray(data.sites)) {
@@ -138,6 +141,8 @@ function loadRawPr(id, data) {
         mappingConfidence: asNumber(data.mappingConfidence),
         mappingSource: source === "ai" || source === "human" || source === "rule" ? source : null,
         incoterm: asString(data.incoterm) || null,
+        lineItems: requestLines.items, lineItemsStatus: requestLines.status,
+        poLineItems: poLines.items, poLineItemsStatus: poLines.status,
     };
 }
 async function loadAllLivePrs() {
@@ -178,6 +183,11 @@ function toRow(p) {
         mappingConfidence: p.mappingConfidence,
         mappingSource: p.mappingSource,
         incoterm: p.incoterm,
+        lineItems: p.lineItems, lineItemsStatus: p.lineItemsStatus,
+        poLineItems: p.poLineItems, poLineItemsStatus: p.poLineItemsStatus,
+        quantityBasis: { lineItems: "requested", poLineItems: "recorded_po_lines" },
+        receiptEvidenceStatus: "not_connected",
+        sourceCollection: "purchaseRequests",
     };
 }
 function matchesFilters(p, q) {

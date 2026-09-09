@@ -7,6 +7,7 @@
  * statusHistory) — no AM movements join required.
  */
 import * as admin from "firebase-admin";
+import { projectLines, ProcurementLine, LineDataStatus } from "./procurementLines";
 import { daysBetween, percentileBlock, PercentileBlock } from "./stats";
 import { deriveVendorOrigin, VendorOrigin } from "./vendorOrigin";
 
@@ -75,9 +76,15 @@ interface RawPr {
   mappingConfidence: number | null;
   mappingSource: "ai" | "human" | "rule" | null;
   incoterm: string | null;
+  lineItems: ProcurementLine[];
+  lineItemsStatus: LineDataStatus;
+  poLineItems: ProcurementLine[];
+  poLineItemsStatus: LineDataStatus;
 }
 
 function loadRawPr(id: string, data: FirebaseFirestore.DocumentData): RawPr {
+  const requestLines = projectLines(data.lineItems);
+  const poLines = projectLines(data.lineItemsWithSKU);
   const hist = Array.isArray(data.statusHistory) ? data.statusHistory : [];
   const sites: string[] = [];
   if (Array.isArray(data.sites)) {
@@ -124,6 +131,8 @@ function loadRawPr(id: string, data: FirebaseFirestore.DocumentData): RawPr {
     mappingConfidence: asNumber(data.mappingConfidence),
     mappingSource: source === "ai" || source === "human" || source === "rule" ? source : null,
     incoterm: asString(data.incoterm) || null,
+    lineItems: requestLines.items, lineItemsStatus: requestLines.status,
+    poLineItems: poLines.items, poLineItemsStatus: poLines.status,
   };
 }
 
@@ -165,6 +174,13 @@ export interface PurchaseRequestRow {
   mappingConfidence: number | null;
   mappingSource: "ai" | "human" | "rule" | null;
   incoterm: string | null;
+  lineItems: ProcurementLine[];
+  lineItemsStatus: LineDataStatus;
+  poLineItems: ProcurementLine[];
+  poLineItemsStatus: LineDataStatus;
+  quantityBasis: { lineItems: "requested"; poLineItems: "recorded_po_lines" };
+  receiptEvidenceStatus: "not_connected";
+  sourceCollection: "purchaseRequests";
 }
 
 function toRow(p: RawPr): PurchaseRequestRow {
@@ -193,6 +209,11 @@ function toRow(p: RawPr): PurchaseRequestRow {
     mappingConfidence: p.mappingConfidence,
     mappingSource: p.mappingSource,
     incoterm: p.incoterm,
+    lineItems: p.lineItems, lineItemsStatus: p.lineItemsStatus,
+    poLineItems: p.poLineItems, poLineItemsStatus: p.poLineItemsStatus,
+    quantityBasis: { lineItems: "requested", poLineItems: "recorded_po_lines" },
+    receiptEvidenceStatus: "not_connected",
+    sourceCollection: "purchaseRequests",
   };
 }
 

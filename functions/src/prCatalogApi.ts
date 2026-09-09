@@ -13,6 +13,7 @@
  */
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { ArchiveQueryError, listArchivedPurchaseRequests } from "./catalog/archiveRead";
 import { isRateLimited, logCatalogCall, resolveConsumer } from "./catalog/auth";
 import {
   listCommitments,
@@ -254,6 +255,10 @@ export const prCatalogApi = functions
         ok(await listPurchaseRequests(q));
         return;
       }
+      if (normalized === "api/v1/archived-purchase-requests") {
+        ok(await listArchivedPurchaseRequests(q));
+        return;
+      }
       if (normalized === "api/v1/commitments") {
         ok(await listCommitments(q));
         return;
@@ -265,6 +270,11 @@ export const prCatalogApi = functions
       notFound(res);
       logCatalogCall({ consumer: consumer.name, method: req.method, path: normalized, status: 404, ms: Date.now() - started });
     } catch (err) {
+      if (err instanceof ArchiveQueryError) {
+        res.status(400).json({ error: err.message });
+        logCatalogCall({ consumer: consumer.name, method: req.method, path: normalized, status: 400, ms: Date.now() - started });
+        return;
+      }
       console.error("[prCatalogApi] error:", err);
       res.status(500).json({ error: "Internal error" });
       logCatalogCall({ consumer: consumer.name, method: req.method, path: normalized, status: 500, ms: Date.now() - started });
