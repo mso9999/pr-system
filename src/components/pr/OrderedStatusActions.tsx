@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import AmReceiptStatus from './AmReceiptStatus';
+import AmReceiptEnrollment from './AmReceiptEnrollment';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -591,7 +592,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
 
   return (
     <Box>
-      <>{(pr as PRRequest & {receiptEnforced?: boolean}).receiptEnforced && <AmReceiptStatus prId={pr.id} />}</>
+      <>{(pr as PRRequest & {receiptEnforced?: boolean}).receiptEnforced ? <AmReceiptStatus prId={pr.id} /> : isAdmin && <AmReceiptEnrollment pr={pr} onEnrolled={onStatusChange} />}</>
       {/* Previous Status Documents - read-only by default; Procurement and
           Admin can opt into Replace mode to update Proforma / PoP. The PO
           Document itself stays locked here — PO changes go through the

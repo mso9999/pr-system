@@ -37,6 +37,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.confirmAmUgpMapping = void 0;
+const country_1 = require("./country");
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const crypto_1 = require("crypto");
@@ -75,7 +76,7 @@ exports.confirmAmUgpMapping = functions.https.onCall(async (data, context) => {
             if (p.scopeOrganizations.length &&
                 !p.scopeOrganizations.includes(asset.organization_id))
                 throw new Error("Item organization is outside your scope");
-            const country = (await tx.get(db.collection("pr_master_countries").doc(String(asset.country_id)))).data();
+            const country = await (0, country_1.amCountry)(tx, asset.country_id);
             const iso2 = (country === null || country === void 0 ? void 0 : country.iso2) || (country === null || country === void 0 ? void 0 : country.country_code_2) || (country === null || country === void 0 ? void 0 : country.code);
             if (p.scopeCountries.length && !p.scopeCountries.includes(iso2))
                 throw new Error("Item country is outside your scope");

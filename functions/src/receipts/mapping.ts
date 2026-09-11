@@ -1,3 +1,4 @@
+import { amCountry } from "./country";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { randomUUID } from "crypto";
@@ -60,11 +61,7 @@ export const confirmAmUgpMapping = functions.https.onCall(
           !p.scopeOrganizations.includes(asset.organization_id)
         )
           throw new Error("Item organization is outside your scope");
-        const country = (
-          await tx.get(
-            db.collection("pr_master_countries").doc(String(asset.country_id)),
-          )
-        ).data();
+        const country = await amCountry(tx, asset.country_id);
         const iso2 = country?.iso2 || country?.country_code_2 || country?.code;
         if (p.scopeCountries.length && !p.scopeCountries.includes(iso2))
           throw new Error("Item country is outside your scope");

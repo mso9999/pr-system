@@ -50,8 +50,8 @@ const call = (fn, data, ctx) => fn.run(data, ctx);
       organizationId: "smp",
     });
   await db
-    .doc("pr_master_countries/lesotho")
-    .set({ iso2: "LS", country_code: "LSO" });
+    .doc("pr_master_countries/LSO")
+    .set({ country_id: "1", iso2: "LS", country_code: "LSO" });
   await db
     .doc("am_core_assets/asset")
     .set({
@@ -59,7 +59,7 @@ const call = (fn, data, ctx) => fn.run(data, ctx);
       item_class: "Material",
       unit_of_measure: "EA",
       organization_id: "smp",
-      country_id: "lesotho",
+      country_id: "1",
       active: true,
     });
   await db
@@ -100,6 +100,9 @@ const call = (fn, data, ctx) => fn.run(data, ctx);
   await db.doc("am_core_inventory_levels/duplicate").set({asset_id:"asset",location_id:"LSO-MAS",quantity_on_hand:0,quantity_allocated:0});
   await assert.rejects(call(svc.enrollPrReceiptPilot,enroll,pr),/reconciliation/);
   await db.doc("am_core_inventory_levels/duplicate").delete();
+  await db.doc("pr_master_countries/duplicate").set({country_id:"1",iso2:"LS",country_code:"LSO"});
+  await assert.rejects(call(svc.enrollPrReceiptPilot,enroll,pr),/ambiguous/);
+  await db.doc("pr_master_countries/duplicate").delete();
   const policy = await call(svc.enrollPrReceiptPilot, enroll, pr);
   const receipt = {
     prId: "po",
@@ -237,7 +240,7 @@ const call = (fn, data, ctx) => fn.run(data, ctx);
       item_class: "Material",
       unit_of_measure: "EA",
       organization_id: "smp",
-      country_id: "lesotho",
+      country_id: "1",
       active: true,
     });
   const map = {

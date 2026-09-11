@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.reverseAmOrderReceipt = exports.completeReceiptControlledPr = exports.recordAmOrderReceipt = exports.enrollPrReceiptPilot = void 0;
+const country_1 = require("./country");
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const crypto_1 = require("crypto");
@@ -186,8 +187,7 @@ exports.enrollPrReceiptPilot = handler(async (data, context) => {
             if ((0, policy_1.unit)(asset.unit_of_measure) !== (0, policy_1.unit)(row.uom))
                 throw new Error("Exact compatible units are required; kits and substitutions need separate approval");
             // PR code is canonical; AM country/location code must be explicit, never suffix matched.
-            const countries = await tx.get(db.collection("pr_master_countries").doc(String(asset.country_id)));
-            const amCountry = countries.data();
+            const amCountry = await (0, country_1.amCountry)(tx, asset.country_id);
             const iso2 = (amCountry === null || amCountry === void 0 ? void 0 : amCountry.iso2) || (amCountry === null || amCountry === void 0 ? void 0 : amCountry.country_code_2) || (amCountry === null || amCountry === void 0 ? void 0 : amCountry.code);
             if (iso2 !== country)
                 throw new Error("AM/PR country identity requires an explicit matching ISO2 value");

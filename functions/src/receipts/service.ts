@@ -1,3 +1,4 @@
+import { amCountry as resolveAmCountry } from "./country";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { randomUUID } from "crypto";
@@ -216,10 +217,7 @@ export const enrollPrReceiptPilot = handler(async (data, context) => {
           "Exact compatible units are required; kits and substitutions need separate approval",
         );
       // PR code is canonical; AM country/location code must be explicit, never suffix matched.
-      const countries = await tx.get(
-        db.collection("pr_master_countries").doc(String(asset.country_id)),
-      );
-      const amCountry = countries.data();
+      const amCountry = await resolveAmCountry(tx, asset.country_id);
       const iso2 =
         amCountry?.iso2 || amCountry?.country_code_2 || amCountry?.code;
       if (iso2 !== country)
