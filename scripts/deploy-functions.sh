@@ -15,9 +15,20 @@
 #
 # Usage:  scripts/deploy-functions.sh            # deploy all of this repo's functions
 #         scripts/deploy-functions.sh --dry-run  # print the selector list only
+#         scripts/deploy-functions.sh --functions=prCatalogApi [--dry-run]
 #
 set -euo pipefail
 cd "$(dirname "$0")/.."
+
+DRY_RUN=false
+export PR_DEPLOY_FUNCTIONS=""
+for argument in "$@"; do
+  case "$argument" in
+    --dry-run) DRY_RUN=true ;;
+    --functions=*) PR_DEPLOY_FUNCTIONS="${argument#--functions=}"; [ -n "$PR_DEPLOY_FUNCTIONS" ] || { echo "Function names required" >&2; exit 1; } ;;
+    *) echo "Unknown argument: $argument" >&2; exit 1 ;;
+  esac
+done
 
 if [ ! -f functions/lib/index.js ]; then
   echo "functions/lib/index.js missing — building first..." >&2
@@ -29,13 +40,17 @@ SELECTORS=$(GCLOUD_PROJECT=deploy-dry-run node -e "
 const idx = require('./functions/lib/index.js');
 const names = Object.keys(idx).filter(k => idx[k] && idx[k].__endpoint);
 if (!names.length) { console.error('no functions exported from lib/index.js'); process.exit(1); }
-console.log(names.map(n => 'functions:' + n).join(','));
-" 2>/dev/null | grep '^functions:')
+const requested = process.env.PR_DEPLOY_FUNCTIONS ? process.env.PR_DEPLOY_FUNCTIONS.split(',') : names;
+if (requested.some(n => !names.includes(n)) || new Set(requested).size !== requested.length) {
+  console.error('Every requested function must be a unique export of this repository'); process.exit(1);
+}
+console.log(requested.map(n => 'functions:' + n).join(','));
+" | grep '^functions:')
 
 COUNT=$(echo "$SELECTORS" | tr ',' '\n' | wc -l | tr -d ' ')
-echo "Repo exports $COUNT functions."
+echo "Selected $COUNT repository functions."
 
-if [ "${1:-}" = "--dry-run" ]; then
+if [ "$DRY_RUN" = true ]; then
   echo "$SELECTORS" | tr ',' '\n' | sed 's/^functions:/  - /'
   exit 0
 fi
