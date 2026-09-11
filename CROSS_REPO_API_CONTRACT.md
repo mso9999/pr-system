@@ -113,3 +113,12 @@ the return token (`?sso_token=&from=nexus`) is consumed by
 project). **Emergency fallback:** the local login stays reachable at
 `/login?fallback=1` (Firebase email/password). Full flow + outage procedure:
 `nexus-portal/docs/NEXUS_AUTH_RUNBOOK.md`.
+
+
+## Prospective AM receipt pilot — local implementation, 10 September 2026
+
+New signed-Nexus callables: `enrollPrReceiptPilot` (PR administrator),
+`recordAmOrderReceipt` / `reverseAmOrderReceipt` / `confirmAmUgpMapping` (AM approver),
+and `completeReceiptControlledPr` (PR procurement/admin). See
+[the pilot contract and release boundaries](docs/PR_AM_PILOT_IMPLEMENTATION_20260910.md).
+These are not deployed API guarantees yet. Existing purchase reads do not establish AM receipts.

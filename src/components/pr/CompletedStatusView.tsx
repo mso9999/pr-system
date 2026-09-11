@@ -1,3 +1,4 @@
+import AmReceiptStatus from './AmReceiptStatus';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSnackbar } from 'notistack';
@@ -65,6 +66,7 @@ export const CompletedStatusView: React.FC<CompletedStatusViewProps> = ({ pr }) 
 
   return (
     <Box>
+      {(pr as PRRequest & {receiptEnforced?: boolean}).receiptEnforced && <AmReceiptStatus prId={pr.id} />}
       <Paper elevation={2} sx={{ p: 3, mb: 3, bgcolor: 'success.light' }}>
         <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           ✅ {t('pr.orderCompleted')}

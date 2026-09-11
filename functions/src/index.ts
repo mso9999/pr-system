@@ -495,3 +495,6 @@ export const sendTestEmail = functions.https.onCall(async (data, context) => {
 
 // Note: testSendGrid has been replaced by sendTestEmail which now uses SMTP
 // export { testSendGrid } from './testSendGrid';
+// Prospective AM-receipt-controlled closeout; shares one atomic Firestore transaction.
+export { enrollPrReceiptPilot, recordAmOrderReceipt, completeReceiptControlledPr, reverseAmOrderReceipt } from './receipts/service';
+export { confirmAmUgpMapping } from './receipts/mapping';

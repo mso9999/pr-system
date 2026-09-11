@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AmReceiptStatus from './AmReceiptStatus';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
@@ -454,6 +455,12 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
     }
 
     try {
+      // Receipt-controlled orders must close successfully before vendor-approval side effects.
+      if ((pr as PRRequest & {receiptEnforced?: boolean}).receiptEnforced) {
+        await prService.updatePRStatus(pr.id, PRStatus.COMPLETED,
+          orderSatisfactory === 'yes' ? 'Order completed successfully' : `Order issues: ${issueNote}`,
+          {id: currentUser.id, email: currentUser.email, name: currentUser.name || currentUser.email});
+      }
       // Fetch organization config for vendor approval durations
       const orgId = pr.organization || currentUser.organization || '';
       const orgConfig = await organizationService.getOrganizationById(orgId);
@@ -558,7 +565,7 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
       );
 
       // SECOND: Update additional fields like completedAt
-      await prService.updatePR(pr.id, {
+      if (!(pr as PRRequest & {receiptEnforced?: boolean}).receiptEnforced) await prService.updatePR(pr.id, {
         completedAt: new Date().toISOString(),
         notes: orderSatisfactory === 'no' ? `Order issues: ${issueNote}` : pr.notes
       });
@@ -578,12 +585,13 @@ export const OrderedStatusActions: React.FC<OrderedStatusActionsProps> = ({
       navigate('/dashboard');
     } catch (error) {
       console.error('Error completing PO:', error);
-      enqueueSnackbar('Failed to complete PO', { variant: 'error' });
+      enqueueSnackbar(error instanceof Error ? error.message : 'Failed to complete PO', { variant: 'error' });
     }
   };
 
   return (
     <Box>
+      <>{(pr as PRRequest & {receiptEnforced?: boolean}).receiptEnforced && <AmReceiptStatus prId={pr.id} />}</>
       {/* Previous Status Documents - read-only by default; Procurement and
           Admin can opt into Replace mode to update Proforma / PoP. The PO
           Document itself stays locked here — PO changes go through the

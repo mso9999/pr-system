@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.saveProvisioningMenu = exports.saveProvisioningDefaults = exports.retireProvisioningPrice = exports.saveProvisioningPrice = exports.retireProvisioningRation = exports.saveProvisioningRation = exports.listProvisioningCatalog = exports.fleetPrLinkOnCreate = exports.validateFleetWorkOrderForPr = exports.getFleetWorkOrder = exports.listFleetWorkOrders = exports.fleetSmokeTest = exports.getFleetMission = exports.listFleetMissions = exports.prCatalogApi = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.getPrApprovers = exports.createUser = exports.updateUserEmail = exports.updateUserPassword = exports.updateSiteCoordinates = exports.repointCanonicalUgpProject = exports.linkUgpProject = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
+exports.confirmAmUgpMapping = exports.reverseAmOrderReceipt = exports.completeReceiptControlledPr = exports.recordAmOrderReceipt = exports.enrollPrReceiptPilot = exports.sendTestEmail = exports.processNotifications = exports.sendRevisionRequiredNotification = exports.saveProvisioningMenu = exports.saveProvisioningDefaults = exports.retireProvisioningPrice = exports.saveProvisioningPrice = exports.retireProvisioningRation = exports.saveProvisioningRation = exports.listProvisioningCatalog = exports.fleetPrLinkOnCreate = exports.validateFleetWorkOrderForPr = exports.getFleetWorkOrder = exports.listFleetWorkOrders = exports.fleetSmokeTest = exports.getFleetMission = exports.listFleetMissions = exports.prCatalogApi = exports.reconcileDepartmentCatalog = exports.runDepartmentCatalogSyncNow = exports.nightlyDepartmentCatalogSync = exports.hrSmokeTest = exports.refreshUserFromHr = exports.runHrEmployeeSyncNow = exports.nightlyHrEmployeeSync = exports.weeklyHrReconciliation = exports.reconcileHrEmployees = exports.authUserCreated = exports.runUserSyncAudit = exports.weeklyUserSyncAudit = exports.getPrApprovers = exports.createUser = exports.updateUserEmail = exports.updateUserPassword = exports.updateSiteCoordinates = exports.repointCanonicalUgpProject = exports.linkUgpProject = exports.fanoutSiteChanges = exports.ingestUgpSite = exports.sendDailyQuoteConflictReminders = exports.deliveryDelayCheck = exports.urgentReminders = exports.dailyReminders = exports.dailyVendorExpiryCheck = void 0;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const emailSender_1 = require("./utils/emailSender");
@@ -444,4 +444,12 @@ exports.sendTestEmail = functions.https.onCall(async (data, context) => {
 });
 // Note: testSendGrid has been replaced by sendTestEmail which now uses SMTP
 // export { testSendGrid } from './testSendGrid';
+// Prospective AM-receipt-controlled closeout; shares one atomic Firestore transaction.
+var service_1 = require("./receipts/service");
+Object.defineProperty(exports, "enrollPrReceiptPilot", { enumerable: true, get: function () { return service_1.enrollPrReceiptPilot; } });
+Object.defineProperty(exports, "recordAmOrderReceipt", { enumerable: true, get: function () { return service_1.recordAmOrderReceipt; } });
+Object.defineProperty(exports, "completeReceiptControlledPr", { enumerable: true, get: function () { return service_1.completeReceiptControlledPr; } });
+Object.defineProperty(exports, "reverseAmOrderReceipt", { enumerable: true, get: function () { return service_1.reverseAmOrderReceipt; } });
+var mapping_1 = require("./receipts/mapping");
+Object.defineProperty(exports, "confirmAmUgpMapping", { enumerable: true, get: function () { return mapping_1.confirmAmUgpMapping; } });
 //# sourceMappingURL=index.js.map

@@ -21,7 +21,8 @@ import {
   or,
   and,
 } from 'firebase/firestore';
-import { getFirestore } from 'firebase/firestore'; 
+import { getFirestore } from 'firebase/firestore';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { app, auth } from '@/config/firebase'; 
 // import { logger } from '@/utils/logger';
 import { PRRequest, PRStatus, UserReference, HistoryItem, LineItem, ApprovalWorkflow, StatusHistoryItem, ApprovalHistoryItem, PendingAmendment, AmendmentHistoryItem } from '@/types/pr';
@@ -427,6 +428,11 @@ export async function updatePRStatus(
             throw new Error(`PR with ID ${prId} not found for status update.`);
         }
         const currentData = currentPRSnap.data();
+        if (status === PRStatus.COMPLETED && currentData.receiptEnforced === true) {
+            await httpsCallable(getFunctions(app), 'completeReceiptControlledPr')({prId, note: notes || 'Order completion requested after AM receipt verification'});
+            return;
+        }
+
         const currentStatus = currentData.status as PRStatus;
         // Use statusHistory array
         const currentStatusHistory: StatusHistoryItem[] = currentData.statusHistory || []; 
