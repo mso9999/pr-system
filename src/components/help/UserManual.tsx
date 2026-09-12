@@ -143,7 +143,7 @@ function findMatchingSnippet(term: string, contentKeys: string[], t: (key: strin
 }
 
 export const UserManual: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [tabValue, setTabValue] = useState(0);
   const [searchTerm, setSearchTerm] = useState('');
   const { user } = useSelector((state: RootState) => state.auth);
@@ -195,6 +195,23 @@ export const UserManual: React.FC = () => {
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       <Paper sx={{ p: 3 }}>
+        <Accordion sx={{ mb: 3 }}>
+          <AccordionSummary expandIcon={<ExpandIcon />}>
+            <Typography>{i18n.language.startsWith('fr') ? 'Réceptions AM obligatoires avant clôture' : 'AM receipt checks before order closeout'}</Typography>
+          </AccordionSummary>
+          <AccordionDetails>
+            <Typography paragraph>{i18n.language.startsWith('fr')
+              ? 'Dans une commande ORDERED, un administrateur PR utilise « Set up AM receipt checks » pour sélectionner le site, le propriétaire et l’article AM exact pour chaque ligne approuvée. Il vérifie les spécifications, les unités et la référence d’approbation avant activation.'
+              : 'On an ORDERED purchase order, a PR administrator uses Set up AM receipt checks to select the destination, owner and exact AM item for every approved line. Verify the specifications, units and approval reference before enabling it.'}</Typography>
+            <Typography paragraph>{i18n.language.startsWith('fr')
+              ? 'L’approbateur AM suit le lien de réception dans PR et enregistre les quantités acceptées avec la référence du bon de livraison. Ne ressaisissez pas des biens déjà enregistrés dans AM. Les réceptions partielles maintiennent la commande ouverte ; les photos ne remplacent pas la confirmation AM.'
+              : 'The AM approver follows the receipt link in PR and records accepted quantities with a delivery-note reference. Do not enter goods already recorded in AM. Partial receipts keep the order open; delivery photos cannot replace AM confirmation.'}</Typography>
+            <Alert severity="info">{i18n.language.startsWith('fr')
+              ? 'Pilote : biens en unités entières et stocks réconciliés. Les écarts de stock, conversions, services, modifications et retours partiels nécessitent une réconciliation. Un retour intégral après clôture signale une exception à examiner.'
+              : 'Pilot: whole-unit goods and reconciled stock. Stock differences, conversions, services, amendments and partial returns require reconciliation. A full return after closeout flags an exception for review.'}</Alert>
+            <Button href="https://am.1pwrafrica.com/help.php#pr-am-receipts" target="_blank" rel="noopener noreferrer">{i18n.language.startsWith('fr') ? 'Ouvrir le guide AM' : 'Open the AM receipt and mapping guide'}</Button>
+          </AccordionDetails>
+        </Accordion>
         {/* Header */}
         <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Box>
