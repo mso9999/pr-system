@@ -122,3 +122,15 @@ New signed-Nexus callables: `enrollPrReceiptPilot` (PR administrator),
 and `completeReceiptControlledPr` (PR procurement/admin). See
 [the pilot contract and release boundaries](docs/PR_AM_PILOT_IMPLEMENTATION_20260910.md).
 These are not deployed API guarantees yet. Existing purchase reads do not establish AM receipts.
+
+## AM joint reconciliation callable
+
+`saveAmReconciliation` is hosted in PR but authorizes signed Nexus AM approvers only.
+It accepts a unique eventId, MAS ugpPartId, selected assetIds and displayed identity
+snapshots, RET participant, decision/evidence, joint-check flags and follow-up owner/date.
+It validates scope, current identity, units and conflicting links. Identical-part
+publication atomically writes AM's shared definition, canonical names/numbers and
+search aliases, photo-definition associations and immutable review evidence. Other
+outcomes create assigned tasks or rejection evidence. Retries reuse eventId and are
+idempotent; stock quantities are never changed. The RET name is a recorded attestation,
+not a separate login. Deploy this callable only through the repository safe selector.
