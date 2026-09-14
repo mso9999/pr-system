@@ -498,3 +498,4 @@ export const sendTestEmail = functions.https.onCall(async (data, context) => {
 // Prospective AM-receipt-controlled closeout; shares one atomic Firestore transaction.
 export { enrollPrReceiptPilot, recordAmOrderReceipt, completeReceiptControlledPr, reverseAmOrderReceipt } from './receipts/service';
 export { confirmAmUgpMapping } from './receipts/mapping';
+export { saveAmReconciliation } from './receipts/reconciliation';
