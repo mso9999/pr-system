@@ -1,6 +1,6 @@
 import * as admin from 'firebase-admin';
 import * as functions from 'firebase-functions';
-import { id, unit, hash, Row, stockItem, signedGrant } from './policy';
+import { id, unit, hash, Row, stockItem, signedGrant, assetInOrganizationScope } from './policy';
 import { amCountry } from './country';
 import review from './masMappingReview.json';
 
@@ -44,7 +44,7 @@ export const saveAmReconciliation = functions.https.onCall(async (data, context)
         if (!asset || !stockItem(asset)) throw new Error('Every selection must be an active stock item.');
         const country = await amCountry(tx, asset.country_id);
         if ((country?.iso2 || country?.country_code_2 || country?.code) !== 'LS') throw new Error('Only Lesotho items can be reconciled in this pilot.');
-        if (grant.scopeOrganizations.length && !grant.scopeOrganizations.includes(asset.organization_id)) throw new Error('An item is outside your organization scope.');
+        if (!assetInOrganizationScope(grant.scopeOrganizations, asset, country)) throw new Error('An item is outside your organization scope.');
         // Compare identity fields, not stock quantity; a delivery need not invalidate a review.
         const expected = data.expectedAssets?.[snap.id];
         const identity = { name: asset.name || '', unit: asset.unit_of_measure || '', ugpPartId: asset.ugp_part_id || '', definitionId: asset.definition_id || '', manufacturer: asset.manufacturer || '', model: asset.model || '', description: asset.description || '' };

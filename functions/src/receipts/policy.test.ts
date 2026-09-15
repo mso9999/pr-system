@@ -7,6 +7,8 @@ import {
   ReceiptLine,
   units,
   unit,
+  assetInOrganizationScope,
+  resolveAmAssetOrgId,
 } from "./policy";
 const order = {
   status: "ORDERED",
@@ -74,5 +76,37 @@ describe("prospective AM receipt closeout", () => {
         false,
       );
     }
+  });
+});
+
+describe("AM organization scope (workshop / mapping)", () => {
+  const ls = { iso2: "LS", country_code: "LSO" };
+  it("resolves missing asset organization_id from Lesotho country", () => {
+    expect(resolveAmAssetOrgId({}, ls)).toBe("1pwr_lesotho");
+    expect(resolveAmAssetOrgId({ organization_id: "1PWR_Lesotho" }, ls)).toBe(
+      "1pwr_lesotho",
+    );
+  });
+  it("allows publish when grant has known LS org and asset org is empty", () => {
+    expect(
+      assetInOrganizationScope(["1pwr_lesotho"], {}, ls),
+    ).toBe(true);
+  });
+  it("allows when grant orgs are non-AM identifiers (PHP defaults to all orgs)", () => {
+    expect(assetInOrganizationScope(["smp", "hr-uuid"], {}, ls)).toBe(true);
+  });
+  it("denies Zambia grant against Lesotho stock", () => {
+    expect(
+      assetInOrganizationScope(
+        ["1pwr_zambia"],
+        { organization_id: "1pwr_lesotho" },
+        ls,
+      ),
+    ).toBe(false);
+  });
+  it("empty grant org list is unrestricted", () => {
+    expect(assetInOrganizationScope([], { organization_id: "1pwr_benin" }, ls)).toBe(
+      true,
+    );
   });
 });

@@ -2,12 +2,12 @@ const assert=require('node:assert/strict');
 if(!process.env.FIRESTORE_EMULATOR_HOST?.startsWith('127.0.0.1:'))throw Error('Local emulator required');
 const admin=require('firebase-admin');admin.initializeApp({projectId:'demo-pr-am-reconciliation'});const db=admin.firestore();
 const fn=require('../lib/receipts/reconciliation').saveAmReconciliation;
-const ctx={auth:{uid:'approver',token:{nexus_sso:true,privilegeVersion:'test',systems:{am:{actions:['approve_assets'],scopeCountries:['LS'],scopeOrganizations:['smp']}}}}};
+const ctx={auth:{uid:'approver',token:{nexus_sso:true,privilegeVersion:'test',systems:{am:{actions:['approve_assets'],scopeCountries:['LS'],scopeOrganizations:['1pwr_lesotho']}}}}};
 const identity=a=>({name:a.name||'',unit:a.unit_of_measure||'',ugpPartId:a.ugp_part_id||'',definitionId:a.definition_id||'',manufacturer:a.manufacturer||'',model:a.model||'',description:a.description||''});
 (async()=>{
  await fetch(`http://${process.env.FIRESTORE_EMULATOR_HOST}/emulator/v1/projects/demo-pr-am-reconciliation/databases/(default)/documents`,{method:'DELETE'});
  await db.doc('pr_master_countries/LSO').set({country_id:'1',iso2:'LS',country_code:'LSO'});
- const a={name:'Legacy clamp',description:'Old description',unit_of_measure:'EA',item_class:'Inventory',status:'Available',country_id:'1',organization_id:'smp',quantity:25};
+ const a={name:'Legacy clamp',description:'Old description',unit_of_measure:'EA',item_class:'Inventory',status:'Available',country_id:'1',organization_id:'1pwr_lesotho',quantity:25};
  await db.doc('am_core_assets/a').set(a);await db.doc('am_core_assets/b').set({...a,name:'Other spelling'});
  await db.doc('am_part_media/photo').set({asset_id:'a',approved:true});
  const body={eventId:'event1',ugpPartId:'abc-dead-end-clamp',assetIds:['a','b'],decision:'same_part',expectedAssets:{a:identity(a),b:identity({...a,name:'Other spelling'})},evidence:'Manufacturer datasheet and physical item were checked.',retParticipant:'RET reviewer',retVerified:true,amVerified:true,currentSpecificationVerified:true};
@@ -23,8 +23,15 @@ const identity=a=>({name:a.name||'',unit:a.unit_of_measure||'',ugpPartId:a.ugp_p
  const deferred={...body,eventId:'event2',assetIds:[],expectedAssets:{},decision:'need_photo',ownerName:'Store lead',dueDate:'2026-10-01'};
  assert.equal((await fn.run(deferred,ctx)).published,false);assert.equal((await db.doc('am_catalogue_tasks/event2').get()).get('status'),'open');
  await assert.rejects(fn.run({...deferred,eventId:'event3',ownerName:''},ctx));
- await db.doc('am_core_assets/c').set({...a,organization_id:'other'});
+ await db.doc('am_core_assets/c').set({...a,organization_id:'1pwr_zambia'});
  await assert.rejects(fn.run({...body,eventId:'outside',assetIds:['c'],expectedAssets:{c:identity(a)}},ctx));
+ // Missing organization_id must resolve from Lesotho country (matches AM PHP).
+ await db.doc('am_core_assets/d').set({name:'Legacy clamp',description:'Old description',unit_of_measure:'EA',item_class:'Inventory',status:'Available',country_id:'1',quantity:25});
+ assert.equal((await fn.run({...body,eventId:'no-org',assetIds:['d'],expectedAssets:{d:identity(a)}},ctx)).published,true);
+ // Unrecognized grant org ids must not block LS stock (AM PHP ignores them and defaults).
+ const noisyCtx={auth:{uid:'approver',token:{nexus_sso:true,privilegeVersion:'test',systems:{am:{actions:['approve_assets'],scopeCountries:['LS'],scopeOrganizations:['smp','dept-uuid']}}}}};
+ await db.doc('am_core_assets/e').set(a);
+ assert.equal((await fn.run({...body,eventId:'noisy-org',assetIds:['e'],expectedAssets:{e:identity(a)}},noisyCtx)).published,true);
  await db.doc('am_core_assets/c').set({...a,unit_of_measure:'kit'});
  await assert.rejects(fn.run({...body,eventId:'units',assetIds:['c'],expectedAssets:{c:identity({...a,unit_of_measure:'kit'})}},ctx));
  // IDs containing dimensions are legal UGP numbers.

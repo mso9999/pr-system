@@ -2,7 +2,15 @@ import { amCountry } from "./country";
 import * as admin from "firebase-admin";
 import * as functions from "firebase-functions";
 import { randomUUID } from "crypto";
-import { id, unit, hash, Row, stockItem, signedGrant } from "./policy";
+import {
+  id,
+  unit,
+  hash,
+  Row,
+  stockItem,
+  signedGrant,
+  assetInOrganizationScope,
+} from "./policy";
 import review from "./masMappingReview.json";
 
 export const confirmAmUgpMapping = functions.https.onCall(
@@ -56,15 +64,12 @@ export const confirmAmUgpMapping = functions.https.onCall(
           asset = assetSnap.data();
         if (!asset || !stockItem(asset))
           throw new Error("Active stock item required");
-        if (
-          p.scopeOrganizations.length &&
-          !p.scopeOrganizations.includes(asset.organization_id)
-        )
-          throw new Error("Item organization is outside your scope");
         const country = await amCountry(tx, asset.country_id);
         const iso2 = country?.iso2 || country?.country_code_2 || country?.code;
         if (p.scopeCountries.length && !p.scopeCountries.includes(iso2))
           throw new Error("Item country is outside your scope");
+        if (!assetInOrganizationScope(p.scopeOrganizations, asset, country))
+          throw new Error("Item organization is outside your scope");
         const existing = asset.ugp_part_id || null;
         if (existing !== (data.expectedUgpPartId || null))
           throw new Error("Mapping changed while reviewing; reload first");

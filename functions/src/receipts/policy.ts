@@ -133,6 +133,74 @@ export function stockItem(asset: Row): boolean {
   );
 }
 
+/** Canonical AM org ids — same set AM PHP uses in country_scope.php. */
+const AM_ORG_IDS = new Set([
+  "1pwr_lesotho",
+  "1pwr_benin",
+  "1pwr_zambia",
+  "kuwala",
+]);
+
+const AM_ORG_BY_COUNTRY: Row = {
+  LS: "1pwr_lesotho",
+  LSO: "1pwr_lesotho",
+  ZM: "1pwr_zambia",
+  ZMB: "1pwr_zambia",
+  BJ: "1pwr_benin",
+  BEN: "1pwr_benin",
+  BN: "1pwr_benin",
+};
+
+export function normalizeAmOrgId(value: unknown): string {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Resolve the AM organization for an asset the same way AM PHP does:
+ * use organization_id when present, otherwise map country → org.
+ */
+export function resolveAmAssetOrgId(
+  asset: Row,
+  country?: Row | null,
+): string {
+  const direct = normalizeAmOrgId(asset.organization_id);
+  if (direct) return direct;
+  const iso = String(
+    country?.iso2 ||
+      country?.country_code_2 ||
+      country?.code ||
+      country?.country_code ||
+      "",
+  )
+    .trim()
+    .toUpperCase();
+  return String(AM_ORG_BY_COUNTRY[iso] || "");
+}
+
+/**
+ * Organization-scope gate aligned with AM PHP session behaviour:
+ * - empty grant org list → unrestricted (country scope already applied)
+ * - grant orgs that are not AM-known (HR noise / other portal ids) are ignored;
+ *   if none remain, treat as unrestricted so PHP "default to all orgs" is mirrored
+ * - missing asset.organization_id falls back to country → org
+ */
+export function assetInOrganizationScope(
+  grantOrgs: unknown,
+  asset: Row,
+  country?: Row | null,
+): boolean {
+  const raw = Array.isArray(grantOrgs)
+    ? grantOrgs.map(normalizeAmOrgId).filter(Boolean)
+    : [];
+  if (!raw.length) return true;
+  const recognized = raw.filter((org) => AM_ORG_IDS.has(org));
+  if (!recognized.length) return true;
+  const org = resolveAmAssetOrgId(asset, country);
+  return !!org && recognized.includes(org);
+}
+
 export function signedGrant(
   token: Row | undefined,
   system: string,
