@@ -28,6 +28,8 @@ export interface FleetWorkOrder {
 
 export interface ListFleetWorkOrdersResult {
   count: number;
+  /** Total matching rows server-side (before limit/offset) — drives the pager. */
+  total?: number;
   workOrders: FleetWorkOrder[];
 }
 
@@ -93,6 +95,13 @@ export async function listFleetWorkOrders(opts: {
   org?: string;
   vehicleId?: string;
   status?: string;
+  /** Text search over WO title / description / vehicle code. */
+  q?: string;
+  /** Page size (default 100 server-side; the modal picker pages with limit+offset). */
+  limit?: number;
+  offset?: number;
+  /** recent (default) | priority | status */
+  sort?: string;
 }): Promise<ListFleetWorkOrdersResult> {
   const fn = httpsCallable<typeof opts, ListFleetWorkOrdersResult>(functions, 'listFleetWorkOrders');
   const res = await fn(opts);

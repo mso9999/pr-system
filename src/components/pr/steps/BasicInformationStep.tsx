@@ -42,6 +42,7 @@ import {
   BENIN_WO_GATED_CODES,
   type FleetWorkOrder,
 } from '../../../services/fleetWorkOrders';
+import { FleetWorkOrderPickerDialog } from '../FleetWorkOrderPickerDialog';
 
 interface BasicInformationStepProps {
   formState: FormState;
@@ -87,11 +88,20 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
   const [fleetWorkOrders, setFleetWorkOrders] = useState<FleetWorkOrder[]>([]);
   const [fleetWorkOrdersLoading, setFleetWorkOrdersLoading] = useState(false);
   const [fleetWorkOrdersError, setFleetWorkOrdersError] = useState<string | null>(null);
+  const [woPickerOpen, setWoPickerOpen] = useState(false);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<FleetWorkOrder | null>(null);
   const handleChange = (field: keyof FormState) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<any>
   ) => {
     const value = event.target.value;
+    if (field === 'vehicle') {
+      // Vehicle change invalidates the picked work order (WOs are per-vehicle).
+      setSelectedWorkOrder(null);
+    }
     setFormState(prev => {
+      if (field === 'vehicle') {
+        return { ...prev, [field]: value, fleetWorkOrderId: undefined };
+      }
       // Handle expense type changes
       if (field === 'expenseType') {
         const selectedType = expenseTypes.find(type => type.id === value);
@@ -631,24 +641,29 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
             required
             error={isSubmitted && !formState.fleetWorkOrderId}
           >
-            <InputLabel id="fleet-wo-label">Fleet work order</InputLabel>
-            <Select
-              labelId="fleet-wo-label"
-              id="fleet-wo-select"
-              value={formState.fleetWorkOrderId || ''}
-              onChange={handleChange('fleetWorkOrderId')}
-              label="Fleet work order"
-              disabled={loading || fleetWorkOrdersLoading}
+            <InputLabel shrink htmlFor="fleet-wo-button">
+              Fleet work order
+            </InputLabel>
+            <Button
+              id="fleet-wo-button"
+              variant="outlined"
+              fullWidth
+              onClick={() => setWoPickerOpen(true)}
+              disabled={loading}
+              sx={{
+                justifyContent: 'flex-start',
+                textTransform: 'none',
+                minHeight: '56px',
+                mt: 0.5,
+                fontWeight: formState.fleetWorkOrderId ? 600 : 400,
+              }}
             >
-              <MenuItem value="">
-                <em>Select the work order this PR funds</em>
-              </MenuItem>
-              {fleetWorkOrders.map(wo => (
-                <MenuItem key={wo.id} value={wo.id}>
-                  {(wo.title || 'Work order')} — {wo.status}
-                </MenuItem>
-              ))}
-            </Select>
+              {selectedWorkOrder
+                ? `${selectedWorkOrder.title || 'Work order'} — ${selectedWorkOrder.status}`
+                : formState.fleetWorkOrderId
+                  ? 'Work order linked — tap to change'
+                  : 'Select the work order this PR funds…'}
+            </Button>
             <FormHelperText>
               {fleetWorkOrdersLoading
                 ? 'Loading open work orders for this vehicle…'
@@ -661,6 +676,17 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
                       : 'Vehicle parts/service PRs cannot go to an approver without a logged FM work order'}
             </FormHelperText>
           </FormControl>
+          <FleetWorkOrderPickerDialog
+            open={woPickerOpen}
+            onClose={() => setWoPickerOpen(false)}
+            org={fleetOrg}
+            vehicleId={fleetVehicleId}
+            selectedId={formState.fleetWorkOrderId}
+            onSelect={(wo) => {
+              setSelectedWorkOrder(wo);
+              setFormState(prev => ({ ...prev, fleetWorkOrderId: wo.id }));
+            }}
+          />
         </Grid>
       )}
 

@@ -13,6 +13,7 @@ import {
   isWoGatedExpense,
   type FleetWorkOrder,
 } from '@/services/fleetWorkOrders';
+import { FleetWorkOrderPickerDialog } from './FleetWorkOrderPickerDialog';
 import { isProcurementUser, isAdminUser } from '@/utils/permissionLevel';
 import { hasPrAction } from '@/utils/prPrivilege';
 import {
@@ -541,6 +542,7 @@ export function PRView() {
   const [fleetWorkOrders, setFleetWorkOrders] = useState<FleetWorkOrder[]>([]);
   const [fleetWoLoading, setFleetWoLoading] = useState(false);
   const [fleetWoError, setFleetWoError] = useState<string | null>(null);
+  const [woPickerOpen, setWoPickerOpen] = useState(false);
   const [vehicles, setVehicles] = useState<ReferenceDataItem[]>([]);
 
   // Load open Fleet Hub work orders for the WO picker when editing a vehicle PR.
@@ -1893,24 +1895,18 @@ export function PRView() {
                         {workOrderRequired && (
                         <Box sx={{ mt: 1 }}>
                           {isEditMode ? (
-                            <FormControl fullWidth size="small" error={Boolean(fleetWoError)}>
-                              <InputLabel id="fleet-wo-edit-label">Fleet work order</InputLabel>
-                              <Select
-                                labelId="fleet-wo-edit-label"
-                                value={editedPR.fleetWorkOrderId || pr?.fleetWorkOrderId || ''}
-                                onChange={(e) => handleFieldChange('fleetWorkOrderId', e.target.value)}
-                                label="Fleet work order"
-                                disabled={fleetWoLoading}
+                            <>
+                              <Button
+                                variant="outlined"
+                                size="small"
+                                fullWidth
+                                onClick={() => setWoPickerOpen(true)}
+                                sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
                               >
-                                <MenuItem value="">
-                                  <em>Select the work order this PR funds</em>
-                                </MenuItem>
-                                {fleetWorkOrders.map((wo) => (
-                                  <MenuItem key={wo.id} value={wo.id}>
-                                    {(wo.title || 'Work order')} — {wo.status}
-                                  </MenuItem>
-                                ))}
-                              </Select>
+                                {(editedPR.fleetWorkOrderId || pr?.fleetWorkOrderId)
+                                  ? 'Work order linked — tap to change'
+                                  : 'Select the work order this PR funds…'}
+                              </Button>
                               <FormHelperText>
                                 {fleetWoLoading
                                   ? 'Loading open work orders…'
@@ -1920,7 +1916,15 @@ export function PRView() {
                                       ? 'No open work orders for this vehicle — log one in Fleet Hub first (fm.1pwrafrica.com → Work orders)'
                                       : 'Required before this PR can go to an approver'}
                               </FormHelperText>
-                            </FormControl>
+                              <FleetWorkOrderPickerDialog
+                                open={woPickerOpen}
+                                onClose={() => setWoPickerOpen(false)}
+                                org={activeFleetOrg}
+                                vehicleId={activeFleetVehicleId}
+                                selectedId={editedPR.fleetWorkOrderId || pr?.fleetWorkOrderId}
+                                onSelect={(wo) => handleFieldChange('fleetWorkOrderId', wo.id)}
+                              />
+                            </>
                           ) : (
                             <Typography variant="body2" color={pr?.fleetWorkOrderId ? 'text.secondary' : 'error'}>
                               Fleet work order:{' '}
