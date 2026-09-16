@@ -37,6 +37,7 @@ import { convertAmount, getRuleCurrency } from '../../../utils/currencyConverter
 import {
   listFleetWorkOrders,
   prOrgToFleetOrg,
+  resolveFleetVehicleId,
   isWoGatedExpense,
   BENIN_WO_GATED_CODES,
   type FleetWorkOrder,
@@ -304,11 +305,13 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
   const workOrderRequired = isWoGatedExpense(selectedExpenseCode, formState.organization?.id);
   const showVehicleField =
     workOrderRequired || selectedExpenseCode === '4F' || selectedExpenseCode === '4W';
+  const fleetVehicleId = resolveFleetVehicleId(formState.vehicle, vehicles);
+  const fleetOrg = prOrgToFleetOrg(formState.organization?.id);
 
   // Vehicle-expense PRs must link an open Fleet Hub work order (procurement
   // diligence gate). Load the open WOs for the selected vehicle.
   useEffect(() => {
-    if (!showVehicleField || !formState.vehicle) {
+    if (!workOrderRequired || !formState.vehicle) {
       setFleetWorkOrders([]);
       setFleetWorkOrdersError(null);
       return;
@@ -317,8 +320,8 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     setFleetWorkOrdersLoading(true);
     setFleetWorkOrdersError(null);
     listFleetWorkOrders({
-      org: prOrgToFleetOrg(formState.organization?.id),
-      vehicleId: formState.vehicle,
+      org: fleetOrg,
+      vehicleId: fleetVehicleId,
       status: 'open',
     })
       .then((res) => {
@@ -336,7 +339,7 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [showVehicleField, formState.vehicle, formState.organization?.id]);
+  }, [workOrderRequired, formState.vehicle, fleetVehicleId, fleetOrg]);
 
   // Filter vehicles by organization
   const filteredVehicles = vehicles.filter(vehicle => 
