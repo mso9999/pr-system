@@ -128,14 +128,35 @@ async function request<T>(method: "GET" | "POST", path: string, body?: unknown):
   throw new Error(`Fleet API ${method} ${path} failed (HTTP ${lastStatus}): ${lastBody.slice(0, 200)}`);
 }
 
+export interface FleetWorkOrderListResult {
+  workOrders: FleetWorkOrder[];
+  total: number;
+}
+
 export async function listFleetWorkOrders(opts: {
   org?: string;
   vehicleId?: string;
   status?: string;
-} = {}): Promise<FleetWorkOrder[]> {
-  const q = buildQuery({ org: opts.org, vehicleId: opts.vehicleId, status: opts.status });
-  const body = await request<{ workOrders?: FleetWorkOrder[] }>("GET", `/api/integrations/v1/work-orders${q}`);
-  return Array.isArray(body.workOrders) ? body.workOrders : [];
+  q?: string;
+  limit?: number;
+  offset?: number;
+  sort?: string;
+} = {}): Promise<FleetWorkOrderListResult> {
+  const q = buildQuery({
+    org: opts.org,
+    vehicleId: opts.vehicleId,
+    status: opts.status,
+    q: opts.q,
+    limit: opts.limit !== undefined ? String(opts.limit) : undefined,
+    offset: opts.offset !== undefined ? String(opts.offset) : undefined,
+    sort: opts.sort,
+  });
+  const body = await request<{ workOrders?: FleetWorkOrder[]; total?: number }>(
+    "GET",
+    `/api/integrations/v1/work-orders${q}`,
+  );
+  const workOrders = Array.isArray(body.workOrders) ? body.workOrders : [];
+  return { workOrders, total: typeof body.total === "number" ? body.total : workOrders.length };
 }
 
 export async function getFleetWorkOrder(id: string): Promise<FleetWorkOrder | null> {

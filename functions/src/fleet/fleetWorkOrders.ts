@@ -34,22 +34,39 @@ const TERMINAL_WO_STATUSES = new Set(["completed", "cancelled", "canceled", "clo
 
 export const listFleetWorkOrders = functions
   .runWith({ memory: "256MB", timeoutSeconds: 30 })
-  .https.onCall(async (data: { org?: string; vehicleId?: string; status?: string }, context) => {
-    requireAuth(context);
-    try {
-      const rows = await listFleetWorkOrdersClient({
-        org: data?.org ? String(data.org) : undefined,
-        vehicleId: data?.vehicleId ? String(data.vehicleId) : undefined,
-        status: data?.status ? String(data.status) : "open",
-      });
-      return { count: rows.length, workOrders: rows };
-    } catch (err) {
-      throw new functions.https.HttpsError(
-        "internal",
-        err instanceof Error ? err.message : String(err)
-      );
-    }
-  });
+  .https.onCall(
+    async (
+      data: {
+        org?: string;
+        vehicleId?: string;
+        status?: string;
+        q?: string;
+        limit?: number;
+        offset?: number;
+        sort?: string;
+      },
+      context,
+    ) => {
+      requireAuth(context);
+      try {
+        const { workOrders, total } = await listFleetWorkOrdersClient({
+          org: data?.org ? String(data.org) : undefined,
+          vehicleId: data?.vehicleId ? String(data.vehicleId) : undefined,
+          status: data?.status ? String(data.status) : "open",
+          q: data?.q ? String(data.q) : undefined,
+          limit: typeof data?.limit === "number" ? data.limit : undefined,
+          offset: typeof data?.offset === "number" ? data.offset : undefined,
+          sort: data?.sort ? String(data.sort) : undefined,
+        });
+        return { count: workOrders.length, total, workOrders };
+      } catch (err) {
+        throw new functions.https.HttpsError(
+          "internal",
+          err instanceof Error ? err.message : String(err)
+        );
+      }
+    },
+  );
 
 export const getFleetWorkOrder = functions
   .runWith({ memory: "256MB", timeoutSeconds: 30 })
