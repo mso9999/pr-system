@@ -1,5 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../config/firebase';
+import { normalizeOrganizationId } from '../utils/organization';
 
 /**
  * Fleet Hub work-order lookups for the PR flow. Vehicle-expense PRs (expense
@@ -39,19 +40,37 @@ export interface ValidateFleetWorkOrderResult {
 /**
  * PR organization → Fleet Hub organization (the fleet is registered under the
  * main country org in FM; sub-entities share it).
+ *
+ * Goes through `normalizeOrganizationId` first so aliases (1pwr_zam, 1pz,
+ * "1PWR Zambia", kuw, 1pwr_ben, 1pb, inclusive pueco, …) land on the same
+ * country fleet as the catalog id — same bug class as the Kuwala picker fix.
  */
+const FLEET_ORG_BY_PR_ORG: Record<string, string> = {
+  '1pwr_zambia': '1pwr_zambia',
+  kuwala: '1pwr_zambia',
+  '1pwr_benin': '1pwr_benin',
+  mgb: '1pwr_benin',
+  pueco_benin: '1pwr_benin',
+};
+
 export function prOrgToFleetOrg(prOrgId?: string | null): string {
-  switch ((prOrgId || '').toLowerCase()) {
-    case '1pwr_zambia':
-    case 'kuwala':
-      return '1pwr_zambia';
-    case '1pwr_benin':
-    case 'mgb':
-    case 'pueco_benin':
-      return '1pwr_benin';
-    default:
-      return '1pwr_lesotho';
-  }
+  const id = normalizeOrganizationId(prOrgId);
+  return FLEET_ORG_BY_PR_ORG[id] || '1pwr_lesotho';
+}
+
+/**
+ * FM filters work orders by `wo.vehicle_id` (FM UUID). Synced catalog rows
+ * store that as `fmVehicleId`; leftover legacy docs only have the Firestore
+ * id. Prefer the FM id so the picker does not silently return [].
+ */
+export function resolveFleetVehicleId(
+  storedVehicleId?: string | null,
+  vehicles?: Array<{ id?: string; fmVehicleId?: string }> | null
+): string {
+  const stored = (storedVehicleId || '').trim();
+  if (!stored) return '';
+  const row = (vehicles || []).find((v) => v.id === stored || v.fmVehicleId === stored);
+  return (row?.fmVehicleId || stored).trim();
 }
 
 /** Benin chart-of-accounts codes for vehicle repair/maintenance (Entretien réparation). */
@@ -64,7 +83,9 @@ export const BENIN_WO_GATED_CODES = ['624200', '624300', '624800'];
  */
 export function isWoGatedExpense(code: string | undefined, prOrgId?: string | null): boolean {
   if (code === '4') return true;
-  if ((prOrgId || '') === '1pwr_benin' && BENIN_WO_GATED_CODES.includes(code || '')) return true;
+  if (normalizeOrganizationId(prOrgId) === '1pwr_benin' && BENIN_WO_GATED_CODES.includes(code || '')) {
+    return true;
+  }
   return false;
 }
 

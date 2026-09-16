@@ -6,7 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { useDropzone } from 'react-dropzone';
 import { referenceDataService } from '@/services/referenceData';
 import { organizationService } from '@/services/organizationService';
-import { listFleetWorkOrders, type FleetWorkOrder } from '@/services/fleetWorkOrders';
+import {
+  listFleetWorkOrders,
+  prOrgToFleetOrg,
+  resolveFleetVehicleId,
+  isWoGatedExpense,
+  type FleetWorkOrder,
+} from '@/services/fleetWorkOrders';
 import { isProcurementUser, isAdminUser } from '@/utils/permissionLevel';
 import { hasPrAction } from '@/utils/prPrivilege';
 import {
@@ -130,6 +136,7 @@ interface EditablePRFields {
   site?: string; // Legacy field for backward compatibility
   expenseType?: string;
   vehicle?: string;
+  fleetWorkOrderId?: string;
   preferredVendor?: string;
   estimatedAmount?: number;
   currency?: string;
@@ -533,22 +540,36 @@ export function PRView() {
   const [expenseTypes, setExpenseTypes] = useState<ReferenceDataItem[]>([]);
   const [fleetWorkOrders, setFleetWorkOrders] = useState<FleetWorkOrder[]>([]);
   const [fleetWoLoading, setFleetWoLoading] = useState(false);
+  const [fleetWoError, setFleetWoError] = useState<string | null>(null);
+  const [vehicles, setVehicles] = useState<ReferenceDataItem[]>([]);
 
   // Load open Fleet Hub work orders for the WO picker when editing a vehicle PR.
   const activeVehicleId = isEditMode ? (editedPR.vehicle || pr?.vehicle) : pr?.vehicle;
+  const activePrOrg = pr?.organizationId || pr?.organization;
+  const activeFleetVehicleId = resolveFleetVehicleId(activeVehicleId, vehicles);
+  const activeFleetOrg = prOrgToFleetOrg(activePrOrg);
   useEffect(() => {
     if (!isEditMode || !activeVehicleId) {
       setFleetWorkOrders([]);
+      setFleetWoError(null);
       return;
     }
     let cancelled = false;
     setFleetWoLoading(true);
-    listFleetWorkOrders({ vehicleId: activeVehicleId, status: 'open' })
+    setFleetWoError(null);
+    listFleetWorkOrders({
+      org: activeFleetOrg,
+      vehicleId: activeFleetVehicleId,
+      status: 'open',
+    })
       .then((res) => {
         if (!cancelled) setFleetWorkOrders(res.workOrders || []);
       })
-      .catch(() => {
-        if (!cancelled) setFleetWorkOrders([]);
+      .catch((err) => {
+        if (!cancelled) {
+          setFleetWorkOrders([]);
+          setFleetWoError(err instanceof Error ? err.message : String(err));
+        }
       })
       .finally(() => {
         if (!cancelled) setFleetWoLoading(false);
@@ -556,9 +577,7 @@ export function PRView() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, activeVehicleId]);
-  const [vehicles, setVehicles] = useState<ReferenceDataItem[]>([]);
+  }, [isEditMode, activeVehicleId, activeFleetVehicleId, activeFleetOrg]);
   const [vendors, setVendors] = useState<ReferenceDataItem[]>([]);
   const [currencies, setCurrencies] = useState<ReferenceDataItem[]>([]);
   const [rules, setRules] = useState<any[]>([]);
@@ -1163,27 +1182,34 @@ export function PRView() {
     // Special handling for expense type changes
     if (field === 'expenseType') {
       const selectedType = expenseTypes.find(type => type.id === value);
-      // Vehicle-tagged expense codes: 4 (parts/service), 4F (fluids), 4W (wash)
-      const isVehicleExpense = ['4', '4F', '4W'].includes(selectedType?.code || '');
+      // Vehicle-tagged expense codes: 4 (parts/service), 4F (fluids), 4W (wash),
+      // plus Benin repair codes when the PR org is 1PWR Benin.
+      const prOrg = pr?.organizationId || pr?.organization;
+      const isVehicleExpense =
+        ['4', '4F', '4W'].includes(selectedType?.code || '') ||
+        isWoGatedExpense(selectedType?.code, prOrg);
 
       setEditedPR(prev => {
         if (!isVehicleExpense) {
-          // Remove vehicle field for non-vehicle expense types
-          const { vehicle, ...rest } = prev;
+          // Remove vehicle / WO fields for non-vehicle expense types
+          const { vehicle, fleetWorkOrderId, ...rest } = prev;
           return { ...rest, [field]: value };
         } else {
-          // Keep vehicle field for vehicle expense type
           return {
             ...prev,
             [field]: value,
-            vehicle: prev.vehicle || pr?.vehicle
+            vehicle: prev.vehicle || pr?.vehicle,
+            ...(!isWoGatedExpense(selectedType?.code, prOrg)
+              ? { fleetWorkOrderId: undefined }
+              : {}),
           };
         }
       });
     } else {
       setEditedPR(prev => ({
         ...prev,
-        [field]: value
+        [field]: value,
+        ...(field === 'vehicle' ? { fleetWorkOrderId: undefined } : {}),
       }));
     }
 
@@ -1834,7 +1860,11 @@ export function PRView() {
                       ? expenseTypes.find(t => t.id === (editedPR.expenseType || pr?.expenseType))
                       : expenseTypes.find(t => t.id === pr?.expenseType);
                     
-                    const isVehicleExpense = ['4', '4F', '4W'].includes(currentExpenseType?.code || '');
+                    const prOrg = pr?.organizationId || pr?.organization;
+                    const isVehicleExpense =
+                      ['4', '4F', '4W'].includes(currentExpenseType?.code || '') ||
+                      isWoGatedExpense(currentExpenseType?.code, prOrg);
+                    const workOrderRequired = isWoGatedExpense(currentExpenseType?.code, prOrg);
                     
                     return isVehicleExpense ? (
                       <>
@@ -1859,11 +1889,11 @@ export function PRView() {
                             })}
                           </Select>
                         </FormControl>
-                        {/* Fleet Hub work order link — required for vehicle expenses (code 4 only; fluids 4F / wash 4W exempt) */}
-                        {currentExpenseType?.code === '4' && (
+                        {/* Fleet Hub work order link — required for WO-gated expenses (code 4 + Benin repair codes; fluids 4F / wash 4W exempt) */}
+                        {workOrderRequired && (
                         <Box sx={{ mt: 1 }}>
                           {isEditMode ? (
-                            <FormControl fullWidth size="small">
+                            <FormControl fullWidth size="small" error={Boolean(fleetWoError)}>
                               <InputLabel id="fleet-wo-edit-label">Fleet work order</InputLabel>
                               <Select
                                 labelId="fleet-wo-edit-label"
@@ -1884,7 +1914,11 @@ export function PRView() {
                               <FormHelperText>
                                 {fleetWoLoading
                                   ? 'Loading open work orders…'
-                                  : 'Required before this PR can go to an approver'}
+                                  : fleetWoError
+                                    ? `Could not load work orders: ${fleetWoError}`
+                                    : fleetWorkOrders.length === 0
+                                      ? 'No open work orders for this vehicle — log one in Fleet Hub first (fm.1pwrafrica.com → Work orders)'
+                                      : 'Required before this PR can go to an approver'}
                               </FormHelperText>
                             </FormControl>
                           ) : (
