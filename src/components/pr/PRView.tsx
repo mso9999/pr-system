@@ -1881,7 +1881,9 @@ export function PRView() {
                               return vehicle ? (vehicle.fleetCode || vehicle.code || vehicle.registrationNumber || vehicle.name) : value;
                             }}
                           >
-                            {vehicles.map((vehicle) => {
+                            {vehicles
+                            .filter((vehicle) => vehicle.active || vehicle.id === (editedPR.vehicle || pr?.vehicle))
+                            .map((vehicle) => {
                               const displayName = vehicle.fleetCode || vehicle.code || vehicle.registrationNumber || vehicle.name;
                               return (
                                 <MenuItem key={vehicle.id} value={vehicle.id}>
@@ -2911,7 +2913,10 @@ export function PRView() {
       setProjectCategories(projCats.filter(c => c.active));
       setSites(sites.filter(s => s.active));
       setExpenseTypes(expTypes.filter(e => e.active));
-      setVehicles(vehs.filter(v => v.active));
+      // Keep inactive vehicles too: superseded legacy rows carry the fmVehicleId
+      // pointer that resolveFleetVehicleId needs for PRs created before the
+      // mirror reconciliation. The dropdown filters to active at render time.
+      setVehicles(vehs);
       setVendors(vends.filter(v => v.active));
       setCurrencies(currList.filter(c => c.active));
     });
