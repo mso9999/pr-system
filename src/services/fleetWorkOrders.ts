@@ -72,12 +72,27 @@ export function prOrgToFleetOrg(prOrgId?: string | null): string {
  */
 export function resolveFleetVehicleId(
   storedVehicleId?: string | null,
-  vehicles?: Array<{ id?: string; fmVehicleId?: string }> | null
+  vehicles?: Array<{ id?: string; fmVehicleId?: string; code?: string; fleetCode?: string; name?: string }> | null
 ): string {
   const stored = (storedVehicleId || '').trim();
   if (!stored) return '';
-  const row = (vehicles || []).find((v) => v.id === stored || v.fmVehicleId === stored);
-  return (row?.fmVehicleId || stored).trim();
+  const rows = vehicles || [];
+  const row = rows.find((v) => v.id === stored || v.fmVehicleId === stored);
+  if (row?.fmVehicleId) return row.fmVehicleId.trim();
+
+  // Fallback: the stored doc has no FM id (legacy nickname rows like "Surf 2").
+  // Find sibling mirror rows with the same display code that carry one — used
+  // only when exactly one matches (ambiguous duplicates stay unresolved rather
+  // than linking the wrong vehicle).
+  const code = (row?.fleetCode || row?.code || row?.name || '').trim().toLowerCase();
+  if (code) {
+    const siblings = rows.filter(
+      (v) => (v.fmVehicleId || '').trim() !== '' &&
+        [v.fleetCode, v.code, v.name].some((c) => (c || '').trim().toLowerCase() === code)
+    );
+    if (siblings.length === 1 && siblings[0].fmVehicleId) return siblings[0].fmVehicleId.trim();
+  }
+  return stored;
 }
 
 /** Benin chart-of-accounts codes for vehicle repair/maintenance (Entretien réparation). */

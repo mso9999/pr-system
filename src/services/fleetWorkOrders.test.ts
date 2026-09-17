@@ -57,6 +57,23 @@ describe('resolveFleetVehicleId', () => {
     expect(resolveFleetVehicleId('unknown', vehicles)).toBe('unknown');
     expect(resolveFleetVehicleId('', vehicles)).toBe('');
   });
+
+  it('resolves a legacy doc through a single same-code sibling with an FM id', () => {
+    const rows = [
+      { id: 'legacy-surf', code: 'S2' },
+      { id: 'fm-uuid-s2', fmVehicleId: 'fm-uuid-s2', fleetCode: 'S2' },
+    ];
+    expect(resolveFleetVehicleId('legacy-surf', rows)).toBe('fm-uuid-s2');
+  });
+
+  it('stays unresolved when same-code siblings are ambiguous', () => {
+    const rows = [
+      { id: 'legacy-m1', code: 'M1' },
+      { id: 'fm-1', fmVehicleId: 'fm-1', fleetCode: 'M1' },
+      { id: 'fm-2', fmVehicleId: 'fm-2', fleetCode: 'M1' },
+    ];
+    expect(resolveFleetVehicleId('legacy-m1', rows)).toBe('legacy-m1');
+  });
 });
 
 describe('isWoGatedExpense', () => {
