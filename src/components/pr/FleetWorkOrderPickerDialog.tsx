@@ -191,6 +191,11 @@ export function FleetWorkOrderPickerDialog({
                 <ListItemText
                   primary={
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                      {wo.workOrderNumber ? (
+                        <Typography variant="caption" component="span" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+                          {wo.workOrderNumber}
+                        </Typography>
+                      ) : null}
                       <Typography variant="body2" fontWeight={600} component="span">
                         {wo.title || 'Work order'}
                       </Typography>
