@@ -1,6 +1,7 @@
 import { db } from "@/config/firebase";
 import { collection, getDocs, query, where, addDoc, writeBatch, doc, setDoc, getDoc } from "firebase/firestore";
 import {
+  catalogOrganizationIds,
   isCatalogItemActive,
   listIncludesOrganization,
   normalizeOrganizationId as normalizeOrgId,
@@ -60,13 +61,13 @@ class ReferenceDataService {
 
       // Only filter by organization for org-dependent types
       if (!ORG_INDEPENDENT_TYPES.includes(type) && organization) {
-        const normalizedOrgId = this.normalizeOrganizationId(organization);
-        
-        // Query for both old and new organization field formats
-        q = query(
-          collectionRef, 
-          where('organizationId', '==', normalizedOrgId)
-        ) as any; // Type workaround for Firestore query types
+        const orgIds = catalogOrganizationIds(organization);
+        if (orgIds.length > 1) {
+          console.log(`[getItemsByType] ${type}: querying sibling catalog orgs`, orgIds);
+          q = query(collectionRef, where('organizationId', 'in', orgIds)) as any;
+        } else if (orgIds.length === 1) {
+          q = query(collectionRef, where('organizationId', '==', orgIds[0])) as any;
+        }
       }
 
       const querySnapshot = await getDocs(q);

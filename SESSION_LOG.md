@@ -54,3 +54,10 @@
 - Nexus ownership map updated on clean branch `docs/brief-02-pr-catalog-ownership` (worktree; AM WIP left untouched).
 - Side effects: GitHub merge only. Production functions already live from the earlier deploy. No further Firebase changes.
 - Follow-ups: merge the nexus ownership PR; D2 can consume live PR commitments/lead-times; AI part miner still open.
+
+## 2026-09-17 — Cursor — 1PWR Zambia New PR dropdowns empty
+- Eduardo (JvqIsDmO3UcXWTAJdUx28Vs9TMG3) could not submit a New PR for **1PWR Zambia**: Project Category / Sites / Expense Type required but blank. Console: departments 18, approvers 3, **rules 0**.
+- Cause: 2026-08-28 Zambia split left the Zambia catalog on `kuwala` (10 categories, 31 expense types, 7 rules, 1 site: HQ). `1pwr_zambia` has HR departments only. `getItemsByType` queried `organizationId == 1pwr_zambia` and returned nothing.
+- Fix: `catalogOrganizationIds('1pwr_zambia')` also reads `kuwala`. Code-only; no catalog clone. Screenshot garble was browser translate, not the app.
+- Side effects: hosting deploy of this client change (no functions).
+- Follow-ups: seed a first-class `1pwr_zambia` catalog (sites beyond HQ; vehicles still 0 for both ZM orgs).

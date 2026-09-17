@@ -150,6 +150,25 @@ export const normalizeCountryIso2 = (input: string | null | undefined): string =
  * currencies (LSL/ZAR=LS, XOF=BJ, ZMW=ZM). Covers orgs with no catalog doc
  * at all (mgb). Keep aligned with the organizations collection.
  */
+/**
+ * After the 2026-08-28 Zambia split, the old "1PWR Zambia" catalog was
+ * renamed to `kuwala`. The new operating company `1pwr_zambia` has HR
+ * departments but no project categories / sites / expense types / rules
+ * of its own. Until that catalog is seeded, New PR must read Kuwala's.
+ */
+export const CATALOG_SIBLING_ORGS: Record<string, string[]> = {
+  '1pwr_zambia': ['kuwala'],
+};
+
+/** Org ids to query for org-scoped catalog (self + empty-catalog siblings). */
+export function catalogOrganizationIds(input: OrganizationInput): string[] {
+  const id = normalizeOrganizationId(input);
+  if (!id) return [];
+  return [id, ...(CATALOG_SIBLING_ORGS[id] || [])].filter(
+    (value, index, all) => all.indexOf(value) === index
+  );
+}
+
 export const ORG_COUNTRY_FALLBACK: Record<string, string> = {
   '1pwr_lesotho': 'LS',
   '1pwr_benin': 'BJ',
