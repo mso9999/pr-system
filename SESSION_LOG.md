@@ -66,5 +66,5 @@
 - What: Daily job `pendingApprovalTimeout` (08:30 Africa/Maseru). After 30 calendar days in PENDING_APPROVAL, email requestor + assigned approver(s) that the PR will be auto-rejected in 7 days. Seven days after that warning, set status REJECTED as PR System with a statusHistory note. Existing stale PRs get a warning first — never a silent reject.
 - Clock: latest `statusHistory` PENDING_APPROVAL stamp (resets if the PR leaves and re-enters). Tutorial sandbox PRs skipped.
 - UI: warning banner on PR view after the notice is sent. Admin callable `runPendingApprovalTimeoutNow` (level 1/9).
-- Side effects: none until functions (+ hosting for the banner) are deployed.
+- Side effects: deployed 2026-09-17 ~13:38 UTC to `pr-system-4ea55`: created `pendingApprovalTimeout` (scheduled 08:30 Africa/Maseru) and `runPendingApprovalTimeoutNow`; hosting banner live. Nexus `mintSSOToken` survived. First automatic warnings go out tomorrow 08:30 unless an admin runs the callable (35 of 39 current PENDING_APPROVAL PRs would warn).
 - Key files: `functions/src/pendingApprovalTimeout/logic.ts`, `functions/src/scheduled/pendingApprovalTimeout.ts`, `src/components/pr/PRView.tsx`
