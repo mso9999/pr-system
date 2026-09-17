@@ -53,7 +53,16 @@ class ReferenceDataService {
     return normalizeOrgId(orgId);
   }
 
-  async getItemsByType(type: string, organization?: string | OrganizationData): Promise<ReferenceData[]> {
+  /**
+   * @param opts.includeInactive — return inactive rows too. Needed by resolvers
+   *   that follow superseded/legacy pointers (e.g. the FM vehicle mirror, where
+   *   a deactivated legacy row still carries the fmVehicleId an old PR needs).
+   */
+  async getItemsByType(
+    type: string,
+    organization?: string | OrganizationData,
+    opts?: { includeInactive?: boolean }
+  ): Promise<ReferenceData[]> {
     try {
       const collectionName = this.getCollectionName(type);
       const collectionRef = collection(this.db, collectionName);
@@ -77,7 +86,10 @@ class ReferenceDataService {
         ...doc.data()
       })) as ReferenceData[];
 
-      // Filter inactive items
+      // Filter inactive items (unless the caller needs them for pointer resolution)
+      if (opts?.includeInactive) {
+        return items;
+      }
       // For vendors, check 'approved' or 'Approved' field, for others check 'active'
       const activeItems = items.filter(item => {
         if (type === 'vendors') {

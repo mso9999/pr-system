@@ -708,7 +708,7 @@ export function PRView() {
           referenceDataService.getItemsByType('projectCategories', organization),
           referenceDataService.getItemsByType('sites', organization),
           referenceDataService.getItemsByType('expenseTypes', organization),
-          referenceDataService.getItemsByType('vehicles', organization),
+          referenceDataService.getItemsByType('vehicles', organization, { includeInactive: true }),
           referenceDataService.getItemsByType('vendors'),
           referenceDataService.getItemsByType('currencies'),
           referenceDataService.getItemsByType('paymentTypes'),
@@ -2905,7 +2905,7 @@ export function PRView() {
       referenceDataService.getItemsByType('projectCategories', pr.organization),
       referenceDataService.getItemsByType('sites', pr.organization),
       referenceDataService.getItemsByType('expenseTypes', pr.organization),
-      referenceDataService.getItemsByType('vehicles', pr.organization),  // Pass organization here
+      referenceDataService.getItemsByType('vehicles', pr.organization, { includeInactive: true }),
       referenceDataService.getItemsByType('vendors'),  // This is org-independent
       referenceDataService.getItemsByType('currencies'),  // This is org-independent
     ]).then(([depts, projCats, sites, expTypes, vehs, vends, currList]) => {
