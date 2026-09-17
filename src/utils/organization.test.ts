@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  catalogOrganizationIds,
   isCatalogItemActive,
   listIncludesOrganization,
   normalizeOrganizationId,
@@ -56,6 +57,23 @@ describe('organizationDisplayName', () => {
     expect(organizationDisplayName({ id: 'smp', name: 'Sotho Minigrid Portfolio' })).toBe(
       'SMP — Sotho Minigrid Portfolio'
     );
+  });
+});
+
+describe('catalogOrganizationIds', () => {
+  it('lets 1PWR Zambia read the Kuwala catalog left behind by the org split', () => {
+    expect(catalogOrganizationIds('1pwr_zambia')).toEqual(['1pwr_zambia', 'kuwala']);
+    expect(catalogOrganizationIds('1PWR Zambia')).toEqual(['1pwr_zambia', 'kuwala']);
+    expect(catalogOrganizationIds({ id: '1pwr_zambia', name: '1PWR Zambia' })).toEqual([
+      '1pwr_zambia',
+      'kuwala',
+    ]);
+  });
+
+  it('does not pull Zambia catalog into unrelated orgs', () => {
+    expect(catalogOrganizationIds('kuwala')).toEqual(['kuwala']);
+    expect(catalogOrganizationIds('1pwr_lesotho')).toEqual(['1pwr_lesotho']);
+    expect(catalogOrganizationIds('')).toEqual([]);
   });
 });
 
