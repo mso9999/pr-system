@@ -31,6 +31,7 @@ import { listFleetWorkOrders, type FleetWorkOrder } from '../../services/fleetWo
 const PAGE_SIZE = 10;
 
 type SortKey = 'recent' | 'priority' | 'status';
+type StatusFilter = 'open' | 'closed' | 'all';
 
 interface FleetWorkOrderPickerDialogProps {
   open: boolean;
@@ -64,6 +65,7 @@ export function FleetWorkOrderPickerDialog({
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [sort, setSort] = useState<SortKey>('recent');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('open');
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<FleetWorkOrder[]>([]);
   const [total, setTotal] = useState(0);
@@ -76,10 +78,10 @@ export function FleetWorkOrderPickerDialog({
     return () => clearTimeout(t);
   }, [query]);
 
-  // Reset to first page when the query/sort/vehicle changes
+  // Reset to first page when the query/sort/status/vehicle changes
   useEffect(() => {
     setPage(1);
-  }, [debouncedQuery, sort, vehicleId, org]);
+  }, [debouncedQuery, sort, statusFilter, vehicleId, org]);
 
   useEffect(() => {
     if (!open) return;
@@ -89,7 +91,7 @@ export function FleetWorkOrderPickerDialog({
     listFleetWorkOrders({
       org,
       vehicleId,
-      status: 'open',
+      status: statusFilter,
       q: debouncedQuery || undefined,
       sort,
       limit: PAGE_SIZE,
@@ -112,7 +114,7 @@ export function FleetWorkOrderPickerDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, org, vehicleId, debouncedQuery, sort, page]);
+  }, [open, org, vehicleId, debouncedQuery, sort, statusFilter, page]);
 
   const totalPages = useMemo(() => Math.max(1, Math.ceil(total / PAGE_SIZE)), [total]);
 
@@ -130,7 +132,20 @@ export function FleetWorkOrderPickerDialog({
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
           />
-          <FormControl size="small" sx={{ minWidth: 150 }}>
+          <FormControl size="small" sx={{ minWidth: 110 }}>
+            <InputLabel id="fleet-wo-status-label">Status</InputLabel>
+            <Select
+              labelId="fleet-wo-status-label"
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+            >
+              <MenuItem value="open">Open</MenuItem>
+              <MenuItem value="closed">Closed</MenuItem>
+              <MenuItem value="all">All</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl size="small" sx={{ minWidth: 130 }}>
             <InputLabel id="fleet-wo-sort-label">Sort</InputLabel>
             <Select
               labelId="fleet-wo-sort-label"
@@ -156,8 +171,10 @@ export function FleetWorkOrderPickerDialog({
         ) : rows.length === 0 ? (
           <Typography variant="body2" color="text.secondary">
             {debouncedQuery
-              ? `No open work orders match “${debouncedQuery}”.`
-              : 'No open work orders for this vehicle — log one in Fleet Hub first (fm.1pwrafrica.com → Work orders).'}
+              ? `No ${statusFilter === 'all' ? '' : statusFilter + ' '}work orders match “${debouncedQuery}”.`
+              : statusFilter === 'open'
+                ? 'No open work orders for this vehicle — log one in Fleet Hub first (fm.1pwrafrica.com → Work orders).'
+                : `No ${statusFilter === 'all' ? '' : 'closed '}work orders for this vehicle.`}
           </Typography>
         ) : (
           <List dense disablePadding>
@@ -198,7 +215,9 @@ export function FleetWorkOrderPickerDialog({
       </DialogContent>
       <DialogActions sx={{ justifyContent: 'space-between' }}>
         <Typography variant="caption" color="text.secondary" sx={{ pl: 1 }}>
-          {total > 0 ? `Page ${page} of ${totalPages} · ${total} open work order${total === 1 ? '' : 's'}` : ''}
+          {total > 0
+            ? `Page ${page} of ${totalPages} · ${total} ${statusFilter === 'all' ? '' : statusFilter + ' '}work order${total === 1 ? '' : 's'}`
+            : ''}
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button size="small" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>
