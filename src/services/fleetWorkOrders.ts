@@ -10,6 +10,8 @@ import { normalizeOrganizationId } from '../utils/organization';
  */
 export interface FleetWorkOrder {
   id: string;
+  /** Human-readable number, e.g. WO-LS-2026-00042 (empty on pre-2026 rows until backfilled). */
+  workOrderNumber?: string;
   organizationId: string;
   vehicleId: string;
   vehicleCode?: string;
@@ -17,6 +19,9 @@ export interface FleetWorkOrder {
   vehicleModel?: string;
   title: string;
   description?: string;
+  symptom?: string;
+  diagnosis?: string;
+  intervention?: string;
   type?: string;
   priority?: string;
   status: string;
