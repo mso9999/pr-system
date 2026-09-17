@@ -3063,6 +3063,21 @@ export function PRView() {
         </Alert>
       )}
 
+      {pr?.status === PRStatus.PENDING_APPROVAL && pr.staleApprovalWarningSentAt && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            This PR will be automatically rejected soon
+          </Typography>
+          <Typography variant="body2">
+            It has been pending approval for 30 days or more. A warning was sent to the
+            requestor and approver on{" "}
+            {new Date(pr.staleApprovalWarningSentAt).toLocaleDateString()}. The PR will
+            be rejected 7 days after that notice unless it is approved or sent back for
+            revision.
+          </Typography>
+        </Alert>
+      )}
+
       {/* Header with Title and Actions */}
       <Box sx={{ 
         display: 'flex', 

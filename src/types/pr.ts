@@ -173,6 +173,13 @@ export interface PRRequest {
   requestorEmail: string;
   /** Full user object of requestor */ 
   requestor: UserReference;
+  /** ISO time the 30-day stale-approval warning was sent (current PENDING_APPROVAL stay). */
+  staleApprovalWarningSentAt?: string;
+  /** PENDING_APPROVAL start the warning applies to. */
+  staleApprovalWarningPendingSince?: string;
+  /** Set when the scheduled job auto-rejects after the 7-day grace. */
+  autoRejectedForStaleApproval?: boolean;
+  autoRejectedAt?: string;
   /** Current approver for this PR - single source of truth */
   approver?: string;
   /** Second approver for dual-approval PRs above Rule 2 */
@@ -501,6 +508,8 @@ export interface PRRequest {
   revisionAt?: string;
   /** When PR was rejected */
   rejectedAt?: string;
+  /** User id or `system` for scheduled auto-reject */
+  rejectedBy?: string;
   /** When PR was canceled */
   canceledAt?: string;
   /** Additional notes */

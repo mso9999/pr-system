@@ -61,3 +61,10 @@
 - Fix: `catalogOrganizationIds('1pwr_zambia')` also reads `kuwala`. Code-only; no catalog clone. Screenshot garble was browser translate, not the app.
 - Side effects: hosting deploy of this client change (no functions).
 - Follow-ups: seed a first-class `1pwr_zambia` catalog (sites beyond HQ; vehicles still 0 for both ZM orgs).
+
+## 2026-09-17 — Cursor — 30-day pending-approval warning + auto-reject
+- What: Daily job `pendingApprovalTimeout` (08:30 Africa/Maseru). After 30 calendar days in PENDING_APPROVAL, email requestor + assigned approver(s) that the PR will be auto-rejected in 7 days. Seven days after that warning, set status REJECTED as PR System with a statusHistory note. Existing stale PRs get a warning first — never a silent reject.
+- Clock: latest `statusHistory` PENDING_APPROVAL stamp (resets if the PR leaves and re-enters). Tutorial sandbox PRs skipped.
+- UI: warning banner on PR view after the notice is sent. Admin callable `runPendingApprovalTimeoutNow` (level 1/9).
+- Side effects: none until functions (+ hosting for the banner) are deployed.
+- Key files: `functions/src/pendingApprovalTimeout/logic.ts`, `functions/src/scheduled/pendingApprovalTimeout.ts`, `src/components/pr/PRView.tsx`
