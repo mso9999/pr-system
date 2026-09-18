@@ -204,6 +204,10 @@ export async function getPR(prId: string, forceServerFetch: boolean = true): Pro
       requiredDate: data.requiredDate || '',
       preferredVendor: data.preferredVendor || '',
       vehicle: data.vehicle || '',
+      // Fleet Hub work-order linkage (vehicle-expense gate)
+      fleetWorkOrderId: data.fleetWorkOrderId || undefined,
+      fleetLinkRegisteredAt: safeTimestampToISO(data.fleetLinkRegisteredAt) || undefined,
+      fleetLinkError: data.fleetLinkError || undefined,
       createdAt: safeTimestampToISO(data.createdAt) || new Date().toISOString(),
       updatedAt: safeTimestampToISO(data.updatedAt) || new Date().toISOString(),
       lineItems: (data.lineItems || []).map((item: any): LineItem => ({ ...item })),
