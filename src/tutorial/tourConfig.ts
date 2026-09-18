@@ -220,6 +220,7 @@ export function buildTourSteps(tourId: TourId, t: TFunction): Step[] {
     case 'newPrForm':
       return [
         step('[data-tutorial="newpr-stepper"]', 'tutorial.newPrForm.step1.title', 'tutorial.newPrForm.step1.content', t, 'bottom'),
+        center('tutorial.newPrForm.step3.title', 'tutorial.newPrForm.step3.content', t),
         step('[data-tutorial="newpr-nav"]', 'tutorial.newPrForm.step2.title', 'tutorial.newPrForm.step2.content', t, 'top'),
       ];
 

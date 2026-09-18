@@ -193,7 +193,7 @@
       },
       "step3": {
         "title": "Étapes du formulaire",
-        "content": "Parcourez Informations de base, Articles et Révision. Remplissez tous les champs obligatoires avant de soumettre."
+        "content": "Parcourez Informations de base, Lignes et Revue. Remplissez tous les champs requis avant de soumettre. Les DA pieces/service vehicule lient aussi un ordre de travail Fleet Hub dans Informations de base — carburant, fluides et lavages sont exemptes."
       },
       "step4": {
         "title": "Tableau des DR",
@@ -257,7 +257,7 @@
       },
       "step4": {
         "title": "Actions d'approvisionnement",
-        "content": "Envoyer à l'approbateur transmet la DR aux approbateurs assignés. Le système vérifie d'abord le plafond de 25 BC — si l'organisation a trop de BC approuvés non traités, un avertissement bloque l'action jusqu'à résolution."
+        "content": "Envoyer a l'approbateur transmet la DA aux approbateurs assignes. Le systeme verifie d'abord le plafond de 25 PO — un avertissement apparait s'il y en a trop en attente. Les DA pieces/service vehicule (code 4) exigent aussi un ordre de travail Fleet Hub lie, revalide avant le passage en approbation."
       },
       "step5": {
         "title": "Plafond de 25 BC expliqué",
@@ -358,6 +358,10 @@
       "step2": {
         "title": "Navigation",
         "content": "Utilisez Retour et Suivant entre les étapes. Envoyez à la dernière étape lorsque tout est valide."
+      },
+      "step3": {
+        "title": "Les depenses vehicule exigent un ordre de travail",
+        "content": "Les DA pieces/service vehicule (type '4 - Vehicle') doivent lier l'ordre de travail Fleet Hub concerne — choisissez-le dans Informations de base ; le selecteur recherche les OT ouverts du vehicule choisi. Pas d'OT, pas d'approbation. Carburant (11), fluides consommables (4F) et lavages (4W) sont exemptes."
       }
     },
     "sectionProvisioning": "Provisionnement de camp terrain",
@@ -869,7 +873,11 @@
       "dont1": "Tout marquer comme urgent",
       "dont2": "Soumettre des informations incomplètes",
       "dont3": "Diviser les achats pour éviter les seuils d'approbation",
-      "dont4": "Ignorer les notifications par e-mail"
+      "dont4": "Ignorer les notifications par e-mail",
+      "vehicleWO": "Depenses vehicule : lier un ordre de travail Fleet",
+      "vehicleWODesc": "Les DA pieces/service vehicule (type '4 - Vehicle') doivent lier l'ordre de travail Fleet Hub concerne. Choisissez-le dans Informations de base — le selecteur recherche et parcourt les OT ouverts du vehicule choisi. La DA ne peut pas passer en approbation sans cela.",
+      "vehicleWOExempt": "Exemptes — pas d'OT requis : carburant (11), fluides consommables (4F — huile, liquide de refroidissement, liquide de frein) et lavages (4W). Marquez quand meme le vehicule pour que le cout soit impute a sa fiche.",
+      "vehicleWOMissing": "Aucun OT ouvert pour ce vehicule ? Enregistrez d'abord le besoin de maintenance dans Fleet Hub (fm.1pwrafrica.com → Ordres de travail), puis liez-le ici."
     },
     "approver": {
       "title": "Guide de l'approbateur",

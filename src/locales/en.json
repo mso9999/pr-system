@@ -201,7 +201,7 @@
       },
       "step3": {
         "title": "Form stepper",
-        "content": "Move through Basic Information, Line Items, and Review. Complete all required fields before submitting."
+        "content": "Move through Basic Information, Line Items, and Review. Complete all required fields before submitting. Vehicle parts/service PRs also link a Fleet Hub work order on Basic Information — fuel, fluids, and washes are exempt."
       },
       "step4": {
         "title": "PR table",
@@ -265,7 +265,7 @@
       },
       "step4": {
         "title": "Procurement actions",
-        "content": "Push to Approver sends the PR to the assigned approver(s). The system checks the 25-PO cap first — if the org has too many approved but un-actioned POs, you'll see a warning and must resolve some before proceeding."
+        "content": "Push to Approver sends the PR to the assigned approver(s). The system checks the 25-PO cap first — if the org has too many approved but un-actioned POs, you'll see a warning and must resolve some before proceeding. Vehicle parts/service PRs (code 4) also need a linked Fleet Hub work order, re-validated before the PR moves to approval."
       },
       "step5": {
         "title": "PO cap explained",
@@ -366,6 +366,10 @@
       "step2": {
         "title": "Navigation",
         "content": "Use Back and Next to move between steps. Submit on the last step when everything is valid."
+      },
+      "step3": {
+        "title": "Vehicle expenses need a work order",
+        "content": "Vehicle parts/service PRs (expense type '4 - Vehicle') must link the Fleet Hub work order the spend funds — pick it on Basic Information; the picker searches open work orders for the selected vehicle. No work order, no approval. Fuel (11), consumable fluids (4F), and car washes (4W) are exempt."
       }
     },
     "poCapRule": {
@@ -925,7 +929,11 @@
       "dont1": "Mark everything as urgent",
       "dont2": "Submit incomplete information",
       "dont3": "Split purchases to avoid approval thresholds",
-      "dont4": "Ignore email notifications"
+      "dont4": "Ignore email notifications",
+      "vehicleWO": "Vehicle expenses: link a Fleet work order",
+      "vehicleWODesc": "Vehicle parts/service PRs (expense type '4 - Vehicle') must link the Fleet Hub work order the spend funds. Pick it on Basic Information — the picker searches and pages through open work orders for the selected vehicle. The PR cannot go to an approver without it.",
+      "vehicleWOExempt": "Exempt — no work order needed: Fuel (11), consumable fluids (4F — oil, coolant, brake fluid), and car washes (4W). Tag the vehicle anyway so the cost lands on its record.",
+      "vehicleWOMissing": "No open work order for the vehicle? Log the maintenance need in Fleet Hub first (fm.1pwrafrica.com → Work orders), then link it here."
     },
     "approver": {
       "title": "Approver Guide",

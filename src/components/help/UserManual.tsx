@@ -78,6 +78,8 @@ const SEARCH_INDEX: SearchSection[] = [
   // Requestor
   { tabId: 1, tabLabelKey: 'manual.tabs.requestor', sectionTitleKey: 'manual.requestor.creatingPR',
     contentKeys: ['manual.requestor.step1', 'manual.requestor.step1Desc', 'manual.requestor.step2', 'manual.requestor.step2Desc', 'manual.requestor.step3', 'manual.requestor.step3Desc', 'manual.requestor.step4', 'manual.requestor.step4Desc', 'manual.requestor.step5', 'manual.requestor.step5Desc', 'manual.requestor.important', 'manual.requestor.importantNote'] },
+  { tabId: 1, tabLabelKey: 'manual.tabs.requestor', sectionTitleKey: 'manual.requestor.vehicleWO',
+    contentKeys: ['manual.requestor.vehicleWODesc', 'manual.requestor.vehicleWOExempt', 'manual.requestor.vehicleWOMissing'] },
   { tabId: 1, tabLabelKey: 'manual.tabs.requestor', sectionTitleKey: 'manual.requestor.trackingPRs',
     contentKeys: ['manual.requestor.trackingDesc', 'manual.requestor.trackingStep1', 'manual.requestor.trackingStep2', 'manual.requestor.trackingStep3', 'manual.requestor.trackingStep4'] },
   { tabId: 1, tabLabelKey: 'manual.tabs.requestor', sectionTitleKey: 'manual.requestor.revisionRequests',
@@ -507,6 +509,23 @@ APPROVED → ORDERED → COMPLETED`}
               </List>
               <Alert severity="warning" sx={{ mt: 2 }}>
                 <strong>{t('manual.requestor.important')}</strong> {t('manual.requestor.importantNote')}
+              </Alert>
+            </AccordionDetails>
+          </Accordion>
+
+          <Accordion defaultExpanded>
+            <AccordionSummary expandIcon={<ExpandIcon />}>
+              <Typography variant="h6">{t('manual.requestor.vehicleWO')}</Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              <Typography variant="body2" paragraph>
+                {t('manual.requestor.vehicleWODesc')}
+              </Typography>
+              <Alert severity="info" sx={{ mt: 1 }}>
+                {t('manual.requestor.vehicleWOExempt')}
+              </Alert>
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                {t('manual.requestor.vehicleWOMissing')}
               </Alert>
             </AccordionDetails>
           </Accordion>
