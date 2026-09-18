@@ -128,6 +128,16 @@ export async function listFleetWorkOrders(opts: {
   return res.data;
 }
 
+/** Fetch a single work order by FM id — for displaying the linked WO. */
+export async function getFleetWorkOrder(id: string): Promise<FleetWorkOrder | null> {
+  const fn = httpsCallable<{ id: string }, { workOrder: FleetWorkOrder | null }>(
+    functions,
+    'getFleetWorkOrder'
+  );
+  const res = await fn({ id });
+  return res.data.workOrder ?? null;
+}
+
 /** Server-side re-validation at push-to-approver time. */
 export async function validateFleetWorkOrderForPr(opts: {
   workOrderId: string;

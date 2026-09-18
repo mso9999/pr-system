@@ -14,6 +14,7 @@ import {
   type FleetWorkOrder,
 } from '@/services/fleetWorkOrders';
 import { FleetWorkOrderPickerDialog } from './FleetWorkOrderPickerDialog';
+import { useFleetWorkOrderLabel } from './useFleetWorkOrderLabel';
 import { isProcurementUser, isAdminUser } from '@/utils/permissionLevel';
 import { hasPrAction } from '@/utils/prPrivilege';
 import {
@@ -543,6 +544,8 @@ export function PRView() {
   const [fleetWoLoading, setFleetWoLoading] = useState(false);
   const [fleetWoError, setFleetWoError] = useState<string | null>(null);
   const [woPickerOpen, setWoPickerOpen] = useState(false);
+  const linkedWoId = editedPR.fleetWorkOrderId || pr?.fleetWorkOrderId || null;
+  const linkedWoLabel = useFleetWorkOrderLabel(linkedWoId);
   const [vehicles, setVehicles] = useState<ReferenceDataItem[]>([]);
 
   // Load open Fleet Hub work orders for the WO picker when editing a vehicle PR.
@@ -1905,8 +1908,8 @@ export function PRView() {
                                 onClick={() => setWoPickerOpen(true)}
                                 sx={{ justifyContent: 'flex-start', textTransform: 'none' }}
                               >
-                                {(editedPR.fleetWorkOrderId || pr?.fleetWorkOrderId)
-                                  ? 'Work order linked — tap to change'
+                                {linkedWoId
+                                  ? `${linkedWoLabel || 'Work order linked'} — tap to change`
                                   : 'Select the work order this PR funds…'}
                               </Button>
                               <FormHelperText>
@@ -1936,7 +1939,7 @@ export function PRView() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                 >
-                                  {pr.fleetWorkOrderId}
+                                  {linkedWoLabel || pr.fleetWorkOrderId}
                                 </Link>
                               ) : (
                                 'not linked — required before approval'
@@ -2944,6 +2947,13 @@ export function PRView() {
 
     try {
       setLoading(true);
+      // Persist pending field edits (e.g. a freshly linked Fleet work order)
+      // before the status change — resubmitting must not silently drop them.
+      if (hasUnsavedChanges) {
+        const updatedPR = buildUpdatedPR();
+        await prService.updatePR(pr.id, updatedPR);
+        setHasUnsavedChanges(false);
+      }
       await prService.updatePRStatus(pr.id, PRStatus.RESUBMITTED, 'PR resubmitted after revisions', currentUser);
       enqueueSnackbar('PR resubmitted successfully', { variant: 'success' });
       navigate('/dashboard');

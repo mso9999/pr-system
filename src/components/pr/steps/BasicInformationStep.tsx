@@ -43,6 +43,7 @@ import {
   type FleetWorkOrder,
 } from '../../../services/fleetWorkOrders';
 import { FleetWorkOrderPickerDialog } from '../FleetWorkOrderPickerDialog';
+import { useFleetWorkOrderLabel } from '../useFleetWorkOrderLabel';
 
 interface BasicInformationStepProps {
   formState: FormState;
@@ -90,6 +91,9 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
   const [fleetWorkOrdersError, setFleetWorkOrdersError] = useState<string | null>(null);
   const [woPickerOpen, setWoPickerOpen] = useState(false);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<FleetWorkOrder | null>(null);
+  const linkedWoLabel = useFleetWorkOrderLabel(
+    selectedWorkOrder ? undefined : formState.fleetWorkOrderId
+  );
   const handleChange = (field: keyof FormState) => (
     event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement> | SelectChangeEvent<any>
   ) => {
@@ -659,9 +663,9 @@ export const BasicInformationStep: React.FC<BasicInformationStepProps> = ({
               }}
             >
               {selectedWorkOrder
-                ? `${selectedWorkOrder.title || 'Work order'} — ${selectedWorkOrder.status}`
+                ? `${selectedWorkOrder.workOrderNumber ? `${selectedWorkOrder.workOrderNumber} · ` : ''}${selectedWorkOrder.title || 'Work order'} — ${selectedWorkOrder.status}`
                 : formState.fleetWorkOrderId
-                  ? 'Work order linked — tap to change'
+                  ? `${linkedWoLabel || 'Work order linked'} — tap to change`
                   : 'Select the work order this PR funds…'}
             </Button>
             <FormHelperText>
