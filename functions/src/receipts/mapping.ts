@@ -12,6 +12,7 @@ import {
   assetInOrganizationScope,
 } from "./policy";
 import review from "./masMappingReview.json";
+import { reconciliationBlock } from "./reconciliationGuards";
 
 export const confirmAmUgpMapping = functions.https.onCall(
   async (data, context) => {
@@ -70,6 +71,8 @@ export const confirmAmUgpMapping = functions.https.onCall(
           throw new Error("Item country is outside your scope");
         if (!assetInOrganizationScope(p.scopeOrganizations, asset, country))
           throw new Error("Item organization is outside your scope");
+        const block = reconciliationBlock(partId, assetId, asset, part);
+        if (block) throw new Error(block);
         const existing = asset.ugp_part_id || null;
         if (existing !== (data.expectedUgpPartId || null))
           throw new Error("Mapping changed while reviewing; reload first");

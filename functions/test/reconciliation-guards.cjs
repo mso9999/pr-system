@@ -1,0 +1,13 @@
+const assert=require('node:assert/strict');
+const {reconciliationBlock:block}=require('../lib/receipts/reconciliationGuards');
+const part={name:'Example'};
+assert.match(block('abc-dead-end-clamp','lKph3eLgS9wnxkJyTomK',{name:'ABC clamp'},part),/not ABC/);
+assert.match(block('hook-bolt-m16','new',{name:'Hook M16',description:'M16 x380mm'},part),/380mm/);
+assert.match(block('fuse-mv-dropout','new',{name:'5A Fuse link'},part),/component/);
+assert.match(block('line-post-insulator-assembly','new',{name:'Spindle M20'},part),/complete assembly/);
+assert.match(block('cross-arm-mv-2.5m','new',{name:'Surge arrester'},part),/original AM description/);
+assert.match(block('cross-arm-mv-2.5m','new',{name:'Cross arm',original_catalogue_identity:{name:'Surge arrester'}},part),/original AM description/);
+assert.match(block('stay-wire-3x3.35','new',{}, {name:'Stay wire 7/3.35mm'}),/engineering source/);
+assert.equal(block('fuse-mv-dropout','new',{name:'Dropout with fuse tube',description:'11-24kV100A'},part),null);
+assert.equal(block('abc-dead-end-clamp','new',{name:'ABC strain clamp',description:'25-95mm2'},part),null);
+console.log('PASS: mismatched families, dimensions, components, source identity and safe matches');

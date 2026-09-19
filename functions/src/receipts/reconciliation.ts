@@ -3,6 +3,7 @@ import * as functions from 'firebase-functions';
 import { id, unit, hash, Row, stockItem, signedGrant, assetInOrganizationScope } from './policy';
 import { amCountry } from './country';
 import review from './masMappingReview.json';
+import { reconciliationBlock } from './reconciliationGuards';
 
 /** Joint workshop: the signed AM approver records the RET participant's attestation. */
 export const saveAmReconciliation = functions.https.onCall(async (data, context) => {
@@ -22,13 +23,14 @@ export const saveAmReconciliation = functions.https.onCall(async (data, context)
     const evidence = String(data.evidence || '').trim(), ret = String(data.retParticipant || '').trim();
     if (evidence.length < 20 || evidence.length > 2000 || ret.length < 3 || ret.length > 120) throw new Error('Enter the RET participant and at least 20 characters of specification evidence or follow-up instructions.');
     const publish = decision === 'same_part';
+    if (publish && data.confirmedPartId !== partId) throw new Error('Confirm the exact UGP requirement in the comparison before publication.');
     if (publish && (data.retVerified !== true || data.amVerified !== true || data.currentSpecificationVerified !== true)) throw new Error('RET and AM checks and the current UGP specification check are required before publication.');
     const owner = String(data.ownerName || '').trim(), due = String(data.dueDate || '');
     if (!publish && decision !== 'not_match' && (!owner || owner.length > 120 || !/^\d{4}-\d{2}-\d{2}$/.test(due) || !Number.isFinite(Date.parse(due)) || new Date(due).toISOString().slice(0,10) !== due)) throw new Error('Give the unresolved decision an owner and valid due date.');
     if (!Array.isArray(grant.scopeCountries) || !Array.isArray(grant.scopeOrganizations)) throw new Error('Refresh Nexus sign-in for scoped access.');
     if (grant.scopeCountries.length && !grant.scopeCountries.includes('LS')) throw new Error('Lesotho access is required.');
     const db = admin.firestore(), eventRef = db.collection('am_core_mapping_reviews').doc(eventId);
-    const body = { partId, assets, decision, evidence, retParticipant: ret, owner, due,
+    const body = { partId, assets, decision, evidence, confirmedPartId: data.confirmedPartId || '', retParticipant: ret, owner, due,
       actor: context.auth.uid, referenceHash: hash(review), expected: data.expectedAssets || {} };
     const digest = hash(body);
     return await db.runTransaction(async tx => {
@@ -50,6 +52,7 @@ export const saveAmReconciliation = functions.https.onCall(async (data, context)
         const identity = { name: asset.name || '', unit: asset.unit_of_measure || '', ugpPartId: asset.ugp_part_id || '', definitionId: asset.definition_id || '', manufacturer: asset.manufacturer || '', model: asset.model || '', description: asset.description || '' };
         if (!expected || hash(expected) !== hash(identity)) throw new Error('An item changed since this screen loaded. Reload and review it again.');
         if (publish && unit(asset.unit_of_measure) !== unit(part.unit)) throw new Error('Units differ. Resolve units or assembly quantities instead of publishing an identical part.');
+        if (publish) { const block = reconciliationBlock(partId, snap.id, asset, part); if (block) throw new Error(block); }
         if (publish && asset.ugp_part_id && asset.ugp_part_id !== partId) throw new Error('An existing UGP link conflicts. It must be resolved separately.');
         if (publish && asset.definition_id && asset.definition_id !== 'ugp-' + partId) throw new Error('An existing shared definition must be reconciled separately; it will not be overwritten.');
       }
@@ -65,7 +68,8 @@ export const saveAmReconciliation = functions.https.onCall(async (data, context)
           created_by: context.auth!.uid, verification_event_id: eventId });
         snaps.forEach(snap => {
           const a = snap.data()!;
-          tx.update(snap.ref, { name: part.name, description: part.specification, canonical_part_number: partId,
+          tx.update(snap.ref, { name: part.name, canonical_part_number: partId,
+            original_catalogue_identity: a.original_catalogue_identity || { name: a.name || '', description: a.description || '', manufacturer: a.manufacturer || '', model: a.model || '', captured_at: now },
             catalogue_aliases: [...new Set([...(Array.isArray(a.catalogue_aliases) ? a.catalogue_aliases : []), a.name].filter(Boolean))],
             definition_id: defRef.id, ugp_part_id: partId, updated_at: now,
             ugp_mapping_verification: { eventId, by: context.auth!.uid, at: now, evidence, retParticipant: ret, referenceHash: hash(review) } });

@@ -43,6 +43,7 @@ const functions = __importStar(require("firebase-functions"));
 const crypto_1 = require("crypto");
 const policy_1 = require("./policy");
 const masMappingReview_json_1 = __importDefault(require("./masMappingReview.json"));
+const reconciliationGuards_1 = require("./reconciliationGuards");
 exports.confirmAmUgpMapping = functions.https.onCall(async (data, context) => {
     var _a;
     const token = (_a = context.auth) === null || _a === void 0 ? void 0 : _a.token, p = (0, policy_1.signedGrant)(token, "am");
@@ -73,13 +74,15 @@ exports.confirmAmUgpMapping = functions.https.onCall(async (data, context) => {
             const assetSnap = await tx.get(assetRef), asset = assetSnap.data();
             if (!asset || !(0, policy_1.stockItem)(asset))
                 throw new Error("Active stock item required");
-            if (p.scopeOrganizations.length &&
-                !p.scopeOrganizations.includes(asset.organization_id))
-                throw new Error("Item organization is outside your scope");
             const country = await (0, country_1.amCountry)(tx, asset.country_id);
             const iso2 = (country === null || country === void 0 ? void 0 : country.iso2) || (country === null || country === void 0 ? void 0 : country.country_code_2) || (country === null || country === void 0 ? void 0 : country.code);
             if (p.scopeCountries.length && !p.scopeCountries.includes(iso2))
                 throw new Error("Item country is outside your scope");
+            if (!(0, policy_1.assetInOrganizationScope)(p.scopeOrganizations, asset, country))
+                throw new Error("Item organization is outside your scope");
+            const block = (0, reconciliationGuards_1.reconciliationBlock)(partId, assetId, asset, part);
+            if (block)
+                throw new Error(block);
             const existing = asset.ugp_part_id || null;
             if (existing !== (data.expectedUgpPartId || null))
                 throw new Error("Mapping changed while reviewing; reload first");

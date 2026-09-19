@@ -42,6 +42,7 @@ const functions = __importStar(require("firebase-functions"));
 const policy_1 = require("./policy");
 const country_1 = require("./country");
 const masMappingReview_json_1 = __importDefault(require("./masMappingReview.json"));
+const reconciliationGuards_1 = require("./reconciliationGuards");
 /** Joint workshop: the signed AM approver records the RET participant's attestation. */
 exports.saveAmReconciliation = functions.https.onCall(async (data, context) => {
     var _a, _b;
@@ -66,6 +67,8 @@ exports.saveAmReconciliation = functions.https.onCall(async (data, context) => {
         if (evidence.length < 20 || evidence.length > 2000 || ret.length < 3 || ret.length > 120)
             throw new Error('Enter the RET participant and at least 20 characters of specification evidence or follow-up instructions.');
         const publish = decision === 'same_part';
+        if (publish && data.confirmedPartId !== partId)
+            throw new Error('Confirm the exact UGP requirement in the comparison before publication.');
         if (publish && (data.retVerified !== true || data.amVerified !== true || data.currentSpecificationVerified !== true))
             throw new Error('RET and AM checks and the current UGP specification check are required before publication.');
         const owner = String(data.ownerName || '').trim(), due = String(data.dueDate || '');
@@ -76,7 +79,7 @@ exports.saveAmReconciliation = functions.https.onCall(async (data, context) => {
         if (grant.scopeCountries.length && !grant.scopeCountries.includes('LS'))
             throw new Error('Lesotho access is required.');
         const db = admin.firestore(), eventRef = db.collection('am_core_mapping_reviews').doc(eventId);
-        const body = { partId, assets, decision, evidence, retParticipant: ret, owner, due,
+        const body = { partId, assets, decision, evidence, confirmedPartId: data.confirmedPartId || '', retParticipant: ret, owner, due,
             actor: context.auth.uid, referenceHash: (0, policy_1.hash)(masMappingReview_json_1.default), expected: data.expectedAssets || {} };
         const digest = (0, policy_1.hash)(body);
         return await db.runTransaction(async (tx) => {
@@ -96,7 +99,7 @@ exports.saveAmReconciliation = functions.https.onCall(async (data, context) => {
                 const country = await (0, country_1.amCountry)(tx, asset.country_id);
                 if (((country === null || country === void 0 ? void 0 : country.iso2) || (country === null || country === void 0 ? void 0 : country.country_code_2) || (country === null || country === void 0 ? void 0 : country.code)) !== 'LS')
                     throw new Error('Only Lesotho items can be reconciled in this pilot.');
-                if (grant.scopeOrganizations.length && !grant.scopeOrganizations.includes(asset.organization_id))
+                if (!(0, policy_1.assetInOrganizationScope)(grant.scopeOrganizations, asset, country))
                     throw new Error('An item is outside your organization scope.');
                 // Compare identity fields, not stock quantity; a delivery need not invalidate a review.
                 const expected = (_a = data.expectedAssets) === null || _a === void 0 ? void 0 : _a[snap.id];
@@ -105,6 +108,11 @@ exports.saveAmReconciliation = functions.https.onCall(async (data, context) => {
                     throw new Error('An item changed since this screen loaded. Reload and review it again.');
                 if (publish && (0, policy_1.unit)(asset.unit_of_measure) !== (0, policy_1.unit)(part.unit))
                     throw new Error('Units differ. Resolve units or assembly quantities instead of publishing an identical part.');
+                if (publish) {
+                    const block = (0, reconciliationGuards_1.reconciliationBlock)(partId, snap.id, asset, part);
+                    if (block)
+                        throw new Error(block);
+                }
                 if (publish && asset.ugp_part_id && asset.ugp_part_id !== partId)
                     throw new Error('An existing UGP link conflicts. It must be resolved separately.');
                 if (publish && asset.definition_id && asset.definition_id !== 'ugp-' + partId)
@@ -124,7 +132,8 @@ exports.saveAmReconciliation = functions.https.onCall(async (data, context) => {
                         created_by: context.auth.uid, verification_event_id: eventId });
                 snaps.forEach(snap => {
                     const a = snap.data();
-                    tx.update(snap.ref, { name: part.name, description: part.specification, canonical_part_number: partId,
+                    tx.update(snap.ref, { name: part.name, canonical_part_number: partId,
+                        original_catalogue_identity: a.original_catalogue_identity || { name: a.name || '', description: a.description || '', manufacturer: a.manufacturer || '', model: a.model || '', captured_at: now },
                         catalogue_aliases: [...new Set([...(Array.isArray(a.catalogue_aliases) ? a.catalogue_aliases : []), a.name].filter(Boolean))],
                         definition_id: defRef.id, ugp_part_id: partId, updated_at: now,
                         ugp_mapping_verification: { eventId, by: context.auth.uid, at: now, evidence, retParticipant: ret, referenceHash: (0, policy_1.hash)(masMappingReview_json_1.default) } });
