@@ -1,3 +1,9 @@
+## 2026-09-21 — Cursor — Fleet integration key on live PR functions
+- After the shared-EC2 React2Shell rotation, production PR functions still had the old `FLEET_INTEGRATION_API_KEY` (fingerprint `a561af80ad56`). Patched the seven Fleet clients only (`listFleetMissions`, `getFleetMission`, `fleetSmokeTest`, `listFleetWorkOrders`, `getFleetWorkOrder`, `validateFleetWorkOrderForPr`, `fleetPrLinkOnCreate`) via Cloud Functions API `PATCH environmentVariables`. **No** `firebase deploy`. Local `functions/.env` already had the new value.
+- Verified `fleetSmokeTest` and the other six now fingerprint `8f6a4049adea`, status ACTIVE. Other PR/Nexus functions still carry the old unused copy in their env until their next selective deploy.
+- Incident: `1PWR Nexus/nexus-portal/docs/incidents/INCIDENT_20260921_REACT2SHELL.md`.
+- Side effects: seven function env updates ~17:26Z. No repo functions deploy, no delete list.
+
 ## 2026-09-08 — Cursor — Forecast remaining-work instructions
 - Added `docs/FORECAST_PROGRAMME_REMAINING.md` and pointers on Brief 02 + `AGENTS.md`. Remaining PR work: `countryCode` on sites, MAS org identity, line quantities (not ZAR-as-stock), `ugpPartIds` mining. Do not rebuild prCatalogApi. Deploy only via `npm run deploy:functions`.
 - Side effects: none (docs only).
