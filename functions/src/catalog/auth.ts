@@ -23,6 +23,7 @@ function configuredConsumers(): CatalogConsumer[] {
     ["hr", String(process.env.HR_API_KEY_PR_PORTAL || "").trim()],
     ["pr_catalog", String(process.env.PR_CATALOG_API_KEY || "").trim()],
     ["ugridpredict", String(process.env.UGRIDPREDICT_API_KEY || "").trim()],
+    ["cc_site_sync", String(process.env.SITE_SYNC_FANOUT_API_KEY || "").trim()],
   ];
   const seen = new Set<string>();
   const out: CatalogConsumer[] = [];

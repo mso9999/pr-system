@@ -50,7 +50,8 @@ Creation contract (2026-08-19):
   every write to AM/FM (`SITE_SYNC_AM/FM_ENDPOINT`) and to every CC lane
   (`SITE_SYNC_CC_ENDPOINTS`, comma-separated; lanes self-filter by
   country). Payload carries `district` + `canonicalUgpProjectId` +
-  `createdBy`/`createdAt`.
+  `createdBy`/`createdAt`. Missing GPS still fans out to CC (ingest does
+  not use coordinates); AM/FM are skipped until a point exists.
 - `prCatalogApi` `GET /sites` rows expose `code` + `canonicalUgpProjectId`
   for the uGP creation picker (key: `HR_API_KEY_PR_PORTAL`).
 - `src/scripts/backfillSitesToCc.ts` replays existing sites to CC lanes

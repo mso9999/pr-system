@@ -182,7 +182,10 @@ async function retryPost(url: string, payload: CanonicalSiteEvent, headers: Reco
   return { ok: false, status: lastStatus, body: lastBody };
 }
 
-async function dispatchSiteFanout(event: CanonicalSiteEvent): Promise<void> {
+async function dispatchSiteFanout(
+  event: CanonicalSiteEvent,
+  opts: { skipAmFm?: boolean } = {}
+): Promise<void> {
   const amUrl = String(process.env.SITE_SYNC_AM_ENDPOINT || "").trim();
   const fmUrl = String(process.env.SITE_SYNC_FM_ENDPOINT || "").trim();
   // CC runs one deployment per country lane; each lane self-filters payloads
@@ -201,10 +204,10 @@ async function dispatchSiteFanout(event: CanonicalSiteEvent): Promise<void> {
   if (adminBearer) headers.Authorization = `Bearer ${adminBearer}`;
 
   const deliveries: Array<{ target: string; ok: boolean; status: number; body: string }> = [];
-  if (amUrl) {
+  if (amUrl && !opts.skipAmFm) {
     deliveries.push({ target: "am", ...(await retryPost(amUrl, event, headers)) });
   }
-  if (fmUrl) {
+  if (fmUrl && !opts.skipAmFm) {
     deliveries.push({ target: "fm", ...(await retryPost(fmUrl, event, headers)) });
   }
   for (const ccUrl of ccUrls) {
@@ -761,13 +764,17 @@ export const fanoutSiteChanges = functions.firestore
 
     const event = toCanonicalEvent(after, change.before.exists);
     if (!event.site.code || !event.site.organizationId) return;
-    if (!isValidLatitude(event.site.latitude) || !isValidLongitude(event.site.longitude)) return;
+    const hasCoords =
+      isValidLatitude(event.site.latitude) && isValidLongitude(event.site.longitude);
 
     const dedupeRef = admin.firestore().collection("siteSyncDeliveries").doc(event.idempotencyKey);
     const dedupe = await dedupeRef.get();
     if (dedupe.exists) return;
 
-    await dispatchSiteFanout(event);
+    // CC ingest does not use coordinates. A missing GPS used to drop the
+    // entire fanout, so PR/uGP sites never reached Customer Care. Always
+    // deliver CC; skip AM/FM when the point is missing.
+    await dispatchSiteFanout(event, { skipAmFm: !hasCoords });
     await dedupeRef.set({
       idempotencyKey: event.idempotencyKey,
       deliveredAt: admin.firestore.FieldValue.serverTimestamp(),
