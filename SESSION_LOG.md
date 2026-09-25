@@ -1,5 +1,11 @@
 # PR System Session Log — BOM Cost Integration
 
+## 2026-09-25 — Cursor — Deployment budget wizard on main
+- Cash deployment budget at `/deployment-budget`. Lesotho: LSL, category codes, fuel safety factor 2. Benin: XOF, no codes, fuel safety factor 1. Food is the provisioning wizard or a cash lump. Lodging repeats. PPE, blankets, and tools are annual wear.
+- Pushed to `main` so hosting CI deploys it. No functions deploy.
+- Side effects: production hosting after the GitHub Action finishes.
+
+
 ## 2026-04-01 — Planning Session (Cowork)
 
 **What happened:**

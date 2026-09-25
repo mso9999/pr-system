@@ -29,6 +29,7 @@ import "./App.css";
 import { TestEmail } from './components/TestEmail';
 import { SupplierHistoryView } from './components/suppliers/SupplierHistoryView';
 import { ProvisioningWizard } from './components/provisioning/ProvisioningWizard';
+import { DeploymentBudgetWizard } from './components/deployment/DeploymentBudgetWizard';
 import { NexusSSOHandler } from './components/common/NexusSSOHandler';
 
 function App() {
@@ -111,6 +112,7 @@ function App() {
                   <Route path="/dashboard" element={<Dashboard />} />
                   <Route path="/pr/new" element={<NewPRForm />} />
                   <Route path="/provisioning" element={<ProvisioningWizard />} />
+                  <Route path="/deployment-budget" element={<DeploymentBudgetWizard />} />
                   <Route path="/pr/list" element={<PRList />} />
                   <Route path="/pr/:id" element={<PRView />} />
                   <Route path="/pr/:id/edit" element={<PRView />} />
