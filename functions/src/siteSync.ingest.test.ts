@@ -13,11 +13,20 @@ vi.mock("firebase-admin", () => {
       docs.set(id, { ...(docs.get(id) || {}), ...value });
     },
   });
+  const snapshotOf = (filters: [string, unknown][]) => {
+    const rows = [...docs.entries()]
+      .filter(([, data]) => filters.every(([f, v]) => data[f] === v))
+      .map(([id, data]) => ({ id, data: () => data, ref: docRef(id) }));
+    return { empty: rows.length === 0, docs: rows };
+  };
+  const query = (filters: [string, unknown][]): any => ({
+    where: (field: string, _op: string, value: unknown) => query([...filters, [field, value]]),
+    get: async () => snapshotOf(filters),
+  });
   const collection = () => ({
     doc: docRef,
-    get: async () => ({
-      docs: [...docs.entries()].map(([id, data]) => ({ id, data: () => data })),
-    }),
+    where: (field: string, _op: string, value: unknown) => query([[field, value]]),
+    get: async () => snapshotOf([]),
   });
   return {
     firestore: () => ({ collection }),
@@ -102,4 +111,18 @@ it("keeps a gensite coordinate over a later centroid", async () => {
   const gen = await call(updateCoords, { organizationId: "1pwr_benin", siteCode: "KOT", latitude: 12, longitude: 4 });
   expect(gen.statusCode).toBe(200);
   expect(docs.get("1pwr_benin_kot")!.latitude).toBe(12);
+});
+
+it("binds an auto-id PR site instead of creating a duplicate", async () => {
+  docs.set("qEl1h0ONMkQqgGaVgCwZ", { organizationId: "1pwr_benin", code: "DON", name: "DON AKADJAMEY" });
+  const res = await call(ingest, {
+    organizationId: "1pwr_benin", code: "DON", name: "DON MT-BT", ugpProjectId: "DON_minigrid",
+    bindConfirmed: true, latitude: 7.0, longitude: 2.03, coordinateSource: "gensite",
+  });
+  expect(res.statusCode).toBe(200);
+  expect(docs.has("1pwr_benin_don")).toBe(false);
+  const doc = docs.get("qEl1h0ONMkQqgGaVgCwZ")!;
+  expect(doc.canonicalUgpProjectId).toBe("DON_minigrid");
+  expect(doc.name).toBe("DON AKADJAMEY");
+  expect(doc.latitude).toBe(7.0);
 });

@@ -280,6 +280,24 @@ function setCors(res: functions.Response): void {
   res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
 }
 
+/**
+ * The organization's site document for a code. Most PR-created sites have
+ * auto ids, so look up by (organizationId, code) before falling back to the
+ * deterministic `{org}_{code}` id used for sites created by this module.
+ */
+async function siteDocRef(organizationId: string, code: string): Promise<FirebaseFirestore.DocumentReference> {
+  const coll = admin.firestore().collection("referenceData_sites");
+  const byId = coll.doc(buildDocId(organizationId, code));
+  if ((await byId.get()).exists) return byId;
+  const matches = await coll
+    .where("organizationId", "==", organizationId)
+    .where("code", "==", code)
+    .get();
+  if (matches.empty) return byId;
+  const bound = matches.docs.find((d) => asString(d.data().canonicalUgpProjectId));
+  return (bound || matches.docs[0]).ref;
+}
+
 /** Great-circle distance in meters (haversine). */
 function haversineMeters(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
@@ -411,8 +429,8 @@ export const ingestUgpSite = functions.https.onRequest(async (req, res) => {
 
   const now = new Date().toISOString();
   const countryCode = normalizeCountryCode(organizationId, String(input.countryCode || ""));
-  const docId = buildDocId(organizationId, code);
-  const docRef = admin.firestore().collection("referenceData_sites").doc(docId);
+  const docRef = await siteDocRef(organizationId, code);
+  const docId = docRef.id;
   const snap = await docRef.get();
 
   if (snap.exists) {
@@ -554,8 +572,8 @@ export const updateSiteCoordinates = functions.https.onRequest(async (req, res) 
     return;
   }
 
-  const docId = buildDocId(organizationId, code);
-  const docRef = admin.firestore().collection("referenceData_sites").doc(docId);
+  const docRef = await siteDocRef(organizationId, code);
+  const docId = docRef.id;
   const snap = await docRef.get();
   if (!snap.exists) {
     res.status(404).json({
@@ -623,8 +641,8 @@ export const linkUgpProject = functions.https.onRequest(async (req, res) => {
     return;
   }
 
-  const docId = buildDocId(organizationId, code);
-  const docRef = admin.firestore().collection("referenceData_sites").doc(docId);
+  const docRef = await siteDocRef(organizationId, code);
+  const docId = docRef.id;
 
   try {
     const result = await admin.firestore().runTransaction(async (tx) => {
@@ -722,8 +740,8 @@ export const repointCanonicalUgpProject = functions.https.onRequest(async (req, 
     return;
   }
 
-  const docId = buildDocId(organizationId, code);
-  const docRef = admin.firestore().collection("referenceData_sites").doc(docId);
+  const docRef = await siteDocRef(organizationId, code);
+  const docId = docRef.id;
 
   try {
     const result = await admin.firestore().runTransaction(async (tx) => {
