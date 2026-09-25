@@ -28,7 +28,7 @@ export { dailyVendorExpiryCheck } from './scheduledVendorExpiryCheck';
 export { dailyReminders, urgentReminders, deliveryDelayCheck } from './scheduledReminders';
 export { sendDailyQuoteConflictReminders } from './scheduled/sendDailyQuoteConflictReminders';
 export { pendingApprovalTimeout, runPendingApprovalTimeoutNow } from './scheduled/pendingApprovalTimeout';
-export { ingestUgpSite, fanoutSiteChanges, linkUgpProject, repointCanonicalUgpProject, updateSiteCoordinates } from './siteSync';
+export { ingestUgpSite, fanoutSiteChanges, linkUgpProject, repointCanonicalUgpProject, updateSiteCoordinates, checkSiteConflicts } from './siteSync';
 
 // Export user management functions
 export { updateUserPassword } from './updateUserPassword';

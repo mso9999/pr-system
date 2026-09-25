@@ -49,7 +49,9 @@ import { PrivilegeDenied } from '@/components/common/PrivilegeDenied'
 import { referenceDataAdminService } from '@/services/referenceDataAdmin'
 import { organizationService, Organization } from '@/services/organizationService'
 import { ORG_INDEPENDENT_TYPES } from '@/services/referenceData'
-import { SimpleMapPicker } from "./SimpleMapPicker";
+import { SiteMapPicker } from "./SiteMapPicker";
+import { httpsCallable } from "firebase/functions";
+import { functions } from "../../config/firebase";
 import { UgpProjectPicker, UgpProjectWithSource } from "./UgpProjectPicker";
 
 const REFERENCE_DATA_TYPE_LABELS = {
@@ -950,6 +952,11 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
         }
       }
 
+      if (selectedType === 'sites') {
+        const proceed = await confirmSiteConflicts(id, updates);
+        if (!proceed) return;
+      }
+
       // For vendors, ensure required fields and handle code generation
       if (selectedType === 'vendors') {
         // Remove organization fields for vendors as they are org-independent
@@ -1008,6 +1015,89 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
         severity: 'error',
       });
     }
+  };
+
+  /**
+   * Nexus all-sites rules before a site save: a uGridPlan design already using
+   * this code in the country needs a confirmed bind (else pick another code or
+   * cancel); a location within 300 m of another site needs a confirmed
+   * "not a duplicate". Mutates `updates` with the bind. Returns false to abort.
+   */
+  const confirmSiteConflicts = async (id: string | undefined, updates: Record<string, any>): Promise<boolean> => {
+    const original = id ? items.find((i) => i.id === id) : undefined;
+    const code = String(updates.code || '').trim().toUpperCase();
+    const lat = Number(updates.latitude);
+    const lng = Number(updates.longitude);
+    const codeIsNew = !original || String(original.code || '').toUpperCase() !== code;
+    const coordsMoved = !original || Number(original.latitude) !== lat || Number(original.longitude) !== lng;
+    if (!codeIsNew && !coordsMoved) return true;
+
+    let result: {
+      radiusM: number;
+      ugpDesigns: { ugpProjectId: string; code: string; name: string; siteRole: string; canonicalSiteCode: string }[];
+      ugpError: string | null;
+      nearby: { code: string; name: string; organizationId: string; distanceM: number }[];
+    };
+    try {
+      const call = httpsCallable(functions, 'checkSiteConflicts');
+      result = (await call({
+        organizationId: updates.organizationId || selectedOrganization,
+        code,
+        latitude: lat,
+        longitude: lng,
+        excludeId: id,
+      })).data as typeof result;
+    } catch (e) {
+      return window.confirm(
+        `Could not check the site against uGridPlan and nearby sites (${e instanceof Error ? e.message : String(e)}). Save anyway?`
+      );
+    }
+
+    if (codeIsNew && !updates.canonicalUgpProjectId) {
+      if (result.ugpError) {
+        if (!window.confirm(`Could not check uGridPlan for code ${code} (${result.ugpError}). Save anyway?`)) return false;
+      }
+      const linked = new Set((updates.ugpProjects || []).map((p: { ugpProjectId: string }) => p.ugpProjectId));
+      const designs = result.ugpDesigns.filter((d) => !linked.has(d.ugpProjectId));
+      if (designs.length > 0) {
+        const preferred =
+          designs.find((d) => d.siteRole === 'canonical') ||
+          designs.find((d) => d.ugpProjectId === `${code}_minigrid`) ||
+          designs[0];
+        const list = designs.map((d) => `• ${d.ugpProjectId} — ${d.name} (${d.siteRole})`).join('\n');
+        const bind = window.confirm(
+          `uGridPlan already uses code ${code} in this country:\n${list}\n\n` +
+            `OK: bind this site to ${preferred.ugpProjectId} (${preferred.name}) as its canonical design.\n` +
+            'Cancel: go back and choose a different code (or cancel if it is a different place).'
+        );
+        if (!bind) {
+          setFormErrors({ code: `uGridPlan already uses ${code}. Choose a different code, or save again and confirm the bind.` });
+          return false;
+        }
+        updates.ugpProjects = [
+          ...(updates.ugpProjects || []),
+          { ugpProjectId: preferred.ugpProjectId, ugpProjectCode: code, ugpProjectName: preferred.name },
+        ];
+        updates.canonicalUgpProjectId = preferred.ugpProjectId;
+        updates.boundAt = new Date().toISOString();
+        updates.boundBy = 'pr_admin';
+      }
+    }
+
+    if (coordsMoved && result.nearby.length > 0) {
+      const list = result.nearby.map((s) => `• ${s.code} — ${s.name} (${s.organizationId}, ${s.distanceM} m)`).join('\n');
+      if (!window.confirm(
+        `Existing site(s) within ${result.radiusM} m of this location:\n${list}\n\n` +
+          'OK: this is a different site, not a duplicate.\nCancel: go back.'
+      )) {
+        return false;
+      }
+    }
+    if (coordsMoved) {
+      updates.coordinateSource = 'manual';
+      updates.coordinatesPending = false;
+    }
+    return true;
   };
 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
@@ -1111,9 +1201,10 @@ export function ReferenceDataManagement({ isReadOnly: _isReadOnly }: ReferenceDa
           <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
             Map picker
           </Typography>
-          <SimpleMapPicker
+          <SiteMapPicker
             latitude={lat}
             longitude={lng}
+            excludeId={editItem?.id}
             onPick={(nextLat, nextLng) => {
               if (!editItem) return;
               setEditItem({

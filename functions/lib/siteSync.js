@@ -33,7 +33,8 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.fanoutSiteChanges = exports.repointCanonicalUgpProject = exports.linkUgpProject = exports.updateSiteCoordinates = exports.ingestUgpSite = void 0;
+exports.checkSiteConflicts = exports.fanoutSiteChanges = exports.repointCanonicalUgpProject = exports.linkUgpProject = exports.updateSiteCoordinates = exports.ingestUgpSite = exports.SITE_PROXIMITY_WARN_M = void 0;
+exports.findNearbySites = findNearbySites;
 const admin = __importStar(require("firebase-admin"));
 const functions = __importStar(require("firebase-functions"));
 const crypto_1 = require("crypto");
@@ -160,7 +161,7 @@ async function retryPost(url, payload, headers) {
     }
     return { ok: false, status: lastStatus, body: lastBody };
 }
-async function dispatchSiteFanout(event) {
+async function dispatchSiteFanout(event, opts = {}) {
     const amUrl = String(process.env.SITE_SYNC_AM_ENDPOINT || "").trim();
     const fmUrl = String(process.env.SITE_SYNC_FM_ENDPOINT || "").trim();
     // CC runs one deployment per country lane; each lane self-filters payloads
@@ -179,10 +180,10 @@ async function dispatchSiteFanout(event) {
     if (adminBearer)
         headers.Authorization = `Bearer ${adminBearer}`;
     const deliveries = [];
-    if (amUrl) {
+    if (amUrl && !opts.skipAmFm) {
         deliveries.push(Object.assign({ target: "am" }, (await retryPost(amUrl, event, headers))));
     }
-    if (fmUrl) {
+    if (fmUrl && !opts.skipAmFm) {
         deliveries.push(Object.assign({ target: "fm" }, (await retryPost(fmUrl, event, headers))));
     }
     for (const ccUrl of ccUrls) {
@@ -248,21 +249,6 @@ function setCors(res) {
     res.set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key");
     res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
 }
-/**
- * Harmonized 3-letter site code. uGP sends internal design codes (e.g.
- * "LGS01"); the canonical PR catalog uses short place-name codes (DAMOUTI ->
- * DAM, BOHICON -> BOH). Derive a clean uppercase 3-letter code from the place
- * name, falling back to a cleaned uGP code when the name yields nothing.
- */
-function harmonizeSiteCode(name, rawCode) {
-    const fromName = name.toUpperCase().replace(/[^A-Z]/g, "").slice(0, 3);
-    if (fromName.length === 3)
-        return fromName;
-    const fromCode = rawCode.toUpperCase().replace(/[^A-Z0-9]/g, "");
-    if (/^[A-Z]{3}$/.test(fromCode))
-        return fromCode;
-    return (fromName + fromCode).replace(/[^A-Z0-9]/g, "").slice(0, 3).padEnd(3, "X");
-}
 /** Great-circle distance in meters (haversine). */
 function haversineMeters(lat1, lon1, lat2, lon2) {
     const R = 6371000;
@@ -274,38 +260,55 @@ function haversineMeters(lat1, lon1, lat2, lon2) {
     return 2 * R * Math.asin(Math.sqrt(a));
 }
 /**
- * Sites within this distance of an incoming canonical uGP site are treated as
- * the same physical place and merged/bound rather than duplicated.
+ * A new site closer than this to an existing one needs an explicit "not a
+ * duplicate" confirmation (uGP site creation and the PR map picker share it).
  */
-const SITE_MERGE_RADIUS_M = 150;
+exports.SITE_PROXIMITY_WARN_M = 300;
 /**
- * Find an existing PR site to merge/bind an incoming canonical uGP site into.
- * Prefers an exact (org + harmonized code) match; otherwise falls back to the
- * nearest site in the same org within SITE_MERGE_RADIUS_M of the coordinate.
+ * Coordinate provenance, strongest first. A canonical uGP design's gensite is
+ * the site coordinate; without one, the centroid of its elements; a manual PR
+ * pick only stands until uGP knows better.
  */
-async function findSiteMergeCandidate(organizationId, harmonizedCode, latitude, longitude) {
-    const coll = admin.firestore().collection("referenceData_sites");
-    const byCode = await coll.doc(buildDocId(organizationId, harmonizedCode)).get();
-    if (byCode.exists) {
-        return { id: byCode.id, data: byCode.data(), matchedBy: "code" };
-    }
-    const orgSites = await coll.where("organizationId", "==", organizationId).get();
-    let best = null;
-    let bestDist = SITE_MERGE_RADIUS_M;
-    for (const doc of orgSites.docs) {
+const COORDINATE_RANK = { gensite: 3, centroid: 2, manual: 1 };
+function coordinateRank(source) {
+    return COORDINATE_RANK[String(source || "manual")] || 1;
+}
+/** Sites of any organization within `radiusM` of a point, nearest first. */
+async function findNearbySites(latitude, longitude, radiusM = exports.SITE_PROXIMITY_WARN_M, excludeId) {
+    const snap = await admin.firestore().collection("referenceData_sites").get();
+    const out = [];
+    for (const doc of snap.docs) {
+        if (doc.id === excludeId)
+            continue;
         const d = doc.data();
         const lat = asNumber(d.latitude);
         const lon = asNumber(d.longitude);
         if (lat === null || lon === null)
             continue;
-        const dist = haversineMeters(latitude, longitude, lat, lon);
-        if (dist <= bestDist) {
-            bestDist = dist;
-            best = { id: doc.id, data: d, matchedBy: "proximity" };
+        const distanceM = haversineMeters(latitude, longitude, lat, lon);
+        if (distanceM <= radiusM) {
+            out.push({
+                id: doc.id,
+                code: String(d.code || ""),
+                name: String(d.name || ""),
+                organizationId: String(d.organizationId || ""),
+                distanceM: Math.round(distanceM),
+            });
         }
     }
-    return best;
+    return out.sort((a, b) => a.distanceM - b.distanceM);
 }
+/**
+ * Register a canonical uGP design's site in the Nexus all-sites list.
+ *
+ * The 3-letter code is used exactly as given. When the org already has a site
+ * with that code the caller must confirm the bind (`bindConfirmed`) — otherwise
+ * 409 `conflict: "code"` returns the existing site so uGP can ask the user to
+ * bind, pick another code, or cancel. A brand-new code within
+ * SITE_PROXIMITY_WARN_M of another site needs `proximityConfirmed` (409
+ * `conflict: "nearby"`). Coordinates are optional: a design with no elements
+ * yet lands with `coordinatesPending` and uGP fills them in later.
+ */
 exports.ingestUgpSite = functions.https.onRequest(async (req, res) => {
     setCors(res);
     if (req.method === "OPTIONS") {
@@ -326,92 +329,119 @@ exports.ingestUgpSite = functions.https.onRequest(async (req, res) => {
     const name = String(input.name || "").trim();
     const latitude = asNumber(input.latitude);
     const longitude = asNumber(input.longitude);
+    const hasCoords = latitude !== null && longitude !== null;
+    const coordinateSource = String(input.coordinateSource || "gensite");
+    const bindConfirmed = input.bindConfirmed === true;
+    const proximityConfirmed = input.proximityConfirmed === true;
     const active = input.active !== false;
     const address = asAddress(input.address) || asAddress(input.siteAddress);
-    const ugpProjects = asUgpProjects(input.ugpProjects);
+    const ugpProjectId = asString(input.ugpProjectId);
+    const ugpProjects = asUgpProjects(input.ugpProjects) ||
+        (ugpProjectId ? [{ ugpProjectId, ugpProjectCode: code, ugpProjectName: name }] : undefined);
     const externalIds = input.externalIds || {};
     if (code && !externalIds.ugpSiteCode) {
         externalIds.ugpSiteCode = code;
     }
-    if (!organizationId || !code || !name || latitude === null || longitude === null) {
+    if (!organizationId || !name || !/^[A-Z]{3}$/.test(code) || !ugpProjectId) {
         res.status(400).json({
             success: false,
-            error: "organizationId, code, name, latitude and longitude are required",
+            error: "organizationId, a 3-letter code, name and ugpProjectId are required",
         });
         return;
     }
-    if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
-        res.status(400).json({
-            success: false,
-            error: "Coordinates are out of bounds",
-        });
+    if (hasCoords && (!isValidLatitude(latitude) || !isValidLongitude(longitude))) {
+        res.status(400).json({ success: false, error: "Coordinates are out of bounds" });
+        return;
+    }
+    if (!(coordinateSource in COORDINATE_RANK)) {
+        res.status(400).json({ success: false, error: "coordinateSource must be gensite, centroid or manual" });
         return;
     }
     const now = new Date().toISOString();
     const countryCode = normalizeCountryCode(organizationId, String(input.countryCode || ""));
-    // A canonical uGP site carries the design that should govern the PR record.
-    const canonical = input.canonical === true || String(input.role || "") === "canonical";
-    const incomingUgpProjectId = asString(input.ugpProjectId);
-    // Harmonize to the canonical 3-letter place code, then merge/bind to an
-    // existing PR site (same code, or same physical location) instead of
-    // duplicating the catalog with uGP's internal design codes.
-    const harmonizedCode = harmonizeSiteCode(name, code);
-    const candidate = await findSiteMergeCandidate(organizationId, harmonizedCode, latitude, longitude);
-    if (candidate) {
-        const docRef = admin.firestore().collection("referenceData_sites").doc(candidate.id);
-        const existingLinks = asUgpProjects(candidate.data.ugpProjects) || [];
-        const mergedLinks = incomingUgpProjectId
-            ? existingLinks.some((p) => p.ugpProjectId === incomingUgpProjectId)
-                ? existingLinks
-                : [...existingLinks, { ugpProjectId: incomingUgpProjectId, ugpProjectCode: code, ugpProjectName: name }]
-            : existingLinks;
-        const mergeUpdate = {
-            // Canonical uGP placement governs the coordinate.
-            latitude,
-            longitude,
+    const docId = buildDocId(organizationId, code);
+    const docRef = admin.firestore().collection("referenceData_sites").doc(docId);
+    const snap = await docRef.get();
+    if (snap.exists) {
+        const data = snap.data();
+        const incumbent = asString(data.canonicalUgpProjectId);
+        if (incumbent && incumbent !== ugpProjectId) {
+            res.status(409).json({
+                success: false,
+                conflict: "canonical",
+                error: `Site '${code}' already has canonical uGP design '${incumbent}'. Re-point it deliberately instead.`,
+                canonicalUgpProjectId: incumbent,
+            });
+            return;
+        }
+        if (!incumbent && !bindConfirmed) {
+            res.status(409).json({
+                success: false,
+                conflict: "code",
+                error: `The Nexus site list already has '${code}' (${data.name || code}). Confirm the bind, choose another code, or cancel.`,
+                site: {
+                    id: snap.id,
+                    code: data.code,
+                    name: data.name,
+                    organizationId: data.organizationId,
+                    latitude: asNumber(data.latitude),
+                    longitude: asNumber(data.longitude),
+                },
+            });
+            return;
+        }
+        const existingLinks = asUgpProjects(data.ugpProjects) || [];
+        const links = existingLinks.some((p) => p.ugpProjectId === ugpProjectId)
+            ? existingLinks
+            : [...existingLinks, ...(ugpProjects || []).filter((p) => p.ugpProjectId === ugpProjectId)];
+        const update = {
+            canonicalUgpProjectId: ugpProjectId,
+            ugpProjects: links,
             countryCode,
-            active,
-            ugpProjects: mergedLinks,
-            externalIds: Object.assign(Object.assign({}, (candidate.data.externalIds || {})), externalIds),
+            externalIds: Object.assign(Object.assign({}, (data.externalIds || {})), externalIds),
             updatedAt: now,
             lastUgpIngestAt: now,
         };
-        // Prefer the incoming human-readable name when the existing record is a
-        // bare code placeholder.
-        if (name && String(candidate.data.name || "").trim().toUpperCase() === String(candidate.data.code || "").trim().toUpperCase()) {
-            mergeUpdate.name = name;
+        const hadCoords = asNumber(data.latitude) !== null && asNumber(data.longitude) !== null;
+        if (hasCoords && (!hadCoords || coordinateRank(coordinateSource) >= coordinateRank(data.coordinateSource))) {
+            Object.assign(update, {
+                latitude,
+                longitude,
+                coordinateSource,
+                coordinatesPending: false,
+                coordinatesUpdatedBy: `ugp:${ugpProjectId}`,
+                coordinatesUpdatedAt: now,
+            });
         }
-        if (canonical && incomingUgpProjectId) {
-            mergeUpdate.canonicalUgpProjectId = incomingUgpProjectId;
+        if (!incumbent) {
+            update.boundAt = now;
+            update.boundBy = asString(input.boundBy) || `ugp:${ugpProjectId}`;
         }
-        await docRef.set(mergeUpdate, { merge: true });
-        res.status(200).json({
-            success: true,
-            id: candidate.id,
-            merged: true,
-            matchedBy: candidate.matchedBy,
-            code: candidate.data.code,
-        });
+        await docRef.set(update, { merge: true });
+        res.status(200).json({ success: true, id: docId, bound: !incumbent, code });
         return;
     }
-    const docId = buildDocId(organizationId, harmonizedCode);
-    // Seed the project-link array from a singular ugpProjectId when the caller
-    // didn't send a ugpProjects array, so the canonical design is always linked.
-    const seedLinks = ugpProjects ||
-        (incomingUgpProjectId
-            ? [{ ugpProjectId: incomingUgpProjectId, ugpProjectCode: code, ugpProjectName: name }]
-            : undefined);
+    if (hasCoords && !proximityConfirmed) {
+        const nearby = await findNearbySites(latitude, longitude);
+        if (nearby.length > 0) {
+            res.status(409).json({
+                success: false,
+                conflict: "nearby",
+                error: `${nearby.length} existing site(s) within ${exports.SITE_PROXIMITY_WARN_M} m. Confirm this is not a duplicate.`,
+                nearby,
+            });
+            return;
+        }
+    }
     const payload = Object.assign(Object.assign(Object.assign(Object.assign({ organizationId,
-        countryCode, code: harmonizedCode, name,
-        active,
-        latitude,
-        longitude }, (address ? { siteAddress: address } : {})), (seedLinks ? { ugpProjects: seedLinks } : {})), (canonical && incomingUgpProjectId ? { canonicalUgpProjectId: incomingUgpProjectId } : {})), { externalIds, source: "ugp", updatedAt: now, createdAt: now });
-    await admin
-        .firestore()
-        .collection("referenceData_sites")
-        .doc(docId)
-        .set(payload, { merge: true });
-    res.status(200).json({ success: true, id: docId, merged: false, code: harmonizedCode, site: payload });
+        countryCode,
+        code,
+        name,
+        active }, (hasCoords
+        ? { latitude, longitude, coordinateSource, coordinatesPending: false, coordinatesUpdatedAt: now }
+        : { coordinatesPending: true })), (address ? { siteAddress: address } : {})), (ugpProjects ? { ugpProjects } : {})), { canonicalUgpProjectId: ugpProjectId, externalIds, source: "ugp", updatedAt: now, createdAt: now });
+    await docRef.set(payload, { merge: true });
+    res.status(200).json({ success: true, id: docId, created: true, code, coordinatesPending: !hasCoords });
 });
 /**
  * uGP gensite placement moves the canonical site coordinate: when a gensite
@@ -439,11 +469,16 @@ exports.updateSiteCoordinates = functions.https.onRequest(async (req, res) => {
     const latitude = asNumber(input.latitude);
     const longitude = asNumber(input.longitude);
     const ugpProjectId = asString(input.ugpProjectId);
+    const coordinateSource = String(input.coordinateSource || "gensite");
     if (!organizationId || !code || latitude === null || longitude === null) {
         res.status(400).json({
             success: false,
             error: "organizationId, siteCode, latitude and longitude are required",
         });
+        return;
+    }
+    if (!(coordinateSource in COORDINATE_RANK)) {
+        res.status(400).json({ success: false, error: "coordinateSource must be gensite, centroid or manual" });
         return;
     }
     if (!isValidLatitude(latitude) || !isValidLongitude(longitude)) {
@@ -460,15 +495,23 @@ exports.updateSiteCoordinates = functions.https.onRequest(async (req, res) => {
         });
         return;
     }
+    const data = snap.data();
+    const hadCoords = asNumber(data.latitude) !== null && asNumber(data.longitude) !== null;
+    if (hadCoords && coordinateRank(coordinateSource) < coordinateRank(data.coordinateSource)) {
+        res.status(200).json({ success: true, id: docId, unchanged: true, coordinateSource: data.coordinateSource });
+        return;
+    }
     const now = new Date().toISOString();
     await docRef.update({
         latitude,
         longitude,
+        coordinateSource,
+        coordinatesPending: false,
         coordinatesUpdatedBy: ugpProjectId ? `ugp:${ugpProjectId}` : "ugp",
         coordinatesUpdatedAt: now,
         updatedAt: now,
     });
-    res.status(200).json({ success: true, id: docId, latitude, longitude });
+    res.status(200).json({ success: true, id: docId, latitude, longitude, coordinateSource });
 });
 /**
  * Attach a uGP design to a canonical site. PR is authoritative for the
@@ -680,13 +723,15 @@ exports.fanoutSiteChanges = functions.firestore
     const event = toCanonicalEvent(after, change.before.exists);
     if (!event.site.code || !event.site.organizationId)
         return;
-    if (!isValidLatitude(event.site.latitude) || !isValidLongitude(event.site.longitude))
-        return;
+    const hasCoords = isValidLatitude(event.site.latitude) && isValidLongitude(event.site.longitude);
     const dedupeRef = admin.firestore().collection("siteSyncDeliveries").doc(event.idempotencyKey);
     const dedupe = await dedupeRef.get();
     if (dedupe.exists)
         return;
-    await dispatchSiteFanout(event);
+    // CC ingest does not use coordinates. A missing GPS used to drop the
+    // entire fanout, so PR/uGP sites never reached Customer Care. Always
+    // deliver CC; skip AM/FM when the point is missing.
+    await dispatchSiteFanout(event, { skipAmFm: !hasCoords });
     await dedupeRef.set({
         idempotencyKey: event.idempotencyKey,
         deliveredAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -694,5 +739,59 @@ exports.fanoutSiteChanges = functions.firestore
         siteCode: event.site.code,
         organizationId: event.site.organizationId,
     });
+});
+const ORG_TO_UGP_COUNTRY = { LSO: "LS", BEN: "BJ", ZMB: "ZM" };
+function ugpCountryForOrg(organizationId) {
+    const org = normalizeOrgId(organizationId);
+    const iso3 = ORG_TO_COUNTRY[org] ||
+        (org.includes("benin") ? "BEN" : org.includes("lesotho") ? "LSO" : org.includes("zambia") ? "ZMB" : "");
+    return ORG_TO_UGP_COUNTRY[iso3] || "";
+}
+async function ugpDesignsForCode(country, code) {
+    const base = String(process.env.UGP_INTEGRATION_BASE_URL || "").trim().replace(/\/+$/, "");
+    const key = String(process.env.UGP_INTEGRATION_KEY || "").trim();
+    if (!base || !key)
+        return { designs: [], error: "uGP integration is not configured" };
+    const root = base.endsWith("/api/v1") ? base : `${base}/api/v1`;
+    const url = `${root}/sites?country=${encodeURIComponent(country)}&code=${encodeURIComponent(code)}`;
+    try {
+        const resp = await fetch(url, { headers: { "X-UGP-Integration-Key": key } });
+        if (!resp.ok)
+            return { designs: [], error: `uGP returned HTTP ${resp.status}` };
+        const body = (await resp.json());
+        return { designs: Array.isArray(body.designs) ? body.designs : [] };
+    }
+    catch (e) {
+        return { designs: [], error: e instanceof Error ? e.message : String(e) };
+    }
+}
+/**
+ * PR site form pre-save check: uGP designs that already use this 3-letter
+ * code in the site's country (bind or choose another code), and existing
+ * Nexus sites within SITE_PROXIMITY_WARN_M of the picked point.
+ */
+exports.checkSiteConflicts = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError("unauthenticated", "Sign in to check site conflicts");
+    }
+    const organizationId = normalizeOrgId(String((data === null || data === void 0 ? void 0 : data.organizationId) || ""));
+    const code = String((data === null || data === void 0 ? void 0 : data.code) || "").trim().toUpperCase();
+    const latitude = asNumber(data === null || data === void 0 ? void 0 : data.latitude);
+    const longitude = asNumber(data === null || data === void 0 ? void 0 : data.longitude);
+    const excludeId = asString(data === null || data === void 0 ? void 0 : data.excludeId);
+    const country = ugpCountryForOrg(organizationId);
+    const ugp = country && /^[A-Z]{3}$/.test(code)
+        ? await ugpDesignsForCode(country, code)
+        : { designs: [] };
+    const nearby = latitude !== null && longitude !== null
+        ? await findNearbySites(latitude, longitude, exports.SITE_PROXIMITY_WARN_M, excludeId)
+        : [];
+    return {
+        radiusM: exports.SITE_PROXIMITY_WARN_M,
+        ugpCountry: country,
+        ugpDesigns: ugp.designs,
+        ugpError: ugp.error || null,
+        nearby,
+    };
 });
 //# sourceMappingURL=siteSync.js.map
